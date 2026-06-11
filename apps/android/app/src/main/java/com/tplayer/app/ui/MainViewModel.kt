@@ -18,12 +18,17 @@ import com.tplayer.app.domain.model.ContentType
 import com.tplayer.app.domain.model.SessionState
 import com.tplayer.app.domain.model.StoredSession
 import com.tplayer.app.domain.model.Track
+import com.tplayer.app.domain.playback.CyclePlaybackResolver
+import com.tplayer.app.playback.PlaybackClient
+import com.tplayer.app.playback.PlaybackEvents
+import com.tplayer.app.playback.PlaybackMetadata
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -35,6 +40,8 @@ data class MainUiState(
     val tracks: List<Track> = emptyList(),
     val progressLabel: String? = null,
     val downloadProgress: Float? = null,
+    val nowPlayingTitle: String? = null,
+    val isPlaying: Boolean = false,
     val error: String? = null,
 )
 
@@ -47,11 +54,16 @@ class MainViewModel @Inject constructor(
     private val apiClient: ApiClient,
     private val downloadRepository: DownloadRepository,
     private val progressSyncRepository: ProgressSyncRepository,
+    private val playbackClient: PlaybackClient,
+    private val playbackEvents: PlaybackEvents,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
     private var session: StoredSession? = null
+    private var currentTrack: Track? = null
+    private var lastProgressSaveMs = 0L
+    private val cycleResolver = CyclePlaybackResolver()
 
     init {
         session = sessionRepository.loadSession()
@@ -65,6 +77,33 @@ class MainViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(progressLabel = track?.title?.let { title -> "Continue: $title" })
                     }
+                }
+            }
+        }
+        viewModelScope.launch {
+            playbackEvents.skipToNext.collect { skipToNextTrack() }
+        }
+        viewModelScope.launch {
+            playbackEvents.skipToPrevious.collect { skipToPreviousTrack() }
+        }
+        viewModelScope.launch {
+            playbackEvents.trackEnded.collect { onTrackEnded() }
+        }
+        viewModelScope.launch {
+            playbackClient.snapshot.collectLatest { snapshot ->
+                _uiState.update {
+                    it.copy(
+                        isPlaying = snapshot.isPlaying,
+                        nowPlayingTitle = snapshot.trackTitle ?: it.nowPlayingTitle,
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(1000)
+                if (playbackClient.isPlaying()) {
+                    maybeSaveProgress(playbackClient.currentPositionMs())
                 }
             }
         }
@@ -87,6 +126,8 @@ class MainViewModel @Inject constructor(
 
     fun logout() {
         progressSyncRepository.stop()
+        playbackClient.stopAndRelease()
+        currentTrack = null
         sessionRepository.clearSession()
         session = null
         refreshSessionState()
@@ -109,11 +150,37 @@ class MainViewModel @Inject constructor(
     }
 
     fun clearSelection() {
-        _uiState.update { it.copy(selectedBook = null, tracks = emptyList(), progressLabel = null) }
+        playbackClient.pause()
+        currentTrack = null
+        _uiState.update {
+            it.copy(
+                selectedBook = null,
+                tracks = emptyList(),
+                progressLabel = null,
+                nowPlayingTitle = null,
+                isPlaying = false,
+            )
+        }
     }
 
     fun playBook() {
-        // Playback via PlaybackService — started from UI layer extension
+        val book = _uiState.value.selectedBook ?: return
+        viewModelScope.launch {
+            val tracks = catalogDao.getTracksForBook(book.id).map { it.toDomain() }
+            val progress = catalogDao.getProgress(book.id)
+            val track = progress?.let { p -> tracks.find { it.id == p.trackId } } ?: tracks.firstOrNull()
+            val localPath = track?.localPath ?: return@launch
+            val startMs = progress?.positionMs ?: 0L
+            startPlayback(track, book, localPath, startMs)
+        }
+    }
+
+    fun pausePlayback() {
+        playbackClient.pause()
+    }
+
+    fun resumePlayback() {
+        playbackClient.play()
     }
 
     fun downloadBook() {
@@ -241,4 +308,57 @@ class MainViewModel @Inject constructor(
         durationMs = durationMs,
         localPath = localPath,
     )
+
+    private fun startPlayback(track: Track, book: Book, localPath: String, startMs: Long) {
+        currentTrack = track
+        playbackClient.playTrack(
+            localPath,
+            PlaybackMetadata(
+                trackTitle = track.title,
+                artist = book.author ?: book.title,
+                albumTitle = book.title,
+            ),
+            startMs,
+        )
+        _uiState.update {
+            it.copy(nowPlayingTitle = track.title, progressLabel = null)
+        }
+    }
+
+    private fun skipToNextTrack() {
+        val book = _uiState.value.selectedBook ?: return
+        val track = currentTrack ?: return
+        val tracks = _uiState.value.tracks
+        val next = cycleResolver.nextInBook(track, tracks) ?: return
+        val localPath = next.localPath ?: return
+        startPlayback(next, book, localPath, 0L)
+    }
+
+    private fun skipToPreviousTrack() {
+        val book = _uiState.value.selectedBook ?: return
+        val track = currentTrack ?: return
+        val tracks = _uiState.value.tracks
+        val previous = cycleResolver.previousInBook(track, tracks) ?: return
+        val localPath = previous.localPath ?: return
+        startPlayback(previous, book, localPath, 0L)
+    }
+
+    private fun onTrackEnded() {
+        val book = _uiState.value.selectedBook ?: return
+        val track = currentTrack ?: return
+        val next = cycleResolver.nextInBook(track, _uiState.value.tracks)
+        if (next?.localPath != null) {
+            startPlayback(next, book, next.localPath, 0L)
+        }
+    }
+
+    private fun maybeSaveProgress(positionMs: Long) {
+        val book = _uiState.value.selectedBook ?: return
+        if (book.contentType != ContentType.AUDIOBOOK) return
+        val track = currentTrack ?: return
+        val now = System.currentTimeMillis()
+        if (now - lastProgressSaveMs < 15_000) return
+        lastProgressSaveMs = now
+        saveAudiobookProgress(book.id, track.id, positionMs)
+    }
 }

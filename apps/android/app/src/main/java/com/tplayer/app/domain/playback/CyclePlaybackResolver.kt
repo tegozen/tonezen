@@ -19,6 +19,13 @@ class CyclePlaybackResolver {
         return sorted[index + 1]
     }
 
+    fun previousInBook(currentTrack: Track, tracks: List<Track>): Track? {
+        val sorted = tracks.sortedBy { it.sortOrder }
+        val index = sorted.indexOfFirst { it.id == currentTrack.id }
+        if (index <= 0) return null
+        return sorted[index - 1]
+    }
+
     fun nextInCycle(
         currentBook: Book,
         currentTrack: Track,

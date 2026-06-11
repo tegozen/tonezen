@@ -52,8 +52,12 @@ fun TPlayerApp(viewModel: MainViewModel = hiltViewModel()) {
                 book = state.selectedBook!!,
                 tracks = state.tracks,
                 progressLabel = state.progressLabel,
+                nowPlayingTitle = state.nowPlayingTitle,
+                isPlaying = state.isPlaying,
                 downloadProgress = state.downloadProgress,
                 onPlay = viewModel::playBook,
+                onPause = viewModel::pausePlayback,
+                onResume = viewModel::resumePlayback,
                 onDownload = viewModel::downloadBook,
                 onDeleteLocal = viewModel::deleteLocalDownloads,
                 onBack = viewModel::clearSelection,
@@ -104,8 +108,12 @@ private fun BookDetailScreen(
     book: Book,
     tracks: List<com.tplayer.app.domain.model.Track>,
     progressLabel: String?,
+    nowPlayingTitle: String?,
+    isPlaying: Boolean,
     downloadProgress: Float?,
     onPlay: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     onDownload: () -> Unit,
     onDeleteLocal: () -> Unit,
     onBack: () -> Unit,
@@ -120,8 +128,17 @@ private fun BookDetailScreen(
     ) {
         Text(book.title, style = MaterialTheme.typography.headlineSmall)
         progressLabel?.let { Text("Continue: $it") }
+        nowPlayingTitle?.let { Text("Now playing: $it") }
         downloadProgress?.let { Text("Downloading: ${(it * 100).toInt()}%") }
-        Button(onClick = onPlay) { Text(if (progressLabel != null) "Resume" else "Play") }
+        if (isPlaying) {
+            Button(onClick = onPause) { Text("Pause") }
+        } else {
+            Button(onClick = {
+                if (nowPlayingTitle != null) onResume() else onPlay()
+            }) {
+                Text(if (progressLabel != null && nowPlayingTitle == null) "Resume" else if (nowPlayingTitle != null) "Play" else "Play")
+            }
+        }
         Button(onClick = onDownload) { Text("Download") }
         Button(onClick = onDeleteLocal) { Text("Delete local files") }
         Button(onClick = onToggleFavorite) { Text("Toggle favorite") }

@@ -27,6 +27,13 @@ class CyclePlaybackResolverTest {
     }
 
     @Test
+    fun advancesToPreviousTrackInBook() {
+        val previous = resolver.previousInBook(t2, listOf(t1, t2))
+        assertEquals(t1, previous)
+        assertNull(resolver.previousInBook(t1, listOf(t1, t2)))
+    }
+
+    @Test
     fun advancesToNextBookInCycle() {
         val result = resolver.nextInCycle(
             currentBook = book1,
