@@ -5,15 +5,12 @@ import { SessionService } from "./sessionService.js";
 import { LocalDatabase } from "./database.js";
 import { CatalogSyncService } from "./catalogSync.js";
 import { DownloadManager } from "./downloadManager.js";
+import { getClientConfig, loadAppEnv, loadPackagedEnv } from "./loadEnv.js";
+
+loadAppEnv();
 
 const lifecycle = new WindowLifecycleManager();
 const sessionService = new SessionService();
-
-const API_BASE_URL = process.env.TPLAYER_API_URL ?? "http://localhost:8000/api/v1";
-const SUPABASE_URL = process.env.TPLAYER_SUPABASE_URL ?? "http://localhost:8000";
-const SUPABASE_ANON_KEY =
-  process.env.TPLAYER_SUPABASE_ANON_KEY ??
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 
 let catalogSync: CatalogSyncService;
 let downloadManager: DownloadManager;
@@ -90,13 +87,20 @@ function createTray(): void {
 }
 
 app.whenReady().then(() => {
+  if (app.isPackaged) {
+    loadPackagedEnv(process.execPath);
+  }
+  const runtimeConfig = getClientConfig();
   const userData = app.getPath("userData");
   LocalDatabase.init(userData);
-  sessionService.init(userData, { supabaseUrl: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY });
-  catalogSync = new CatalogSyncService(API_BASE_URL, () => sessionService.getAccessToken());
+  sessionService.init(userData, {
+    supabaseUrl: runtimeConfig.supabaseUrl,
+    anonKey: runtimeConfig.supabaseAnonKey,
+  });
+  catalogSync = new CatalogSyncService(runtimeConfig.apiBaseUrl, () => sessionService.getAccessToken());
   downloadManager = new DownloadManager(
     path.join(userData, "downloads"),
-    API_BASE_URL,
+    runtimeConfig.apiBaseUrl,
     () => sessionService.getAccessToken(),
   );
   createTray();
@@ -133,7 +137,7 @@ function registerIpc(): void {
       const headers: Record<string, string> = {};
       const token = sessionService.getAccessToken();
       if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE_URL}/catalog/books/${book.id}`, { headers });
+      const res = await fetch(`${getClientConfig().apiBaseUrl}/catalog/books/${book.id}`, { headers });
       const detail = (await res.json()) as {
         tracks: Array<{
           id: string;

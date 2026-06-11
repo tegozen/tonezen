@@ -37,6 +37,14 @@ docker compose up -d --build
 make test
 ```
 
+Or simply:
+
+```bash
+docker compose up -d
+```
+
+(first run / after code changes: add `--build`)
+
 Services:
 
 | Service | URL / Port |
@@ -52,23 +60,22 @@ Upload content via FTP using [docs/content-layout.md](docs/content-layout.md).
 
 ### Desktop
 
+One-time setup — use the **root** `.env` (same file as backend):
+
 ```bash
+cp .env.example .env   # from repo root, edit TPLAYER_* URLs once
 cd apps/desktop
 npm install
-npm run dev      # development
-npm test
-npm run build
+npm run dev
 ```
 
-### Android
+The desktop app auto-loads `.env` from:
 
-```bash
-cd apps/android
-./gradlew.bat assembleDebug
-./gradlew.bat testDebugUnitTest
-```
+1. `apps/desktop/.env` (local overrides)
+2. repo root `.env` (recommended)
+3. `.env` next to the packaged executable (production builds)
 
-Configure `API_BASE_URL` in `apps/android/app/build.gradle.kts` for your server.
+**Android** — update `buildConfigField` in `apps/android/app/build.gradle.kts` for release.
 
 ## API
 
@@ -76,10 +83,13 @@ OpenAPI spec: [docs/openapi.yaml](docs/openapi.yaml)
 
 ## Deploy to VPS
 
+Same as local — copy repo to server, configure `.env`, then:
+
 ```bash
-chmod +x scripts/deploy-vps.sh scripts/smoke-test.sh
-./scripts/deploy-vps.sh
+docker compose up -d --build
 ```
+
+Indexer runs automatically as a container (rescans content every `INDEXER_INTERVAL_SECONDS`).
 
 ## Project structure
 
@@ -112,19 +122,19 @@ TDD is required for domain logic, indexer parsers, and API handlers. See AGENTS.
 1. Copy `.env.example` to `.env` and set strong secrets (`JWT_SECRET`, `POSTGRES_PASSWORD`, `DOWNLOAD_URL_SECRET`, `FTP_PASS`).
 2. Set `API_EXTERNAL_URL`, `GOTRUE_SITE_URL`, `DOWNLOAD_BASE_URL` to your public domain.
 3. Set `FTP_PASV_ADDRESS` to your VPS public IP.
-4. Run `./scripts/deploy-vps.sh`.
+4. Run `docker compose up -d --build`.
 5. Register a user via Supabase Auth (`POST /auth/v1/signup`) or disable signup and create users in GoTrue.
-6. Configure client apps with your server URL and `SUPABASE_ANON_KEY`.
+6. Configure client apps — desktop reads root `.env` automatically; Android uses `build.gradle.kts`.
 
 ### Client configuration
 
-**Desktop** — environment variables at build/run time:
+**Desktop** — set once in root `.env`:
 
 - `TPLAYER_API_URL` — e.g. `https://your.domain/api/v1`
 - `TPLAYER_SUPABASE_URL` — e.g. `https://your.domain`
 - `TPLAYER_SUPABASE_ANON_KEY` — from `.env`
 
-**Android** — update `build.gradle.kts` `buildConfigField` values or use product flavors for release.
+Then `cd apps/desktop && npm run dev` — no manual `set`/`export` needed.
 
 ### Security checklist
 
