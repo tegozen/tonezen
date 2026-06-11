@@ -62,4 +62,10 @@ describe("CyclePlaybackResolver", () => {
     expect(result.isNextBookInCycle).toBe(true);
     expect(result.track?.id).toBe("t3");
   });
+
+  it("returns previous track in sort order", () => {
+    const bookTracks = [t1, t2];
+    expect(resolver.previousInBook(t2, bookTracks)?.id).toBe("t1");
+    expect(resolver.previousInBook(t1, bookTracks)).toBeNull();
+  });
 });

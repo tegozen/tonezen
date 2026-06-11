@@ -14,6 +14,13 @@ export class CyclePlaybackResolver {
     return sorted[index + 1];
   }
 
+  previousInBook(currentTrack: Track, tracks: Track[]): Track | null {
+    const sorted = [...tracks].sort((a, b) => a.sortOrder - b.sortOrder);
+    const index = sorted.findIndex((t) => t.id === currentTrack.id);
+    if (index <= 0) return null;
+    return sorted[index - 1];
+  }
+
   nextInCycle(
     currentBook: Book,
     currentTrack: Track,

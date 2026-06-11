@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CyclePlaybackResolver } from "@shared/cyclePlayback";
 import type { Book, Track } from "@shared/types";
+import {
+  clearMediaSession,
+  setMediaPlaybackState,
+  setupMediaSession,
+  updateMediaPositionState,
+} from "./mediaSessionController";
 
 const cycleResolver = new CyclePlaybackResolver();
 
@@ -16,7 +22,16 @@ export function App() {
   const [syncing, setSyncing] = useState(false);
   const [progressLabel, setProgressLabel] = useState<string | null>(null);
   const lastProgressSaveRef = useRef(0);
+  const lastPositionSyncRef = useRef(0);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const selectedBookRef = useRef(selectedBook);
+  const tracksRef = useRef(tracks);
+  const currentTrackRef = useRef(currentTrack);
+  const playTrackRef = useRef<(track: Track, startMs?: number) => void>(() => {});
+
+  selectedBookRef.current = selectedBook;
+  tracksRef.current = tracks;
+  currentTrackRef.current = currentTrack;
 
   useEffect(() => {
     return window.tplayer.progress.onUpdated((progress) => {
@@ -47,6 +62,108 @@ export function App() {
     };
   }, [refreshSession]);
 
+  const syncPositionState = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
+    updateMediaPositionState({
+      duration: audio.duration,
+      position: audio.currentTime,
+      playbackRate: audio.playbackRate || 1,
+    });
+  }, []);
+
+  const syncMediaSessionForTrack = useCallback((track: Track, book: Book) => {
+    setupMediaSession(
+      {
+        title: track.title,
+        artist: book.author ?? book.title,
+        album: book.title,
+      },
+      {
+        play: () => {
+          void audioRef.current?.play();
+        },
+        pause: () => {
+          audioRef.current?.pause();
+        },
+        nextTrack: () => {
+          const current = currentTrackRef.current;
+          const list = tracksRef.current;
+          if (!current) return;
+          const next = cycleResolver.nextInBook(current, list);
+          if (next?.localPath) playTrackRef.current(next);
+        },
+        previousTrack: () => {
+          const current = currentTrackRef.current;
+          const list = tracksRef.current;
+          if (!current) return;
+          const prev = cycleResolver.previousInBook(current, list);
+          if (prev?.localPath) playTrackRef.current(prev);
+        },
+        seekTo: (timeSeconds) => {
+          if (!audioRef.current) return;
+          audioRef.current.currentTime = timeSeconds;
+          syncPositionState();
+        },
+        seekBackward: (offsetSeconds) => {
+          if (!audioRef.current) return;
+          audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - offsetSeconds);
+        },
+        seekForward: (offsetSeconds) => {
+          if (!audioRef.current) return;
+          const duration = audioRef.current.duration;
+          const next = audioRef.current.currentTime + offsetSeconds;
+          audioRef.current.currentTime = Number.isFinite(duration) ? Math.min(duration, next) : next;
+        },
+        getTiming: () => {
+          const audio = audioRef.current;
+          if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return null;
+          return {
+            duration: audio.duration,
+            position: audio.currentTime,
+            playbackRate: audio.playbackRate || 1,
+          };
+        },
+      },
+    );
+  }, [syncPositionState]);
+
+  const playTrack = useCallback(
+    (track: Track, startMs = 0) => {
+      if (!track.localPath || !selectedBookRef.current) return;
+      const book = selectedBookRef.current;
+      setCurrentTrack(track);
+      window.tplayer.playback.setActive(true);
+      syncMediaSessionForTrack(track, book);
+      if (audioRef.current) {
+        audioRef.current.src = `file://${track.localPath}`;
+        if (startMs > 0) audioRef.current.currentTime = startMs / 1000;
+        void audioRef.current.play();
+      }
+    },
+    [syncMediaSessionForTrack],
+  );
+
+  playTrackRef.current = playTrack;
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const onPlay = () => setMediaPlaybackState("playing");
+    const onPause = () => setMediaPlaybackState("paused");
+    const onEmptied = () => setMediaPlaybackState("none");
+
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
+    audio.addEventListener("emptied", onEmptied);
+    return () => {
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("emptied", onEmptied);
+    };
+  }, [selectedBook]);
+
   const login = async () => {
     try {
       setError(null);
@@ -59,6 +176,9 @@ export function App() {
   };
 
   const logout = async () => {
+    audioRef.current?.pause();
+    clearMediaSession();
+    window.tplayer.playback.setActive(false);
     await window.tplayer.session.logout();
     await refreshSession();
   };
@@ -88,25 +208,6 @@ export function App() {
     }
   };
 
-  const playTrack = (track: Track, startMs = 0) => {
-    if (!track.localPath) return;
-    setCurrentTrack(track);
-    window.tplayer.playback.setActive(true);
-    if (audioRef.current) {
-      audioRef.current.src = `file://${track.localPath}`;
-      if (startMs > 0) audioRef.current.currentTime = startMs / 1000;
-      void audioRef.current.play();
-    }
-    if ("mediaSession" in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: track.title,
-        artist: selectedBook?.author ?? selectedBook?.title ?? "TPlayer",
-      });
-      navigator.mediaSession.setActionHandler("play", () => audioRef.current?.play());
-      navigator.mediaSession.setActionHandler("pause", () => audioRef.current?.pause());
-    }
-  };
-
   const downloadTrack = async (track: Track) => {
     if (!selectedBook) return;
     try {
@@ -119,15 +220,20 @@ export function App() {
   };
 
   const onTimeUpdate = () => {
-    if (!selectedBook || selectedBook.contentType !== "audiobook" || !currentTrack || !audioRef.current) return;
+    const book = selectedBookRef.current;
+    const track = currentTrackRef.current;
+    const audio = audioRef.current;
+    if (!book || book.contentType !== "audiobook" || !track || !audio) return;
+
     const now = Date.now();
+    if (now - lastPositionSyncRef.current >= 1000) {
+      lastPositionSyncRef.current = now;
+      syncPositionState();
+    }
+
     if (now - lastProgressSaveRef.current < 15000) return;
     lastProgressSaveRef.current = now;
-    void window.tplayer.progress.save(
-      selectedBook.id,
-      currentTrack.id,
-      Math.floor(audioRef.current.currentTime * 1000),
-    );
+    void window.tplayer.progress.save(book.id, track.id, Math.floor(audio.currentTime * 1000));
   };
 
   const resumeProgress = async () => {
@@ -142,6 +248,13 @@ export function App() {
     if (!selectedBook || !currentTrack) return;
     const next = cycleResolver.nextInBook(currentTrack, tracks);
     if (next?.localPath) playTrack(next);
+  };
+
+  const leaveBook = () => {
+    audioRef.current?.pause();
+    clearMediaSession();
+    window.tplayer.playback.setActive(false);
+    setSelectedBook(null);
   };
 
   if (sessionState === "Unauthenticated") {
@@ -194,7 +307,7 @@ export function App() {
         </>
       ) : (
         <>
-          <button className="secondary" onClick={() => setSelectedBook(null)}>
+          <button className="secondary" onClick={leaveBook}>
             Back
           </button>
           <h2>{selectedBook.title}</h2>
