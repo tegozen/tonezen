@@ -100,6 +100,31 @@ class ApiClient(
             httpClient.newCall(request).execute().use { /* response handled by caller */ }
         }
 
+    suspend fun fetchProgress(accessToken: String): List<RemoteProgress> = withContext(Dispatchers.IO) {
+        val json = getJson("$baseUrl/progress/audiobooks", accessToken)
+        val arr = json.optJSONArray("progress") ?: JSONArray()
+        buildList {
+            for (i in 0 until arr.length()) {
+                val row = arr.getJSONObject(i)
+                add(
+                    RemoteProgress(
+                        bookId = row.getString("book_id"),
+                        trackId = row.getString("track_id"),
+                        positionMs = row.getLong("position_ms"),
+                        updatedAt = row.getString("updated_at"),
+                    ),
+                )
+            }
+        }
+    }
+
+    data class RemoteProgress(
+        val bookId: String,
+        val trackId: String,
+        val positionMs: Long,
+        val updatedAt: String,
+    )
+
     private fun getJson(url: String, accessToken: String?): JSONObject {
         val builder = Request.Builder().url(url)
         accessToken?.let { builder.header("Authorization", "Bearer $it") }

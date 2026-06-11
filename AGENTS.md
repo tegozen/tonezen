@@ -6,7 +6,7 @@ Monorepo offline-first media player:
 
 - **Android** — Kotlin, Jetpack Compose, Media3, Room
 - **Desktop** — Electron, React, Vite, better-sqlite3
-- **Backend** — Self-hosted Supabase (Docker), content volume, catalog indexer
+- **Backend** — Self-hosted Supabase (Auth, Realtime, Storage, Studio), catalog indexer
 
 Shared API contract: [`docs/openapi.yaml`](docs/openapi.yaml).
 
@@ -33,8 +33,16 @@ Dependencies point inward only. Domain logic must not import Android, Electron, 
 
 ### Backend
 
-- Indexer and Edge Functions: pure functions + thin IO layer
+- Indexer and API: pure functions + thin IO layer
 - Do not mix audiobook progress sync with music local state
+
+### Sync (audiobooks)
+
+- **Push:** Supabase Realtime `postgres_changes` on `audiobook_progress`, `favorites`, catalog tables
+- **Pull:** REST on login / reconnect (`GET /progress/audiobooks`, catalog endpoints)
+- **Conflict resolution:** last-write-wins by `updated_at`
+- Local write always; server push when authenticated and online
+- Music progress stays local only — no Realtime subscription
 
 ### Auth (offline-safe)
 

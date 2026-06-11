@@ -66,6 +66,9 @@ interface CatalogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertProgress(progress: AudiobookProgressEntity)
 
+    @Query("SELECT * FROM audiobook_progress WHERE pendingSync = 1")
+    suspend fun getPendingProgress(): List<AudiobookProgressEntity>
+
     @Query("SELECT * FROM favorites")
     suspend fun getFavorites(): List<FavoriteEntity>
 

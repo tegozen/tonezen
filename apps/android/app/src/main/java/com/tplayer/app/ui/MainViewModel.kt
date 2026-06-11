@@ -9,10 +9,10 @@ import com.tplayer.app.data.local.FavoriteEntity
 import com.tplayer.app.data.local.TrackEntity
 import com.tplayer.app.data.remote.AuthRepository
 import com.tplayer.app.data.remote.ApiClient
+import com.tplayer.app.data.remote.ProgressSyncRepository
 import com.tplayer.app.data.remote.DownloadRepository
 import com.tplayer.app.data.remote.SessionRepository
 import com.tplayer.app.data.remote.isNetworkAvailable
-import com.tplayer.app.domain.model.AudiobookProgress
 import com.tplayer.app.domain.model.Book
 import com.tplayer.app.domain.model.ContentType
 import com.tplayer.app.domain.model.SessionState
@@ -46,6 +46,7 @@ class MainViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val apiClient: ApiClient,
     private val downloadRepository: DownloadRepository,
+    private val progressSyncRepository: ProgressSyncRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -56,6 +57,17 @@ class MainViewModel @Inject constructor(
         session = sessionRepository.loadSession()
         refreshSessionState()
         loadLibrary()
+        viewModelScope.launch {
+            progressSyncRepository.updates.collect { progress ->
+                val selected = _uiState.value.selectedBook
+                if (selected?.id == progress.bookId) {
+                    val track = catalogDao.getTracksForBook(selected.id).find { it.id == progress.trackId }
+                    _uiState.update {
+                        it.copy(progressLabel = track?.title?.let { title -> "Continue: $title" })
+                    }
+                }
+            }
+        }
     }
 
     fun login(email: String, password: String) {
@@ -65,6 +77,7 @@ class MainViewModel @Inject constructor(
                 sessionRepository.saveSession(signedIn)
                 session = signedIn
                 refreshSessionState()
+                progressSyncRepository.start(signedIn)
                 syncCatalog()
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
@@ -73,6 +86,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun logout() {
+        progressSyncRepository.stop()
         sessionRepository.clearSession()
         session = null
         refreshSessionState()
@@ -162,8 +176,9 @@ class MainViewModel @Inject constructor(
                 updatedAtEpochMs = System.currentTimeMillis(),
                 pendingSync = true,
             )
-            catalogDao.upsertProgress(entity)
-            maybeSyncProgress(entity)
+            session = sessionRepository.refreshIfNeeded(session)
+            val token = session?.accessToken
+            progressSyncRepository.saveLocal(entity, token)
         }
     }
 
@@ -182,6 +197,7 @@ class MainViewModel @Inject constructor(
                 _uiState.update { it.copy(books = local) }
             }
             if (context.isNetworkAvailable() && session != null) {
+                session?.let { progressSyncRepository.start(it) }
                 syncCatalog()
             }
         }
@@ -190,6 +206,7 @@ class MainViewModel @Inject constructor(
     private suspend fun syncCatalog() {
         session = sessionRepository.refreshIfNeeded(session) ?: return
         val token = session?.accessToken
+        session?.accessToken?.let { progressSyncRepository.updateAuth(it) }
         val remoteBooks = apiClient.fetchBooks(token)
         catalogDao.upsertBooks(
             remoteBooks.map { b ->
@@ -205,19 +222,6 @@ class MainViewModel @Inject constructor(
             )
         }
         _uiState.update { it.copy(books = remoteBooks) }
-    }
-
-    private suspend fun maybeSyncProgress(entity: AudiobookProgressEntity) {
-        if (!context.isNetworkAvailable()) return
-        session = sessionRepository.refreshIfNeeded(session) ?: return
-        val token = session?.accessToken ?: return
-        val progress = AudiobookProgress(
-            entity.bookId,
-            entity.trackId,
-            entity.positionMs,
-            entity.updatedAtEpochMs,
-        )
-        apiClient.pushProgress(token, entity.bookId, progress)
     }
 
     private fun BookEntity.toDomain() = Book(

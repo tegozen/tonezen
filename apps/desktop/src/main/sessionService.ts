@@ -33,6 +33,10 @@ export class SessionService {
     return this.session?.accessToken ?? null;
   }
 
+  getSession(): StoredSession | null {
+    return this.session;
+  }
+
   getSnapshot(): { state: SessionState; userId: string | null } {
     const state = this.manager.resolveState(this.session, this.online);
     return { state, userId: this.session?.userId ?? null };

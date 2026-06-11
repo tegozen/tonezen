@@ -4,7 +4,7 @@ Offline-first cross-platform media player for audiobooks and music.
 
 - **Android** — Kotlin, Jetpack Compose, Media3, Room
 - **Desktop** — Electron, React (Windows / macOS)
-- **Backend** — Self-hosted Supabase stack via Docker Compose, content volume, catalog indexer
+- **Backend** — Self-hosted Supabase (Auth, Realtime, Storage, Studio) + catalog indexer
 
 See [AGENTS.md](AGENTS.md) for architecture rules, code style, and TDD workflow.
 
@@ -12,11 +12,11 @@ See [AGENTS.md](AGENTS.md) for architecture rules, code style, and TDD workflow.
 
 - Offline playback with local cache
 - Auth with offline-safe JWT session (refresh only when online)
-- Audiobook progress sync across devices (authenticated)
+- Audiobook progress sync across devices (authenticated, Realtime push + REST)
 - Music — local playback only, no server progress sync
 - Cycle auto-advance: track → next track → next book in cycle
 - Desktop tray-first lifecycle (close/minimize → tray, quit via tray menu)
-- Content volume → catalog indexer → available in apps
+- Studio upload → Storage bucket → indexer → available in apps
 
 ## Quick start
 
@@ -49,14 +49,16 @@ Services:
 
 | Service | URL / Port |
 |---------|------------|
-| Kong (API + Auth) | http://localhost:8000 |
+| Studio (admin UI) | http://localhost:3000 |
+| Kong (API + Auth + Storage + Realtime) | http://localhost:8000 |
 | API | http://localhost:8000/api/v1 |
 | Auth | http://localhost:8000/auth/v1 |
-| Downloads (signed) | http://localhost:8080 |
+| Storage | http://localhost:8000/storage/v1 |
+| Realtime (WebSocket) | ws://localhost:8000/realtime/v1/websocket |
 | Postgres | :5432 |
 
-Place audio files in the content volume — see [docs/content-layout.md](docs/content-layout.md).
-Local default: `./data/content/` (override with `CONTENT_HOST_PATH` in `.env`).
+Upload audio via **Studio → Storage → bucket `content`** — see [docs/content-layout.md](docs/content-layout.md).
+Storage files live in `./data/storage/` (override with `STORAGE_HOST_PATH` in `.env`).
 
 ### Desktop
 
@@ -100,9 +102,9 @@ tplayer/
 ├── apps/desktop/          # Electron desktop app
 ├── backend/
 │   ├── api/               # REST API (catalog, signed URLs, progress)
-│   ├── indexer/           # content volume scanner
+│   ├── indexer/           # storage bucket scanner
 │   └── supabase/migrations/
-├── docker/                # nginx, kong, postgres init
+├── docker/                # kong, postgres init
 ├── docs/
 ├── scripts/
 └── docker-compose.yml
@@ -119,12 +121,13 @@ TDD is required for domain logic, indexer parsers, and API handlers. See AGENTS.
 
 ## Production deployment
 
-1. Copy `.env.example` to `.env` and set strong secrets (`JWT_SECRET`, `POSTGRES_PASSWORD`, `DOWNLOAD_URL_SECRET`).
-2. Set `API_EXTERNAL_URL`, `GOTRUE_SITE_URL`, `DOWNLOAD_BASE_URL` to your public domain.
-3. Set `CONTENT_HOST_PATH` to your VPS content directory (e.g. `/var/tplayer/content`).
+1. Copy `.env.example` to `.env` and set strong secrets (`JWT_SECRET`, `POSTGRES_PASSWORD`, `SERVICE_ROLE_KEY`).
+2. Set `API_EXTERNAL_URL`, `GOTRUE_SITE_URL`, `SUPABASE_PUBLIC_URL` to your public domain.
+3. Set `STORAGE_HOST_PATH` to your VPS storage directory (e.g. `/var/tplayer/storage`).
 4. Run `docker compose up -d --build`.
-5. Register a user via Supabase Auth (`POST /auth/v1/signup`) or disable signup and create users in GoTrue.
-6. Configure client apps — desktop reads root `.env` automatically; Android uses `build.gradle.kts`.
+5. Upload content via Studio (Storage → bucket `content`).
+6. Register a user via Supabase Auth (`POST /auth/v1/signup`) or disable signup in GoTrue.
+7. Configure client apps — desktop reads root `.env` automatically; Android uses `build.gradle.kts`.
 
 ### Client configuration
 
@@ -139,7 +142,7 @@ Then `cd apps/desktop && npm run dev` — no manual `set`/`export` needed.
 ### Security checklist
 
 - [ ] Change all default secrets in `.env`
-- [ ] Restrict Postgres port via firewall (only nginx/Kong public)
+- [ ] Restrict Postgres port via firewall (only Kong/Studio public)
 - [ ] Use HTTPS reverse proxy in front of Kong (Caddy/Traefik)
 - [ ] Set `GOTRUE_DISABLE_SIGNUP=true` if you want invite-only registration
 

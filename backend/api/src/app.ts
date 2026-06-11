@@ -3,13 +3,11 @@ import cors from "cors";
 import pg from "pg";
 import { ApiRepository } from "./db.js";
 import { authMiddleware, requireAuth } from "./middleware/auth.js";
-import { signDownloadUrl } from "./lib/crypto.js";
+import { signStoragePaths, type StorageSignConfig } from "./lib/storageSign.js";
 
 export interface AppConfig {
   jwtSecret: string;
-  downloadUrlSecret: string;
-  downloadUrlTtlSeconds: number;
-  downloadBaseUrl: string;
+  storage: StorageSignConfig;
 }
 
 export function createApp(pool: pg.Pool, config: AppConfig) {
@@ -52,16 +50,24 @@ export function createApp(pool: pg.Pool, config: AppConfig) {
       return;
     }
     const rows = await repo.getTrackStoragePaths(trackIds);
-    const urls = rows.map((row) => ({
-      track_id: row.track_id,
-      url: signDownloadUrl(
-        row.storage_path,
-        config.downloadUrlSecret,
-        config.downloadUrlTtlSeconds,
-        config.downloadBaseUrl,
-      ),
-    }));
-    res.json({ urls });
+    try {
+      const signed = await signStoragePaths(
+        rows.map((row) => row.storage_path),
+        config.storage,
+      );
+      const urls = rows.map((row) => ({
+        track_id: row.track_id,
+        url: signed.get(row.storage_path) ?? null,
+      }));
+      if (urls.some((entry) => !entry.url)) {
+        res.status(502).json({ error: "Failed to sign one or more download URLs" });
+        return;
+      }
+      res.json({ urls });
+    } catch (err) {
+      console.error("[api] storage sign error:", err);
+      res.status(502).json({ error: "Storage sign failed" });
+    }
   });
 
   app.get("/favorites", ...requiredAuth, async (req, res) => {

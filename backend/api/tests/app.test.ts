@@ -1,11 +1,11 @@
 import jwt from "jsonwebtoken";
 import request from "supertest";
 import pg from "pg";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { createApp } from "../src/app.js";
+import * as storageSign from "../src/lib/storageSign.js";
 
 const JWT_SECRET = "test-jwt-secret-at-least-32-characters-long";
-const DOWNLOAD_SECRET = "test-download-secret-at-least-32-chars!!";
 
 function makeToken(userId: string): string {
   return jwt.sign({ sub: userId, role: "authenticated" }, JWT_SECRET, { expiresIn: "1h" });
@@ -18,9 +18,16 @@ describe("API routes", () => {
 
   const app = createApp(mockPool, {
     jwtSecret: JWT_SECRET,
-    downloadUrlSecret: DOWNLOAD_SECRET,
-    downloadUrlTtlSeconds: 900,
-    downloadBaseUrl: "http://localhost:8080",
+    storage: {
+      storageUrl: "http://storage:5000",
+      bucket: "content",
+      serviceRoleKey: "service-role-key",
+      expiresIn: 900,
+    },
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   it("GET /health returns ok", async () => {
@@ -41,10 +48,13 @@ describe("API routes", () => {
     expect(res.status).toBe(401);
   });
 
-  it("POST /downloads/sign returns signed urls", async () => {
+  it("POST /downloads/sign returns storage signed urls", async () => {
     vi.mocked(mockPool.query).mockResolvedValueOnce({
       rows: [{ track_id: "t1", storage_path: "music/a/audio/1.mp3" }],
     } as never);
+    vi.spyOn(storageSign, "signStoragePaths").mockResolvedValue(
+      new Map([["music/a/audio/1.mp3", "http://localhost:8000/storage/v1/object/sign/content/music/a/audio/1.mp3?token=x"]]),
+    );
 
     const res = await request(app)
       .post("/downloads/sign")
@@ -53,7 +63,7 @@ describe("API routes", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.urls).toHaveLength(1);
-    expect(res.body.urls[0].url).toContain("/download/");
+    expect(res.body.urls[0].url).toContain("/storage/v1/object/sign/content/");
   });
 
   it("PUT /progress/audiobooks rejects music content", async () => {

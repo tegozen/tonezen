@@ -11,6 +11,7 @@ services:
       - ./data/postgres:/var/lib/postgresql/data
       - ./backend/supabase/migrations:/docker-entrypoint-initdb.d/migrations:ro
       - ./docker/postgres/init.sh:/docker-entrypoint-initdb.d/00-init.sh:ro
+      - ./docker/postgres/realtime.sql:/docker-entrypoint-initdb.d/01-realtime.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -50,10 +51,117 @@ services:
         condition: service_healthy
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tplayer}
-      PGRST_DB_SCHEMAS: public
+      PGRST_DB_SCHEMAS: public,storage
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
       PGRST_DB_EXTRA_SEARCH_PATH: public
+
+  meta:
+    image: supabase/postgres-meta:v0.84.2
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: ${POSTGRES_HOST:-db}
+      PG_META_DB_PORT: ${POSTGRES_PORT:-5432}
+      PG_META_DB_NAME: ${POSTGRES_DB:-tplayer}
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
+
+  studio:
+    image: supabase/studio:20241202-71e5240
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      meta:
+        condition: service_started
+    ports:
+      - "${STUDIO_HTTP_PORT:-3000}:3000"
+    environment:
+      HOSTNAME: "0.0.0.0"
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-tplayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PG_META_CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+      DEFAULT_ORGANIZATION_NAME: ${STUDIO_DEFAULT_ORGANIZATION:-TPlayer}
+      DEFAULT_PROJECT_NAME: ${STUDIO_DEFAULT_PROJECT:-TPlayer}
+
+  realtime:
+    container_name: realtime-dev.supabase-realtime
+    image: supabase/realtime:v2.34.47
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      DB_HOST: ${POSTGRES_HOST:-db}
+      DB_PORT: ${POSTGRES_PORT:-5432}
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB:-tplayer}
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      METRICS_JWT_SECRET: ${JWT_SECRET}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+      DISABLE_HEALTHCHECK_LOGGING: "true"
+
+  storage:
+    image: supabase/storage-api:v1.11.13
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+      imgproxy:
+        condition: service_started
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tplayer}
+      STORAGE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
+      FILE_SIZE_LIMIT: 524288000
+      STORAGE_BACKEND: file
+      GLOBAL_S3_BUCKET: ${STORAGE_BUCKET:-content}
+      TENANT_ID: ${STORAGE_TENANT_ID:-tplayer}
+      REGION: ${REGION:-local}
+      ENABLE_IMAGE_TRANSFORMATION: "false"
+      IMGPROXY_URL: http://imgproxy:5001
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+    volumes:
+      - ${STORAGE_HOST_PATH:-./data/storage}:/var/lib/storage
+
+  imgproxy:
+    image: darthsim/imgproxy:v3.8.0
+    restart: unless-stopped
+    environment:
+      IMGPROXY_BIND: ":5001"
+      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
+      IMGPROXY_USE_ETAG: "true"
+      IMGPROXY_ENABLE_WEBP_DETECTION: "true"
+    volumes:
+      - ${STORAGE_HOST_PATH:-./data/storage}:/var/lib/storage:ro
 
   api:
     build:
@@ -66,9 +174,10 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
-      DOWNLOAD_URL_SECRET: ${DOWNLOAD_URL_SECRET}
-      DOWNLOAD_URL_TTL_SECONDS: ${DOWNLOAD_URL_TTL_SECONDS:-900}
-      DOWNLOAD_BASE_URL: ${DOWNLOAD_BASE_URL:-http://localhost:8080}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      STORAGE_INTERNAL_URL: http://storage:5000
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-content}
+      STORAGE_SIGN_EXPIRES_IN: ${STORAGE_SIGN_EXPIRES_IN:-900}
       PORT: 3001
     ports:
       - "3001:3001"
@@ -80,6 +189,8 @@ services:
       - auth
       - rest
       - api
+      - realtime
+      - storage
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
@@ -90,20 +201,6 @@ services:
     volumes:
       - ./docker/kong/kong.yml:/var/lib/kong/kong.yml:ro
 
-  nginx:
-    image: nginx:1.27-alpine
-    restart: unless-stopped
-    ports:
-      - "8080:80"
-    entrypoint: ["/bin/sh", "/docker-entrypoint.sh"]
-    volumes:
-      - ${CONTENT_HOST_PATH:-./data/content}:/content:ro
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./docker/nginx/secure_link.conf.template:/etc/nginx/templates/secure_link.conf.template:ro
-      - ./docker/nginx/docker-entrypoint.sh:/docker-entrypoint.sh:ro
-    environment:
-      DOWNLOAD_URL_SECRET: ${DOWNLOAD_URL_SECRET}
-
   indexer:
     build:
       context: ./backend/indexer
@@ -112,12 +209,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      storage:
+        condition: service_started
     environment:
       DATABASE_URL: ${DATABASE_URL}
-      CONTENT_ROOT: ${CONTENT_ROOT:-/content}
+      CONTENT_ROOT: /var/lib/storage/${STORAGE_TENANT_ID:-tplayer}/${STORAGE_BUCKET:-content}
       INDEXER_INTERVAL_SECONDS: ${INDEXER_INTERVAL_SECONDS:-60}
     volumes:
-      - ${CONTENT_HOST_PATH:-./data/content}:/content:ro
+      - ${STORAGE_HOST_PATH:-./data/storage}:/var/lib/storage:ro
 
   mail:
     image: inbucket/inbucket:3.0.3

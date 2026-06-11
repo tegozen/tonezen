@@ -27,6 +27,21 @@ export interface TPlayerApi {
     track: (bookId: string, trackId: string) => Promise<string>;
     delete: (bookId: string, trackId: string) => Promise<void>;
   };
+  progress: {
+    get: (bookId: string) => Promise<{
+      bookId: string;
+      trackId: string;
+      positionMs: number;
+      updatedAt: string;
+    } | null>;
+    save: (bookId: string, trackId: string, positionMs: number) => Promise<void>;
+    onUpdated: (callback: (progress: {
+      bookId: string;
+      trackId: string;
+      positionMs: number;
+      updatedAt: string;
+    }) => void) => () => void;
+  };
   playback: {
     setActive: (active: boolean) => Promise<void>;
   };

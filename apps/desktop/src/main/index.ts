@@ -5,6 +5,7 @@ import { SessionService } from "./sessionService.js";
 import { LocalDatabase } from "./database.js";
 import { CatalogSyncService } from "./catalogSync.js";
 import { DownloadManager } from "./downloadManager.js";
+import { ProgressSyncService } from "./progressSync.js";
 import { getClientConfig, loadAppEnv, loadPackagedEnv } from "./loadEnv.js";
 
 loadAppEnv();
@@ -14,6 +15,7 @@ const sessionService = new SessionService();
 
 let catalogSync: CatalogSyncService;
 let downloadManager: DownloadManager;
+let progressSync: ProgressSyncService;
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let powerBlockerId: number | null = null;
@@ -38,9 +40,8 @@ function createWindow(): void {
     }
   });
 
-  mainWindow.on("minimize", (event) => {
+  mainWindow.on("minimize", () => {
     if (lifecycle.shouldHideOnMinimize()) {
-      event.preventDefault();
       mainWindow?.hide();
     }
   });
@@ -103,10 +104,30 @@ app.whenReady().then(() => {
     runtimeConfig.apiBaseUrl,
     () => sessionService.getAccessToken(),
   );
+  progressSync = new ProgressSyncService(
+    () => sessionService.getSession(),
+    () => sessionService.getAccessToken(),
+    () => sessionService.refreshIfNeeded(),
+    {
+      supabaseUrl: runtimeConfig.supabaseUrl,
+      anonKey: runtimeConfig.supabaseAnonKey,
+      apiBaseUrl: runtimeConfig.apiBaseUrl,
+    },
+  );
   createTray();
   createWindow();
+  progressSync.setMainWindow(mainWindow);
+  void startProgressSyncIfNeeded();
   registerIpc();
 });
+
+async function startProgressSyncIfNeeded(): Promise<void> {
+  await sessionService.refreshIfNeeded();
+  const session = sessionService.getSession();
+  if (session) {
+    await progressSync.start(session);
+  }
+}
 
 app.on("window-all-closed", () => {
   // tray-first: keep process alive
@@ -120,16 +141,21 @@ app.on("before-quit", () => {
 function registerIpc(): void {
   ipcMain.handle("session:get", async () => {
     await sessionService.refreshIfNeeded();
+    await progressSync.updateAuth();
     return sessionService.getSnapshot();
   });
   ipcMain.handle("session:setOnline", (_e, online: boolean) => {
     sessionService.setOnline(online);
   });
   ipcMain.handle("session:login", async (_e, email: string, password: string) => {
-    await sessionService.login(email, password);
+    const session = await sessionService.login(email, password);
+    await progressSync.start(session);
     return sessionService.getSnapshot();
   });
-  ipcMain.handle("session:logout", () => sessionService.logout());
+  ipcMain.handle("session:logout", () => {
+    progressSync.stop();
+    sessionService.logout();
+  });
   ipcMain.handle("catalog:sync", async () => {
     const books = await catalogSync.fetchBooks();
     LocalDatabase.upsertBooks(books);
@@ -167,6 +193,10 @@ function registerIpc(): void {
   );
   ipcMain.handle("download:delete", (_e, bookId: string, trackId: string) => {
     downloadManager.deleteLocalTrack(bookId, trackId);
+  });
+  ipcMain.handle("progress:get", (_e, bookId: string) => LocalDatabase.getProgress(bookId));
+  ipcMain.handle("progress:save", async (_e, bookId: string, trackId: string, positionMs: number) => {
+    await progressSync.saveLocal(bookId, trackId, positionMs);
   });
   ipcMain.handle("playback:setActive", (_e, active: boolean) => {
     if (active && powerBlockerId == null) {

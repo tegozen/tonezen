@@ -1,20 +1,3 @@
-import crypto from "node:crypto";
-
-export function signDownloadUrl(
-  storagePath: string,
-  secret: string,
-  ttlSeconds: number,
-  baseUrl: string,
-  nowSeconds = Math.floor(Date.now() / 1000),
-): string {
-  const expires = nowSeconds + ttlSeconds;
-  const uri = `/download/${storagePath}`;
-  const toSign = `${expires}${uri} ${secret}`;
-  const md5Hash = crypto.createHash("md5").update(toSign).digest();
-  const md5 = md5Hash.toString("base64");
-  return `${baseUrl}${uri}?md5=${md5}&expires=${expires}`;
-}
-
 export interface ProgressRecord {
   book_id: string;
   track_id: string;

@@ -14,7 +14,18 @@ export function App() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [progressLabel, setProgressLabel] = useState<string | null>(null);
+  const lastProgressSaveRef = useRef(0);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    return window.tplayer.progress.onUpdated((progress) => {
+      if (selectedBook?.id === progress.bookId) {
+        const track = tracks.find((t) => t.id === progress.trackId);
+        setProgressLabel(track ? `Continue: ${track.title}` : null);
+      }
+    });
+  }, [selectedBook, tracks]);
 
   const refreshSession = useCallback(async () => {
     const online = navigator.onLine;
@@ -66,15 +77,24 @@ export function App() {
     setSelectedBook(book);
     const bookTracks = await window.tplayer.db.getTracks(book.id);
     setTracks(bookTracks as Track[]);
-    setCurrentTrack(bookTracks[0] ?? null);
+    const saved = await window.tplayer.progress.get(book.id);
+    if (saved && book.contentType === "audiobook") {
+      const resumeTrack = bookTracks.find((t) => t.id === saved.trackId) ?? bookTracks[0];
+      setCurrentTrack(resumeTrack ?? null);
+      setProgressLabel(resumeTrack ? `Continue: ${resumeTrack.title}` : null);
+    } else {
+      setCurrentTrack(bookTracks[0] ?? null);
+      setProgressLabel(null);
+    }
   };
 
-  const playTrack = (track: Track) => {
+  const playTrack = (track: Track, startMs = 0) => {
     if (!track.localPath) return;
     setCurrentTrack(track);
     window.tplayer.playback.setActive(true);
     if (audioRef.current) {
       audioRef.current.src = `file://${track.localPath}`;
+      if (startMs > 0) audioRef.current.currentTime = startMs / 1000;
       void audioRef.current.play();
     }
     if ("mediaSession" in navigator) {
@@ -96,6 +116,26 @@ export function App() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Download failed");
     }
+  };
+
+  const onTimeUpdate = () => {
+    if (!selectedBook || selectedBook.contentType !== "audiobook" || !currentTrack || !audioRef.current) return;
+    const now = Date.now();
+    if (now - lastProgressSaveRef.current < 15000) return;
+    lastProgressSaveRef.current = now;
+    void window.tplayer.progress.save(
+      selectedBook.id,
+      currentTrack.id,
+      Math.floor(audioRef.current.currentTime * 1000),
+    );
+  };
+
+  const resumeProgress = async () => {
+    if (!selectedBook) return;
+    const saved = await window.tplayer.progress.get(selectedBook.id);
+    if (!saved) return;
+    const track = tracks.find((t) => t.id === saved.trackId);
+    if (track?.localPath) playTrack(track, saved.positionMs);
   };
 
   const onTrackEnded = () => {
@@ -158,6 +198,9 @@ export function App() {
             Back
           </button>
           <h2>{selectedBook.title}</h2>
+          {progressLabel && selectedBook.contentType === "audiobook" && (
+            <button onClick={resumeProgress}>{progressLabel}</button>
+          )}
           <div className="grid">
             {tracks.map((track) => (
               <div key={track.id} className="card">
@@ -187,7 +230,7 @@ export function App() {
           </div>
           <div className="player">
             <strong>Now playing: {currentTrack?.title ?? "—"}</strong>
-            <audio ref={audioRef} controls onEnded={onTrackEnded} />
+            <audio ref={audioRef} controls onEnded={onTrackEnded} onTimeUpdate={onTimeUpdate} />
           </div>
         </>
       )}

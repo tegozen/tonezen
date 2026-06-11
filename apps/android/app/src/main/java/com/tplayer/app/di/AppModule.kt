@@ -9,6 +9,7 @@ import com.tplayer.app.data.local.TPlayerDatabase
 import com.tplayer.app.data.remote.ApiClient
 import com.tplayer.app.data.remote.AuthRepository
 import com.tplayer.app.data.remote.DownloadRepository
+import com.tplayer.app.data.remote.ProgressSyncRepository
 import com.tplayer.app.data.remote.SessionRepository
 import com.tplayer.app.domain.session.SessionManager
 import dagger.Module
@@ -55,6 +56,13 @@ object AppModule {
     @Provides
     @Singleton
     fun provideApiClient(): ApiClient = ApiClient(BuildConfig.API_BASE_URL)
+
+    @Provides
+    @Singleton
+    fun provideProgressSyncRepository(
+        apiClient: ApiClient,
+        catalogDao: CatalogDao,
+    ): ProgressSyncRepository = ProgressSyncRepository(apiClient, catalogDao)
 
     @Provides
     @Singleton

@@ -26,6 +26,31 @@ services:
         paths:
           - /api/v1
 
+  - name: storage-v1
+    url: http://storage:5000/
+    routes:
+      - name: storage
+        strip_path: true
+        paths:
+          - /storage/v1
+
+  - name: realtime-v1-ws
+    url: http://realtime-dev.supabase-realtime:4000/socket
+    protocol: ws
+    routes:
+      - name: realtime-ws
+        strip_path: true
+        paths:
+          - /realtime/v1/
+
+  - name: realtime-v1-rest
+    url: http://realtime-dev.supabase-realtime:4000/api
+    routes:
+      - name: realtime-rest
+        strip_path: true
+        paths:
+          - /realtime/v1/api
+
 plugins:
   - name: cors
     config:
@@ -41,4 +66,5 @@ plugins:
         - Authorization
         - Content-Type
         - apikey
+        - x-client-info
       credentials: true

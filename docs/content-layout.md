@@ -1,13 +1,13 @@
-# Content Volume Layout
+# Content Storage Layout
 
-Place audio files on the content volume using this directory structure.
-Local dev: `./data/content/`. Production: set `CONTENT_HOST_PATH` in `.env` to your host path.
-The catalog indexer scans these paths and upserts metadata into Postgres.
+Upload audio to **Supabase Storage** bucket `content` via Studio (http://localhost:3000 → Storage).
+
+Use this folder structure inside the bucket. The catalog indexer scans the storage file backend and upserts metadata into Postgres.
 
 ## Root structure
 
 ```
-/content/
+content/
   cycles/          # audiobooks grouped in cycles
   music/           # music albums (no cycles)
 ```
@@ -15,7 +15,7 @@ The catalog indexer scans these paths and upserts metadata into Postgres.
 ## Audiobooks (cycles)
 
 ```
-/content/cycles/{cycle-slug}/
+content/cycles/{cycle-slug}/
   cycle.json
   books/
     {book-slug}/
@@ -50,7 +50,7 @@ The catalog indexer scans these paths and upserts metadata into Postgres.
 ## Music
 
 ```
-/content/music/{album-slug}/
+content/music/{album-slug}/
   album.json
   cover.jpg            # optional
   audio/
@@ -71,12 +71,15 @@ The catalog indexer scans these paths and upserts metadata into Postgres.
 
 ## Indexer behavior
 
+- Scans `./data/storage/{STORAGE_TENANT_ID}/{STORAGE_BUCKET}/` on the host (storage file backend)
 - Computes SHA-256 checksum and file size for each audio file
 - Extracts duration via ffprobe when available
-- Sets `deleted_at` on catalog entries removed from the volume (soft delete)
+- Sets `deleted_at` on catalog entries removed from storage (soft delete)
 - Rescan interval configurable via `INDEXER_INTERVAL_SECONDS`
 
-## Volume mount
+## Upload workflow
 
-Indexer and nginx read the same host directory, mounted at `/content` inside containers.
-Upload content however you manage the VPS (FTP, rsync, scp, etc.) — TPlayer only needs the files on disk.
+1. Open Studio → **Storage** → bucket **content**
+2. Upload folders/files following the layout above (or drag-and-drop a prepared tree)
+3. Indexer picks up new files on the next scan
+4. Clients download via Storage signed URLs from `POST /api/v1/downloads/sign`

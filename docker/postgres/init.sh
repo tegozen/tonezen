@@ -23,8 +23,19 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'supabase_auth_admin') THEN
       CREATE ROLE supabase_auth_admin NOINHERIT CREATEROLE LOGIN PASSWORD '${POSTGRES_PASSWORD}';
     END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'supabase_admin') THEN
+      CREATE ROLE supabase_admin NOINHERIT CREATEROLE LOGIN REPLICATION BYPASSRLS PASSWORD '${POSTGRES_PASSWORD}';
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'supabase_storage_admin') THEN
+      CREATE ROLE supabase_storage_admin NOINHERIT CREATEROLE LOGIN PASSWORD '${POSTGRES_PASSWORD}';
+    END IF;
   END
   \$\$;
+
+  GRANT ALL ON SCHEMA public TO supabase_admin;
+  GRANT ALL ON ALL TABLES IN SCHEMA public TO supabase_admin;
+  GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO supabase_admin;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO supabase_admin;
 
   GRANT anon TO authenticator;
   GRANT authenticated TO authenticator;
