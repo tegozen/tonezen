@@ -18,10 +18,10 @@ import com.tplayer.app.domain.model.ContentType
 import com.tplayer.app.domain.model.SessionState
 import com.tplayer.app.domain.model.StoredSession
 import com.tplayer.app.domain.model.Track
-import com.tplayer.app.domain.playback.CyclePlaybackResolver
 import com.tplayer.app.playback.PlaybackClient
 import com.tplayer.app.playback.PlaybackEvents
 import com.tplayer.app.playback.PlaybackMetadata
+import com.tplayer.app.playback.QueuePlayItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.content.Context
@@ -63,7 +63,6 @@ class MainViewModel @Inject constructor(
     private var session: StoredSession? = null
     private var currentTrack: Track? = null
     private var lastProgressSaveMs = 0L
-    private val cycleResolver = CyclePlaybackResolver()
 
     init {
         session = sessionRepository.loadSession()
@@ -81,13 +80,14 @@ class MainViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            playbackEvents.skipToNext.collect { skipToNextTrack() }
+            playbackEvents.trackEnded.collect { onPlaybackEnded() }
         }
         viewModelScope.launch {
-            playbackEvents.skipToPrevious.collect { skipToPreviousTrack() }
-        }
-        viewModelScope.launch {
-            playbackEvents.trackEnded.collect { onTrackEnded() }
+            playbackClient.activeTrackId.collect { trackId ->
+                val track = _uiState.value.tracks.find { it.id == trackId } ?: return@collect
+                currentTrack = track
+                _uiState.update { it.copy(nowPlayingTitle = track.title) }
+            }
         }
         viewModelScope.launch {
             playbackClient.snapshot.collectLatest { snapshot ->
@@ -167,11 +167,12 @@ class MainViewModel @Inject constructor(
         val book = _uiState.value.selectedBook ?: return
         viewModelScope.launch {
             val tracks = catalogDao.getTracksForBook(book.id).map { it.toDomain() }
+            val downloaded = tracks.filter { it.localPath != null }.sortedBy { it.sortOrder }
+            if (downloaded.isEmpty()) return@launch
             val progress = catalogDao.getProgress(book.id)
-            val track = progress?.let { p -> tracks.find { it.id == p.trackId } } ?: tracks.firstOrNull()
-            val localPath = track?.localPath ?: return@launch
-            val startMs = progress?.positionMs ?: 0L
-            startPlayback(track, book, localPath, startMs)
+            val track = progress?.let { p -> downloaded.find { it.id == p.trackId } } ?: downloaded.first()
+            val startMs = if (track.id == progress?.trackId) progress.positionMs else 0L
+            startBookPlayback(book, downloaded, track, startMs)
         }
     }
 
@@ -309,46 +310,44 @@ class MainViewModel @Inject constructor(
         localPath = localPath,
     )
 
-    private fun startPlayback(track: Track, book: Book, localPath: String, startMs: Long) {
-        currentTrack = track
-        playbackClient.playTrack(
-            localPath,
-            PlaybackMetadata(
-                trackTitle = track.title,
-                artist = book.author ?: book.title,
-                albumTitle = book.title,
-            ),
-            startMs,
-        )
+    private fun startBookPlayback(
+        book: Book,
+        downloadedTracks: List<Track>,
+        startTrack: Track,
+        startMs: Long,
+    ) {
+        val startIndex = downloadedTracks.indexOfFirst { it.id == startTrack.id }.coerceAtLeast(0)
+        val queueItems = downloadedTracks.map { track ->
+            QueuePlayItem(
+                trackId = track.id,
+                localPath = track.localPath!!,
+                metadata = buildPlaybackMetadata(track, book, downloadedTracks),
+            )
+        }
+        currentTrack = startTrack
+        playbackClient.playQueue(queueItems, startIndex, startMs)
         _uiState.update {
-            it.copy(nowPlayingTitle = track.title, progressLabel = null)
+            it.copy(nowPlayingTitle = startTrack.title, progressLabel = null)
         }
     }
 
-    private fun skipToNextTrack() {
-        val book = _uiState.value.selectedBook ?: return
-        val track = currentTrack ?: return
-        val tracks = _uiState.value.tracks
-        val next = cycleResolver.nextInBook(track, tracks) ?: return
-        val localPath = next.localPath ?: return
-        startPlayback(next, book, localPath, 0L)
+    private fun buildPlaybackMetadata(track: Track, book: Book, downloadedTracks: List<Track>): PlaybackMetadata {
+        val trackNumber = (downloadedTracks.indexOfFirst { it.id == track.id } + 1).coerceAtLeast(1)
+        return PlaybackMetadata(
+            trackTitle = track.title,
+            artist = book.author ?: book.title,
+            albumTitle = book.title,
+            trackNumber = trackNumber,
+            totalTracks = downloadedTracks.size,
+            contentType = book.contentType,
+        )
     }
 
-    private fun skipToPreviousTrack() {
+    private fun onPlaybackEnded() {
         val book = _uiState.value.selectedBook ?: return
         val track = currentTrack ?: return
-        val tracks = _uiState.value.tracks
-        val previous = cycleResolver.previousInBook(track, tracks) ?: return
-        val localPath = previous.localPath ?: return
-        startPlayback(previous, book, localPath, 0L)
-    }
-
-    private fun onTrackEnded() {
-        val book = _uiState.value.selectedBook ?: return
-        val track = currentTrack ?: return
-        val next = cycleResolver.nextInBook(track, _uiState.value.tracks)
-        if (next?.localPath != null) {
-            startPlayback(next, book, next.localPath, 0L)
+        if (book.contentType == ContentType.AUDIOBOOK) {
+            saveAudiobookProgress(book.id, track.id, playbackClient.currentPositionMs())
         }
     }
 

@@ -3,20 +3,20 @@ package com.tplayer.app.playback
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,6 +25,13 @@ data class PlaybackSnapshot(
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
     val trackTitle: String? = null,
+    val trackId: String? = null,
+)
+
+private data class PendingQueuePlay(
+    val items: List<QueuePlayItem>,
+    val startIndex: Int,
+    val startPositionMs: Long,
 )
 
 @Singleton
@@ -34,9 +41,13 @@ class PlaybackClient @Inject constructor(
     private val _snapshot = MutableStateFlow(PlaybackSnapshot())
     val snapshot: StateFlow<PlaybackSnapshot> = _snapshot.asStateFlow()
 
+    private val _activeTrackId = MutableSharedFlow<String>(extraBufferCapacity = 1, replay = 1)
+    val activeTrackId: SharedFlow<String> = _activeTrackId.asSharedFlow()
+
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
     private var listener: Player.Listener? = null
+    private var pendingQueuePlay: PendingQueuePlay? = null
 
     fun connect() {
         if (controllerFuture != null) return
@@ -53,29 +64,26 @@ class PlaybackClient @Inject constructor(
                 val mediaController = controllerFuture?.get() ?: return@addListener
                 controller = mediaController
                 attachListener(mediaController)
+                pendingQueuePlay?.let { pending ->
+                    executePlayQueue(mediaController, pending.items, pending.startIndex, pending.startPositionMs)
+                    pendingQueuePlay = null
+                }
                 refreshSnapshot(mediaController)
             },
             MoreExecutors.directExecutor(),
         )
     }
 
-    fun playTrack(localPath: String, metadata: PlaybackMetadata, startMs: Long = 0L) {
+    fun playQueue(items: List<QueuePlayItem>, startIndex: Int, startPositionMs: Long = 0L) {
+        if (items.isEmpty()) return
         connect()
-        val mediaController = controller ?: return
-        val mediaItem = MediaItem.Builder()
-            .setUri(Uri.fromFile(File(localPath)))
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(metadata.trackTitle)
-                    .setArtist(metadata.artist)
-                    .setAlbumTitle(metadata.albumTitle)
-                    .build(),
-            )
-            .build()
-        mediaController.setMediaItem(mediaItem, startMs)
-        mediaController.prepare()
-        mediaController.play()
-        refreshSnapshot(mediaController)
+        val safeIndex = startIndex.coerceIn(0, items.lastIndex)
+        val mediaController = controller
+        if (mediaController == null) {
+            pendingQueuePlay = PendingQueuePlay(items, safeIndex, startPositionMs)
+            return
+        }
+        executePlayQueue(mediaController, items, safeIndex, startPositionMs)
     }
 
     fun pause() {
@@ -96,7 +104,22 @@ class PlaybackClient @Inject constructor(
         controller?.release()
         controller = null
         controllerFuture = null
+        pendingQueuePlay = null
         _snapshot.value = PlaybackSnapshot()
+    }
+
+    private fun executePlayQueue(
+        mediaController: MediaController,
+        items: List<QueuePlayItem>,
+        startIndex: Int,
+        startPositionMs: Long,
+    ) {
+        val mediaItems = items.map(PlaybackMediaFactory::toMediaItem)
+        mediaController.setMediaItems(mediaItems, startIndex, startPositionMs)
+        mediaController.prepare()
+        mediaController.play()
+        items.getOrNull(startIndex)?.trackId?.let { _activeTrackId.tryEmit(it) }
+        refreshSnapshot(mediaController)
     }
 
     private fun attachListener(mediaController: MediaController) {
@@ -111,7 +134,21 @@ class PlaybackClient @Inject constructor(
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                mediaItem?.mediaId?.takeIf { it.isNotEmpty() }?.let { _activeTrackId.tryEmit(it) }
                 refreshSnapshot(mediaController)
+            }
+
+            override fun onEvents(player: Player, events: Player.Events) {
+                if (events.containsAny(
+                        Player.EVENT_PLAYBACK_STATE_CHANGED,
+                        Player.EVENT_IS_PLAYING_CHANGED,
+                        Player.EVENT_MEDIA_ITEM_TRANSITION,
+                        Player.EVENT_TIMELINE_CHANGED,
+                        Player.EVENT_POSITION_DISCONTINUITY,
+                    )
+                ) {
+                    refreshSnapshot(mediaController)
+                }
             }
         }.also { mediaController.addListener(it) }
     }
@@ -123,6 +160,7 @@ class PlaybackClient @Inject constructor(
                 positionMs = mediaController.currentPosition.coerceAtLeast(0L),
                 durationMs = mediaController.duration.coerceAtLeast(0L),
                 trackTitle = mediaController.mediaMetadata.title?.toString(),
+                trackId = mediaController.currentMediaItem?.mediaId,
             )
         }
     }

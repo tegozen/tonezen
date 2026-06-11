@@ -1,11 +1,14 @@
 package com.tplayer.app.playback
 
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
+import android.app.PendingIntent
+import android.content.Intent
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.tplayer.app.R
+import com.tplayer.app.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -19,16 +22,28 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this)
+                .setNotificationId(NOTIFICATION_ID)
+                .setChannelId(CHANNEL_ID)
+                .setChannelName(R.string.playback_notification_channel)
+                .build(),
+        )
+
         player = ExoPlayer.Builder(this)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
-                    .build(),
-                true,
-            )
-            .setHandleAudioBecomingNoisy(true)
+            .setSeekBackIncrementMs(SEEK_BACK_MS)
+            .setSeekForwardIncrementMs(SEEK_FORWARD_MS)
             .build()
+            .also { exoPlayer ->
+                exoPlayer.setAudioAttributes(
+                    androidx.media3.common.AudioAttributes.Builder()
+                        .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+                        .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_SPEECH)
+                        .build(),
+                    true,
+                )
+                exoPlayer.setHandleAudioBecomingNoisy(true)
+            }
 
         playerListener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -38,7 +53,15 @@ class PlaybackService : MediaSessionService() {
             }
         }.also { player?.addListener(it) }
 
+        val sessionActivity = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
         mediaSession = MediaSession.Builder(this, player!!)
+            .setSessionActivity(sessionActivity)
             .setCallback(
                 object : MediaSession.Callback {
                     override fun onConnect(
@@ -46,30 +69,15 @@ class PlaybackService : MediaSessionService() {
                         controller: MediaSession.ControllerInfo,
                     ): MediaSession.ConnectionResult {
                         val playerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
-                            .add(Player.COMMAND_SEEK_TO_NEXT)
-                            .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                            .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                            .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                            .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+                            .add(Player.COMMAND_SEEK_BACK)
+                            .add(Player.COMMAND_SEEK_FORWARD)
                             .build()
                         return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                             .setAvailablePlayerCommands(playerCommands)
                             .build()
-                    }
-
-                    override fun onPlayerCommandRequest(
-                        session: MediaSession,
-                        controller: MediaSession.ControllerInfo,
-                        playerCommand: Int,
-                    ): Int {
-                        return when (playerCommand) {
-                            Player.COMMAND_SEEK_TO_NEXT -> {
-                                playbackEvents.requestSkipToNext()
-                                Player.COMMAND_SEEK_TO_NEXT
-                            }
-                            Player.COMMAND_SEEK_TO_PREVIOUS -> {
-                                playbackEvents.requestSkipToPrevious()
-                                Player.COMMAND_SEEK_TO_PREVIOUS
-                            }
-                            else -> super.onPlayerCommandRequest(session, controller, playerCommand)
-                        }
                     }
                 },
             )
@@ -86,5 +94,12 @@ class PlaybackService : MediaSessionService() {
         player?.release()
         player = null
         super.onDestroy()
+    }
+
+    companion object {
+        private const val NOTIFICATION_ID = 1001
+        private const val CHANNEL_ID = "tplayer_playback"
+        const val SEEK_BACK_MS = 15_000L
+        const val SEEK_FORWARD_MS = 30_000L
     }
 }
