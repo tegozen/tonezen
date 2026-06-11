@@ -3,9 +3,20 @@ import path from "node:path";
 import { WindowLifecycleManager } from "./windowLifecycle.js";
 import { SessionService } from "./sessionService.js";
 import { LocalDatabase } from "./database.js";
+import { CatalogSyncService } from "./catalogSync.js";
+import { DownloadManager } from "./downloadManager.js";
 
 const lifecycle = new WindowLifecycleManager();
 const sessionService = new SessionService();
+
+const API_BASE_URL = process.env.TPLAYER_API_URL ?? "http://localhost:8000/api/v1";
+const SUPABASE_URL = process.env.TPLAYER_SUPABASE_URL ?? "http://localhost:8000";
+const SUPABASE_ANON_KEY =
+  process.env.TPLAYER_SUPABASE_ANON_KEY ??
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
+
+let catalogSync: CatalogSyncService;
+let downloadManager: DownloadManager;
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let powerBlockerId: number | null = null;
@@ -26,9 +37,7 @@ function createWindow(): void {
     if (lifecycle.shouldPreventClose()) {
       event.preventDefault();
       mainWindow?.hide();
-      if (process.platform === "darwin") {
-        app.dock?.hide();
-      }
+      if (process.platform === "darwin") app.dock?.hide();
     }
   });
 
@@ -72,9 +81,8 @@ function createTray(): void {
   tray.setToolTip("TPlayer");
   tray.setContextMenu(buildTrayMenu());
   tray.on("click", () => {
-    if (mainWindow?.isVisible()) {
-      mainWindow.hide();
-    } else {
+    if (mainWindow?.isVisible()) mainWindow.hide();
+    else {
       mainWindow?.show();
       if (process.platform === "darwin") app.dock?.show();
     }
@@ -84,32 +92,78 @@ function createTray(): void {
 app.whenReady().then(() => {
   const userData = app.getPath("userData");
   LocalDatabase.init(userData);
-  sessionService.init(userData);
+  sessionService.init(userData, { supabaseUrl: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY });
+  catalogSync = new CatalogSyncService(API_BASE_URL, () => sessionService.getAccessToken());
+  downloadManager = new DownloadManager(
+    path.join(userData, "downloads"),
+    API_BASE_URL,
+    () => sessionService.getAccessToken(),
+  );
   createTray();
   createWindow();
   registerIpc();
 });
 
 app.on("window-all-closed", () => {
-  // Keep running in tray — do not quit on window close
+  // tray-first: keep process alive
 });
 
 app.on("before-quit", () => {
   lifecycle.setQuitting(true);
-  if (powerBlockerId != null) {
-    powerSaveBlocker.stop(powerBlockerId);
-  }
+  if (powerBlockerId != null) powerSaveBlocker.stop(powerBlockerId);
 });
 
 function registerIpc(): void {
-  ipcMain.handle("session:get", () => sessionService.getSnapshot());
-  ipcMain.handle("session:login", (_e, email: string, password: string) =>
-    sessionService.loginDemo(email, password),
-  );
+  ipcMain.handle("session:get", async () => {
+    await sessionService.refreshIfNeeded();
+    return sessionService.getSnapshot();
+  });
+  ipcMain.handle("session:setOnline", (_e, online: boolean) => {
+    sessionService.setOnline(online);
+  });
+  ipcMain.handle("session:login", async (_e, email: string, password: string) => {
+    await sessionService.login(email, password);
+    return sessionService.getSnapshot();
+  });
   ipcMain.handle("session:logout", () => sessionService.logout());
-  ipcMain.handle("session:refreshIfNeeded", () => sessionService.refreshIfNeeded());
+  ipcMain.handle("catalog:sync", async () => {
+    const books = await catalogSync.fetchBooks();
+    LocalDatabase.upsertBooks(books);
+    for (const book of books) {
+      const headers: Record<string, string> = {};
+      const token = sessionService.getAccessToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE_URL}/catalog/books/${book.id}`, { headers });
+      const detail = (await res.json()) as {
+        tracks: Array<{
+          id: string;
+          sort_order: number;
+          title: string;
+          filename: string;
+          duration_ms?: number;
+        }>;
+      };
+      LocalDatabase.upsertTracks(
+        (detail.tracks ?? []).map((t) => ({
+          id: t.id,
+          bookId: book.id,
+          sortOrder: t.sort_order,
+          title: t.title,
+          filename: t.filename,
+          durationMs: t.duration_ms,
+        })),
+      );
+    }
+    return LocalDatabase.getBooks();
+  });
   ipcMain.handle("db:getBooks", () => LocalDatabase.getBooks());
   ipcMain.handle("db:getTracks", (_e, bookId: string) => LocalDatabase.getTracks(bookId));
+  ipcMain.handle("download:track", (_e, bookId: string, trackId: string) =>
+    downloadManager.downloadTrack(bookId, trackId),
+  );
+  ipcMain.handle("download:delete", (_e, bookId: string, trackId: string) => {
+    downloadManager.deleteLocalTrack(bookId, trackId);
+  });
   ipcMain.handle("playback:setActive", (_e, active: boolean) => {
     if (active && powerBlockerId == null) {
       powerBlockerId = powerSaveBlocker.start("prevent-app-suspension");

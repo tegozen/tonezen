@@ -1,9 +1,13 @@
 import pg from "pg";
 import type { ParsedBook, ParsedCycle } from "./parsers.js";
 import { storagePathForAudiobook, storagePathForMusic } from "./parsers.js";
+import { analyzeAudioFile, type FileMetadata } from "./mediaProbe.js";
 
 export class CatalogRepository {
-  constructor(private pool: pg.Pool) {}
+  constructor(
+    private pool: pg.Pool,
+    private contentRoot: string,
+  ) {}
 
   async upsertCatalog(cycles: ParsedCycle[], musicAlbums: ParsedBook[]): Promise<void> {
     const client = await this.pool.connect();
@@ -32,7 +36,7 @@ export class CatalogRepository {
             const key = `${book.slug}:${track.filename}`;
             activeTrackKeys.add(key);
             const storagePath = storagePathForAudiobook(cycle.slug, book.slug, track.filename);
-            await this.upsertTrack(client, bookId, track, storagePath);
+            await this.upsertTrack(client, bookId, track, storagePath, null);
           }
         }
       }
@@ -44,7 +48,7 @@ export class CatalogRepository {
           const key = `${album.slug}:${track.filename}`;
           activeTrackKeys.add(key);
           const storagePath = storagePathForMusic(album.slug, track.filename);
-          await this.upsertTrack(client, bookId, track, storagePath);
+          await this.upsertTrack(client, bookId, track, storagePath, null);
         }
       }
 
@@ -96,7 +100,9 @@ export class CatalogRepository {
     bookId: string,
     track: { filename: string; sortOrder: number; title: string },
     storagePath: string,
+    metadata: FileMetadata | null,
   ): Promise<void> {
+    const meta = metadata ?? (await analyzeAudioFile(this.contentRoot, storagePath));
     const trackResult = await client.query(
       `INSERT INTO tracks (book_id, sort_order, title, filename, updated_at, deleted_at)
        VALUES ($1, $2, $3, $4, now(), NULL)
@@ -120,11 +126,19 @@ export class CatalogRepository {
       );
     }
 
+    if (meta?.durationMs != null) {
+      await client.query(`UPDATE tracks SET duration_ms = $2 WHERE id = $1`, [trackId, meta.durationMs]);
+    }
+
     await client.query(
-      `INSERT INTO track_files (track_id, storage_path, updated_at)
-       VALUES ($1, $2, now())
-       ON CONFLICT (track_id) DO UPDATE SET storage_path = EXCLUDED.storage_path, updated_at = now()`,
-      [trackId, storagePath],
+      `INSERT INTO track_files (track_id, storage_path, checksum, size_bytes, updated_at)
+       VALUES ($1, $2, $3, $4, now())
+       ON CONFLICT (track_id) DO UPDATE SET
+         storage_path = EXCLUDED.storage_path,
+         checksum = EXCLUDED.checksum,
+         size_bytes = EXCLUDED.size_bytes,
+         updated_at = now()`,
+      [trackId, storagePath, meta?.checksum ?? null, meta?.sizeBytes ?? null],
     );
   }
 

@@ -11,7 +11,7 @@ export function signDownloadUrl(
   const uri = `/download/${storagePath}`;
   const toSign = `${expires}${uri} ${secret}`;
   const md5Hash = crypto.createHash("md5").update(toSign).digest();
-  const md5 = md5Hash.toString("base64url");
+  const md5 = md5Hash.toString("base64");
   return `${baseUrl}${uri}?md5=${md5}&expires=${expires}`;
 }
 

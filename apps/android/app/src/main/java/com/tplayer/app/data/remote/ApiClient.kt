@@ -18,7 +18,7 @@ import org.json.JSONObject
 
 class ApiClient(
     private val baseUrl: String,
-    private val httpClient: OkHttpClient = OkHttpClient(),
+    val httpClient: OkHttpClient = OkHttpClient(),
 ) {
     suspend fun fetchBooks(accessToken: String?): List<Book> = withContext(Dispatchers.IO) {
         val cycles = getJson("$baseUrl/catalog/cycles", accessToken)
@@ -62,6 +62,28 @@ class ApiClient(
             }
             book to tracks
         }
+
+    suspend fun signDownloadUrls(accessToken: String, trackIds: List<String>): List<SignedUrl> =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().put("track_ids", JSONArray(trackIds)).toString()
+            val request = Request.Builder()
+                .url("$baseUrl/downloads/sign")
+                .post(body.toRequestBody("application/json".toMediaType()))
+                .header("Authorization", "Bearer $accessToken")
+                .build()
+            httpClient.newCall(request).execute().use { response ->
+                val json = JSONObject(response.body?.string().orEmpty())
+                val arr = json.optJSONArray("urls") ?: JSONArray()
+                buildList {
+                    for (i in 0 until arr.length()) {
+                        val item = arr.getJSONObject(i)
+                        add(SignedUrl(item.getString("track_id"), item.getString("url")))
+                    }
+                }
+            }
+        }
+
+    data class SignedUrl(val trackId: String, val url: String)
 
     suspend fun pushProgress(accessToken: String, bookId: String, progress: AudiobookProgress) =
         withContext(Dispatchers.IO) {

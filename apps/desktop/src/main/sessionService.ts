@@ -2,33 +2,46 @@ import { safeStorage } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { SessionManager } from "../shared/session.js";
+import { SupabaseAuthClient, sessionFromGoTrue } from "../shared/supabaseAuth.js";
 import type { SessionState, StoredSession } from "../shared/types.js";
 
 const SESSION_FILE = "session.dat";
+
+export interface SessionConfig {
+  supabaseUrl: string;
+  anonKey: string;
+}
 
 export class SessionService {
   private session: StoredSession | null = null;
   private readonly manager = new SessionManager();
   private sessionPath = "";
+  private authClient: SupabaseAuthClient | null = null;
+  private online = true;
 
-  init(userDataPath: string): void {
+  init(userDataPath: string, config: SessionConfig): void {
     this.sessionPath = path.join(userDataPath, SESSION_FILE);
+    this.authClient = new SupabaseAuthClient(config);
     this.session = this.load();
   }
 
+  setOnline(online: boolean): void {
+    this.online = online;
+  }
+
+  getAccessToken(): string | null {
+    return this.session?.accessToken ?? null;
+  }
+
   getSnapshot(): { state: SessionState; userId: string | null } {
-    const online = this.checkOnline();
-    const state = this.manager.resolveState(this.session, online);
+    const state = this.manager.resolveState(this.session, this.online);
     return { state, userId: this.session?.userId ?? null };
   }
 
-  loginDemo(_email: string, _password: string): StoredSession {
-    const session: StoredSession = {
-      userId: "demo-user",
-      accessToken: "demo-access",
-      refreshToken: "demo-refresh",
-      expiresAtEpochSeconds: Math.floor(Date.now() / 1000) + 3600,
-    };
+  async login(email: string, password: string): Promise<StoredSession> {
+    if (!this.authClient) throw new Error("SessionService not initialized");
+    const result = await this.authClient.signInWithPassword(email, password);
+    const session = sessionFromGoTrue(result);
     this.session = session;
     this.persist(session);
     return session;
@@ -41,22 +54,26 @@ export class SessionService {
 
   async refreshIfNeeded(): Promise<SessionState> {
     if (!this.session) return "Unauthenticated";
-    const online = this.checkOnline();
-    if (!this.manager.shouldRefresh(this.session, online)) {
-      return this.manager.resolveState(this.session, online);
+    if (!this.manager.shouldRefresh(this.session, this.online)) {
+      return this.manager.resolveState(this.session, this.online);
     }
     if (!this.manager.beginRefresh()) {
-      return this.manager.resolveState(this.session, online);
+      return this.manager.resolveState(this.session, this.online);
     }
     try {
-      // Demo refresh — production uses Supabase auth.refreshSession()
-      this.session = {
-        ...this.session,
-        accessToken: "refreshed-access",
-        expiresAtEpochSeconds: Math.floor(Date.now() / 1000) + 3600,
-      };
+      if (!this.online) {
+        return this.manager.resolveState(this.session, false);
+      }
+      if (!this.authClient || !this.session.refreshToken) {
+        return "Unauthenticated";
+      }
+      const result = await this.authClient.refreshSession(this.session.refreshToken);
+      this.session = sessionFromGoTrue(result);
       this.persist(this.session);
       return "AuthenticatedOnline";
+    } catch {
+      this.logout();
+      return "Unauthenticated";
     } finally {
       this.manager.endRefresh();
     }
@@ -83,10 +100,5 @@ export class SessionService {
     } catch {
       return null;
     }
-  }
-
-  private checkOnline(): boolean {
-    // Main process: assume online; renderer passes network state in production
-    return true;
   }
 }

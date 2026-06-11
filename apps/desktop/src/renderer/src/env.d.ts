@@ -1,19 +1,16 @@
 export interface TPlayerApi {
   session: {
     get: () => Promise<{ state: string; userId: string | null }>;
-    login: (email: string, password: string) => Promise<unknown>;
+    setOnline: (online: boolean) => Promise<void>;
+    login: (email: string, password: string) => Promise<{ state: string; userId: string | null }>;
     logout: () => Promise<void>;
-    refreshIfNeeded: () => Promise<string>;
+  };
+  catalog: {
+    sync: () => Promise<Array<{ id: string; title: string; contentType: string; author?: string }>>;
   };
   db: {
     getBooks: () => Promise<
-      Array<{
-        id: string;
-        slug: string;
-        contentType: string;
-        title: string;
-        author?: string;
-      }>
+      Array<{ id: string; slug: string; contentType: string; title: string; author?: string }>
     >;
     getTracks: (bookId: string) => Promise<
       Array<{
@@ -22,8 +19,13 @@ export interface TPlayerApi {
         sortOrder: number;
         title: string;
         filename: string;
+        localPath?: string;
       }>
     >;
+  };
+  download: {
+    track: (bookId: string, trackId: string) => Promise<string>;
+    delete: (bookId: string, trackId: string) => Promise<void>;
   };
   playback: {
     setActive: (active: boolean) => Promise<void>;

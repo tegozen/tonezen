@@ -107,6 +107,29 @@ scripts/smoke-test.sh     # includes Android unit tests
 
 TDD is required for domain logic, indexer parsers, and API handlers. See AGENTS.md.
 
-## License
+## Production deployment
 
-Private — all rights reserved.
+1. Copy `.env.example` to `.env` and set strong secrets (`JWT_SECRET`, `POSTGRES_PASSWORD`, `DOWNLOAD_URL_SECRET`, `FTP_PASS`).
+2. Set `API_EXTERNAL_URL`, `GOTRUE_SITE_URL`, `DOWNLOAD_BASE_URL` to your public domain.
+3. Set `FTP_PASV_ADDRESS` to your VPS public IP.
+4. Run `./scripts/deploy-vps.sh`.
+5. Register a user via Supabase Auth (`POST /auth/v1/signup`) or disable signup and create users in GoTrue.
+6. Configure client apps with your server URL and `SUPABASE_ANON_KEY`.
+
+### Client configuration
+
+**Desktop** — environment variables at build/run time:
+
+- `TPLAYER_API_URL` — e.g. `https://your.domain/api/v1`
+- `TPLAYER_SUPABASE_URL` — e.g. `https://your.domain`
+- `TPLAYER_SUPABASE_ANON_KEY` — from `.env`
+
+**Android** — update `build.gradle.kts` `buildConfigField` values or use product flavors for release.
+
+### Security checklist
+
+- [ ] Change all default secrets in `.env`
+- [ ] Restrict FTP and Postgres ports via firewall (only nginx/Kong public)
+- [ ] Use HTTPS reverse proxy in front of Kong (Caddy/Traefik)
+- [ ] Set `GOTRUE_DISABLE_SIGNUP=true` if you want invite-only registration
+

@@ -71,9 +71,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
-    implementation("io.github.jan-tennert.supabase:auth-kt:3.0.2")
-    implementation("io.github.jan-tennert.supabase:postgrest-kt:3.0.2")
-    implementation("io.ktor:ktor-client-android:3.0.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.mockk:mockk:1.13.13")

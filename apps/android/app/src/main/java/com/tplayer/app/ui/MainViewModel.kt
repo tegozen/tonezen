@@ -6,9 +6,11 @@ import com.tplayer.app.data.local.AudiobookProgressEntity
 import com.tplayer.app.data.local.BookEntity
 import com.tplayer.app.data.local.CatalogDao
 import com.tplayer.app.data.local.FavoriteEntity
-import com.tplayer.app.data.local.SecureSessionStore
 import com.tplayer.app.data.local.TrackEntity
+import com.tplayer.app.data.remote.AuthRepository
 import com.tplayer.app.data.remote.ApiClient
+import com.tplayer.app.data.remote.DownloadRepository
+import com.tplayer.app.data.remote.SessionRepository
 import com.tplayer.app.data.remote.isNetworkAvailable
 import com.tplayer.app.domain.model.AudiobookProgress
 import com.tplayer.app.domain.model.Book
@@ -16,8 +18,6 @@ import com.tplayer.app.domain.model.ContentType
 import com.tplayer.app.domain.model.SessionState
 import com.tplayer.app.domain.model.StoredSession
 import com.tplayer.app.domain.model.Track
-import com.tplayer.app.domain.session.ProgressMerge
-import com.tplayer.app.domain.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.content.Context
@@ -34,6 +34,7 @@ data class MainUiState(
     val selectedBook: Book? = null,
     val tracks: List<Track> = emptyList(),
     val progressLabel: String? = null,
+    val downloadProgress: Float? = null,
     val error: String? = null,
 )
 
@@ -41,9 +42,10 @@ data class MainUiState(
 class MainViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val catalogDao: CatalogDao,
-    private val sessionStore: SecureSessionStore,
-    private val sessionManager: SessionManager,
+    private val sessionRepository: SessionRepository,
+    private val authRepository: AuthRepository,
     private val apiClient: ApiClient,
+    private val downloadRepository: DownloadRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -51,7 +53,7 @@ class MainViewModel @Inject constructor(
     private var session: StoredSession? = null
 
     init {
-        session = sessionStore.load()
+        session = sessionRepository.loadSession()
         refreshSessionState()
         loadLibrary()
     }
@@ -59,15 +61,9 @@ class MainViewModel @Inject constructor(
     fun login(email: String, password: String) {
         viewModelScope.launch {
             try {
-                // Demo session — replace with Supabase Auth in production deployment
-                val demo = StoredSession(
-                    userId = "demo-user",
-                    accessToken = "demo-access-token",
-                    refreshToken = "demo-refresh-token",
-                    expiresAtEpochSeconds = System.currentTimeMillis() / 1000 + 3600,
-                )
-                sessionStore.save(demo)
-                session = demo
+                val signedIn = authRepository.signInWithPassword(email, password)
+                sessionRepository.saveSession(signedIn)
+                session = signedIn
                 refreshSessionState()
                 syncCatalog()
             } catch (e: Exception) {
@@ -77,7 +73,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun logout() {
-        sessionStore.clear()
+        sessionRepository.clearSession()
         session = null
         refreshSessionState()
     }
@@ -103,7 +99,49 @@ class MainViewModel @Inject constructor(
     }
 
     fun playBook() {
-        // Playback started via PlaybackService intent from UI layer extension
+        // Playback via PlaybackService — started from UI layer extension
+    }
+
+    fun downloadBook() {
+        val book = _uiState.value.selectedBook ?: return
+        val token = session?.accessToken ?: return
+        viewModelScope.launch {
+            try {
+                session = sessionRepository.refreshIfNeeded(session)
+                val accessToken = session?.accessToken ?: return@launch
+                val tracks = catalogDao.getTracksForBook(book.id)
+                tracks.forEachIndexed { index, track ->
+                    val file = downloadRepository.downloadTrack(
+                        accessToken,
+                        book.id,
+                        track.id,
+                    ) { progress ->
+                        _uiState.update {
+                            it.copy(downloadProgress = (index + progress) / tracks.size)
+                        }
+                    }
+                    catalogDao.upsertTracks(
+                        listOf(track.copy(localPath = file.absolutePath)),
+                    )
+                }
+                _uiState.update { it.copy(downloadProgress = null) }
+                selectBook(book)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message, downloadProgress = null) }
+            }
+        }
+    }
+
+    fun deleteLocalDownloads() {
+        val book = _uiState.value.selectedBook ?: return
+        viewModelScope.launch {
+            catalogDao.clearLocalPathsForBook(book.id)
+            val tracks = catalogDao.getTracksForBook(book.id)
+            tracks.forEach { track ->
+                downloadRepository.deleteLocalTrack(book.id, track.id)
+            }
+            selectBook(book)
+        }
     }
 
     fun toggleFavorite() {
@@ -130,25 +168,27 @@ class MainViewModel @Inject constructor(
     }
 
     private fun refreshSessionState() {
-        val online = context.isNetworkAvailable()
         _uiState.update {
-            it.copy(sessionState = sessionManager.resolveState(session, online))
+            it.copy(sessionState = sessionRepository.resolveState(session))
         }
     }
 
     private fun loadLibrary() {
         viewModelScope.launch {
+            session = sessionRepository.refreshIfNeeded(session)
+            refreshSessionState()
             val local = catalogDao.getAllBooks().map { it.toDomain() }
             if (local.isNotEmpty()) {
                 _uiState.update { it.copy(books = local) }
             }
-            if (sessionManager.canUseForApi(session, context.isNetworkAvailable())) {
+            if (context.isNetworkAvailable() && session != null) {
                 syncCatalog()
             }
         }
     }
 
     private suspend fun syncCatalog() {
+        session = sessionRepository.refreshIfNeeded(session) ?: return
         val token = session?.accessToken
         val remoteBooks = apiClient.fetchBooks(token)
         catalogDao.upsertBooks(
@@ -168,16 +208,16 @@ class MainViewModel @Inject constructor(
     }
 
     private suspend fun maybeSyncProgress(entity: AudiobookProgressEntity) {
-        val online = context.isNetworkAvailable()
-        if (!sessionManager.shouldRefresh(session, online) && session != null && online) {
-            val progress = AudiobookProgress(
-                entity.bookId,
-                entity.trackId,
-                entity.positionMs,
-                entity.updatedAtEpochMs,
-            )
-            session?.accessToken?.let { apiClient.pushProgress(it, entity.bookId, progress) }
-        }
+        if (!context.isNetworkAvailable()) return
+        session = sessionRepository.refreshIfNeeded(session) ?: return
+        val token = session?.accessToken ?: return
+        val progress = AudiobookProgress(
+            entity.bookId,
+            entity.trackId,
+            entity.positionMs,
+            entity.updatedAtEpochMs,
+        )
+        apiClient.pushProgress(token, entity.bookId, progress)
     }
 
     private fun BookEntity.toDomain() = Book(

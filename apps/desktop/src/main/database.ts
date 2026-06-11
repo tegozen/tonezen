@@ -39,6 +39,50 @@ export const LocalDatabase = {
     `);
   },
 
+  upsertBooks(books: Book[]): void {
+    const stmt = db!.prepare(`
+      INSERT INTO books (id, slug, content_type, title, author)
+      VALUES (@id, @slug, @contentType, @title, @author)
+      ON CONFLICT(id) DO UPDATE SET
+        slug = excluded.slug,
+        content_type = excluded.content_type,
+        title = excluded.title,
+        author = excluded.author
+    `);
+    const tx = db!.transaction((items: Book[]) => {
+      for (const book of items) stmt.run(book);
+    });
+    tx(books);
+  },
+
+  upsertTracks(tracks: Track[]): void {
+    const stmt = db!.prepare(`
+      INSERT INTO tracks (id, book_id, sort_order, title, filename, duration_ms, local_path)
+      VALUES (@id, @bookId, @sortOrder, @title, @filename, @durationMs, @localPath)
+      ON CONFLICT(id) DO UPDATE SET
+        book_id = excluded.book_id,
+        sort_order = excluded.sort_order,
+        title = excluded.title,
+        filename = excluded.filename,
+        duration_ms = excluded.duration_ms,
+        local_path = COALESCE(excluded.local_path, tracks.local_path)
+    `);
+    const tx = db!.transaction((items: Track[]) => {
+      for (const track of items) {
+        stmt.run({
+          ...track,
+          durationMs: track.durationMs ?? null,
+          localPath: track.localPath ?? null,
+        });
+      }
+    });
+    tx(tracks);
+  },
+
+  setTrackLocalPath(trackId: string, localPath: string | null): void {
+    db!.prepare(`UPDATE tracks SET local_path = ? WHERE id = ?`).run(localPath, trackId);
+  },
+
   getBooks(): Book[] {
     const rows = db!
       .prepare(`SELECT id, slug, content_type, title, author FROM books ORDER BY title`)

@@ -38,7 +38,7 @@ services:
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_MAILER_AUTOCONFIRM: "true"
       GOTRUE_SMTP_ADMIN_EMAIL: admin@tplayer.local
-      GOTRUE_SMTP_HOST: supabase-mail
+      GOTRUE_SMTP_HOST: mail
       GOTRUE_SMTP_PORT: 2500
       GOTRUE_SMTP_SENDER_NAME: TPlayer
 
@@ -68,7 +68,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       DOWNLOAD_URL_SECRET: ${DOWNLOAD_URL_SECRET}
       DOWNLOAD_URL_TTL_SECONDS: ${DOWNLOAD_URL_TTL_SECONDS:-900}
-      DOWNLOAD_BASE_URL: http://localhost:8080
+      DOWNLOAD_BASE_URL: ${DOWNLOAD_BASE_URL:-http://localhost:8080}
       PORT: 3001
     ports:
       - "3001:3001"
@@ -95,10 +95,12 @@ services:
     restart: unless-stopped
     ports:
       - "8080:80"
+    entrypoint: ["/bin/sh", "/docker-entrypoint.sh"]
     volumes:
       - ./data/content:/content:ro
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./docker/nginx/secure_link.conf:/etc/nginx/conf.d/secure_link.conf:ro
+      - ./docker/nginx/secure_link.conf.template:/etc/nginx/templates/secure_link.conf.template:ro
+      - ./docker/nginx/docker-entrypoint.sh:/docker-entrypoint.sh:ro
     environment:
       DOWNLOAD_URL_SECRET: ${DOWNLOAD_URL_SECRET}
 

@@ -1,0 +1,26 @@
+# Generated from DOWNLOAD_URL_SECRET at container start
+map $uri $download_uri {
+    default $uri;
+}
+
+server {
+    listen 80;
+    server_name _;
+
+    location /download/ {
+        set $download_secret "${DOWNLOAD_URL_SECRET}";
+
+        secure_link $arg_md5,$arg_expires;
+        secure_link_md5 "$secure_link_expires$uri $download_secret";
+
+        if ($secure_link = "") { return 403; }
+        if ($secure_link = "0") { return 410; }
+
+        alias /content/;
+    }
+
+    location /health {
+        return 200 'ok';
+        add_header Content-Type text/plain;
+    }
+}

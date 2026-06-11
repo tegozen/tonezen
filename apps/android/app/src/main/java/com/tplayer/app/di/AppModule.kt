@@ -7,6 +7,9 @@ import com.tplayer.app.data.local.CatalogDao
 import com.tplayer.app.data.local.SecureSessionStore
 import com.tplayer.app.data.local.TPlayerDatabase
 import com.tplayer.app.data.remote.ApiClient
+import com.tplayer.app.data.remote.AuthRepository
+import com.tplayer.app.data.remote.DownloadRepository
+import com.tplayer.app.data.remote.SessionRepository
 import com.tplayer.app.domain.session.SessionManager
 import dagger.Module
 import dagger.Provides
@@ -37,5 +40,26 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideAuthRepository(): AuthRepository =
+        AuthRepository(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY)
+
+    @Provides
+    @Singleton
+    fun provideSessionRepository(
+        @ApplicationContext context: Context,
+        sessionStore: SecureSessionStore,
+        authRepository: AuthRepository,
+        sessionManager: SessionManager,
+    ): SessionRepository = SessionRepository(context, sessionStore, authRepository, sessionManager)
+
+    @Provides
+    @Singleton
     fun provideApiClient(): ApiClient = ApiClient(BuildConfig.API_BASE_URL)
+
+    @Provides
+    @Singleton
+    fun provideDownloadRepository(
+        @ApplicationContext context: Context,
+        apiClient: ApiClient,
+    ): DownloadRepository = DownloadRepository(context, apiClient)
 }

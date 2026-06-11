@@ -11,7 +11,7 @@ if (!databaseUrl) {
 }
 
 const pool = createPool(databaseUrl);
-const repo = new CatalogRepository(pool);
+const repo = new CatalogRepository(pool, contentRoot);
 
 async function runOnce(): Promise<void> {
   console.log(`[indexer] Scanning ${contentRoot}...`);

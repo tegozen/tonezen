@@ -37,7 +37,7 @@ fun TPlayerApp(viewModel: MainViewModel = hiltViewModel()) {
         when {
             state.sessionState == SessionState.UNAUTHENTICATED -> AuthScreen(
                 padding = padding,
-                onLogin = { email, password -> viewModel.login(email, password) },
+                onLogin = viewModel::login,
                 error = state.error,
             )
             state.selectedBook == null -> LibraryScreen(
@@ -52,33 +52,14 @@ fun TPlayerApp(viewModel: MainViewModel = hiltViewModel()) {
                 book = state.selectedBook!!,
                 tracks = state.tracks,
                 progressLabel = state.progressLabel,
+                downloadProgress = state.downloadProgress,
                 onPlay = viewModel::playBook,
+                onDownload = viewModel::downloadBook,
+                onDeleteLocal = viewModel::deleteLocalDownloads,
                 onBack = viewModel::clearSelection,
                 onToggleFavorite = viewModel::toggleFavorite,
             )
         }
-    }
-}
-
-@Composable
-private fun AuthScreen(
-    padding: PaddingValues,
-    onLogin: (String, String) -> Unit,
-    error: String?,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(padding)
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text("Sign in to sync audiobook progress", style = MaterialTheme.typography.titleMedium)
-        Button(onClick = { onLogin("demo@tplayer.local", "demo-password") }) {
-            Text("Continue (demo)")
-        }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        Text("Guest mode: use demo login or skip by closing — offline playback uses local cache.")
     }
 }
 
@@ -123,7 +104,10 @@ private fun BookDetailScreen(
     book: Book,
     tracks: List<com.tplayer.app.domain.model.Track>,
     progressLabel: String?,
+    downloadProgress: Float?,
     onPlay: () -> Unit,
+    onDownload: () -> Unit,
+    onDeleteLocal: () -> Unit,
     onBack: () -> Unit,
     onToggleFavorite: () -> Unit,
 ) {
@@ -136,11 +120,15 @@ private fun BookDetailScreen(
     ) {
         Text(book.title, style = MaterialTheme.typography.headlineSmall)
         progressLabel?.let { Text("Continue: $it") }
+        downloadProgress?.let { Text("Downloading: ${(it * 100).toInt()}%") }
         Button(onClick = onPlay) { Text(if (progressLabel != null) "Resume" else "Play") }
+        Button(onClick = onDownload) { Text("Download") }
+        Button(onClick = onDeleteLocal) { Text("Delete local files") }
         Button(onClick = onToggleFavorite) { Text("Toggle favorite") }
         Button(onClick = onBack) { Text("Back") }
         tracks.forEach { track ->
-            Text("${track.sortOrder + 1}. ${track.title}")
+            val suffix = if (track.localPath != null) " [downloaded]" else ""
+            Text("${track.sortOrder + 1}. ${track.title}$suffix")
         }
     }
 }
