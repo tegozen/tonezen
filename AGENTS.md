@@ -6,7 +6,7 @@ Monorepo offline-first media player:
 
 - **Android** — Kotlin, Jetpack Compose, Media3, Room
 - **Desktop** — Electron, React, Vite, better-sqlite3
-- **Backend** — Self-hosted Supabase (Docker), FTP content volume, catalog indexer
+- **Backend** — Self-hosted Supabase (Docker), content volume, catalog indexer
 
 Shared API contract: [`docs/openapi.yaml`](docs/openapi.yaml).
 

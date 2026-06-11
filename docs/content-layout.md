@@ -1,6 +1,7 @@
 # Content Volume Layout
 
-Upload audio content to the FTP volume using this directory structure.
+Place audio files on the content volume using this directory structure.
+Local dev: `./data/content/`. Production: set `CONTENT_HOST_PATH` in `.env` to your host path.
 The catalog indexer scans these paths and upserts metadata into Postgres.
 
 ## Root structure
@@ -75,9 +76,7 @@ The catalog indexer scans these paths and upserts metadata into Postgres.
 - Sets `deleted_at` on catalog entries removed from the volume (soft delete)
 - Rescan interval configurable via `INDEXER_INTERVAL_SECONDS`
 
-## FTP access
+## Volume mount
 
-- Host: your VPS
-- Port: 21 (passive range 21100–21110)
-- User/password: see `.env` (`FTP_USER`, `FTP_PASS`)
-- Upload path: `/home/vsftpd/{FTP_USER}/` maps to `./data/content/`
+Indexer and nginx read the same host directory, mounted at `/content` inside containers.
+Upload content however you manage the VPS (FTP, rsync, scp, etc.) — TPlayer only needs the files on disk.

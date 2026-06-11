@@ -97,27 +97,12 @@ services:
       - "8080:80"
     entrypoint: ["/bin/sh", "/docker-entrypoint.sh"]
     volumes:
-      - ./data/content:/content:ro
+      - ${CONTENT_HOST_PATH:-./data/content}:/content:ro
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./docker/nginx/secure_link.conf.template:/etc/nginx/templates/secure_link.conf.template:ro
       - ./docker/nginx/docker-entrypoint.sh:/docker-entrypoint.sh:ro
     environment:
       DOWNLOAD_URL_SECRET: ${DOWNLOAD_URL_SECRET}
-
-  ftp:
-    image: fauria/vsftpd
-    restart: unless-stopped
-    ports:
-      - "21:21"
-      - "21100-21110:21100-21110"
-    environment:
-      FTP_USER: ${FTP_USER:-tplayer}
-      FTP_PASS: ${FTP_PASS:-changeme}
-      PASV_ADDRESS: ${FTP_PASV_ADDRESS:-127.0.0.1}
-      PASV_MIN_PORT: ${FTP_PASV_MIN_PORT:-21100}
-      PASV_MAX_PORT: ${FTP_PASV_MAX_PORT:-21110}
-    volumes:
-      - ./data/content:/home/vsftpd/${FTP_USER:-tplayer}
 
   indexer:
     build:
@@ -132,7 +117,7 @@ services:
       CONTENT_ROOT: ${CONTENT_ROOT:-/content}
       INDEXER_INTERVAL_SECONDS: ${INDEXER_INTERVAL_SECONDS:-60}
     volumes:
-      - ./data/content:/content:ro
+      - ${CONTENT_HOST_PATH:-./data/content}:/content:ro
 
   mail:
     image: inbucket/inbucket:3.0.3
