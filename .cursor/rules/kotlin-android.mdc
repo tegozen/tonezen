@@ -1,0 +1,14 @@
+---
+description: Kotlin Android conventions
+globs: apps/android/**
+alwaysApply: false
+---
+
+# Android
+
+- Kotlin + Jetpack Compose + Hilt + Room + Media3
+- UI in `ui/`, domain use cases test-first (JUnit 5 + MockK + Turbine)
+- `MediaSessionService` for background playback
+- SessionManager: offline grace, refresh only online
+- OkHttp Authenticator for token refresh (single-flight)
+- EncryptedSharedPreferences for tokens

@@ -1,0 +1,155 @@
+import pg from "pg";
+import type { ParsedBook, ParsedCycle } from "./parsers.js";
+import { storagePathForAudiobook, storagePathForMusic } from "./parsers.js";
+
+export class CatalogRepository {
+  constructor(private pool: pg.Pool) {}
+
+  async upsertCatalog(cycles: ParsedCycle[], musicAlbums: ParsedBook[]): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const activeCycleSlugs = new Set<string>();
+      const activeBookSlugs = new Set<string>();
+      const activeTrackKeys = new Set<string>();
+
+      for (const cycle of cycles) {
+        activeCycleSlugs.add(cycle.slug);
+        const cycleId = await this.upsertCycle(client, cycle);
+        for (let i = 0; i < cycle.bookOrder.length; i++) {
+          const bookSlug = cycle.bookOrder[i];
+          const book = cycle.books.find((b) => b.slug === bookSlug);
+          if (!book) continue;
+          activeBookSlugs.add(book.slug);
+          const bookId = await this.upsertBook(client, book);
+          await client.query(
+            `INSERT INTO cycle_books (cycle_id, book_id, sort_order)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (cycle_id, book_id) DO UPDATE SET sort_order = EXCLUDED.sort_order`,
+            [cycleId, bookId, i],
+          );
+          for (const track of book.tracks) {
+            const key = `${book.slug}:${track.filename}`;
+            activeTrackKeys.add(key);
+            const storagePath = storagePathForAudiobook(cycle.slug, book.slug, track.filename);
+            await this.upsertTrack(client, bookId, track, storagePath);
+          }
+        }
+      }
+
+      for (const album of musicAlbums) {
+        activeBookSlugs.add(album.slug);
+        const bookId = await this.upsertBook(client, album);
+        for (const track of album.tracks) {
+          const key = `${album.slug}:${track.filename}`;
+          activeTrackKeys.add(key);
+          const storagePath = storagePathForMusic(album.slug, track.filename);
+          await this.upsertTrack(client, bookId, track, storagePath);
+        }
+      }
+
+      await this.softDeleteMissing(client, activeCycleSlugs, activeBookSlugs);
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  private async upsertCycle(client: pg.PoolClient, cycle: ParsedCycle): Promise<string> {
+    const result = await client.query(
+      `INSERT INTO cycles (slug, title, description, book_order, updated_at, deleted_at)
+       VALUES ($1, $2, $3, $4, now(), NULL)
+       ON CONFLICT (slug) DO UPDATE SET
+         title = EXCLUDED.title,
+         description = EXCLUDED.description,
+         book_order = EXCLUDED.book_order,
+         updated_at = now(),
+         deleted_at = NULL
+       RETURNING id`,
+      [cycle.slug, cycle.title, cycle.description, JSON.stringify(cycle.bookOrder)],
+    );
+    return result.rows[0].id as string;
+  }
+
+  private async upsertBook(client: pg.PoolClient, book: ParsedBook): Promise<string> {
+    const result = await client.query(
+      `INSERT INTO books (slug, content_type, title, author, cover_path, updated_at, deleted_at)
+       VALUES ($1, $2, $3, $4, $5, now(), NULL)
+       ON CONFLICT (slug) DO UPDATE SET
+         content_type = EXCLUDED.content_type,
+         title = EXCLUDED.title,
+         author = EXCLUDED.author,
+         cover_path = EXCLUDED.cover_path,
+         updated_at = now(),
+         deleted_at = NULL
+       RETURNING id`,
+      [book.slug, book.contentType, book.title, book.author, book.coverPath],
+    );
+    return result.rows[0].id as string;
+  }
+
+  private async upsertTrack(
+    client: pg.PoolClient,
+    bookId: string,
+    track: { filename: string; sortOrder: number; title: string },
+    storagePath: string,
+  ): Promise<void> {
+    const trackResult = await client.query(
+      `INSERT INTO tracks (book_id, sort_order, title, filename, updated_at, deleted_at)
+       VALUES ($1, $2, $3, $4, now(), NULL)
+       ON CONFLICT DO NOTHING
+       RETURNING id`,
+      [bookId, track.sortOrder, track.title, track.filename],
+    );
+
+    let trackId: string;
+    if (trackResult.rows.length > 0) {
+      trackId = trackResult.rows[0].id as string;
+    } else {
+      const existing = await client.query(
+        `SELECT id FROM tracks WHERE book_id = $1 AND filename = $2`,
+        [bookId, track.filename],
+      );
+      trackId = existing.rows[0].id as string;
+      await client.query(
+        `UPDATE tracks SET sort_order = $2, title = $3, updated_at = now(), deleted_at = NULL WHERE id = $1`,
+        [trackId, track.sortOrder, track.title],
+      );
+    }
+
+    await client.query(
+      `INSERT INTO track_files (track_id, storage_path, updated_at)
+       VALUES ($1, $2, now())
+       ON CONFLICT (track_id) DO UPDATE SET storage_path = EXCLUDED.storage_path, updated_at = now()`,
+      [trackId, storagePath],
+    );
+  }
+
+  private async softDeleteMissing(
+    client: pg.PoolClient,
+    activeCycleSlugs: Set<string>,
+    activeBookSlugs: Set<string>,
+  ): Promise<void> {
+    if (activeCycleSlugs.size > 0) {
+      await client.query(
+        `UPDATE cycles SET deleted_at = now()
+         WHERE slug != ALL($1::text[]) AND deleted_at IS NULL`,
+        [Array.from(activeCycleSlugs)],
+      );
+    }
+    if (activeBookSlugs.size > 0) {
+      await client.query(
+        `UPDATE books SET deleted_at = now()
+         WHERE slug != ALL($1::text[]) AND deleted_at IS NULL`,
+        [Array.from(activeBookSlugs)],
+      );
+    }
+  }
+}
+
+export function createPool(databaseUrl: string): pg.Pool {
+  return new pg.Pool({ connectionString: databaseUrl });
+}

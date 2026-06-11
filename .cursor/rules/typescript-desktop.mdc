@@ -1,0 +1,14 @@
+---
+description: Electron desktop conventions
+globs: apps/desktop/**
+alwaysApply: false
+---
+
+# Desktop (Electron)
+
+- electron-vite + React + strict TypeScript
+- Main process: tray-first lifecycle, SessionService, IPC, sqlite
+- Close/minimize → hide to tray; `app.quit()` only from tray «Exit»
+- `WindowLifecycleManager` with `isQuitting` flag
+- Domain logic in shared TS modules, test with Vitest
+- Supabase JS auth with offline-safe session handling

@@ -1,0 +1,281 @@
+openapi: 3.1.0
+info:
+  title: TPlayer API
+  version: 1.0.0
+  description: Offline-first media player API
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local Kong gateway
+
+security:
+  - bearerAuth: []
+
+paths:
+  /catalog/cycles:
+    get:
+      summary: List audiobook cycles
+      security: []
+      parameters:
+        - name: updated_since
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Cycle list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cycles:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Cycle"
+
+  /catalog/music:
+    get:
+      summary: List music albums
+      security: []
+      parameters:
+        - name: updated_since
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Music album list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  albums:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Book"
+
+  /catalog/books/{bookId}:
+    get:
+      summary: Get book or album with tracks
+      security: []
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Book detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookDetail"
+        "404":
+          description: Not found
+
+  /downloads/sign:
+    post:
+      summary: Sign download URLs for tracks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [track_ids]
+              properties:
+                track_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        "200":
+          description: Signed URLs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  urls:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        track_id:
+                          type: string
+                          format: uuid
+                        url:
+                          type: string
+                          format: uri
+
+  /favorites:
+    get:
+      summary: List user favorites
+      responses:
+        "200":
+          description: Favorites
+    post:
+      summary: Add favorite
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [book_id]
+              properties:
+                book_id:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Created
+
+  /favorites/{bookId}:
+    delete:
+      summary: Remove favorite
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /progress/audiobooks:
+    get:
+      summary: Get all audiobook progress for user
+      responses:
+        "200":
+          description: Progress list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  progress:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AudiobookProgress"
+
+  /progress/audiobooks/{bookId}:
+    put:
+      summary: Upsert audiobook progress
+      parameters:
+        - name: bookId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [track_id, position_ms, updated_at]
+              properties:
+                track_id:
+                  type: string
+                  format: uuid
+                position_ms:
+                  type: integer
+                updated_at:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Updated progress
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Cycle:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        book_order:
+          type: array
+          items:
+            type: string
+        books:
+          type: array
+          items:
+            $ref: "#/components/schemas/Book"
+
+    Book:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        content_type:
+          type: string
+          enum: [audiobook, music]
+        title:
+          type: string
+        author:
+          type: string
+
+    BookDetail:
+      allOf:
+        - $ref: "#/components/schemas/Book"
+        - type: object
+          properties:
+            tracks:
+              type: array
+              items:
+                $ref: "#/components/schemas/Track"
+
+    Track:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sort_order:
+          type: integer
+        title:
+          type: string
+        filename:
+          type: string
+        duration_ms:
+          type: integer
+
+    AudiobookProgress:
+      type: object
+      properties:
+        book_id:
+          type: string
+          format: uuid
+        track_id:
+          type: string
+          format: uuid
+        position_ms:
+          type: integer
+        updated_at:
+          type: string
+          format: date-time

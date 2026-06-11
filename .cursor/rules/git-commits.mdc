@@ -1,0 +1,15 @@
+---
+description: Git commit conventions
+alwaysApply: true
+---
+
+# Git Commits
+
+Use Conventional Commits in English:
+
+- `feat(scope): description`
+- `fix(scope): description`
+- `test(scope): description`
+- `docs:`, `chore:`, `ci:`, `refactor:`
+
+One logical change + tests per commit/PR when possible.

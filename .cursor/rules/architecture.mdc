@@ -1,0 +1,14 @@
+---
+description: Core architecture — layers, offline-first, API-first
+alwaysApply: true
+---
+
+# Architecture
+
+- Client layers: `ui → domain → data` (dependencies inward only)
+- Domain has no platform SDK imports
+- API changes start in `docs/openapi.yaml`, then tests, then code
+- Offline-first: local cache + sync when online
+- Audiobook progress syncs; music progress is local only
+- Auth: expired JWT offline ≠ logout; refresh only when online
+- Desktop: close/minimize → tray; quit only via tray menu
