@@ -2,7 +2,6 @@ package com.tonezen.app.ui.library
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,7 +24,7 @@ import com.tonezen.app.R
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.ui.components.BookCover
-import com.tonezen.app.ui.components.CycleCover
+import com.tonezen.app.ui.components.DetailHeaderOverflowMenu
 import com.tonezen.app.ui.components.StatusChip
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.components.bookAuthorLabel
@@ -40,9 +38,13 @@ internal fun CycleDetailScreen(
     padding: PaddingValues,
     hazeState: HazeState,
     cycle: Cycle,
+    cycleCardState: CycleCardState,
     downloadedBookIds: Set<String>,
     onBack: () -> Unit,
     onBookClick: (Book) -> Unit,
+    onDownloadCycle: () -> Unit,
+    onToggleCycleListened: () -> Unit,
+    onRemoveCycleDownloads: () -> Unit,
     bottomScrollPadding: Dp,
 ) {
     TonezenFixedHeaderScreen(
@@ -53,7 +55,7 @@ internal fun CycleDetailScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp),
         title = {
             Text(
-                text = cycle.title,
+                text = stringResource(R.string.cycle_books_section),
                 color = TonezenInk,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -61,25 +63,17 @@ internal fun CycleDetailScreen(
                 overflow = TextOverflow.Ellipsis,
             )
         },
-    ) {
-        item {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                CycleCover(
-                    cycle = cycle,
-                    modifier = Modifier
-                        .fillMaxWidth(0.55f)
-                        .aspectRatio(0.78f),
-                )
-            }
-        }
-        item {
-            Text(
-                text = stringResource(R.string.cycle_books_section),
-                color = TonezenInk,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
+        trailing = {
+            DetailHeaderOverflowMenu(
+                showDownload = cycleCardState.showDownload,
+                showRemoveDownload = cycleCardState.showRemoveDownload,
+                isListened = cycleCardState.isListened,
+                onDownload = onDownloadCycle,
+                onToggleListened = onToggleCycleListened,
+                onRemoveDownloads = onRemoveCycleDownloads,
             )
-        }
+        },
+    ) {
         items(cycle.books) { book ->
             CycleBookRow(
                 book = book,

@@ -12,6 +12,8 @@ import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.music.MusicShuffleQueue
+import com.tonezen.app.domain.progress.isBookFullyListened
+import com.tonezen.app.domain.progress.resolveAudiobookPlaybackStartMs
 import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackEvents
@@ -101,11 +103,12 @@ class BookDetailViewModel @Inject constructor(
             when (book.contentType) {
                 ContentType.AUDIOBOOK -> {
                     val tracks = catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
-                    val queue = playbackQueueBuilder.buildAudiobookQueue(book, tracks)
+                    val queue = playbackQueueBuilder.buildQueueFromLocalTracks(book, tracks)
                     if (queue.isEmpty()) return@launch
-                    val startIndex = queue.indexOfFirst { it.trackId == track.id }.coerceAtLeast(0)
+                    val startIndex = queue.indexOfFirst { it.trackId == track.id }
+                    if (startIndex < 0) return@launch
                     val progress = catalogRepository.getProgress(book.id)
-                    val startMs = if (progress?.trackId == track.id) progress.positionMs else 0L
+                    val startMs = resolveAudiobookPlaybackStartMs(progress, track)
                     currentTrack = track
                     playbackClient.playQueue(queue, startIndex, startMs)
                 }
@@ -177,6 +180,13 @@ class BookDetailViewModel @Inject constructor(
     fun deleteLocalDownloads() {
         val book = _uiState.value.book ?: return
         viewModelScope.launch {
+            val snapshot = playbackClient.snapshot.value
+            val isCurrentBook = snapshot.trackId != null &&
+                _uiState.value.tracks.any { it.id == snapshot.trackId }
+            if (isCurrentBook) {
+                playbackClient.stopAndRelease()
+                _uiState.update { it.copy(activeTrackId = null, playbackPositionMs = 0L) }
+            }
             catalogRepository.clearLocalDownloads(book.id)
             val tracks = catalogRepository.getTracksForBook(book.id)
             tracks.forEach { track ->
@@ -197,11 +207,57 @@ class BookDetailViewModel @Inject constructor(
         }
     }
 
+    fun toggleBookListened() {
+        val book = _uiState.value.book ?: return
+        if (book.contentType != ContentType.AUDIOBOOK) return
+        if (isBookFullyListened(_uiState.value.tracks, _uiState.value.audiobookProgress)) {
+            markBookUnlistened()
+        } else {
+            markBookListened()
+        }
+    }
+
+    fun markBookListened() {
+        val book = _uiState.value.book ?: return
+        if (book.contentType != ContentType.AUDIOBOOK) return
+        viewModelScope.launch {
+            val tracks = withContext(Dispatchers.IO) {
+                catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
+            }
+            val lastTrack = tracks.lastOrNull() ?: return@launch
+            persistAudiobookProgress(book.id, lastTrack.id, lastTrack.durationMs ?: 0L)
+        }
+    }
+
+    fun markBookUnlistened() {
+        val book = _uiState.value.book ?: return
+        if (book.contentType != ContentType.AUDIOBOOK) return
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                catalogRepository.clearProgress(book.id)
+            }
+            _uiState.update {
+                it.copy(
+                    audiobookProgress = null,
+                    syncStatus = SyncDisplayStatus.NONE,
+                )
+            }
+        }
+    }
+
     fun markTrackListened(track: Track) {
         val book = _uiState.value.book ?: return
         if (book.contentType != ContentType.AUDIOBOOK) return
         viewModelScope.launch {
             persistAudiobookProgress(book.id, track.id, track.durationMs ?: 0L)
+        }
+    }
+
+    fun markTrackUnlistened(track: Track) {
+        val book = _uiState.value.book ?: return
+        if (book.contentType != ContentType.AUDIOBOOK) return
+        viewModelScope.launch {
+            persistAudiobookProgress(book.id, track.id, 0L)
         }
     }
 

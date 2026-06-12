@@ -50,6 +50,13 @@ fun resolveCycleListenFraction(
     return (listenedMs.toFloat() / totalMs.toFloat()).coerceIn(0f, 1f)
 }
 
+fun isCycleFullyListened(
+    cycle: Cycle,
+    tracksByBookId: Map<String, List<Track>>,
+    progressByBookId: Map<String, AudiobookProgress?>,
+): Boolean = (resolveCycleListenFraction(cycle, tracksByBookId, progressByBookId) ?: 0f) >=
+    COMPLETED_FRACTION_THRESHOLD
+
 fun resolveCycleResumeTarget(
     cycle: Cycle,
     tracksByBookId: Map<String, List<Track>>,

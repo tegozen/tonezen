@@ -20,8 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.activity.compose.BackHandler
-import android.content.Intent
-import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,7 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
 import com.tonezen.app.ui.theme.TonezenFaint
@@ -40,7 +37,6 @@ import com.tonezen.app.R
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.components.CheckCircleGlyph
 import com.tonezen.app.ui.components.ChevronRightGlyph
-import com.tonezen.app.ui.components.LockGlyph
 import com.tonezen.app.ui.components.OfflineSyncDialog
 import com.tonezen.app.ui.components.ProfileGlyph
 import com.tonezen.app.ui.components.SignOutConfirmDialog
@@ -71,7 +67,6 @@ internal fun ProfileScreen(
     showMiniPlayer: Boolean = false,
 ) {
     val state by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
     val bottomScrollPadding = tonezenBottomChromeScrollPadding(
         showMiniPlayer = showMiniPlayer,
         showBottomNav = true,
@@ -137,18 +132,6 @@ internal fun ProfileScreen(
             onDismissDeleteAllConfirm = { viewModel.setDeleteAllConfirmVisible(false) },
             onConfirmDeleteAll = viewModel::deleteAllDownloads,
         )
-        ProfileSettingsAction.Privacy -> PrivacySettingsScreen(
-            padding = padding,
-            hazeState = hazeState,
-            bottomScrollPadding = bottomScrollPadding,
-            onBack = viewModel::closeSettingsScreen,
-            onOpenAppSettings = {
-                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = android.net.Uri.fromParts("package", context.packageName, null)
-                }
-                context.startActivity(intent)
-            },
-        )
         null -> ProfileScreenContent(
             padding = padding,
             hazeState = hazeState,
@@ -178,12 +161,6 @@ internal fun ProfileScreenContent(
             titleRes = R.string.settings_storage,
             subtitleRes = R.string.settings_storage_subtitle,
             icon = { StorageGlyph(tint = TonezenInk) },
-        ),
-        SettingsItem(
-            action = ProfileSettingsAction.Privacy,
-            titleRes = R.string.settings_privacy,
-            subtitleRes = R.string.settings_privacy_subtitle,
-            icon = { LockGlyph(tint = TonezenInk) },
         ),
     )
 

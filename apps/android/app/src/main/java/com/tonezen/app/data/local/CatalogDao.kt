@@ -40,6 +40,9 @@ interface CatalogDao {
     @Query("SELECT * FROM audiobook_progress WHERE pendingSync = 1")
     suspend fun getPendingProgress(): List<AudiobookProgressEntity>
 
+    @Query("DELETE FROM audiobook_progress WHERE bookId = :bookId")
+    suspend fun deleteProgress(bookId: String)
+
     @Query("UPDATE tracks SET localPath = NULL WHERE bookId = :bookId")
     suspend fun clearLocalPathsForBook(bookId: String)
 

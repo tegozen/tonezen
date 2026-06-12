@@ -24,6 +24,7 @@ import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.music.MusicLibraryTrack
 import com.tonezen.app.domain.music.MusicShuffleQueue
+import com.tonezen.app.domain.progress.isCycleFullyListened
 import com.tonezen.app.domain.progress.orderedCycleEntriesFromResume
 import com.tonezen.app.domain.progress.resolveCycleListenFraction
 import com.tonezen.app.domain.progress.resolveCycleResumeTarget
@@ -69,6 +70,7 @@ class LibraryViewModel @Inject constructor(
     private var playJob: Job? = null
     private var downloadTrackJob: Job? = null
     private var downloadAllJob: Job? = null
+    private var cycleDownloadJob: Job? = null
     private var musicLibraryTracks: List<MusicLibraryTrack> = emptyList()
     private var musicPrefetchJob: Job? = null
     private var lastPrefetchSourceTrackId: String? = null
@@ -104,7 +106,7 @@ class LibraryViewModel @Inject constructor(
                             scheduleMusicPrefetch(index + 1)
                         }
                     }
-                } else if (snapshot.contentType == ContentType.AUDIOBOOK && snapshot.isPlaying) {
+                } else if (snapshot.contentType == ContentType.AUDIOBOOK) {
                     val audiobookTrackId = snapshot.trackId
                     if (audiobookTrackId != null) {
                         val bookId = withContext(Dispatchers.IO) {
@@ -113,13 +115,42 @@ class LibraryViewModel @Inject constructor(
                         if (bookId != null) {
                             activeAudiobookBookId = bookId
                             activeAudiobookTrackId = audiobookTrackId
-                            maybeSaveAudiobookProgress(bookId, audiobookTrackId, snapshot.positionMs)
+                            if (snapshot.isPlaying) {
+                                maybeSaveAudiobookProgress(bookId, audiobookTrackId, snapshot.positionMs)
+                            }
                         }
                     }
                 }
-                _uiState.update {
-                    it.copy(
-                        nowPlayingTitle = snapshot.trackTitle ?: it.nowPlayingTitle,
+                _uiState.update { state ->
+                    val cyclePlayback = when {
+                        isMusic -> CyclePlaybackUi()
+                        snapshot.contentType == ContentType.AUDIOBOOK && activeAudiobookBookId != null -> {
+                            val cycleId = state.cycles.firstOrNull { cycle ->
+                                cycle.books.any { it.id == activeAudiobookBookId }
+                            }?.id
+                            if (cycleId != null) {
+                                val preparing = state.cyclePlayback.isPreparing &&
+                                    state.cyclePlayback.cycleId == cycleId &&
+                                    !snapshot.isPlaying
+                                CyclePlaybackUi(
+                                    cycleId = cycleId,
+                                    isPlaying = snapshot.isPlaying,
+                                    isPreparing = preparing,
+                                    downloadProgress = if (preparing) {
+                                        state.cyclePlayback.downloadProgress
+                                    } else {
+                                        null
+                                    },
+                                )
+                            } else {
+                                CyclePlaybackUi()
+                            }
+                        }
+                        state.cyclePlayback.isPreparing -> state.cyclePlayback
+                        else -> CyclePlaybackUi()
+                    }
+                    state.copy(
+                        nowPlayingTitle = snapshot.trackTitle ?: state.nowPlayingTitle,
                         musicPlayback = MusicPlaybackUi(
                             isActive = isMusic && trackId != null,
                             trackId = trackId,
@@ -129,6 +160,7 @@ class LibraryViewModel @Inject constructor(
                             bookId = trackId?.let { id -> musicBookIdByTrackId[id] },
                             isPlaying = snapshot.isPlaying && isMusic,
                         ),
+                        cyclePlayback = cyclePlayback,
                     )
                 }
             }
@@ -238,11 +270,127 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    fun playCycle(cycle: Cycle) {
+    fun toggleCyclePlay(cycle: Cycle) {
         if (musicDownloadNotifier.state.value.isActive) return
+        val cyclePlayback = _uiState.value.cyclePlayback
+        if (cyclePlayback.isPreparing && cyclePlayback.cycleId == cycle.id) return
+
+        val activeCycleId = activeAudiobookBookId?.let { bookId ->
+            _uiState.value.cycles.firstOrNull { item ->
+                item.books.any { it.id == bookId }
+            }?.id
+        }
+        val snapshot = playbackClient.snapshot.value
+        if (
+            activeCycleId == cycle.id &&
+            snapshot.trackId != null &&
+            snapshot.contentType == ContentType.AUDIOBOOK
+        ) {
+            if (snapshot.isPlaying) {
+                playbackClient.pause()
+            } else {
+                playbackClient.play()
+            }
+            return
+        }
         playJob?.cancel()
         playJob = viewModelScope.launch {
             playCycleInternal(cycle)
+        }
+    }
+
+    fun downloadCycle(cycle: Cycle) {
+        if (cycleDownloadJob?.isActive == true || musicDownloadNotifier.state.value.isActive) return
+        cycleDownloadJob = viewModelScope.launch {
+            val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
+                ?: return@launch
+            val accessToken = session.accessToken
+            withContext(Dispatchers.IO) {
+                for (bookSlug in cycle.bookOrder) {
+                    val book = cycle.books.find { it.slug == bookSlug } ?: continue
+                    val tracks = catalogRepository.getTracksForBook(book.id)
+                    tracks.filter { it.localPath.isNullOrBlank() }.forEach { track ->
+                        val file = downloadRepository.downloadTrack(
+                            accessToken,
+                            book.id,
+                            track.id,
+                        ) { }
+                        catalogRepository.markTrackDownloaded(book.id, track.id, file.absolutePath)
+                    }
+                }
+            }
+            localLibraryNotifier.notifyLocalLibraryChanged()
+            refreshDownloadedBooks()
+            refreshCycleCardStates(listOf(cycle), _uiState.value.downloadedBookIds)
+        }
+    }
+
+    fun removeCycleDownloads(cycle: Cycle) {
+        if (cycleDownloadJob?.isActive == true) return
+        viewModelScope.launch {
+            val activeBookId = activeAudiobookBookId
+            if (activeBookId != null && cycle.books.any { it.id == activeBookId }) {
+                playJob?.cancel()
+                playbackClient.stopAndRelease()
+                _uiState.update { it.copy(cyclePlayback = CyclePlaybackUi()) }
+            }
+            withContext(Dispatchers.IO) {
+                for (book in cycle.books) {
+                    catalogRepository.clearLocalDownloads(book.id)
+                    val tracks = catalogRepository.getTracksForBook(book.id)
+                    tracks.forEach { track ->
+                        downloadRepository.deleteLocalTrack(book.id, track.id)
+                    }
+                }
+            }
+            localLibraryNotifier.notifyLocalLibraryChanged()
+            refreshDownloadedBooks()
+            refreshCycleCardStates(listOf(cycle), _uiState.value.downloadedBookIds)
+        }
+    }
+
+    fun toggleCycleListened(cycle: Cycle) {
+        viewModelScope.launch {
+            val tracksByBookId = withContext(Dispatchers.IO) {
+                cycle.books.associate { book ->
+                    book.id to catalogRepository.getTracksForBook(book.id)
+                }
+            }
+            val progressByBookId = withContext(Dispatchers.IO) {
+                cycle.books.associate { book ->
+                    book.id to catalogRepository.getProgress(book.id)
+                }
+            }
+            if (isCycleFullyListened(cycle, tracksByBookId, progressByBookId)) {
+                markCycleUnlistened(cycle)
+            } else {
+                markCycleListened(cycle)
+            }
+        }
+    }
+
+    fun markCycleListened(cycle: Cycle) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                for (bookSlug in cycle.bookOrder) {
+                    val book = cycle.books.find { it.slug == bookSlug } ?: continue
+                    val tracks = catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
+                    val lastTrack = tracks.lastOrNull() ?: continue
+                    persistAudiobookProgress(book.id, lastTrack.id, lastTrack.durationMs ?: 0L)
+                }
+            }
+            refreshCycleCardStates(listOf(cycle), _uiState.value.downloadedBookIds)
+        }
+    }
+
+    fun markCycleUnlistened(cycle: Cycle) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                cycle.books.forEach { book ->
+                    catalogRepository.clearProgress(book.id)
+                }
+            }
+            refreshCycleCardStates(listOf(cycle), _uiState.value.downloadedBookIds)
         }
     }
 
@@ -392,6 +540,12 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    fun refreshCycleMenu(cycle: Cycle) {
+        viewModelScope.launch {
+            refreshCycleCardStates(listOf(cycle), _uiState.value.downloadedBookIds)
+        }
+    }
+
     private suspend fun refreshCycleCardStates(cycles: List<Cycle>, downloadedBookIds: Set<String>) {
         val states = withContext(Dispatchers.IO) {
             cycles.associate { cycle ->
@@ -402,9 +556,15 @@ class LibraryViewModel @Inject constructor(
                     book.id to catalogRepository.getProgress(book.id)
                 }
                 val fraction = resolveCycleListenFraction(cycle, tracksByBookId, progressByBookId)
+                val allTracks = tracksByBookId.values.flatten()
+                val isFullyDownloaded = allTracks.isNotEmpty() &&
+                    allTracks.all { !it.localPath.isNullOrBlank() }
                 cycle.id to CycleCardState(
-                    isDownloaded = cycle.books.any { downloadedBookIds.contains(it.id) },
+                    isDownloaded = isFullyDownloaded,
                     progressFraction = fraction?.takeIf { it > 0f },
+                    showDownload = allTracks.any { it.localPath.isNullOrBlank() },
+                    showRemoveDownload = allTracks.any { !it.localPath.isNullOrBlank() },
+                    isListened = isCycleFullyListened(cycle, tracksByBookId, progressByBookId),
                 )
             }
         }
@@ -756,8 +916,37 @@ class LibraryViewModel @Inject constructor(
         EnsureTrackOutcome.Failure.DOWNLOAD_FAILED, null -> R.string.music_playback_error_download
     }
 
+    private fun createCycleDownloadProgressReporter(cycleId: String): (Float) -> Unit {
+        val reporter = object {
+            var lastBucket = -1
+        }
+        return progress@{ progress ->
+            val bucket = (progress * 50).toInt()
+            if (bucket > reporter.lastBucket || progress >= 1f) {
+                reporter.lastBucket = bucket
+                viewModelScope.launch(Dispatchers.Main.immediate) {
+                    _uiState.update { state ->
+                        if (state.cyclePlayback.cycleId != cycleId) return@update state
+                        state.copy(
+                            cyclePlayback = state.cyclePlayback.copy(downloadProgress = progress),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     private suspend fun playCycleInternal(cycle: Cycle) {
-        _uiState.update { it.copy(cyclePlaybackErrorRes = null) }
+        _uiState.update {
+            it.copy(
+                cyclePlaybackErrorRes = null,
+                cyclePlayback = CyclePlaybackUi(
+                    cycleId = cycle.id,
+                    isPreparing = true,
+                    downloadProgress = 0f,
+                ),
+            )
+        }
         val tracksByBookId = withContext(Dispatchers.IO) {
             cycle.books.associate { book ->
                 book.id to catalogRepository.getTracksForBook(book.id)
@@ -770,21 +959,42 @@ class LibraryViewModel @Inject constructor(
         }
         val resume = resolveCycleResumeTarget(cycle, tracksByBookId, progressByBookId)
         if (resume == null) {
-            _uiState.update { it.copy(cyclePlaybackErrorRes = R.string.cycle_playback_error_empty) }
+            _uiState.update {
+                it.copy(
+                    cyclePlayback = CyclePlaybackUi(),
+                    cyclePlaybackErrorRes = R.string.cycle_playback_error_empty,
+                )
+            }
             return
         }
         val entries = orderedCycleEntriesFromResume(cycle, tracksByBookId, resume)
         if (entries.isEmpty()) {
-            _uiState.update { it.copy(cyclePlaybackErrorRes = R.string.cycle_playback_error_empty) }
+            _uiState.update {
+                it.copy(
+                    cyclePlayback = CyclePlaybackUi(),
+                    cyclePlaybackErrorRes = R.string.cycle_playback_error_empty,
+                )
+            }
             return
         }
+        val needsDownload = withContext(Dispatchers.IO) {
+            !trackDownloadEnsurer.isTrackLocal(resume.book.id, resume.track.id)
+        }
+        val progressReporter = if (needsDownload) {
+            createCycleDownloadProgressReporter(cycle.id)
+        } else {
+            null
+        }
         val startOutcome = withContext(Dispatchers.IO) {
-            trackDownloadEnsurer.ensureTrackLocal(resume.book.id, resume.track)
+            trackDownloadEnsurer.ensureTrackLocal(resume.book.id, resume.track, progressReporter)
         }
         val startTrack = startOutcome.track
         if (startTrack == null) {
             _uiState.update {
-                it.copy(cyclePlaybackErrorRes = playbackErrorRes(startOutcome.failure))
+                it.copy(
+                    cyclePlayback = CyclePlaybackUi(),
+                    cyclePlaybackErrorRes = playbackErrorRes(startOutcome.failure),
+                )
             }
             return
         }
@@ -792,12 +1002,23 @@ class LibraryViewModel @Inject constructor(
             playbackQueueBuilder.buildCycleQueue(entries, startTrack)
         }
         if (queueResult == null || queueResult.items.isEmpty()) {
-            _uiState.update { it.copy(cyclePlaybackErrorRes = R.string.cycle_playback_error_empty) }
+            _uiState.update {
+                it.copy(
+                    cyclePlayback = CyclePlaybackUi(),
+                    cyclePlaybackErrorRes = R.string.cycle_playback_error_empty,
+                )
+            }
             return
         }
         activeAudiobookBookId = resume.book.id
         activeAudiobookTrackId = resume.track.id
-        _uiState.update { it.copy(nowPlayingTitle = startTrack.title, cyclePlaybackErrorRes = null) }
+        _uiState.update {
+            it.copy(
+                nowPlayingTitle = startTrack.title,
+                cyclePlaybackErrorRes = null,
+                cyclePlayback = CyclePlaybackUi(cycleId = cycle.id),
+            )
+        }
         playbackClient.playQueue(
             queueResult.items,
             queueResult.startIndex,

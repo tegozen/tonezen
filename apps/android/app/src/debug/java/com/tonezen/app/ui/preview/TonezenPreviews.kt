@@ -15,6 +15,7 @@ import com.tonezen.app.ui.auth.AuthScreen
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.runtime.remember
 import com.tonezen.app.ui.library.CycleCardState
+import com.tonezen.app.ui.library.CyclePlaybackUi
 import com.tonezen.app.ui.library.LibraryScreen
 import com.tonezen.app.ui.library.MusicPlaybackUi
 import com.tonezen.app.playback.MusicDownloadState
@@ -114,6 +115,7 @@ private fun LibraryScreenPreview() {
                     progressFraction = 0.42f,
                 ),
             ),
+            cyclePlayback = CyclePlaybackUi(),
             offlineBanner = false,
             isLoadingCatalog = false,
             filter = LibraryFilterState(),

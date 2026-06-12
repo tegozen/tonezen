@@ -19,6 +19,7 @@ import com.tonezen.app.ui.components.BottomDestination
 import com.tonezen.app.ui.components.MiniPlayer
 import com.tonezen.app.ui.components.TonezenBottomChromeBar
 import com.tonezen.app.ui.components.TonezenBottomNavigation
+import com.tonezen.app.ui.library.CycleCardState
 import com.tonezen.app.ui.library.CycleDetailScreen
 import com.tonezen.app.ui.library.LibraryScreen
 import com.tonezen.app.ui.library.LibraryViewModel
@@ -93,20 +94,34 @@ fun AppShell(
                             onConfirmDownload = bookDetailViewModel::downloadBook,
                             onDismissDownloadSheet = bookDetailViewModel::dismissDownloadSheet,
                             onMarkTrackListened = bookDetailViewModel::markTrackListened,
+                            onMarkTrackUnlistened = bookDetailViewModel::markTrackUnlistened,
                             onRemoveTrackDownload = bookDetailViewModel::removeTrackDownload,
+                            onDownloadBook = bookDetailViewModel::requestDownload,
+                            onToggleBookListened = bookDetailViewModel::toggleBookListened,
+                            onRemoveBookDownloads = bookDetailViewModel::deleteLocalDownloads,
                             bottomScrollPadding = overlayBottomScrollPadding,
                         )
                     }
 
-                    selectedCycle != null -> CycleDetailScreen(
-                        padding = PaddingValues(0.dp),
-                        hazeState = hazeState,
-                        cycle = selectedCycle,
-                        downloadedBookIds = libraryState.downloadedBookIds,
-                        onBack = shellViewModel::closeCycle,
-                        onBookClick = shellViewModel::openBook,
-                        bottomScrollPadding = overlayBottomScrollPadding,
-                    )
+                    selectedCycle != null -> {
+                        LaunchedEffect(selectedCycle.id) {
+                            libraryViewModel.refreshCycleMenu(selectedCycle)
+                        }
+                        CycleDetailScreen(
+                            padding = PaddingValues(0.dp),
+                            hazeState = hazeState,
+                            cycle = selectedCycle,
+                            cycleCardState = libraryState.cycleCardStateById[selectedCycle.id]
+                                ?: CycleCardState(),
+                            downloadedBookIds = libraryState.downloadedBookIds,
+                            onBack = shellViewModel::closeCycle,
+                            onBookClick = shellViewModel::openBook,
+                            onDownloadCycle = { libraryViewModel.downloadCycle(selectedCycle) },
+                            onToggleCycleListened = { libraryViewModel.toggleCycleListened(selectedCycle) },
+                            onRemoveCycleDownloads = { libraryViewModel.removeCycleDownloads(selectedCycle) },
+                            bottomScrollPadding = overlayBottomScrollPadding,
+                        )
+                    }
 
                     shellState.currentTab == BottomDestination.Library -> LibraryScreen(
                         hazeState = hazeState,
@@ -116,12 +131,13 @@ fun AppShell(
                         allBooks = libraryState.books,
                         downloadedBookIds = libraryState.downloadedBookIds,
                         cycleCardStateById = libraryState.cycleCardStateById,
+                        cyclePlayback = libraryState.cyclePlayback,
                         offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
                         isLoadingCatalog = libraryState.isLoadingCatalog,
                         filter = libraryState.filter,
                         showFilterSheet = libraryState.showFilterSheet,
                         onCycleClick = shellViewModel::openCycle,
-                        onCyclePlay = libraryViewModel::playCycle,
+                        onCyclePlay = libraryViewModel::toggleCyclePlay,
                         onBookClick = shellViewModel::openBook,
                         onSearchChange = libraryViewModel::setSearchQuery,
                         onFilterClick = { libraryViewModel.setFilterSheetVisible(true) },

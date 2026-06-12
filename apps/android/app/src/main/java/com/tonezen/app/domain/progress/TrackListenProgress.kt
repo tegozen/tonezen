@@ -56,3 +56,24 @@ fun resolveTrackListenState(
         else -> TrackListenState(TrackListenStatus.NOT_STARTED)
     }
 }
+
+fun isBookFullyListened(
+    tracks: List<Track>,
+    progress: AudiobookProgress?,
+): Boolean {
+    if (tracks.isEmpty() || progress == null) return false
+    val sorted = tracks.sortedBy { it.sortOrder }
+    val lastTrack = sorted.lastOrNull() ?: return false
+    return resolveTrackListenState(sorted, progress, lastTrack.id).status == TrackListenStatus.COMPLETED
+}
+
+fun resolveAudiobookPlaybackStartMs(
+    progress: AudiobookProgress?,
+    track: Track,
+): Long {
+    if (progress == null || progress.trackId != track.id) return 0L
+    val durationMs = track.durationMs ?: return progress.positionMs
+    if (durationMs <= 0L) return progress.positionMs
+    if (progress.positionMs >= (durationMs * COMPLETED_FRACTION_THRESHOLD).toLong()) return 0L
+    return progress.positionMs
+}

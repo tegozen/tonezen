@@ -38,7 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.tonezen.app.R
 import androidx.annotation.StringRes
+import androidx.compose.ui.graphics.Brush
 import com.tonezen.app.ui.theme.TonezenAmber
+import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenError
 import com.tonezen.app.ui.theme.TonezenInk
@@ -143,7 +145,8 @@ internal fun TrackRowOverflowMenu(
     enabled: Boolean = true,
     @StringRes deleteLabelRes: Int = R.string.music_delete_track,
     showDelete: Boolean = true,
-    onMarkListened: (() -> Unit)? = null,
+    onToggleListened: (() -> Unit)? = null,
+    isListened: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
@@ -160,17 +163,19 @@ internal fun TrackRowOverflowMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-            onMarkListened?.let { markListened ->
+            onToggleListened?.let { toggleListened ->
                 DropdownMenuItem(
                     text = {
                         Text(
-                            stringResource(R.string.mark_complete),
+                            stringResource(
+                                if (isListened) R.string.mark_not_listened else R.string.mark_complete,
+                            ),
                             color = TonezenInk,
                         )
                     },
                     onClick = {
                         expanded = false
-                        markListened()
+                        toggleListened()
                     },
                 )
             }
@@ -185,6 +190,78 @@ internal fun TrackRowOverflowMenu(
                     onClick = {
                         expanded = false
                         onDelete()
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun DetailHeaderOverflowMenu(
+    showDownload: Boolean,
+    showRemoveDownload: Boolean,
+    isListened: Boolean,
+    onDownload: () -> Unit,
+    onToggleListened: () -> Unit,
+    onRemoveDownloads: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .clickable(enabled = enabled) { expanded = true },
+            contentAlignment = Alignment.Center,
+        ) {
+            OverflowGlyph(tint = TonezenMuted)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            if (showRemoveDownload) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(R.string.remove_download),
+                            color = TonezenError,
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onRemoveDownloads()
+                    },
+                )
+            }
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        stringResource(
+                            if (isListened) R.string.mark_not_listened else R.string.mark_complete,
+                        ),
+                        color = TonezenInk,
+                    )
+                },
+                onClick = {
+                    expanded = false
+                    onToggleListened()
+                },
+            )
+            if (showDownload) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(R.string.offline_action),
+                            color = TonezenInk,
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onDownload()
                     },
                 )
             }
@@ -241,6 +318,68 @@ internal fun TrackDownloadButton(
             )
         } else {
             DownloadGlyph(tint = TonezenMuted, size = 18.dp)
+        }
+    }
+}
+
+@Composable
+internal fun CompactMediaPlayButton(
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    downloadProgress: Float? = null,
+) {
+    val isDownloading = downloadProgress != null
+    val background = if (isPlaying) {
+        Brush.linearGradient(listOf(Color(0xFF14B8A6), Color(0xFF0D9488), Color(0xFF0F766E)))
+    } else {
+        Brush.linearGradient(listOf(Color(0xFF5EEAD4), Color(0xFF14B8A6), Color(0xFF0D9488)))
+    }
+    Box(
+        modifier = modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(background)
+            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)), CircleShape)
+            .then(
+                if (isDownloading) {
+                    Modifier
+                } else {
+                    Modifier.clickable(onClick = onClick)
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            isDownloading -> {
+                val sweep = 360f * downloadProgress.coerceIn(0f, 1f)
+                val showIndeterminate = downloadProgress <= 0f
+                Canvas(modifier = Modifier.size(36.dp)) {
+                    val stroke = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
+                    drawArc(
+                        color = Color.White.copy(alpha = 0.16f),
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        style = stroke,
+                    )
+                    drawArc(
+                        color = TonezenAppBg,
+                        startAngle = -90f,
+                        sweepAngle = if (showIndeterminate) 90f else sweep,
+                        useCenter = false,
+                        style = stroke,
+                    )
+                }
+                Text(
+                    text = if (showIndeterminate) "…" else "${(downloadProgress * 100).toInt()}%",
+                    color = TonezenAppBg,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            isPlaying -> PauseGlyph(tint = TonezenAppBg, size = 18.dp)
+            else -> PlayGlyph(tint = TonezenAppBg, size = 18.dp)
         }
     }
 }

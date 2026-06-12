@@ -53,6 +53,31 @@ class TrackListenProgressTest {
         assertEquals(0.7f, state.barFraction)
     }
 
+    @Test
+    fun `completed chapter playback restarts from beginning`() {
+        val progress = progress("ch2", 96_000)
+        val startMs = resolveAudiobookPlaybackStartMs(progress, tracks[1])
+        assertEquals(0L, startMs)
+    }
+
+    @Test
+    fun `in progress chapter playback resumes saved position`() {
+        val progress = progress("ch2", 50_000)
+        val startMs = resolveAudiobookPlaybackStartMs(progress, tracks[1])
+        assertEquals(50_000L, startMs)
+    }
+
+    @Test
+    fun `book is fully listened when last chapter is completed`() {
+        val progress = progress("ch3", 100_000)
+        assertEquals(true, isBookFullyListened(tracks, progress))
+    }
+
+    @Test
+    fun `book is not fully listened without progress`() {
+        assertEquals(false, isBookFullyListened(tracks, null))
+    }
+
     private fun track(id: String, sortOrder: Int, durationMs: Long) = Track(
         id = id,
         bookId = "book-1",

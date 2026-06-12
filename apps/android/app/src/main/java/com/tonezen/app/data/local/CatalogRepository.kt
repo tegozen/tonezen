@@ -58,6 +58,10 @@ class CatalogRepository @Inject constructor(
     suspend fun getProgress(bookId: String): AudiobookProgress? =
         progressRepository.getProgress(bookId)
 
+    suspend fun clearProgress(bookId: String) {
+        progressRepository.deleteProgress(bookId)
+    }
+
     suspend fun downloadedBookIds(books: List<Book>): Set<String> = books
         .filter { book -> catalogDao.getTracksForBook(book.id).any { it.localPath != null } }
         .map { it.id }

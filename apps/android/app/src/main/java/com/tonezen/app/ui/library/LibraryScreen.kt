@@ -1,8 +1,6 @@
 package com.tonezen.app.ui.library
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,14 +10,10 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.activity.compose.BackHandler
@@ -39,18 +33,17 @@ import com.tonezen.app.domain.library.LibraryFilterState
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Cycle
+import com.tonezen.app.ui.components.CheckCircleGlyph
+import com.tonezen.app.ui.components.CompactMediaPlayButton
 import com.tonezen.app.ui.components.CycleCover
 import com.tonezen.app.ui.components.EmptyLibrary
 import com.tonezen.app.ui.components.LibraryLoading
 import com.tonezen.app.ui.components.LibraryFilterSheet
 import com.tonezen.app.ui.components.OfflineBanner
-import com.tonezen.app.ui.components.PlayGlyph
 import com.tonezen.app.ui.components.SearchRow
-import com.tonezen.app.ui.components.TrackDownloadedIndicator
 import com.tonezen.app.ui.components.TonezenTabs
 import com.tonezen.app.ui.components.TonezenTopChromeBar
 import com.tonezen.app.playback.MusicDownloadState
-import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenSurface
@@ -71,6 +64,7 @@ internal fun LibraryScreen(
     allBooks: List<Book>,
     downloadedBookIds: Set<String>,
     cycleCardStateById: Map<String, CycleCardState>,
+    cyclePlayback: CyclePlaybackUi,
     offlineBanner: Boolean,
     isLoadingCatalog: Boolean,
     filter: LibraryFilterState,
@@ -168,10 +162,17 @@ internal fun LibraryScreen(
                     ) {
                         row.forEach { cycle ->
                             val cardState = cycleCardStateById[cycle.id] ?: CycleCardState()
+                            val isThisCycle = cyclePlayback.cycleId == cycle.id
                             LibraryCycleCard(
                                 cycle = cycle,
                                 isDownloaded = cardState.isDownloaded,
                                 progressFraction = cardState.progressFraction,
+                                isPlaying = isThisCycle && cyclePlayback.isPlaying,
+                                downloadProgress = if (isThisCycle && cyclePlayback.isPreparing) {
+                                    cyclePlayback.downloadProgress
+                                } else {
+                                    null
+                                },
                                 onClick = { onCycleClick(cycle) },
                                 onPlayClick = { onCyclePlay(cycle) },
                                 modifier = Modifier.weight(1f),
@@ -250,10 +251,13 @@ private fun LibraryCycleCard(
     cycle: Cycle,
     isDownloaded: Boolean,
     progressFraction: Float?,
+    isPlaying: Boolean,
+    downloadProgress: Float?,
     onClick: () -> Unit,
     onPlayClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val overlayInset = 10.dp
     Box(modifier = modifier) {
         CycleCover(
             cycle = cycle,
@@ -263,10 +267,12 @@ private fun LibraryCycleCard(
                 .clickable(onClick = onClick),
         )
         if (isDownloaded) {
-            TrackDownloadedIndicator(
+            CheckCircleGlyph(
+                tint = TonezenTeal,
+                size = 18.dp,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(8.dp)
+                    .padding(overlayInset)
                     .zIndex(1f),
             )
         }
@@ -278,38 +284,18 @@ private fun LibraryCycleCard(
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(10.dp)
+                    .padding(overlayInset)
                     .zIndex(1f),
             )
         }
-        CompactCyclePlayButton(
+        CompactMediaPlayButton(
+            isPlaying = isPlaying,
+            downloadProgress = downloadProgress,
             onClick = onPlayClick,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(8.dp)
                 .zIndex(2f),
         )
-    }
-}
-
-@Composable
-private fun CompactCyclePlayButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(
-                Brush.linearGradient(
-                    listOf(Color(0xFF5EEAD4), Color(0xFF14B8A6), Color(0xFF0D9488)),
-                ),
-            )
-            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)), CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        PlayGlyph(tint = TonezenAppBg, size = 18.dp)
     }
 }

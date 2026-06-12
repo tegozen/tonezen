@@ -24,4 +24,8 @@ class ProgressRepository @Inject constructor(
 
     suspend fun getPendingProgress(): List<AudiobookProgressEntity> =
         catalogDao.getPendingProgress()
+
+    suspend fun deleteProgress(bookId: String) {
+        catalogDao.deleteProgress(bookId)
+    }
 }

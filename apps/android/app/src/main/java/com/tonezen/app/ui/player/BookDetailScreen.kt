@@ -14,7 +14,9 @@ import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.TrackListenStatus
+import com.tonezen.app.domain.progress.isBookFullyListened
 import com.tonezen.app.domain.progress.resolveTrackListenState
+import com.tonezen.app.ui.components.DetailHeaderOverflowMenu
 import com.tonezen.app.ui.components.DownloadConfirmSheet
 import com.tonezen.app.ui.components.PlayingBars
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
@@ -40,12 +42,19 @@ internal fun BookDetailScreen(
     onConfirmDownload: () -> Unit,
     onDismissDownloadSheet: () -> Unit,
     onMarkTrackListened: (Track) -> Unit,
+    onMarkTrackUnlistened: (Track) -> Unit,
     onRemoveTrackDownload: (Track) -> Unit,
+    onDownloadBook: () -> Unit,
+    onToggleBookListened: () -> Unit,
+    onRemoveBookDownloads: () -> Unit,
     bottomScrollPadding: Dp,
 ) {
     val tracks = uiState.tracks
     val activeTrackId = uiState.activeTrackId
     val sortedTracks = tracks.sortedBy { it.sortOrder }
+    val showDownload = tracks.any { it.localPath.isNullOrBlank() }
+    val showRemoveDownload = tracks.any { !it.localPath.isNullOrBlank() }
+    val isBookListened = isBookFullyListened(sortedTracks, uiState.audiobookProgress)
 
     BackHandler {
         when {
@@ -75,6 +84,16 @@ internal fun BookDetailScreen(
                 fontWeight = FontWeight.SemiBold,
             )
         },
+        trailing = {
+            DetailHeaderOverflowMenu(
+                showDownload = showDownload,
+                showRemoveDownload = showRemoveDownload,
+                isListened = isBookListened,
+                onDownload = onDownloadBook,
+                onToggleListened = onToggleBookListened,
+                onRemoveDownloads = onRemoveBookDownloads,
+            )
+        },
     ) {
         items(tracks, key = { it.id }) { track ->
             ChapterTrackRow(
@@ -84,7 +103,8 @@ internal fun BookDetailScreen(
                 isActive = track.id == activeTrackId,
                 livePositionMs = if (track.id == activeTrackId) uiState.playbackPositionMs else null,
                 onClick = { onTrackClick(track) },
-                onMarkListened = { onMarkTrackListened(track) },
+                onMarkTrackListened = { onMarkTrackListened(track) },
+                onMarkTrackUnlistened = { onMarkTrackUnlistened(track) },
                 onRemoveDownload = { onRemoveTrackDownload(track) },
             )
         }
@@ -99,7 +119,8 @@ internal fun ChapterTrackRow(
     isActive: Boolean,
     livePositionMs: Long?,
     onClick: () -> Unit,
-    onMarkListened: () -> Unit,
+    onMarkTrackListened: () -> Unit,
+    onMarkTrackUnlistened: () -> Unit,
     onRemoveDownload: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -151,7 +172,14 @@ internal fun ChapterTrackRow(
                 onDelete = onRemoveDownload,
                 deleteLabelRes = R.string.remove_download,
                 showDelete = isDownloaded,
-                onMarkListened = onMarkListened,
+                onToggleListened = {
+                    if (listenState.status == TrackListenStatus.COMPLETED) {
+                        onMarkTrackUnlistened()
+                    } else {
+                        onMarkTrackListened()
+                    }
+                },
+                isListened = listenState.status == TrackListenStatus.COMPLETED,
             )
         },
     )
