@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -67,6 +68,22 @@ internal fun ProfileScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
+    BackHandler(
+        enabled = state.showSignOutConfirm ||
+            state.showSyncDialog ||
+            state.showPrivacyDialog ||
+            state.showOverflowMenu ||
+            state.showAccountScreen,
+    ) {
+        when {
+            state.showSignOutConfirm -> viewModel.setSignOutConfirmVisible(false)
+            state.showSyncDialog -> viewModel.setSyncDialogVisible(false)
+            state.showPrivacyDialog -> viewModel.setPrivacyDialogVisible(false)
+            state.showOverflowMenu -> viewModel.setOverflowMenuVisible(false)
+            state.showAccountScreen -> viewModel.setAccountScreenVisible(false)
+        }
+    }
+
     if (state.showSignOutConfirm) {
         SignOutConfirmDialog(
             onDismiss = { viewModel.setSignOutConfirmVisible(false) },
@@ -85,16 +102,6 @@ internal fun ProfileScreen(
             },
         )
     }
-    if (state.showAccountDialog) {
-        AccountSettingsDialog(
-            email = state.email.orEmpty(),
-            onDismiss = { viewModel.setAccountDialogVisible(false) },
-            onSignOut = {
-                viewModel.setAccountDialogVisible(false)
-                viewModel.setSignOutConfirmVisible(true)
-            },
-        )
-    }
     if (state.showPrivacyDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.setPrivacyDialogVisible(false) },
@@ -108,20 +115,36 @@ internal fun ProfileScreen(
         )
     }
 
-    ProfileScreenContent(
-        padding = padding,
-        state = state,
-        onOverflowClick = { viewModel.setOverflowMenuVisible(true) },
-        onDismissOverflow = { viewModel.setOverflowMenuVisible(false) },
-        onSignOutClick = { viewModel.setSignOutConfirmVisible(true) },
-        onSyncNow = viewModel::syncNow,
-        onSettingsClick = { action ->
-            viewModel.onSettingsClick(action)
-            if (action == ProfileSettingsAction.Storage) {
-                onOpenDownloads()
-            }
-        },
-    )
+    if (state.showAccountScreen) {
+        AccountSettingsScreen(
+            padding = padding,
+            displayName = state.displayName.orEmpty(),
+            email = state.email.orEmpty(),
+            profileSaving = state.profileSaving,
+            passwordSaving = state.passwordSaving,
+            profileError = resolveAccountError(state.profileError),
+            passwordError = resolveAccountError(state.passwordError),
+            passwordFormNonce = state.passwordFormNonce,
+            onBack = { viewModel.setAccountScreenVisible(false) },
+            onSaveProfile = viewModel::saveProfile,
+            onChangePassword = viewModel::changePassword,
+        )
+    } else {
+        ProfileScreenContent(
+            padding = padding,
+            state = state,
+            onOverflowClick = { viewModel.setOverflowMenuVisible(true) },
+            onDismissOverflow = { viewModel.setOverflowMenuVisible(false) },
+            onSignOutClick = { viewModel.setSignOutConfirmVisible(true) },
+            onSyncNow = viewModel::syncNow,
+            onSettingsClick = { action ->
+                viewModel.onSettingsClick(action)
+                if (action == ProfileSettingsAction.Storage) {
+                    onOpenDownloads()
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -424,30 +447,3 @@ private data class SettingsItem(
     val icon: @Composable () -> Unit,
 )
 
-@Composable
-private fun AccountSettingsDialog(
-    email: String,
-    onDismiss: () -> Unit,
-    onSignOut: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_account_dialog_title)) },
-        text = {
-            Text(
-                stringResource(R.string.settings_account_dialog_body, email),
-                color = TonezenMuted,
-            )
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel), color = TonezenMuted)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onSignOut) {
-                Text(stringResource(R.string.sign_out), color = TonezenTeal)
-            }
-        },
-    )
-}

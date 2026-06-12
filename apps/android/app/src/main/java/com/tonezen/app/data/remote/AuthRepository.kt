@@ -31,6 +31,45 @@ class AuthRepository(
             tokenRequest("refresh_token", body)
         }
 
+    suspend fun updateUser(
+        accessToken: String,
+        displayName: String? = null,
+        newPassword: String? = null,
+    ): StoredSession = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+        if (displayName != null) {
+            body.put("data", JSONObject().put("full_name", displayName))
+        }
+        if (newPassword != null) {
+            body.put("password", newPassword)
+        }
+        val url = "${supabaseUrl.trimEnd('/')}/auth/v1/user"
+        val request = Request.Builder()
+            .url(url)
+            .put(body.toString().toRequestBody("application/json".toMediaType()))
+            .header("apikey", anonKey)
+            .header("Authorization", "Bearer $accessToken")
+            .build()
+        httpClient.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                throw IllegalStateException("Profile update failed (${response.code}): $text")
+            }
+            val user = JSONObject(text)
+            val resolvedEmail = user.optString("email", "")
+            StoredSession(
+                userId = user.getString("id"),
+                email = resolvedEmail,
+                displayName = displayNameFromUser(user, resolvedEmail),
+                accessToken = "",
+                refreshToken = "",
+                expiresAtEpochSeconds = 0L,
+                memberSinceEpochMs = memberSinceFromUser(user),
+                avatarUrl = avatarUrlFromUser(user),
+            )
+        }
+    }
+
     private fun tokenRequest(
         grantType: String,
         jsonBody: String,

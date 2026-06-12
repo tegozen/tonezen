@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonezen.app.data.local.CatalogRepository
 import com.tonezen.app.data.network.NetworkMonitor
+import com.tonezen.app.data.remote.AuthRepository
 import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.playback.PlaybackClient
@@ -23,6 +24,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
+    private val authRepository: AuthRepository,
     private val progressSyncRepository: ProgressSyncRepository,
     private val catalogRepository: CatalogRepository,
     private val networkMonitor: NetworkMonitor,
@@ -77,18 +79,85 @@ class ProfileViewModel @Inject constructor(
         _uiState.update { it.copy(showSyncDialog = visible) }
     }
 
-    fun setAccountDialogVisible(visible: Boolean) {
-        _uiState.update { it.copy(showAccountDialog = visible) }
+    fun setAccountScreenVisible(visible: Boolean) {
+        _uiState.update {
+            it.copy(
+                showAccountScreen = visible,
+                profileError = if (visible) null else it.profileError,
+                passwordError = if (visible) null else it.passwordError,
+            )
+        }
     }
 
     fun setPrivacyDialogVisible(visible: Boolean) {
         _uiState.update { it.copy(showPrivacyDialog = visible) }
     }
 
+    fun saveProfile(displayName: String) {
+        if (!networkMonitor.isOnline()) {
+            _uiState.update { it.copy(profileError = ACCOUNT_OFFLINE_ERROR) }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(profileSaving = true, profileError = null) }
+            try {
+                val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
+                    ?: throw IllegalStateException(NOT_SIGNED_IN_ERROR)
+                if (displayName == session.displayName) return@launch
+                val updated = authRepository.updateUser(
+                    accessToken = session.accessToken,
+                    displayName = displayName,
+                )
+                sessionRepository.saveSession(
+                    session.copy(
+                        displayName = updated.displayName,
+                        memberSinceEpochMs = session.memberSinceEpochMs ?: updated.memberSinceEpochMs,
+                        avatarUrl = session.avatarUrl ?: updated.avatarUrl,
+                    ),
+                )
+            } catch (e: Exception) {
+                _uiState.update { it.copy(profileError = e.message) }
+            } finally {
+                _uiState.update { it.copy(profileSaving = false) }
+            }
+        }
+    }
+
+    fun changePassword(newPassword: String, confirmPassword: String) {
+        if (!networkMonitor.isOnline()) {
+            _uiState.update { it.copy(passwordError = ACCOUNT_OFFLINE_ERROR) }
+            return
+        }
+        if (newPassword != confirmPassword) {
+            _uiState.update { it.copy(passwordError = PASSWORD_MISMATCH_ERROR) }
+            return
+        }
+        if (newPassword.length < MIN_PASSWORD_LENGTH) {
+            _uiState.update { it.copy(passwordError = PASSWORD_TOO_SHORT_ERROR) }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(passwordSaving = true, passwordError = null) }
+            try {
+                val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
+                    ?: throw IllegalStateException(NOT_SIGNED_IN_ERROR)
+                authRepository.updateUser(
+                    accessToken = session.accessToken,
+                    newPassword = newPassword,
+                )
+                _uiState.update { it.copy(passwordFormNonce = it.passwordFormNonce + 1) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(passwordError = e.message) }
+            } finally {
+                _uiState.update { it.copy(passwordSaving = false) }
+            }
+        }
+    }
+
     fun onSettingsClick(action: ProfileSettingsAction) {
         when (action) {
             ProfileSettingsAction.Account -> {
-                _uiState.update { it.copy(showAccountDialog = true) }
+                setAccountScreenVisible(true)
             }
             ProfileSettingsAction.Sync -> syncNow()
             ProfileSettingsAction.Storage -> Unit
@@ -134,5 +203,13 @@ class ProfileViewModel @Inject constructor(
         return Instant.ofEpochMilli(epochMs)
             .atZone(ZoneId.systemDefault())
             .format(memberSinceFormatter)
+    }
+
+    companion object {
+        const val ACCOUNT_OFFLINE_ERROR = "__account_offline__"
+        const val PASSWORD_MISMATCH_ERROR = "__password_mismatch__"
+        const val PASSWORD_TOO_SHORT_ERROR = "__password_too_short__"
+        const val NOT_SIGNED_IN_ERROR = "__not_signed_in__"
+        private const val MIN_PASSWORD_LENGTH = 6
     }
 }

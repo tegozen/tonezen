@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,6 +88,15 @@ internal fun BookDetailScreen(
         uiState.positionMs.toFloat() / uiState.durationMs.toFloat()
     } else {
         0f
+    }
+
+    BackHandler {
+        when {
+            uiState.showTrackActions -> onDismissTrackActions()
+            uiState.showDownloadSheet -> onDismissDownloadSheet()
+            uiState.selectedTab == BookDetailTab.PLAYER -> onSelectTab(BookDetailTab.DETAILS)
+            else -> onBack()
+        }
     }
 
     if (uiState.showDownloadSheet) {

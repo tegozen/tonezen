@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,6 +49,10 @@ internal fun DownloadsScreen(
         state.summaries.filter { it.contentType == "audiobook" }
     } else {
         state.summaries.filter { it.contentType == "music" }
+    }
+
+    BackHandler(enabled = state.showDeleteAllConfirm) {
+        viewModel.showDeleteAllConfirm(false)
     }
 
     if (state.showDeleteAllConfirm) {

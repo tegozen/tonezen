@@ -28,6 +28,7 @@ private enum class TonezenSvgAsset(val fileName: String) {
     CheckCircle("check-circle.svg"),
     SkipPrevious("skip-previous.svg"),
     SkipNext("skip-next.svg"),
+    ChevronLeft("chevron-left.svg"),
     ChevronRight("chevron-right.svg"),
     Storage("storage.svg"),
     Sync("sync.svg"),
@@ -119,6 +120,11 @@ internal fun SkipPreviousGlyph(modifier: Modifier = Modifier, tint: Color = Tone
 @Composable
 internal fun SkipNextGlyph(modifier: Modifier = Modifier, tint: Color = TonezenInk, size: Dp = 20.dp) {
     TonezenSvgGlyph(TonezenSvgAsset.SkipNext, modifier, tint, size)
+}
+
+@Composable
+internal fun ChevronLeftGlyph(modifier: Modifier = Modifier, tint: Color = TonezenInk, size: Dp = 20.dp) {
+    TonezenSvgGlyph(TonezenSvgAsset.ChevronLeft, modifier, tint, size)
 }
 
 @Composable

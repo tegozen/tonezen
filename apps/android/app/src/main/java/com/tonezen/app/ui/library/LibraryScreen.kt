@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -69,6 +70,8 @@ internal fun LibraryScreen(
     val audiobooks = books.filter { it.contentType == ContentType.AUDIOBOOK }
     val music = books.filter { it.contentType == ContentType.MUSIC }
     val tabBooks = if (selectedTab == 0) audiobooks else music
+
+    BackHandler(enabled = showFilterSheet, onBack = onDismissFilterSheet)
 
     if (showFilterSheet) {
         LibraryFilterSheet(
