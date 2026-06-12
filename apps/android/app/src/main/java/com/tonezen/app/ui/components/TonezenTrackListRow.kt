@@ -148,6 +148,9 @@ internal fun TrackRowOverflowMenu(
     onToggleListened: (() -> Unit)? = null,
     isListened: Boolean = false,
 ) {
+    val hasMenuItems = onToggleListened != null || showDelete
+    if (!hasMenuItems) return
+
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
         Box(

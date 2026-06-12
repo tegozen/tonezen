@@ -136,6 +136,7 @@ internal fun MusicTrackRow(
             TrackRowOverflowMenu(
                 onDelete = onDeleteClick,
                 enabled = !isDownloading,
+                showDelete = track.isDownloaded,
             )
         },
     )

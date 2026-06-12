@@ -1,20 +1,26 @@
 package com.tonezen.app.ui.profile
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -34,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
@@ -45,7 +52,6 @@ import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenError
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
-import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
@@ -58,6 +64,8 @@ internal fun AccountSettingsScreen(
     bottomScrollPadding: Dp,
     displayName: String,
     email: String,
+    avatarUrl: String?,
+    avatarUploading: Boolean,
     profileSaving: Boolean,
     passwordSaving: Boolean,
     profileError: String?,
@@ -66,12 +74,18 @@ internal fun AccountSettingsScreen(
     onBack: () -> Unit,
     onSaveProfile: (displayName: String) -> Unit,
     onChangePassword: (newPassword: String, confirmPassword: String) -> Unit,
+    onAvatarPicked: (Uri) -> Unit,
 ) {
     var name by remember(displayName) { mutableStateOf(displayName) }
     var newPassword by remember(passwordFormNonce) { mutableStateOf("") }
     var confirmPassword by remember(passwordFormNonce) { mutableStateOf("") }
     var passwordVisible by remember(passwordFormNonce) { mutableStateOf(false) }
     var confirmVisible by remember(passwordFormNonce) { mutableStateOf(false) }
+    val pickAvatarLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) onAvatarPicked(uri)
+    }
 
     TonezenFixedHeaderScreen(
         hazeState = hazeState,
@@ -88,6 +102,61 @@ internal fun AccountSettingsScreen(
     ) {
         item {
             AccountFormSection(title = stringResource(R.string.settings_account_profile_section)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(
+                        modifier = Modifier.clickable(enabled = !avatarUploading) {
+                            pickAvatarLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                            )
+                        },
+                        contentAlignment = Alignment.BottomEnd,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            ProfileAvatar(avatarUrl = avatarUrl, size = 96.dp, iconSize = 40.dp)
+                            if (avatarUploading) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(96.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.Black.copy(alpha = 0.45f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(color = TonezenTeal, strokeWidth = 2.dp)
+                                }
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(TonezenTeal)
+                                .border(2.dp, TonezenSurfaceRaised, CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                "+",
+                                color = TonezenAppBg,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
+                    }
+                    Text(
+                        stringResource(R.string.settings_account_avatar_change),
+                        color = TonezenTeal,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.clickable(enabled = !avatarUploading) {
+                            pickAvatarLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                            )
+                        },
+                    )
+                }
                 AccountLabeledField(
                     value = name,
                     onValueChange = { name = it },
@@ -106,7 +175,7 @@ internal fun AccountSettingsScreen(
                 }
                 Button(
                     onClick = { onSaveProfile(name.trim()) },
-                    enabled = name.isNotBlank() && !profileSaving,
+                    enabled = name.isNotBlank() && !profileSaving && !avatarUploading,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = TonezenTeal, contentColor = TonezenAppBg),
                 ) {

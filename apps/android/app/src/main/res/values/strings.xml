@@ -122,6 +122,11 @@
     <string name="settings_account_offline">Нужно подключение к интернету</string>
     <string name="settings_account_password_mismatch">Пароли не совпадают</string>
     <string name="settings_account_not_signed_in">Войдите в аккаунт</string>
+    <string name="settings_account_avatar_change">Изменить фото</string>
+    <string name="settings_account_avatar_crop_title">Фото профиля</string>
+    <string name="settings_account_avatar_crop_hint">Масштабируйте и сдвиньте фото, чтобы лицо было в круге</string>
+    <string name="settings_account_avatar_save">Сохранить фото</string>
+    <string name="settings_account_avatar_load_error">Не удалось открыть изображение</string>
     <string name="settings_storage_page_title">Хранилище</string>
     <string name="settings_storage_downloads_section">Загрузки</string>
     <string name="settings_storage_downloads_desc">Офлайн-файлы аудиокниг и музыки</string>

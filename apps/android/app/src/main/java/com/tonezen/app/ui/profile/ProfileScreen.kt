@@ -27,9 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
-import coil.compose.AsyncImage
 import com.tonezen.app.ui.theme.TonezenFaint
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,7 +36,6 @@ import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.components.CheckCircleGlyph
 import com.tonezen.app.ui.components.ChevronRightGlyph
 import com.tonezen.app.ui.components.OfflineSyncDialog
-import com.tonezen.app.ui.components.ProfileGlyph
 import com.tonezen.app.ui.components.SignOutConfirmDialog
 import com.tonezen.app.ui.components.StatusChip
 import com.tonezen.app.ui.components.StorageGlyph
@@ -76,9 +73,11 @@ internal fun ProfileScreen(
         enabled = state.showSignOutConfirm ||
             state.showSyncDialog ||
             state.showDeleteAllConfirm ||
+            state.avatarCropUri != null ||
             state.activeSettingsScreen != null,
     ) {
         when {
+            state.avatarCropUri != null -> viewModel.dismissAvatarCrop()
             state.showDeleteAllConfirm -> viewModel.setDeleteAllConfirmVisible(false)
             state.showSignOutConfirm -> viewModel.setSignOutConfirmVisible(false)
             state.showSyncDialog -> viewModel.setSyncDialogVisible(false)
@@ -104,13 +103,23 @@ internal fun ProfileScreen(
             viewModel.syncNow()
         },
     )
-    when (state.activeSettingsScreen) {
-        ProfileSettingsAction.Account -> AccountSettingsScreen(
+    when {
+        state.avatarCropUri != null -> AvatarCropScreen(
+            padding = padding,
+            hazeState = hazeState,
+            imageUri = checkNotNull(state.avatarCropUri),
+            uploading = state.avatarUploading,
+            onBack = viewModel::dismissAvatarCrop,
+            onConfirm = viewModel::uploadAvatar,
+        )
+        state.activeSettingsScreen == ProfileSettingsAction.Account -> AccountSettingsScreen(
             padding = padding,
             hazeState = hazeState,
             bottomScrollPadding = bottomScrollPadding,
             displayName = state.displayName.orEmpty(),
             email = state.email.orEmpty(),
+            avatarUrl = state.avatarUrl,
+            avatarUploading = state.avatarUploading,
             profileSaving = state.profileSaving,
             passwordSaving = state.passwordSaving,
             profileError = resolveAccountError(state.profileError),
@@ -119,8 +128,9 @@ internal fun ProfileScreen(
             onBack = viewModel::closeSettingsScreen,
             onSaveProfile = viewModel::saveProfile,
             onChangePassword = viewModel::changePassword,
+            onAvatarPicked = viewModel::onAvatarPicked,
         )
-        ProfileSettingsAction.Storage -> StorageSettingsScreen(
+        state.activeSettingsScreen == ProfileSettingsAction.Storage -> StorageSettingsScreen(
             padding = padding,
             hazeState = hazeState,
             bottomScrollPadding = bottomScrollPadding,
@@ -132,7 +142,7 @@ internal fun ProfileScreen(
             onDismissDeleteAllConfirm = { viewModel.setDeleteAllConfirmVisible(false) },
             onConfirmDeleteAll = viewModel::deleteAllDownloads,
         )
-        null -> ProfileScreenContent(
+        else -> ProfileScreenContent(
             padding = padding,
             hazeState = hazeState,
             state = state,
@@ -255,26 +265,7 @@ private fun ProfileUserCard(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(58.dp)
-                .border(2.dp, Color.White.copy(alpha = 0.16f), CircleShape)
-                .padding(2.dp)
-                .clip(CircleShape)
-                .background(TonezenSurfaceRaised),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (!avatarUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = avatarUrl,
-                    contentDescription = null,
-                    modifier = Modifier.matchParentSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            } else {
-                ProfileGlyph(tint = TonezenTeal, size = 28.dp)
-            }
-        }
+        ProfileAvatar(avatarUrl = avatarUrl, size = 58.dp, iconSize = 28.dp)
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 displayName,

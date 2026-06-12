@@ -8,6 +8,7 @@ import com.tonezen.app.data.local.SecureSessionStore
 import com.tonezen.app.data.local.TonezenDatabase
 import com.tonezen.app.data.remote.ApiClient
 import com.tonezen.app.data.remote.AuthRepository
+import com.tonezen.app.data.remote.AvatarRepository
 import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.domain.session.SessionManager
@@ -46,6 +47,11 @@ object AppModule {
     @Singleton
     fun provideAuthRepository(): AuthRepository =
         AuthRepository(BuildConfig.BASE_URL, BuildConfig.SUPABASE_ANON_KEY)
+
+    @Provides
+    @Singleton
+    fun provideAvatarRepository(httpClient: OkHttpClient): AvatarRepository =
+        AvatarRepository(BuildConfig.BASE_URL, BuildConfig.SUPABASE_ANON_KEY, httpClient)
 
     @Provides
     @Singleton

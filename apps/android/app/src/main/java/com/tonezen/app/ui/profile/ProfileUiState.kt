@@ -1,5 +1,6 @@
 package com.tonezen.app.ui.profile
 
+import android.net.Uri
 import com.tonezen.app.domain.model.SessionState
 
 data class ProfileUiState(
@@ -19,6 +20,8 @@ data class ProfileUiState(
     val profileError: String? = null,
     val passwordError: String? = null,
     val passwordFormNonce: Int = 0,
+    val avatarCropUri: Uri? = null,
+    val avatarUploading: Boolean = false,
     val syncing: Boolean = false,
     val lastSyncTime: String? = null,
     val showDeleteAllConfirm: Boolean = false,

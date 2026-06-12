@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenAppBg
+import com.tonezen.app.ui.theme.TonezenBottomNavContentHeight
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
@@ -47,12 +49,21 @@ internal fun TonezenBottomNavigation(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
-        horizontalArrangement = Arrangement.SpaceAround,
+            .height(TonezenBottomNavContentHeight),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BottomNavItem(BottomDestination.Library, selected) { onSelect(BottomDestination.Library) }
-        BottomNavItem(BottomDestination.Profile, selected) { onSelect(BottomDestination.Profile) }
+        BottomNavItem(
+            destination = BottomDestination.Library,
+            selected = selected,
+            onClick = { onSelect(BottomDestination.Library) },
+            modifier = Modifier.weight(1f),
+        )
+        BottomNavItem(
+            destination = BottomDestination.Profile,
+            selected = selected,
+            onClick = { onSelect(BottomDestination.Profile) },
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -61,35 +72,42 @@ private fun BottomNavItem(
     destination: BottomDestination,
     selected: BottomDestination,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val active = destination == selected
-    Column(
-        modifier = Modifier.clickable(onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .size(26.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(if (active) TonezenTeal.copy(alpha = 0.95f) else Color.Transparent)
-                .border(
-                    BorderStroke(1.dp, if (active) TonezenTeal else TonezenMuted.copy(alpha = 0.7f)),
-                    RoundedCornerShape(6.dp),
-                ),
-            contentAlignment = Alignment.Center,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            val tint = if (active) TonezenAppBg else TonezenMuted
-            when (destination) {
-                BottomDestination.Library -> LibraryGlyph(tint = tint)
-                BottomDestination.Profile -> ProfileGlyph(tint = tint)
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(if (active) TonezenTeal.copy(alpha = 0.95f) else Color.Transparent)
+                    .border(
+                        BorderStroke(1.dp, if (active) TonezenTeal else TonezenMuted.copy(alpha = 0.7f)),
+                        RoundedCornerShape(6.dp),
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                val tint = if (active) TonezenAppBg else TonezenMuted
+                when (destination) {
+                    BottomDestination.Library -> LibraryGlyph(tint = tint)
+                    BottomDestination.Profile -> ProfileGlyph(tint = tint)
+                }
             }
+            Text(
+                text = stringResource(destination.labelRes),
+                color = if (active) TonezenTeal else TonezenMuted,
+                style = MaterialTheme.typography.labelSmall,
+            )
         }
-        Text(
-            text = stringResource(destination.labelRes),
-            color = if (active) TonezenTeal else TonezenMuted,
-            style = MaterialTheme.typography.labelSmall,
-        )
     }
 }
 

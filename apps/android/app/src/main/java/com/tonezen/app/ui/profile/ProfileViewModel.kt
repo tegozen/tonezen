@@ -1,11 +1,13 @@
 package com.tonezen.app.ui.profile
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonezen.app.data.local.CatalogRepository
 import com.tonezen.app.data.local.LocalLibraryNotifier
 import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.data.remote.AuthRepository
+import com.tonezen.app.data.remote.AvatarRepository
 import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.playback.PlaybackClient
@@ -25,6 +27,7 @@ import kotlinx.coroutines.launch
 class ProfileViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val authRepository: AuthRepository,
+    private val avatarRepository: AvatarRepository,
     private val progressSyncRepository: ProgressSyncRepository,
     private val catalogRepository: CatalogRepository,
     private val networkMonitor: NetworkMonitor,
@@ -177,6 +180,43 @@ class ProfileViewModel @Inject constructor(
 
     fun onSettingsClick(action: ProfileSettingsAction) {
         openSettingsScreen(action)
+    }
+
+    fun onAvatarPicked(uri: Uri) {
+        _uiState.update { it.copy(avatarCropUri = uri, profileError = null) }
+    }
+
+    fun dismissAvatarCrop() {
+        _uiState.update { it.copy(avatarCropUri = null) }
+    }
+
+    fun uploadAvatar(jpegBytes: ByteArray) {
+        if (!networkMonitor.isOnline()) {
+            _uiState.update { it.copy(profileError = ACCOUNT_OFFLINE_ERROR) }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(avatarUploading = true, profileError = null) }
+            try {
+                val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
+                    ?: throw IllegalStateException(NOT_SIGNED_IN_ERROR)
+                val avatarUrl = avatarRepository.uploadAvatar(
+                    accessToken = session.accessToken,
+                    userId = session.userId,
+                    jpegBytes = jpegBytes,
+                )
+                authRepository.updateUser(
+                    accessToken = session.accessToken,
+                    avatarUrl = avatarUrl,
+                )
+                sessionRepository.saveSession(session.copy(avatarUrl = avatarUrl))
+                _uiState.update { it.copy(avatarCropUri = null) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(profileError = e.message) }
+            } finally {
+                _uiState.update { it.copy(avatarUploading = false) }
+            }
+        }
     }
 
     fun syncNow() {

@@ -35,10 +35,18 @@ class AuthRepository(
         accessToken: String,
         displayName: String? = null,
         newPassword: String? = null,
+        avatarUrl: String? = null,
     ): StoredSession = withContext(Dispatchers.IO) {
         val body = JSONObject()
-        if (displayName != null) {
-            body.put("data", JSONObject().put("full_name", displayName))
+        if (displayName != null || avatarUrl != null) {
+            val data = JSONObject()
+            if (displayName != null) {
+                data.put("full_name", displayName)
+            }
+            if (avatarUrl != null) {
+                data.put("avatar_url", avatarUrl)
+            }
+            body.put("data", data)
         }
         if (newPassword != null) {
             body.put("password", newPassword)
