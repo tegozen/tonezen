@@ -86,6 +86,7 @@ If the refactor exceeds ~400 lines, split into smaller steps and tell the user.
 2. Update imports and call sites in scope
 3. Keep comments sparse — only non-obvious business logic
 4. Preserve i18n-ready UI strings; English for code comments
+5. **Desktop renderer UI** — Tailwind CSS (see `AGENTS.md`); replace inline `style` with utilities or shared classes in `styles.css` — not ad-hoc CSS files per component
 
 ### Verify
 

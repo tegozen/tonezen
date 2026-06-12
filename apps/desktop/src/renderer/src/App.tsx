@@ -96,17 +96,17 @@ export function App() {
   }
 
   return (
-    <div className="app">
+    <div className="app-shell">
       <h1>Tonezen</h1>
       {sessionState === "AuthenticatedOffline" && (
         <div className="banner">No network — sync paused</div>
       )}
       {!selectedBook ? (
         <>
-          <button onClick={() => void syncCatalog()} disabled={syncing}>
+          <button className="btn-primary" disabled={syncing} onClick={() => void syncCatalog()}>
             {syncing ? "Syncing…" : "Sync catalog"}
           </button>
-          <div className="grid">
+          <div className="mt-4 grid gap-3">
             {books.map((book) => (
               <div key={book.id} className="card" onClick={() => void openBook(book)}>
                 <strong>{book.title}</strong>
@@ -115,35 +115,42 @@ export function App() {
               </div>
             ))}
           </div>
-          <button className="secondary" onClick={() => void handleLogout()} style={{ marginTop: 16 }}>
+          <button className="btn-secondary mt-4" onClick={() => void handleLogout()}>
             Sign out
           </button>
         </>
       ) : (
         <>
-          <button className="secondary" onClick={leaveBook}>
+          <button className="btn-secondary" onClick={leaveBook}>
             Back
           </button>
           <h2>{selectedBook.title}</h2>
           {progressLabel && selectedBook.contentType === "audiobook" && (
-            <button onClick={() => void resumeProgress()}>{progressLabel}</button>
+            <button className="btn-primary mt-2" onClick={() => void resumeProgress()}>
+              {progressLabel}
+            </button>
           )}
-          <div className="grid">
+          <div className="mt-4 grid gap-3">
             {tracks.map((track) => (
               <div key={track.id} className="card">
                 <div>
                   {track.sortOrder + 1}. {track.title}
                   {track.localPath ? " ✓" : ""}
                 </div>
-                <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                <div className="track-actions">
                   {track.localPath ? (
-                    <button onClick={() => playTrack(track)}>Play</button>
+                    <button className="btn-primary" type="button" onClick={() => playTrack(track)}>
+                      Play
+                    </button>
                   ) : (
-                    <button onClick={() => void downloadTrack(track)}>Download</button>
+                    <button className="btn-primary" type="button" onClick={() => void downloadTrack(track)}>
+                      Download
+                    </button>
                   )}
                   {track.localPath && (
                     <button
-                      className="secondary"
+                      className="btn-secondary"
+                      type="button"
                       onClick={() =>
                         window.tonezen.download.delete(selectedBook.id, track.id).then(() => openBook(selectedBook))
                       }
@@ -161,7 +168,7 @@ export function App() {
           </div>
         </>
       )}
-      {error && <p style={{ color: "#f87171" }}>{error}</p>}
+      {error && <p className="error-text">{error}</p>}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "electron-vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "node:path";
@@ -18,6 +19,6 @@ export default defineConfig({
         "@shared": resolve("src/shared"),
       },
     },
-    plugins: [react()],
+    plugins: [react(), tailwindcss()],
   },
 });

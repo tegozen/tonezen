@@ -16,24 +16,24 @@ export function LoginView({
   onLogin,
 }: LoginViewProps) {
   return (
-    <div className="app">
+    <div className="app-shell">
       <h1>Tonezen</h1>
       <p>Sign in with your account to sync audiobook progress.</p>
       <input
+        className="input-field"
         placeholder="Email"
         value={email}
         onChange={(e) => onEmailChange(e.target.value)}
-        style={{ display: "block", marginBottom: 8, width: "100%", padding: 8 }}
       />
       <input
+        className="input-field"
         placeholder="Password"
         type="password"
         value={password}
         onChange={(e) => onPasswordChange(e.target.value)}
-        style={{ display: "block", marginBottom: 8, width: "100%", padding: 8 }}
       />
-      <button onClick={onLogin}>Sign in</button>
-      {error && <p style={{ color: "#f87171" }}>{error}</p>}
+      <button className="btn-primary" type="button" onClick={onLogin}>Sign in</button>
+      {error && <p className="error-text">{error}</p>}
     </div>
   );
 }

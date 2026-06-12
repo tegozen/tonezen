@@ -66,6 +66,7 @@ Prefer moving **pure** logic from ViewModel → `domain/`; moving **IO** from Vi
 
 ```
 - [ ] renderer/ — React components + hooks only; no direct Node/Electron APIs
+- [ ] renderer styling — Tailwind utilities / `@layer components` in `styles.css`; no inline `style` props
 - [ ] main/ — Electron lifecycle, tray, IPC handlers, better-sqlite3
 - [ ] shared/ — pure TS (progress merge, session types, cycle playback)
 - [ ] preload/ — minimal surface; no business logic

@@ -5,7 +5,7 @@
 Monorepo offline-first media player:
 
 - **Android** — Kotlin, Jetpack Compose, Media3, Room
-- **Desktop** — Electron, React, Vite, better-sqlite3
+- **Desktop** — Electron, React, Vite, Tailwind CSS, better-sqlite3
 - **Backend** — Self-hosted Supabase (Auth, Realtime, Storage, Studio), catalog indexer
 
 Shared API contract: [`docs/openapi.yaml`](docs/openapi.yaml).
@@ -72,6 +72,7 @@ Dependencies point inward only. Domain logic must not import Android, Electron, 
 |------|------|-------|
 | Kotlin/Android | ktlint + detekt | Official Kotlin style; Compose in `ui/`; `suspend` for IO |
 | TypeScript/React | ESLint + Prettier | strict TS; functional components; hooks for logic |
+| Desktop renderer UI | Tailwind CSS v4 (`@tailwindcss/vite`) | utility classes + `@layer components` in `styles.css`; no inline `style` props |
 | SQL | pg formatter | snake_case; explicit RLS in migrations |
 | Edge Functions (Deno) | deno lint/fmt | Modules < 200 lines; no `any` |
 | Indexer (Node/TS) | ESLint + Prettier | Same as desktop |
