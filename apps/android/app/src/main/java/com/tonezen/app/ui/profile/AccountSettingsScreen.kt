@@ -30,7 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +58,9 @@ import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 internal fun AccountSettingsScreen(
@@ -81,10 +86,18 @@ internal fun AccountSettingsScreen(
     var confirmPassword by remember(passwordFormNonce) { mutableStateOf("") }
     var passwordVisible by remember(passwordFormNonce) { mutableStateOf(false) }
     var confirmVisible by remember(passwordFormNonce) { mutableStateOf(false) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val pickAvatarLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
-        if (uri != null) onAvatarPicked(uri)
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val cachedUri = withContext(Dispatchers.IO) {
+                cachePickedAvatarUri(context, uri)
+            }
+            onAvatarPicked(cachedUri ?: uri)
+        }
     }
 
     TonezenFixedHeaderScreen(
@@ -296,5 +309,12 @@ internal fun resolveAccountError(error: String?): String? = when (error) {
     ProfileViewModel.PASSWORD_MISMATCH_ERROR -> stringResource(R.string.settings_account_password_mismatch)
     ProfileViewModel.NOT_SIGNED_IN_ERROR -> stringResource(R.string.settings_account_not_signed_in)
     ProfileViewModel.PASSWORD_TOO_SHORT_ERROR -> stringResource(R.string.settings_account_password_too_short)
+    else -> error
+}
+
+@Composable
+internal fun resolveAvatarUploadError(error: String?): String? = when (error) {
+    ProfileViewModel.ACCOUNT_OFFLINE_ERROR -> stringResource(R.string.settings_account_offline)
+    ProfileViewModel.NOT_SIGNED_IN_ERROR -> stringResource(R.string.settings_account_not_signed_in)
     else -> error
 }

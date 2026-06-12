@@ -183,20 +183,21 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun onAvatarPicked(uri: Uri) {
-        _uiState.update { it.copy(avatarCropUri = uri, profileError = null) }
+        _uiState.update { it.copy(avatarCropUri = uri, profileError = null, avatarUploadError = null) }
     }
 
     fun dismissAvatarCrop() {
-        _uiState.update { it.copy(avatarCropUri = null) }
+        _uiState.value.avatarCropUri?.let(::deleteCachedAvatarUri)
+        _uiState.update { it.copy(avatarCropUri = null, avatarUploadError = null) }
     }
 
     fun uploadAvatar(jpegBytes: ByteArray) {
         if (!networkMonitor.isOnline()) {
-            _uiState.update { it.copy(profileError = ACCOUNT_OFFLINE_ERROR) }
+            _uiState.update { it.copy(avatarUploadError = ACCOUNT_OFFLINE_ERROR) }
             return
         }
         viewModelScope.launch {
-            _uiState.update { it.copy(avatarUploading = true, profileError = null) }
+            _uiState.update { it.copy(avatarUploading = true, avatarUploadError = null, profileError = null) }
             try {
                 val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
                     ?: throw IllegalStateException(NOT_SIGNED_IN_ERROR)
@@ -210,9 +211,16 @@ class ProfileViewModel @Inject constructor(
                     avatarUrl = avatarUrl,
                 )
                 sessionRepository.saveSession(session.copy(avatarUrl = avatarUrl))
-                _uiState.update { it.copy(avatarCropUri = null) }
+                _uiState.value.avatarCropUri?.let(::deleteCachedAvatarUri)
+                _uiState.update {
+                    it.copy(
+                        avatarUrl = avatarUrl,
+                        avatarCropUri = null,
+                        avatarUploadError = null,
+                    )
+                }
             } catch (e: Exception) {
-                _uiState.update { it.copy(profileError = e.message) }
+                _uiState.update { it.copy(avatarUploadError = e.message) }
             } finally {
                 _uiState.update { it.copy(avatarUploading = false) }
             }

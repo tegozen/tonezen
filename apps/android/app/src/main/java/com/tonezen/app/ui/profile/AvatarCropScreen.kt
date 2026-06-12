@@ -55,6 +55,7 @@ import com.tonezen.app.domain.avatar.cropAvatarToJpeg
 import com.tonezen.app.domain.avatar.minAvatarCoverScale
 import com.tonezen.app.ui.components.BackNavButton
 import com.tonezen.app.ui.theme.TonezenAppBg
+import com.tonezen.app.ui.theme.TonezenError
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
@@ -68,6 +69,7 @@ private val AvatarCropBackground = Color(0xFF020617)
 internal fun AvatarCropScreen(
     imageUri: Uri,
     uploading: Boolean,
+    uploadError: String? = null,
     onBack: () -> Unit,
     onConfirm: (ByteArray) -> Unit,
 ) {
@@ -113,6 +115,7 @@ internal fun AvatarCropScreen(
                 AvatarCropContent(
                     bitmap = sourceBitmap!!,
                     uploading = uploading,
+                    uploadError = uploadError,
                     onConfirm = onConfirm,
                 )
             }
@@ -161,6 +164,7 @@ private fun AvatarCropTopBar(onBack: () -> Unit) {
 private fun AvatarCropContent(
     bitmap: Bitmap,
     uploading: Boolean,
+    uploadError: String?,
     onConfirm: (ByteArray) -> Unit,
 ) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
@@ -225,6 +229,17 @@ private fun AvatarCropContent(
                     cropDiameterPx = cropDiameterPx,
                 )
             }
+        }
+        uploadError?.let { message ->
+            Text(
+                message,
+                color = TonezenError,
+                style = MaterialTheme.typography.bodySmall,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+            )
         }
         Button(
             onClick = {

@@ -22,6 +22,7 @@ data class ProfileUiState(
     val passwordFormNonce: Int = 0,
     val avatarCropUri: Uri? = null,
     val avatarUploading: Boolean = false,
+    val avatarUploadError: String? = null,
     val syncing: Boolean = false,
     val lastSyncTime: String? = null,
     val showDeleteAllConfirm: Boolean = false,

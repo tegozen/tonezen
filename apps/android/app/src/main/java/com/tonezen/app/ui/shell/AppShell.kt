@@ -27,8 +27,9 @@ import com.tonezen.app.ui.player.BookDetailScreen
 import com.tonezen.app.ui.player.BookDetailViewModel
 import com.tonezen.app.ui.player.NowPlayingSheet
 import com.tonezen.app.ui.profile.ProfileScreen
-import com.tonezen.app.ui.profile.ProfileViewModel
 import com.tonezen.app.ui.profile.AvatarCropScreen
+import com.tonezen.app.ui.profile.ProfileViewModel
+import com.tonezen.app.ui.profile.resolveAvatarUploadError
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.withoutBottom
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
@@ -222,6 +223,7 @@ fun AppShell(
                 AvatarCropScreen(
                     imageUri = checkNotNull(profileState.avatarCropUri),
                     uploading = profileState.avatarUploading,
+                    uploadError = resolveAvatarUploadError(profileState.avatarUploadError),
                     onBack = profileViewModel::dismissAvatarCrop,
                     onConfirm = profileViewModel::uploadAvatar,
                 )
