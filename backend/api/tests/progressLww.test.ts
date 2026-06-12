@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeProgressLww } from "../src/lib/crypto.js";
+import { mergeProgressLww } from "../src/lib/progressLww.js";
 
 describe("mergeProgressLww", () => {
   const older = {

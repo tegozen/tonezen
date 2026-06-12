@@ -1,4 +1,5 @@
 import type pg from "pg";
+import { mergeProgressLww, type ProgressRecord } from "./lib/progressLww.js";
 
 export class ApiRepository {
   constructor(private pool: pg.Pool) {}
@@ -128,13 +129,21 @@ export class ApiRepository {
     }
 
     const existing = await this.pool.query(
-      `SELECT updated_at FROM audiobook_progress WHERE user_id = $1 AND book_id = $2`,
+      `SELECT book_id, track_id, position_ms, updated_at
+       FROM audiobook_progress WHERE user_id = $1 AND book_id = $2`,
       [userId, bookId],
     );
+    const incoming: ProgressRecord = {
+      book_id: bookId,
+      track_id: trackId,
+      position_ms: positionMs,
+      updated_at: updatedAt,
+    };
     if (existing.rows.length > 0) {
-      const remote = new Date(existing.rows[0].updated_at as string);
-      if (new Date(updatedAt) < remote) {
-        return { skipped: true as const, progress: existing.rows[0] };
+      const remote = existing.rows[0] as ProgressRecord;
+      const winner = mergeProgressLww(incoming, remote);
+      if (winner !== incoming) {
+        return { skipped: true as const, progress: winner };
       }
     }
 
