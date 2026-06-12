@@ -39,10 +39,13 @@
     <string name="downloading_percent">Downloading: %1$d%%</string>
     <string name="sign_in_to_sync">Sign in to sync audiobook progress</string>
     <string name="auth_eyebrow">Offline-first media player</string>
-    <string name="auth_headline">Your library, ready offline.</string>
-    <string name="auth_body">Download books and music, then keep audiobook progress synced when you are back online.</string>
+    <string name="auth_headline">Your library, ready offline</string>
+    <string name="auth_body">Download books and music. Audiobook progress syncs when you are online.</string>
     <string name="auth_sync_badge">Progress sync</string>
     <string name="auth_offline_badge">Offline playback</string>
+    <string name="auth_cover_midnight">THE MIDNIGHT LIBRARY</string>
+    <string name="auth_cover_atomic">ATOMIC HABITS</string>
+    <string name="auth_cover_body">THE 4-HOUR BODY</string>
     <string name="auth_card_title">Sign in</string>
     <string name="auth_card_body">Use your Tonezen account to sync audiobooks. Music playback stays local.</string>
     <string name="email">Email</string>

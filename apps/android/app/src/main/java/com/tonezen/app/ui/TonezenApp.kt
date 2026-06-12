@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -45,16 +46,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -864,108 +869,99 @@ fun AuthScreen(
     var password by remember { mutableStateOf("") }
     val canSubmit = email.isNotBlank() && password.isNotBlank()
 
-    LazyColumn(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(TonezenScreenBrush)
             .padding(padding),
-        contentPadding = PaddingValues(start = 20.dp, top = 34.dp, end = 20.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        item {
-            AuthBrandHeader()
+        AuthStarField(modifier = Modifier.fillMaxSize())
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 24.dp, top = 44.dp, end = 24.dp, bottom = 30.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp),
+        ) {
+            item {
+                AuthIntroPanel()
+            }
+            item {
+                AuthSignInForm(
+                    email = email,
+                    password = password,
+                    error = error,
+                    canSubmit = canSubmit,
+                    onEmailChange = { email = it },
+                    onPasswordChange = { password = it },
+                    onSubmit = { onLogin(email.trim(), password) },
+                )
+            }
+            item {
+                AuthFooterNote()
+            }
         }
-        item {
-            AuthHeroPanel()
-        }
-        item {
-            AuthFormCard(
-                email = email,
-                password = password,
-                error = error,
-                canSubmit = canSubmit,
-                onEmailChange = { email = it },
-                onPasswordChange = { password = it },
-                onSubmit = { onLogin(email.trim(), password) },
+    }
+}
+
+@Composable
+private fun AuthStarField(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        drawCircle(
+            color = TonezenTeal.copy(alpha = 0.05f),
+            radius = size.minDimension * 0.58f,
+            center = Offset(size.width * 0.86f, size.height * 0.08f),
+        )
+        drawCircle(
+            color = TonezenAmber.copy(alpha = 0.06f),
+            radius = size.minDimension * 0.42f,
+            center = Offset(size.width * 0.10f, size.height * 0.35f),
+        )
+        listOf(
+            Offset(0.18f, 0.10f) to 0.004f,
+            Offset(0.84f, 0.17f) to 0.003f,
+            Offset(0.68f, 0.31f) to 0.0027f,
+            Offset(0.24f, 0.48f) to 0.0028f,
+            Offset(0.78f, 0.59f) to 0.0032f,
+            Offset(0.46f, 0.72f) to 0.0025f,
+        ).forEach { (point, radius) ->
+            drawCircle(
+                color = Color.White.copy(alpha = 0.16f),
+                radius = size.minDimension * radius,
+                center = Offset(size.width * point.x, size.height * point.y),
             )
         }
-        item {
-            AuthFooterNote()
-        }
     }
 }
 
 @Composable
-private fun AuthBrandHeader() {
-    Row(
+private fun AuthIntroPanel() {
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Brush.linearGradient(listOf(TonezenTeal.copy(alpha = 0.28f), TonezenSurfaceRaised)))
-                    .border(BorderStroke(1.dp, TonezenTeal.copy(alpha = 0.36f)), RoundedCornerShape(16.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                PlayingBars(active = true)
-            }
-            Column {
-                Text(
-                    stringResource(R.string.app_name),
-                    color = TonezenInk,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    stringResource(R.string.auth_eyebrow),
-                    color = TonezenMuted,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-            }
+        Text(
+            stringResource(R.string.app_name),
+            color = TonezenInk,
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                stringResource(R.string.auth_headline),
+                color = TonezenInk,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                stringResource(R.string.auth_body),
+                color = TonezenMuted,
+                style = MaterialTheme.typography.bodyLarge,
+            )
         }
-        StatusChip(label = stringResource(R.string.offline), tone = TonezenTeal)
-    }
-}
-
-@Composable
-private fun AuthHeroPanel() {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = TonezenSurface.copy(alpha = 0.90f),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.09f)),
-    ) {
-        Row(
-            modifier = Modifier.padding(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    stringResource(R.string.auth_headline),
-                    color = TonezenInk,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    stringResource(R.string.auth_body),
-                    color = TonezenMuted,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AuthPill(stringResource(R.string.auth_sync_badge), TonezenGreen)
-                    AuthPill(stringResource(R.string.auth_offline_badge), TonezenAmber)
-                }
-            }
-            AuthMediaStack()
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AuthPill(stringResource(R.string.auth_offline_badge), TonezenTeal)
+            AuthPill(stringResource(R.string.auth_sync_badge), TonezenGreen)
         }
+        AuthMediaStack()
     }
 }
 
@@ -984,36 +980,61 @@ private fun AuthPill(label: String, tone: Color) {
 
 @Composable
 private fun AuthMediaStack() {
-    Box(modifier = Modifier.size(width = 104.dp, height = 132.dp)) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(190.dp)
+            .padding(top = 2.dp),
+    ) {
         AuthMiniCover(
-            title = "AUDIO",
-            brush = Brush.verticalGradient(listOf(Color(0xFF061826), Color(0xFF14324A))),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .size(width = 76.dp, height = 104.dp),
-        )
-        AuthMiniCover(
-            title = "MIX",
-            brush = Brush.verticalGradient(listOf(Color(0xFF173B39), Color(0xFF5EEAD4))),
+            title = stringResource(R.string.auth_cover_atomic),
+            brush = Brush.verticalGradient(listOf(Color(0xFFF5E8CE), Color(0xFFC9AA78))),
+            contentColor = Color(0xFF6D4C2F),
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .size(width = 72.dp, height = 92.dp),
+                .offset(x = 18.dp, y = 4.dp)
+                .size(width = 118.dp, height = 158.dp)
+                .graphicsLayer(rotationZ = -7f),
+        )
+        AuthMiniCover(
+            title = stringResource(R.string.auth_cover_midnight),
+            brush = Brush.verticalGradient(listOf(Color(0xFF06111D), Color(0xFF12314C), Color(0xFF06111D))),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = (-4).dp)
+                .size(width = 142.dp, height = 178.dp)
+                .graphicsLayer(rotationZ = 1.5f),
+        )
+        AuthMiniCover(
+            title = stringResource(R.string.auth_cover_body),
+            brush = Brush.verticalGradient(listOf(Color(0xFF8D2E1B), Color(0xFFD65B28))),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(x = (-18).dp, y = 6.dp)
+                .size(width = 112.dp, height = 150.dp)
+                .graphicsLayer(rotationZ = 7f),
         )
         Box(
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .size(38.dp)
+                .align(Alignment.BottomCenter)
+                .offset(y = (-2).dp)
+                .size(48.dp)
                 .clip(CircleShape)
                 .background(Color(0xFFF5E9D6)),
             contentAlignment = Alignment.Center,
         ) {
-            PlayTriangle(tint = TonezenAppBg, modifier = Modifier.size(17.dp))
+            PlayTriangle(tint = TonezenAppBg, modifier = Modifier.size(20.dp))
         }
     }
 }
 
 @Composable
-private fun AuthMiniCover(title: String, brush: Brush, modifier: Modifier) {
+private fun AuthMiniCover(
+    title: String,
+    brush: Brush,
+    contentColor: Color = TonezenInk,
+    modifier: Modifier,
+) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
@@ -1024,15 +1045,17 @@ private fun AuthMiniCover(title: String, brush: Brush, modifier: Modifier) {
     ) {
         Text(
             title,
-            color = TonezenInk,
-            style = MaterialTheme.typography.labelMedium,
+            color = contentColor,
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            maxLines = 4,
         )
     }
 }
 
 @Composable
-private fun AuthFormCard(
+private fun AuthSignInForm(
     email: String,
     password: String,
     error: String?,
@@ -1041,63 +1064,55 @@ private fun AuthFormCard(
     onPasswordChange: (String) -> Unit,
     onSubmit: () -> Unit,
 ) {
-    Surface(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        color = TonezenSurfaceRaised.copy(alpha = 0.88f),
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
+        verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+        TonezenAuthField(
+            value = email,
+            onValueChange = onEmailChange,
+            label = stringResource(R.string.email),
+            keyboardType = KeyboardType.Email,
+            icon = AuthFieldIcon.Email,
+        )
+        TonezenAuthField(
+            value = password,
+            onValueChange = onPasswordChange,
+            label = stringResource(R.string.password),
+            keyboardType = KeyboardType.Password,
+            icon = AuthFieldIcon.Password,
+            hidden = true,
+        )
+        Button(
+            onClick = onSubmit,
+            enabled = canSubmit,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp),
+            shape = RoundedCornerShape(17.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = TonezenTeal,
+                contentColor = TonezenAppBg,
+                disabledContainerColor = TonezenSurfaceMuted,
+                disabledContentColor = TonezenMuted,
+            ),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    stringResource(R.string.auth_card_title),
-                    color = TonezenInk,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    stringResource(R.string.auth_card_body),
-                    color = TonezenMuted,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            TonezenAuthField(
-                value = email,
-                onValueChange = onEmailChange,
-                label = stringResource(R.string.email),
-                keyboardType = KeyboardType.Email,
+            Text(stringResource(R.string.sign_in), fontWeight = FontWeight.SemiBold)
+        }
+        error?.let {
+            Text(
+                it,
+                color = TonezenError,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 2.dp),
             )
-            TonezenAuthField(
-                value = password,
-                onValueChange = onPasswordChange,
-                label = stringResource(R.string.password),
-                keyboardType = KeyboardType.Password,
-                hidden = true,
-            )
-            Button(
-                onClick = onSubmit,
-                enabled = canSubmit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = TonezenTeal,
-                    contentColor = TonezenAppBg,
-                    disabledContainerColor = TonezenSurfaceMuted,
-                    disabledContentColor = TonezenMuted,
-                ),
-            ) {
-                Text(stringResource(R.string.sign_in), fontWeight = FontWeight.SemiBold)
-            }
-            error?.let {
-                Text(it, color = TonezenError, style = MaterialTheme.typography.bodySmall)
-            }
         }
     }
+}
+
+private enum class AuthFieldIcon {
+    Email,
+    Password,
 }
 
 @Composable
@@ -1106,51 +1121,108 @@ private fun TonezenAuthField(
     onValueChange: (String) -> Unit,
     label: String,
     keyboardType: KeyboardType,
+    icon: AuthFieldIcon,
     hidden: Boolean = false,
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
-        modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text(label) },
+        leadingIcon = { AuthFieldGlyph(icon) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp),
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         visualTransformation = if (hidden) PasswordVisualTransformation() else VisualTransformation.None,
         singleLine = true,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = TonezenInk,
             unfocusedTextColor = TonezenInk,
-            focusedContainerColor = TonezenAppBg.copy(alpha = 0.50f),
-            unfocusedContainerColor = TonezenAppBg.copy(alpha = 0.34f),
+            focusedContainerColor = TonezenSurface.copy(alpha = 0.72f),
+            unfocusedContainerColor = TonezenSurface.copy(alpha = 0.56f),
             focusedBorderColor = TonezenTeal,
-            unfocusedBorderColor = TonezenBorder,
-            focusedLabelColor = TonezenTeal,
-            unfocusedLabelColor = TonezenMuted,
+            unfocusedBorderColor = Color.White.copy(alpha = 0.18f),
+            focusedPlaceholderColor = TonezenTeal.copy(alpha = 0.92f),
+            unfocusedPlaceholderColor = TonezenMuted,
             cursorColor = TonezenTeal,
         ),
     )
 }
 
 @Composable
+private fun AuthFieldGlyph(icon: AuthFieldIcon) {
+    Canvas(modifier = Modifier.size(19.dp)) {
+        when (icon) {
+            AuthFieldIcon.Email -> {
+                drawRoundRect(
+                    color = TonezenMuted,
+                    topLeft = Offset(size.width * 0.08f, size.height * 0.20f),
+                    size = Size(size.width * 0.84f, size.height * 0.62f),
+                    cornerRadius = CornerRadius(size.width * 0.08f, size.width * 0.08f),
+                    style = Stroke(width = 2.0f),
+                )
+                drawLine(
+                    color = TonezenMuted,
+                    start = Offset(size.width * 0.12f, size.height * 0.28f),
+                    end = Offset(size.width * 0.50f, size.height * 0.55f),
+                    strokeWidth = 2.0f,
+                )
+                drawLine(
+                    color = TonezenMuted,
+                    start = Offset(size.width * 0.88f, size.height * 0.28f),
+                    end = Offset(size.width * 0.50f, size.height * 0.55f),
+                    strokeWidth = 2.0f,
+                )
+            }
+
+            AuthFieldIcon.Password -> {
+                drawRoundRect(
+                    color = TonezenMuted,
+                    topLeft = Offset(size.width * 0.20f, size.height * 0.43f),
+                    size = Size(size.width * 0.60f, size.height * 0.38f),
+                    cornerRadius = CornerRadius(size.width * 0.08f, size.width * 0.08f),
+                    style = Stroke(width = 2.0f),
+                )
+                drawLine(
+                    color = TonezenMuted,
+                    start = Offset(size.width * 0.34f, size.height * 0.43f),
+                    end = Offset(size.width * 0.34f, size.height * 0.31f),
+                    strokeWidth = 2.0f,
+                )
+                drawLine(
+                    color = TonezenMuted,
+                    start = Offset(size.width * 0.34f, size.height * 0.31f),
+                    end = Offset(size.width * 0.66f, size.height * 0.31f),
+                    strokeWidth = 2.0f,
+                )
+                drawLine(
+                    color = TonezenMuted,
+                    start = Offset(size.width * 0.66f, size.height * 0.31f),
+                    end = Offset(size.width * 0.66f, size.height * 0.43f),
+                    strokeWidth = 2.0f,
+                )
+                drawCircle(
+                    color = TonezenMuted,
+                    radius = size.minDimension * 0.055f,
+                    center = Offset(size.width * 0.50f, size.height * 0.61f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun AuthFooterNote() {
-    Row(
+    Text(
+        stringResource(R.string.offline_playback_note),
+        color = TonezenMuted,
+        style = MaterialTheme.typography.bodySmall,
+        textAlign = TextAlign.Center,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(TonezenSurface.copy(alpha = 0.64f))
-            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.07f)), RoundedCornerShape(16.dp))
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        StatusChip(label = stringResource(R.string.paused), tone = TonezenAmber)
-        Text(
-            stringResource(R.string.offline_playback_note),
-            color = TonezenMuted,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.weight(1f),
-        )
-    }
+            .padding(horizontal = 10.dp),
+    )
 }
 
 @Composable
