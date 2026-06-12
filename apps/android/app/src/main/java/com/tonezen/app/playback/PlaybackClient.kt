@@ -10,6 +10,11 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -17,6 +22,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -43,6 +50,9 @@ class PlaybackClient @Inject constructor(
 
     private val _activeTrackId = MutableSharedFlow<String>(extraBufferCapacity = 1, replay = 1)
     val activeTrackId: SharedFlow<String> = _activeTrackId.asSharedFlow()
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var positionTickJob: Job? = null
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
@@ -99,6 +109,7 @@ class PlaybackClient @Inject constructor(
     fun currentPositionMs(): Long = controller?.currentPosition?.coerceAtLeast(0L) ?: 0L
 
     fun stopAndRelease() {
+        stopPositionTicks()
         listener?.let { controller?.removeListener(it) }
         listener = null
         controller?.release()
@@ -163,5 +174,25 @@ class PlaybackClient @Inject constructor(
                 trackId = mediaController.currentMediaItem?.mediaId,
             )
         }
+        if (mediaController.isPlaying) {
+            startPositionTicks(mediaController)
+        } else {
+            stopPositionTicks()
+        }
+    }
+
+    private fun startPositionTicks(mediaController: MediaController) {
+        if (positionTickJob?.isActive == true) return
+        positionTickJob = scope.launch {
+            while (isActive) {
+                delay(1000)
+                controller?.let { refreshSnapshot(it) }
+            }
+        }
+    }
+
+    private fun stopPositionTicks() {
+        positionTickJob?.cancel()
+        positionTickJob = null
     }
 }

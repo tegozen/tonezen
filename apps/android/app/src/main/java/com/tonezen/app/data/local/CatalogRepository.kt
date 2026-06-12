@@ -11,6 +11,7 @@ import javax.inject.Singleton
 class CatalogRepository @Inject constructor(
     private val catalogDao: CatalogDao,
     private val apiClient: ApiClient,
+    private val progressRepository: ProgressRepository,
 ) {
     suspend fun getAllBooks(): List<Book> =
         catalogDao.getAllBooks().map { it.toDomain() }
@@ -18,11 +19,8 @@ class CatalogRepository @Inject constructor(
     suspend fun getTracksForBook(bookId: String): List<Track> =
         catalogDao.getTracksForBook(bookId).map { it.toDomain() }
 
-    suspend fun getTrackEntitiesForBook(bookId: String): List<TrackEntity> =
-        catalogDao.getTracksForBook(bookId)
-
     suspend fun getProgress(bookId: String): AudiobookProgress? =
-        catalogDao.getProgress(bookId)?.toDomain()
+        progressRepository.getProgress(bookId)
 
     suspend fun downloadedBookIds(books: List<Book>): Set<String> = books
         .filter { book -> catalogDao.getTracksForBook(book.id).any { it.localPath != null } }
@@ -63,7 +61,8 @@ class CatalogRepository @Inject constructor(
         return remoteBooks
     }
 
-    suspend fun markTrackDownloaded(track: TrackEntity, localPath: String) {
+    suspend fun markTrackDownloaded(bookId: String, trackId: String, localPath: String) {
+        val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId } ?: return
         catalogDao.upsertTracks(listOf(track.copy(localPath = localPath)))
     }
 

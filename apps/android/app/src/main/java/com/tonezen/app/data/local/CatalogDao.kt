@@ -1,0 +1,42 @@
+package com.tonezen.app.data.local
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+
+@Dao
+interface CatalogDao {
+    @Query("SELECT * FROM books ORDER BY title")
+    suspend fun getAllBooks(): List<BookEntity>
+
+    @Query("SELECT * FROM tracks WHERE bookId = :bookId ORDER BY sortOrder")
+    suspend fun getTracksForBook(bookId: String): List<TrackEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertBooks(books: List<BookEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertTracks(tracks: List<TrackEntity>)
+
+    @Query("SELECT * FROM audiobook_progress WHERE bookId = :bookId")
+    suspend fun getProgress(bookId: String): AudiobookProgressEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertProgress(progress: AudiobookProgressEntity)
+
+    @Query("SELECT * FROM audiobook_progress WHERE pendingSync = 1")
+    suspend fun getPendingProgress(): List<AudiobookProgressEntity>
+
+    @Query("SELECT * FROM favorites")
+    suspend fun getFavorites(): List<FavoriteEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertFavorite(favorite: FavoriteEntity)
+
+    @Query("DELETE FROM favorites WHERE bookId = :bookId")
+    suspend fun deleteFavorite(bookId: String)
+
+    @Query("UPDATE tracks SET localPath = NULL WHERE bookId = :bookId")
+    suspend fun clearLocalPathsForBook(bookId: String)
+}

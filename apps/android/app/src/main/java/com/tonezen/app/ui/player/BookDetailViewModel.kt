@@ -1,25 +1,20 @@
-package com.tonezen.app.ui
+package com.tonezen.app.ui.player
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonezen.app.data.local.CatalogRepository
-import com.tonezen.app.data.network.isNetworkAvailable
-import com.tonezen.app.data.remote.AuthRepository
 import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
-import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.PlaybackMetadata
 import com.tonezen.app.playback.QueuePlayItem
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,37 +24,28 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
-class MainViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+class BookDetailViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val sessionRepository: SessionRepository,
-    private val authRepository: AuthRepository,
     private val downloadRepository: DownloadRepository,
     private val progressSyncRepository: ProgressSyncRepository,
     private val playbackClient: PlaybackClient,
     private val playbackEvents: PlaybackEvents,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(MainUiState())
-    val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(BookDetailUiState())
+    val uiState: StateFlow<BookDetailUiState> = _uiState.asStateFlow()
 
-    private var session: StoredSession? = null
     private var currentTrack: Track? = null
     private var lastProgressSaveMs = 0L
 
     init {
-        session = sessionRepository.loadSession()
-        refreshSessionState()
-        loadLibrary()
         viewModelScope.launch {
             progressSyncRepository.updates.collect { progress ->
-                val selected = _uiState.value.selectedBook
-                if (selected?.id == progress.bookId) {
-                    val track = catalogRepository.getTracksForBook(selected.id)
-                        .find { it.id == progress.trackId }
-                    _uiState.update {
-                        it.copy(progressLabel = track?.title?.let { title -> "Continue: $title" })
-                    }
-                }
+                val book = _uiState.value.book ?: return@collect
+                if (book.id != progress.bookId) return@collect
+                val track = catalogRepository.getTracksForBook(book.id)
+                    .find { it.id == progress.trackId }
+                _uiState.update { it.copy(progressTrackTitle = track?.title) }
             }
         }
         viewModelScope.launch {
@@ -80,51 +66,22 @@ class MainViewModel @Inject constructor(
                         nowPlayingTitle = snapshot.trackTitle ?: it.nowPlayingTitle,
                     )
                 }
-            }
-        }
-        viewModelScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(1000)
-                if (playbackClient.isPlaying()) {
-                    maybeSaveProgress(playbackClient.currentPositionMs())
+                if (snapshot.isPlaying) {
+                    maybeSaveProgress(snapshot.positionMs)
                 }
             }
         }
     }
 
-    fun login(email: String, password: String) {
-        viewModelScope.launch {
-            try {
-                val signedIn = authRepository.signInWithPassword(email, password)
-                sessionRepository.saveSession(signedIn)
-                session = signedIn
-                refreshSessionState()
-                progressSyncRepository.start(signedIn)
-                syncCatalog()
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
-        }
-    }
-
-    fun logout() {
-        progressSyncRepository.stop()
-        playbackClient.stopAndRelease()
-        currentTrack = null
-        sessionRepository.clearSession()
-        session = null
-        refreshSessionState()
-    }
-
-    fun selectBook(book: Book) {
+    fun loadBook(book: Book) {
         viewModelScope.launch {
             val tracks = catalogRepository.getTracksForBook(book.id)
             val progress = catalogRepository.getProgress(book.id)
             _uiState.update {
                 it.copy(
-                    selectedBook = book,
+                    book = book,
                     tracks = tracks,
-                    progressLabel = progress?.let { p ->
+                    progressTrackTitle = progress?.let { p ->
                         tracks.find { t -> t.id == p.trackId }?.title
                     },
                 )
@@ -132,22 +89,8 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun clearSelection() {
-        playbackClient.pause()
-        currentTrack = null
-        _uiState.update {
-            it.copy(
-                selectedBook = null,
-                tracks = emptyList(),
-                progressLabel = null,
-                nowPlayingTitle = null,
-                isPlaying = false,
-            )
-        }
-    }
-
     fun playBook() {
-        val book = _uiState.value.selectedBook ?: return
+        val book = _uiState.value.book ?: return
         viewModelScope.launch {
             val tracks = catalogRepository.getTracksForBook(book.id)
             val downloaded = tracks.filter { it.localPath != null }.sortedBy { it.sortOrder }
@@ -168,13 +111,13 @@ class MainViewModel @Inject constructor(
     }
 
     fun downloadBook() {
-        val book = _uiState.value.selectedBook ?: return
-        val token = session?.accessToken ?: return
+        val book = _uiState.value.book ?: return
         viewModelScope.launch {
             try {
-                session = sessionRepository.refreshIfNeeded(session)
-                val accessToken = session?.accessToken ?: return@launch
-                val tracks = catalogRepository.getTrackEntitiesForBook(book.id)
+                val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
+                    ?: return@launch
+                val accessToken = session.accessToken
+                val tracks = catalogRepository.getTracksForBook(book.id)
                 tracks.forEachIndexed { index, track ->
                     val file = downloadRepository.downloadTrack(
                         accessToken,
@@ -185,11 +128,10 @@ class MainViewModel @Inject constructor(
                             it.copy(downloadProgress = (index + progress) / tracks.size)
                         }
                     }
-                    catalogRepository.markTrackDownloaded(track, file.absolutePath)
+                    catalogRepository.markTrackDownloaded(book.id, track.id, file.absolutePath)
                 }
                 _uiState.update { it.copy(downloadProgress = null) }
-                selectBook(book)
-                _uiState.update { it.copy(downloadedBookIds = it.downloadedBookIds + book.id) }
+                loadBook(book)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message, downloadProgress = null) }
             }
@@ -197,75 +139,21 @@ class MainViewModel @Inject constructor(
     }
 
     fun deleteLocalDownloads() {
-        val book = _uiState.value.selectedBook ?: return
+        val book = _uiState.value.book ?: return
         viewModelScope.launch {
             catalogRepository.clearLocalDownloads(book.id)
-            val tracks = catalogRepository.getTrackEntitiesForBook(book.id)
+            val tracks = catalogRepository.getTracksForBook(book.id)
             tracks.forEach { track ->
                 downloadRepository.deleteLocalTrack(book.id, track.id)
             }
-            selectBook(book)
-            _uiState.update { it.copy(downloadedBookIds = it.downloadedBookIds - book.id) }
+            loadBook(book)
         }
     }
 
     fun toggleFavorite() {
-        val book = _uiState.value.selectedBook ?: return
+        val book = _uiState.value.book ?: return
         viewModelScope.launch {
             catalogRepository.toggleFavorite(book.id)
-        }
-    }
-
-    fun saveAudiobookProgress(bookId: String, trackId: String, positionMs: Long) {
-        viewModelScope.launch {
-            val progress = AudiobookProgress(
-                bookId = bookId,
-                trackId = trackId,
-                positionMs = positionMs,
-                updatedAtEpochMs = System.currentTimeMillis(),
-            )
-            session = sessionRepository.refreshIfNeeded(session)
-            val token = session?.accessToken
-            progressSyncRepository.saveLocal(progress, pendingSync = true, token)
-        }
-    }
-
-    private fun refreshSessionState() {
-        _uiState.update {
-            it.copy(sessionState = sessionRepository.resolveState(session))
-        }
-    }
-
-    private fun loadLibrary() {
-        viewModelScope.launch {
-            session = sessionRepository.refreshIfNeeded(session)
-            refreshSessionState()
-            val local = catalogRepository.getAllBooks()
-            if (local.isNotEmpty()) {
-                _uiState.update {
-                    it.copy(
-                        books = local,
-                        downloadedBookIds = catalogRepository.downloadedBookIds(local),
-                    )
-                }
-            }
-            if (context.isNetworkAvailable() && session != null) {
-                session?.let { progressSyncRepository.start(it) }
-                syncCatalog()
-            }
-        }
-    }
-
-    private suspend fun syncCatalog() {
-        session = sessionRepository.refreshIfNeeded(session) ?: return
-        val token = session?.accessToken
-        session?.accessToken?.let { progressSyncRepository.updateAuth(it) }
-        val remoteBooks = catalogRepository.syncFromRemote(token)
-        _uiState.update {
-            it.copy(
-                books = remoteBooks,
-                downloadedBookIds = catalogRepository.downloadedBookIds(remoteBooks),
-            )
         }
     }
 
@@ -286,7 +174,7 @@ class MainViewModel @Inject constructor(
         currentTrack = startTrack
         playbackClient.playQueue(queueItems, startIndex, startMs)
         _uiState.update {
-            it.copy(nowPlayingTitle = startTrack.title, progressLabel = null)
+            it.copy(nowPlayingTitle = startTrack.title, progressTrackTitle = null)
         }
     }
 
@@ -303,7 +191,7 @@ class MainViewModel @Inject constructor(
     }
 
     private fun onPlaybackEnded() {
-        val book = _uiState.value.selectedBook ?: return
+        val book = _uiState.value.book ?: return
         val track = currentTrack ?: return
         if (book.contentType == ContentType.AUDIOBOOK) {
             saveAudiobookProgress(book.id, track.id, playbackClient.currentPositionMs())
@@ -311,12 +199,25 @@ class MainViewModel @Inject constructor(
     }
 
     private fun maybeSaveProgress(positionMs: Long) {
-        val book = _uiState.value.selectedBook ?: return
+        val book = _uiState.value.book ?: return
         if (book.contentType != ContentType.AUDIOBOOK) return
         val track = currentTrack ?: return
         val now = System.currentTimeMillis()
         if (now - lastProgressSaveMs < 15_000) return
         lastProgressSaveMs = now
         saveAudiobookProgress(book.id, track.id, positionMs)
+    }
+
+    private fun saveAudiobookProgress(bookId: String, trackId: String, positionMs: Long) {
+        viewModelScope.launch {
+            val progress = AudiobookProgress(
+                bookId = bookId,
+                trackId = trackId,
+                positionMs = positionMs,
+                updatedAtEpochMs = System.currentTimeMillis(),
+            )
+            val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
+            progressSyncRepository.saveLocal(progress, pendingSync = true, session?.accessToken)
+        }
     }
 }

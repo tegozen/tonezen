@@ -2,7 +2,7 @@ package com.tonezen.app.data.remote
 
 import com.tonezen.app.BuildConfig
 import com.tonezen.app.data.local.AudiobookProgressEntity
-import com.tonezen.app.data.local.CatalogDao
+import com.tonezen.app.data.local.ProgressRepository
 import com.tonezen.app.data.local.toDomain
 import com.tonezen.app.data.local.toEntity
 import com.tonezen.app.data.local.toProgressEntity
@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 @Singleton
 class ProgressSyncRepository @Inject constructor(
     private val apiClient: ApiClient,
-    private val catalogDao: CatalogDao,
+    private val progressRepository: ProgressRepository,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val realtimeClient = RealtimeProgressClient(
@@ -66,7 +66,7 @@ class ProgressSyncRepository @Inject constructor(
 
     suspend fun saveLocal(progress: AudiobookProgress, pendingSync: Boolean, accessToken: String?) {
         val entity = progress.toEntity(pendingSync)
-        catalogDao.upsertProgress(entity)
+        progressRepository.upsertProgressEntity(entity)
         if (accessToken != null) {
             pushProgress(accessToken, entity)
         }
@@ -78,21 +78,21 @@ class ProgressSyncRepository @Inject constructor(
             entity.bookId,
             entity.toDomain(),
         )
-        catalogDao.upsertProgress(entity.copy(pendingSync = false))
+        progressRepository.upsertProgressEntity(entity.copy(pendingSync = false))
     }
 
     private suspend fun flushPending(accessToken: String) {
-        for (entity in catalogDao.getPendingProgress()) {
+        for (entity in progressRepository.getPendingProgress()) {
             pushProgress(accessToken, entity)
         }
     }
 
     private suspend fun applyRemoteEntity(remoteEntity: AudiobookProgressEntity) {
-        val local = catalogDao.getProgress(remoteEntity.bookId)
+        val local = progressRepository.getProgressEntity(remoteEntity.bookId)
         if (local?.pendingSync == true && local.updatedAtEpochMs > remoteEntity.updatedAtEpochMs) return
         val merged = ProgressMerger.merge(local?.toDomain(), remoteEntity.toDomain()) ?: return
         val stored = merged.toEntity(pendingSync = false)
-        catalogDao.upsertProgress(stored)
+        progressRepository.upsertProgressEntity(stored)
         _updates.emit(merged)
     }
 }

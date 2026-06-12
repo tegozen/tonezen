@@ -9,7 +9,6 @@ import com.tonezen.app.data.local.TonezenDatabase
 import com.tonezen.app.data.remote.ApiClient
 import com.tonezen.app.data.remote.AuthRepository
 import com.tonezen.app.data.remote.DownloadRepository
-import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.domain.session.SessionManager
 import dagger.Module
@@ -46,23 +45,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideSessionRepository(
-        @ApplicationContext context: Context,
-        sessionStore: SecureSessionStore,
-        authRepository: AuthRepository,
-        sessionManager: SessionManager,
-    ): SessionRepository = SessionRepository(context, sessionStore, authRepository, sessionManager)
-
-    @Provides
-    @Singleton
     fun provideApiClient(): ApiClient = ApiClient(BuildConfig.BASE_URL)
-
-    @Provides
-    @Singleton
-    fun provideProgressSyncRepository(
-        apiClient: ApiClient,
-        catalogDao: CatalogDao,
-    ): ProgressSyncRepository = ProgressSyncRepository(apiClient, catalogDao)
 
     @Provides
     @Singleton

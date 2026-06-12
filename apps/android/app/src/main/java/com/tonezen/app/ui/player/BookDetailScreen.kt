@@ -59,7 +59,7 @@ import com.tonezen.app.ui.theme.durationLabel
 internal fun BookDetailScreen(
     book: Book,
     tracks: List<Track>,
-    progressLabel: String?,
+    progressTrackTitle: String?,
     nowPlayingTitle: String?,
     isPlaying: Boolean,
     downloadProgress: Float?,
@@ -72,7 +72,7 @@ internal fun BookDetailScreen(
     onToggleFavorite: () -> Unit,
 ) {
     val hasDownloadedTracks = tracks.any { it.localPath != null }
-    val currentTrackTitle = nowPlayingTitle ?: progressLabel?.removePrefix("${stringResource(R.string.continue_label)}: ")
+    val currentTrackTitle = nowPlayingTitle ?: progressTrackTitle
     val selectedChapterIndex = tracks.indexOfFirst { it.title == currentTrackTitle }.takeIf { it >= 0 } ?: 0
 
     Scaffold(
