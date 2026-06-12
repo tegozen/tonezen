@@ -16,12 +16,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,7 +50,6 @@ import com.tonezen.app.ui.components.SignOutConfirmDialog
 import com.tonezen.app.ui.components.StatusChip
 import com.tonezen.app.ui.components.StorageGlyph
 import com.tonezen.app.ui.components.SyncGlyph
-import com.tonezen.app.ui.components.WarningGlyph
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenGreen
@@ -62,6 +63,7 @@ import com.tonezen.app.ui.theme.TonezenTeal
 internal fun ProfileScreen(
     padding: PaddingValues,
     viewModel: ProfileViewModel,
+    onOpenDownloads: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -83,6 +85,28 @@ internal fun ProfileScreen(
             },
         )
     }
+    if (state.showAccountDialog) {
+        AccountSettingsDialog(
+            email = state.email.orEmpty(),
+            onDismiss = { viewModel.setAccountDialogVisible(false) },
+            onSignOut = {
+                viewModel.setAccountDialogVisible(false)
+                viewModel.setSignOutConfirmVisible(true)
+            },
+        )
+    }
+    if (state.showPrivacyDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.setPrivacyDialogVisible(false) },
+            title = { Text(stringResource(R.string.settings_privacy_dialog_title)) },
+            text = { Text(stringResource(R.string.settings_privacy_dialog_body), color = TonezenMuted) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.setPrivacyDialogVisible(false) }) {
+                    Text(stringResource(R.string.apply), color = TonezenTeal)
+                }
+            },
+        )
+    }
 
     ProfileScreenContent(
         padding = padding,
@@ -91,6 +115,12 @@ internal fun ProfileScreen(
         onDismissOverflow = { viewModel.setOverflowMenuVisible(false) },
         onSignOutClick = { viewModel.setSignOutConfirmVisible(true) },
         onSyncNow = viewModel::syncNow,
+        onSettingsClick = { action ->
+            viewModel.onSettingsClick(action)
+            if (action == ProfileSettingsAction.Storage) {
+                onOpenDownloads()
+            }
+        },
     )
 }
 
@@ -102,25 +132,30 @@ internal fun ProfileScreenContent(
     onDismissOverflow: () -> Unit,
     onSignOutClick: () -> Unit,
     onSyncNow: () -> Unit,
+    onSettingsClick: (ProfileSettingsAction) -> Unit,
 ) {
     val online = state.sessionState == SessionState.AUTHENTICATED_ONLINE
     val settingsItems = listOf(
         SettingsItem(
+            action = ProfileSettingsAction.Account,
             titleRes = R.string.settings_account,
             subtitleRes = R.string.settings_account_subtitle,
             icon = { ProfileGlyph(tint = TonezenInk) },
         ),
         SettingsItem(
+            action = ProfileSettingsAction.Sync,
             titleRes = R.string.settings_sync,
             subtitleRes = R.string.settings_sync_subtitle,
             icon = { SyncGlyph(tint = TonezenInk) },
         ),
         SettingsItem(
+            action = ProfileSettingsAction.Storage,
             titleRes = R.string.settings_storage,
             subtitleRes = R.string.settings_storage_subtitle,
             icon = { StorageGlyph(tint = TonezenInk) },
         ),
         SettingsItem(
+            action = ProfileSettingsAction.Privacy,
             titleRes = R.string.settings_privacy,
             subtitleRes = R.string.settings_privacy_subtitle,
             icon = { LockGlyph(tint = TonezenInk) },
@@ -194,11 +229,11 @@ internal fun ProfileScreenContent(
         item {
             Column {
                 ProfileSectionLabel(stringResource(R.string.profile_settings_section))
-                SettingsGroup(items = settingsItems)
+                SettingsGroup(
+                    items = settingsItems,
+                    onItemClick = onSettingsClick,
+                )
             }
-        }
-        item {
-            MusicProgressWarningCard()
         }
     }
 }
@@ -327,7 +362,10 @@ private fun SyncStatusCard(
 }
 
 @Composable
-private fun SettingsGroup(items: List<SettingsItem>) {
+private fun SettingsGroup(
+    items: List<SettingsItem>,
+    onItemClick: (ProfileSettingsAction) -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -340,6 +378,7 @@ private fun SettingsGroup(items: List<SettingsItem>) {
                 title = stringResource(item.titleRes),
                 subtitle = stringResource(item.subtitleRes),
                 icon = item.icon,
+                onClick = { onItemClick(item.action) },
             )
             if (index < items.lastIndex) {
                 HorizontalDivider(color = TonezenBorder.copy(alpha = 0.65f))
@@ -353,10 +392,12 @@ private fun SettingsRow(
     title: String,
     subtitle: String,
     icon: @Composable () -> Unit,
+    onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -376,37 +417,37 @@ private fun SettingsRow(
     }
 }
 
-@Composable
-private fun MusicProgressWarningCard() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(TonezenAmber.copy(alpha = 0.08f))
-            .border(1.dp, TonezenAmber.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
-            .padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        WarningGlyph(tint = TonezenAmber, modifier = Modifier.padding(top = 2.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                stringResource(R.string.music_progress_local_title),
-                color = TonezenInk,
-                fontWeight = FontWeight.SemiBold,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                stringResource(R.string.music_progress_local_body),
-                color = TonezenMuted,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-    }
-}
-
 private data class SettingsItem(
+    val action: ProfileSettingsAction,
     val titleRes: Int,
     val subtitleRes: Int,
     val icon: @Composable () -> Unit,
 )
+
+@Composable
+private fun AccountSettingsDialog(
+    email: String,
+    onDismiss: () -> Unit,
+    onSignOut: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_account_dialog_title)) },
+        text = {
+            Text(
+                stringResource(R.string.settings_account_dialog_body, email),
+                color = TonezenMuted,
+            )
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel), color = TonezenMuted)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onSignOut) {
+                Text(stringResource(R.string.sign_out), color = TonezenTeal)
+            }
+        },
+    )
+}

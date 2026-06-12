@@ -61,4 +61,19 @@ class SessionRepository @Inject constructor(
             }
         }
     }
+
+    suspend fun enrichProfileMetadataIfMissing(session: StoredSession?): StoredSession? {
+        if (session == null) return null
+        if (session.memberSinceEpochMs != null) return session
+        if (!networkMonitor.isOnline()) return session
+        return refreshMutex.withLock {
+            try {
+                val refreshed = authRepository.refreshSession(session.refreshToken)
+                saveSession(refreshed)
+                refreshed
+            } catch (_: Exception) {
+                session
+            }
+        }
+    }
 }

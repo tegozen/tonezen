@@ -133,6 +133,7 @@ fun AppShell(
             BottomDestination.Profile -> ProfileScreen(
                 padding = padding,
                 viewModel = profileViewModel,
+                onOpenDownloads = { shellViewModel.selectTab(BottomDestination.Downloads) },
             )
         }
     }

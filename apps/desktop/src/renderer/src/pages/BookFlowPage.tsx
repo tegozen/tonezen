@@ -134,7 +134,7 @@ export function BookFlowPage({
         <button type="button" className="btn-secondary flex h-11 w-11 items-center justify-center p-0" onClick={() => onSeekBy(-15000)} aria-label={strings.rewind15}>
           <Rewind15Icon className="h-6 w-6" />
         </button>
-        <button type="button" className="btn-play" onClick={onPlayPause} aria-label={isPlaying ? "Pause" : "Play"}>
+        <button type="button" className="btn-play" onClick={onPlayPause} aria-label={isPlaying ? strings.pause : strings.play}>
           {isPlaying ? <PauseIcon className="h-8 w-8" /> : <PlayIcon className="h-8 w-8" />}
         </button>
         <button type="button" className="btn-secondary flex h-11 w-11 items-center justify-center p-0" onClick={() => onSeekBy(15000)} aria-label={strings.forward15}>
@@ -200,7 +200,7 @@ function Header({
           {strings.details}
         </button>
       </div>
-      <button type="button" className="icon-button h-10 w-10 text-[0]" aria-label="More options">
+      <button type="button" className="icon-button h-10 w-10 text-[0]" aria-label={strings.moreOptions}>
         <MoreVerticalIcon className="h-5 w-5 text-base" />
       </button>
     </div>

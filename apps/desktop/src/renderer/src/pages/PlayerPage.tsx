@@ -85,7 +85,7 @@ export function PlayerPage({
           <button type="button" className="btn-secondary flex h-11 w-11 items-center justify-center p-0" onClick={() => onSeekBy(-15000)} aria-label={strings.rewind15}>
             <Rewind15Icon className="h-6 w-6" />
           </button>
-          <button type="button" className="btn-play text-[0]" onClick={onPlayPause} aria-label={isPlaying ? "Pause" : "Play"}>
+          <button type="button" className="btn-play text-[0]" onClick={onPlayPause} aria-label={isPlaying ? strings.pause : strings.play}>
             {isPlaying ? <PauseIcon className="h-8 w-8 text-base" /> : <PlayIcon className="h-8 w-8 text-base" />}
           </button>
           <button type="button" className="btn-secondary flex h-11 w-11 items-center justify-center p-0" onClick={() => onSeekBy(15000)} aria-label={strings.forward15}>

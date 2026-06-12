@@ -13,6 +13,8 @@ data class ProfileUiState(
     val showOverflowMenu: Boolean = false,
     val showSignOutConfirm: Boolean = false,
     val showSyncDialog: Boolean = false,
+    val showAccountDialog: Boolean = false,
+    val showPrivacyDialog: Boolean = false,
     val syncing: Boolean = false,
     val lastSyncTime: String? = null,
 )

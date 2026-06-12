@@ -45,7 +45,7 @@ export function LibraryPage({
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{strings.appName}</h1>
-        <button type="button" className="icon-button h-10 w-10 text-[0]" aria-label="More options">
+        <button type="button" className="icon-button h-10 w-10 text-[0]" aria-label={strings.moreOptions}>
           <MoreVerticalIcon className="h-5 w-5 text-base" />
         </button>
       </div>
@@ -81,7 +81,7 @@ export function LibraryPage({
           <h2 className="section-title">
             {selectedTab === 0 ? strings.tabAudiobooks : strings.tabMusic}
           </h2>
-          <span className="text-sm text-teal">See all</span>
+          <span className="text-sm text-teal">{strings.seeAll}</span>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-2">
           {filtered.map((book) => (

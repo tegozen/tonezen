@@ -107,6 +107,15 @@ private fun LibraryScreenPreview() {
     }
 }
 
+// Android Studio @Preview only — fake ProfileUiState, no Hilt/DB/network.
+private val profilePreviewState = ProfileUiState(
+    sessionState = SessionState.AUTHENTICATED_ONLINE,
+    displayName = "Админ",
+    email = "admin@tonezen.local",
+    memberSinceLabel = "15.08.2024",
+    lastSyncTime = "10:18",
+)
+
 @Preview(
     name = "Profile",
     showBackground = true,
@@ -119,17 +128,12 @@ private fun ProfileScreenPreview() {
     TonezenTheme {
         ProfileScreenContent(
             padding = PaddingValues(0.dp),
-            state = ProfileUiState(
-                sessionState = SessionState.AUTHENTICATED_ONLINE,
-                displayName = "Alex Mercer",
-                email = "alex.mercer@example.com",
-                memberSinceLabel = "Aug 2024",
-                lastSyncTime = "10:18",
-            ),
+            state = profilePreviewState,
             onOverflowClick = {},
             onDismissOverflow = {},
             onSignOutClick = {},
             onSyncNow = {},
+            onSettingsClick = {},
         )
     }
 }

@@ -61,7 +61,7 @@ export function ProfilePage({
             {online ? strings.online : strings.offline}
           </span>
           <div className="relative">
-            <button type="button" className="icon-button h-10 w-10 text-[0]" onClick={onToggleMenu} aria-label="More options">
+            <button type="button" className="icon-button h-10 w-10 text-[0]" onClick={onToggleMenu} aria-label={strings.moreOptions}>
               <MoreVerticalIcon className="h-5 w-5 text-base" />
             </button>
             {showMenu && (

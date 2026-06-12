@@ -129,7 +129,7 @@ export function App() {
       await openBook(selectedBook);
       await refreshBooks();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Download failed");
+      setError(e instanceof Error ? e.message : strings.downloadFailed);
     }
   };
 
@@ -224,7 +224,7 @@ export function App() {
             />
             <div className="mt-4">
               <button className="btn-primary" disabled={syncingCatalog} onClick={() => void syncCatalog()}>
-                {syncingCatalog ? "Syncing…" : "Sync catalog"}
+                {syncingCatalog ? strings.syncingCatalog : strings.syncCatalog}
               </button>
             </div>
             {showFilterSheet && (

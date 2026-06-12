@@ -12,7 +12,6 @@ import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,7 +29,7 @@ class ProfileViewModel @Inject constructor(
     private val playbackClient: PlaybackClient,
 ) : ViewModel() {
     private val syncTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
-    private val memberSinceFormatter = DateTimeFormatter.ofPattern("MMM yyyy", Locale.getDefault())
+    private val memberSinceFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
@@ -38,13 +37,14 @@ class ProfileViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             sessionRepository.session.collectLatest { session ->
+                val resolvedSession = sessionRepository.enrichProfileMetadataIfMissing(session) ?: session
                 _uiState.update {
                     it.copy(
-                        sessionState = sessionRepository.resolveState(session),
-                        displayName = session?.displayName,
-                        email = session?.email,
-                        memberSinceLabel = formatMemberSince(session?.memberSinceEpochMs),
-                        avatarUrl = session?.avatarUrl,
+                        sessionState = sessionRepository.resolveState(resolvedSession),
+                        displayName = resolvedSession?.displayName,
+                        email = resolvedSession?.email,
+                        memberSinceLabel = formatMemberSince(resolvedSession?.memberSinceEpochMs),
+                        avatarUrl = resolvedSession?.avatarUrl,
                     )
                 }
                 refreshStats()
@@ -75,6 +75,27 @@ class ProfileViewModel @Inject constructor(
 
     fun setSyncDialogVisible(visible: Boolean) {
         _uiState.update { it.copy(showSyncDialog = visible) }
+    }
+
+    fun setAccountDialogVisible(visible: Boolean) {
+        _uiState.update { it.copy(showAccountDialog = visible) }
+    }
+
+    fun setPrivacyDialogVisible(visible: Boolean) {
+        _uiState.update { it.copy(showPrivacyDialog = visible) }
+    }
+
+    fun onSettingsClick(action: ProfileSettingsAction) {
+        when (action) {
+            ProfileSettingsAction.Account -> {
+                _uiState.update { it.copy(showAccountDialog = true) }
+            }
+            ProfileSettingsAction.Sync -> syncNow()
+            ProfileSettingsAction.Storage -> Unit
+            ProfileSettingsAction.Privacy -> {
+                _uiState.update { it.copy(showPrivacyDialog = true) }
+            }
+        }
     }
 
     fun syncNow() {

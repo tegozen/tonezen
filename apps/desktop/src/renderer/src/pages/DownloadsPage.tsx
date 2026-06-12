@@ -65,9 +65,9 @@ export function DownloadsPage({
       <div>
         <div className="flex items-center gap-2 font-semibold">
           <StorageIcon className="h-5 w-5 text-teal" />
-          {formatGb(usedBytes)} saved offline
+          {formatGb(usedBytes)} {strings.storageSavedOffline}
         </div>
-        <div className="text-sm text-muted">Manage storage from Profile</div>
+        <div className="text-sm text-muted">{strings.manageStorageFromProfile}</div>
       </div>
       <div className="space-y-3">
         {filtered.map((item) => (

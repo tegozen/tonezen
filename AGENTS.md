@@ -99,14 +99,14 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 - Branches: `feat/…`, `fix/…`, `chore/…` from `main`
 - Atomic commits: one feature + its tests per PR
 - Commit messages and code comments: **English**
-- UI strings: i18n-ready (externalized)
+- UI strings: **Russian only** — externalized in `strings.xml` (Android) and `i18n/strings.ts` (desktop); no English user-facing copy in clients
 
 ## Code Style
 
 | Area | Tool | Rules |
 |------|------|-------|
 | Kotlin/Android | `./gradlew testDebugUnitTest` (+ ktlint/detekt when configured) | See [kotlin-android.mdc](.cursor/rules/kotlin-android.mdc): feature ViewModels, UDF, repos per domain, pure `domain/`, Compose stateless, `strings.xml` for UI text |
-| TypeScript/React | ESLint + Prettier | strict TS; functional components; hooks for logic |
+| TypeScript/React | ESLint + Prettier | strict TS; functional components; hooks for logic; UI copy in `i18n/strings.ts` (**Russian only**) |
 | Desktop renderer UI | Tailwind CSS v4 (`@tailwindcss/vite`) | utility classes + `@layer components` in `styles.css`; no inline `style` props |
 | SQL | pg formatter | snake_case; explicit RLS in migrations |
 | Edge Functions (Deno) | deno lint/fmt | Modules < 200 lines; no `any` |
