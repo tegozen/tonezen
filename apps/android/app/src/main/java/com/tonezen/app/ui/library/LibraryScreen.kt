@@ -35,7 +35,6 @@ import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.ui.components.BookCover
 import com.tonezen.app.ui.components.EmptyLibrary
-import com.tonezen.app.ui.components.IconCircle
 import com.tonezen.app.ui.components.LibraryFilterSheet
 import com.tonezen.app.ui.components.OfflineBanner
 import com.tonezen.app.ui.components.OverflowGlyph
@@ -123,21 +122,12 @@ internal fun LibraryScreen(
 
 @Composable
 private fun LibraryHeader() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = stringResource(R.string.app_name),
-            color = TonezenInk,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            IconCircle { OverflowGlyph() }
-        }
-    }
+    Text(
+        text = stringResource(R.string.app_name),
+        color = TonezenInk,
+        style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold,
+    )
 }
 
 @Composable
