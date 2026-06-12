@@ -1,5 +1,5 @@
 import type pg from "pg";
-import { mergeProgressLww, type ProgressRecord } from "../lib/progressLww.js";
+import { maybeSkipProgressWrite, type ProgressRecord } from "../lib/progressLww.js";
 
 export class ProgressRepository {
   constructor(private pool: pg.Pool) {}
@@ -40,13 +40,11 @@ export class ProgressRepository {
       position_ms: positionMs,
       updated_at: updatedAt,
     };
-    if (existing.rows.length > 0) {
-      const remote = existing.rows[0] as ProgressRecord;
-      const winner = mergeProgressLww(incoming, remote);
-      if (winner !== incoming) {
-        return { skipped: true as const, progress: winner };
-      }
-    }
+    const skipResult = maybeSkipProgressWrite(
+      incoming,
+      existing.rows[0] as ProgressRecord | undefined,
+    );
+    if (skipResult) return skipResult;
 
     const result = await this.pool.query(
       `INSERT INTO audiobook_progress (user_id, book_id, track_id, position_ms, updated_at)

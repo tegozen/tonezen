@@ -1,7 +1,7 @@
-import pg from "pg";
-import type { ParsedBook, ParsedCycle } from "./parsers.js";
-import { storagePathForAudiobook, storagePathForMusic } from "./parsers.js";
-import { analyzeAudioFile, type FileMetadata } from "./mediaProbe.js";
+import type pg from "pg";
+import type { ParsedBook, ParsedCycle } from "../parsers.js";
+import { storagePathForAudiobook, storagePathForMusic } from "../parsers.js";
+import { analyzeAudioFile, type FileMetadata } from "../mediaProbe.js";
 
 export class CatalogRepository {
   constructor(
@@ -15,7 +15,6 @@ export class CatalogRepository {
       await client.query("BEGIN");
       const activeCycleSlugs = new Set<string>();
       const activeBookSlugs = new Set<string>();
-      const activeTrackKeys = new Set<string>();
 
       for (const cycle of cycles) {
         activeCycleSlugs.add(cycle.slug);
@@ -33,8 +32,6 @@ export class CatalogRepository {
             [cycleId, bookId, i],
           );
           for (const track of book.tracks) {
-            const key = `${book.slug}:${track.filename}`;
-            activeTrackKeys.add(key);
             const storagePath = storagePathForAudiobook(cycle.slug, book.slug, track.filename);
             await this.upsertTrack(client, bookId, track, storagePath, null);
           }
@@ -45,8 +42,6 @@ export class CatalogRepository {
         activeBookSlugs.add(album.slug);
         const bookId = await this.upsertBook(client, album);
         for (const track of album.tracks) {
-          const key = `${album.slug}:${track.filename}`;
-          activeTrackKeys.add(key);
           const storagePath = storagePathForMusic(track.filename);
           await this.upsertTrack(client, bookId, track, storagePath, null);
         }
@@ -162,8 +157,4 @@ export class CatalogRepository {
       );
     }
   }
-}
-
-export function createPool(databaseUrl: string): pg.Pool {
-  return new pg.Pool({ connectionString: databaseUrl });
 }

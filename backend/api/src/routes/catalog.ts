@@ -1,10 +1,6 @@
 import type { Express } from "express";
+import { parseUpdatedSince } from "../lib/queryParams.js";
 import type { RouteDeps } from "./deps.js";
-
-function parseUpdatedSince(query: Record<string, unknown>): string | undefined {
-  const value = query.updated_since;
-  return typeof value === "string" ? value : undefined;
-}
 
 export function registerCatalogRoutes(app: Express, deps: RouteDeps): void {
   app.get("/catalog/cycles", deps.optionalAuth, async (req, res) => {
