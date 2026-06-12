@@ -25,9 +25,10 @@ Read in this order (skip what does not apply to scope):
 
 1. [`AGENTS.md`](../../../AGENTS.md) — architecture, forbidden patterns, TDD, code style
 2. [`.cursor/rules/architecture.mdc`](../../rules/architecture.mdc) — layer boundaries, offline-first, API-first
-3. Surrounding code in scope — naming, patterns, imports, tests
-4. Stack docs only when needed (Compose, Electron, Deno, etc.) — prefer existing repo patterns over generic advice
-5. For stack-specific checklists, smells, and commands → [reference.md](reference.md)
+3. **Android scope:** [`.cursor/rules/kotlin-android.mdc`](../../rules/kotlin-android.mdc) — layers, ViewModel, Compose, Room, repos
+4. Surrounding code in scope — naming, patterns, imports, tests
+5. Stack docs only when needed (Compose, Electron, Deno, etc.) — prefer existing repo patterns over generic advice
+6. For stack-specific checklists, smells, and commands → [reference.md](reference.md)
 
 ## 3. Principles
 
@@ -50,6 +51,19 @@ Apply in order of priority:
 - **Sync:** audiobook progress syncs; music progress stays local — do not merge these paths
 - **Auth:** offline-safe JWT handling — do not add sync exp checks or forced logout
 - **Desktop:** tray lifecycle rules unchanged
+
+### Android refactor (read `kotlin-android.mdc` when scope is `apps/android/`)
+
+Priority order when cleaning Android code:
+
+1. **Layer violations** — `domain/` importing Room/Android; ViewModel injecting `CatalogDao`/`ApiClient`/entities
+2. **God classes** — split `MainViewModel` by feature; split monolithic `ApiClient` and combined Room files
+3. **Mapping at boundary** — move entity↔domain mappers to `data/local/`; repos return domain types
+4. **Compose cleanup** — hoist state, remove business logic and hardcoded UI strings from ViewModel
+5. **Dead domain code** — wire tested coordinators (e.g. `PlaybackCoordinator`) or do not touch in behavior-preserving pass
+6. **Polling → Flow** — replace `while (true)` loops with repository/`PlaybackClient` streams
+
+Target: one ViewModel + `*UiState` per feature under `ui/<feature>/`, one repository per OpenAPI domain under `data/`.
 
 ### Forbidden during refactor
 
@@ -87,6 +101,7 @@ If the refactor exceeds ~400 lines, split into smaller steps and tell the user.
 3. Keep comments sparse — only non-obvious business logic
 4. Preserve i18n-ready UI strings; English for code comments
 5. **Desktop renderer UI** — Tailwind CSS (see `AGENTS.md`); replace inline `style` with utilities or shared classes in `styles.css` — not ad-hoc CSS files per component
+6. **Android UI** — feature-local packages; strings to `strings.xml`; Composables stateless; see [kotlin-android.mdc](../../rules/kotlin-android.mdc)
 
 ### Verify
 
@@ -139,3 +154,7 @@ Do not commit unless the user explicitly asks (see [git-commit](../git-commit/SK
 **User:** `/refactor backend/api/src/db.ts`
 
 → Split into `db/catalog.ts`, `db/downloads.ts`, `db/favorites.ts`, `db/progress.ts`; inject domain repos via `RouteDeps`; keep LWW and other rules in `lib/`; run `npm test` in `backend/api`.
+
+**User:** `/refactor apps/android`
+
+→ Read `kotlin-android.mdc` + AGENTS.md Android section; fix layer violations first (DAO/entities out of ViewModel); extract repos per domain; split god ViewModel; run `./gradlew testDebugUnitTest`.

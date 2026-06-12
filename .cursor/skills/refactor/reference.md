@@ -37,6 +37,10 @@ Stack-specific guidance for [SKILL.md](SKILL.md). Read the section that matches 
 | UI file calls Supabase/SQLite directly | Move to repository in `data/`; UI calls ViewModel/use-case | `data` |
 | Domain imports `android.*`, `electron`, `@supabase/*` | Extract platform code to `data/` or `main/` | stay out of `domain` |
 | God class / 300+ line module | Split by responsibility within same layer | same layer, new files |
+| God Android ViewModel (auth+library+player) | Split into feature ViewModels under `ui/<feature>/` | `ui/` |
+| ViewModel injects DAO or ApiClient | Add repository in `data/`; map entities there | `data/local` or `data/remote` |
+| Room entity in domain merge logic | Domain type + mapper in `data/` | `domain/` + `data/` |
+| Compose calls repository or parses JSON | Move to ViewModel; pass UiState + events | `ui/` |
 | Duplicated merge/sync logic Android + Desktop | Extract to pure fn; keep separate IO wrappers | `domain` or `shared/` |
 | Mixed pure logic + HTTP/FS in one fn | Extract pure fn; leave IO in caller | pure → `lib/` / `domain/` |
 | Business rules in route handler | Move to `lib/`; handler wires request/response | `backend/api/src/lib/` |
@@ -45,22 +49,84 @@ Stack-specific guidance for [SKILL.md](SKILL.md). Read the section that matches 
 
 ## Android checklist
 
+Full rules: [`.cursor/rules/kotlin-android.mdc`](../../rules/kotlin-android.mdc). Sources: [Google app architecture](https://developer.android.com/topic/architecture), [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html), [Compose UI state](https://developer.android.com/jetpack/compose/state).
+
+### Layer boundaries
+
 ```
-- [ ] domain/ has zero Android framework imports (androidx compose in ui/ only)
-- [ ] ViewModels orchestrate; domain holds rules; data holds IO
-- [ ] suspend used for IO in repositories
-- [ ] Compose stays in ui/ — no business rules in Composables
-- [ ] Hilt bindings updated if moving classes/packages
-- [ ] Unit tests for domain/ co-located or in app/src/test/
+- [ ] domain/ — zero imports of android.*, androidx.*, Room, OkHttp, data.local.*
+- [ ] ui/ — no CatalogDao, ApiClient, *Entity; only repositories + domain models
+- [ ] data/ — entity↔domain mapping only here (EntityMappers or per-domain mappers)
+- [ ] playback/ — Media3 only; rules in domain/playback/
 ```
 
-**Lint / test:**
+### ViewModel & UDF
+
+```
+- [ ] One ViewModel per feature (not god MainViewModel)
+- [ ] StateFlow<FeatureUiState> exposed; events as methods (onXClicked)
+- [ ] No Context in ViewModel — use NetworkMonitor or repo
+- [ ] No while(true) polling — Flow from repo or PlaybackClient
+- [ ] viewModelScope for coroutines; no blocking IO
+- [ ] Pure rules moved to domain/; IO moved to data/
+```
+
+### Compose
+
+```
+- [ ] Screen(uiState, onEvent) — stateless, no repo/DAO calls
+- [ ] No business branching (content type, sync, auth) in @Composable
+- [ ] User strings in strings.xml, not ViewModel string concat
+- [ ] File ≤ ~200 lines; split sub-composables to components/ or feature package
+```
+
+### Data & repositories
+
+```
+- [ ] One repository per OpenAPI domain (catalog, progress, downloads, favorites, auth)
+- [ ] CatalogDao used only inside data/local/ repositories
+- [ ] Room: separate entity, DAO, Database files
+- [ ] ApiClient split by domain (not one 150+ line god client)
+- [ ] suspend for commands, Flow for observable lists/progress
+- [ ] Offline-first: local write then conditional remote push (audiobooks only)
+```
+
+### Smells → refactor action (Android-specific)
+
+| Smell | Fix |
+|-------|-----|
+| ViewModel injects `CatalogDao` | Introduce/extend `*Repository`; map entities inside repo |
+| `domain/` imports `*Entity` | Merge/map on `AudiobookProgress` etc. in `data/` only |
+| God `MainViewModel` | Split `ui/auth/`, `ui/library/`, `ui/player/` each with ViewModel + UiState |
+| Monolithic `ApiClient` | `data/remote/catalog/`, `progress/`, `downloads/` clients |
+| Entities + DAO + DB in one file | `entity/BookEntity.kt`, `dao/CatalogDao.kt`, `TonezenDatabase.kt` |
+| Tested domain never called | Wire in separate feat PR, or leave untouched in refactor-only pass |
+| Hardcoded `"Continue: …"` in VM | `strings.xml` + format arg in Composable |
+| `getTrackEntitiesForBook` in repo API | Return domain `Track`; hide entities inside repo |
+| `SessionManager()` default in repo ctor | Inject via Hilt only |
+
+### Target package shape (after refactor)
+
+```
+ui/library/     LibraryScreen.kt  LibraryViewModel.kt  LibraryUiState.kt
+ui/player/      BookDetailScreen.kt PlayerViewModel.kt  PlayerUiState.kt
+ui/auth/        AuthScreen.kt     AuthViewModel.kt     AuthUiState.kt
+data/local/     CatalogRepository.kt  ProgressRepository.kt  EntityMappers.kt
+data/remote/    catalog/ progress/ downloads/ auth/
+domain/         model/ session/ progress/ playback/
+```
+
+### Verify
 
 ```bash
-cd apps/android && ./gradlew ktlintCheck detekt testDebugUnitTest
+cd apps/android && ./gradlew testDebugUnitTest
+
+# Layer grep — should return no matches
+rg "import android\.|import androidx\.|data\.local\." apps/android/app/src/main/java/com/tonezen/app/domain/
+rg "CatalogDao|BookEntity|TrackEntity" apps/android/app/src/main/java/com/tonezen/app/ui/
 ```
 
-Prefer moving **pure** logic from ViewModel → `domain/`; moving **IO** from ViewModel → `data/remote/` or `data/local/`.
+Prefer moving **pure** logic ViewModel → `domain/`; **IO** ViewModel → `data/` repository; **UI state** → feature `*UiState` + stateless Composable.
 
 ## Desktop checklist
 
@@ -141,7 +207,7 @@ When refactoring sync code, trace both content types separately before merging a
 | Scope | Commands |
 |-------|----------|
 | Whole repo | `make lint` && `make test` |
-| Android only | `./gradlew ktlintCheck detekt testDebugUnitTest` in `apps/android` |
+| Android only | `./gradlew testDebugUnitTest` in `apps/android` (+ ktlint/detekt when configured) |
 | Desktop only | `npm run lint && npm test` in `apps/desktop` |
 | API only | `npm run lint && npm test` in `backend/api` |
 | Indexer only | `npm run lint && npm test` in `backend/indexer` |

@@ -25,6 +25,41 @@ ui → domain → data
 
 Dependencies point inward only. Domain logic must not import Android, Electron, or Supabase SDKs.
 
+### Android (Kotlin) — mandatory structure
+
+Based on [Google app architecture](https://developer.android.com/topic/architecture) and Kotlin conventions. Full checklist: [`.cursor/rules/kotlin-android.mdc`](.cursor/rules/kotlin-android.mdc).
+
+**Layers**
+
+| Package | Responsibility |
+|---------|----------------|
+| `ui/<feature>/` | Compose screens, feature ViewModel, `*UiState`, navigation |
+| `domain/` | Pure models + rules (merge, session, playback coordination) |
+| `data/local/` | Room entities, DAOs, DB, repositories, `EntityMappers` |
+| `data/remote/<domain>/` | HTTP/Realtime per OpenAPI domain (`catalog`, `progress`, …) |
+| `playback/` | Media3 service + client; no business rules |
+| `di/` | Hilt modules |
+
+**Hard rules**
+
+- **One ViewModel per feature** — no god ViewModel for auth + library + player + downloads.
+- **Unidirectional data flow:** `UiState` up, user events down; single source of truth in repository/ViewModel.
+- **Repositories per API domain** — ViewModels depend on repos, never on `CatalogDao`, `ApiClient`, or `*Entity`.
+- **Entity/DTO mapping only in `data/`** — `domain/` uses `Book`, `Track`, `AudiobookProgress`, not Room types.
+- **Compose is dumb UI** — no repository calls, no content-type/sync branching, strings from `strings.xml`.
+- **IO on background** — all Room/HTTP via `suspend` or `Flow`; no `while (true)` polling in ViewModel.
+- **Modules ~≤200 lines** — split screens, DAOs, and API clients by feature/domain.
+- **Domain tests first** for business logic (JUnit + coroutines-test; Turbine for Flow).
+
+**Known debt (fix when touching the area)**
+
+- `MainViewModel` still owns multiple features — split into `AuthViewModel`, `LibraryViewModel`, `PlayerViewModel`.
+- `ApiClient` is monolithic — split to match `docs/openapi.yaml` domains.
+- `TonezenDatabase.kt` bundles entities + DAO + DB — split into separate files.
+- `ProgressSyncRepository` still uses `CatalogDao` directly — route through `ProgressRepository`.
+- `PlaybackCoordinator` is tested but not wired to playback end.
+- `BookDetailScreen` uses stub progress/controls — bind to `PlaybackClient` snapshot.
+
 ### API-first
 
 1. Update `docs/openapi.yaml`
@@ -70,7 +105,7 @@ Dependencies point inward only. Domain logic must not import Android, Electron, 
 
 | Area | Tool | Rules |
 |------|------|-------|
-| Kotlin/Android | ktlint + detekt | Official Kotlin style; Compose in `ui/`; `suspend` for IO |
+| Kotlin/Android | `./gradlew testDebugUnitTest` (+ ktlint/detekt when configured) | See [kotlin-android.mdc](.cursor/rules/kotlin-android.mdc): feature ViewModels, UDF, repos per domain, pure `domain/`, Compose stateless, `strings.xml` for UI text |
 | TypeScript/React | ESLint + Prettier | strict TS; functional components; hooks for logic |
 | Desktop renderer UI | Tailwind CSS v4 (`@tailwindcss/vite`) | utility classes + `@layer components` in `styles.css`; no inline `style` props |
 | SQL | pg formatter | snake_case; explicit RLS in migrations |

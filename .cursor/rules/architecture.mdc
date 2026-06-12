@@ -7,6 +7,7 @@ alwaysApply: true
 
 - Client layers: `ui → domain → data` (dependencies inward only)
 - Domain has no platform SDK imports
+- **Android:** feature ViewModels, repos per OpenAPI domain, UDF — see `kotlin-android.mdc`
 - API changes start in `docs/openapi.yaml`, then tests, then code
 - Offline-first: local cache + sync when online
 - Audiobook progress syncs; music progress is local only
