@@ -1,49 +1,121 @@
 @import "tailwindcss";
 
+@theme {
+  --color-app: #020617;
+  --color-surface: #0f172a;
+  --color-surface-raised: #172033;
+  --color-surface-muted: #1e293b;
+  --color-ink: #f8fafc;
+  --color-muted: #94a3b8;
+  --color-teal: #5eead4;
+  --color-teal-strong: #14b8a6;
+  --color-amber: #fcd34d;
+  --color-cream: #f5e9d6;
+  --color-green: #4ade80;
+  --color-error: #f87171;
+  --color-border: #334155;
+}
+
 @layer base {
   body {
-    @apply m-0 bg-slate-950 font-sans text-slate-100 antialiased;
+    @apply m-0 bg-app font-sans text-ink antialiased;
   }
 }
 
 @layer components {
-  .app-shell {
-    @apply mx-auto max-w-[960px] p-6;
+  .app-frame {
+    @apply mx-auto flex min-h-screen max-w-[430px] flex-col bg-app;
+  }
+
+  .app-content {
+    @apply flex-1 overflow-y-auto px-5 pb-24 pt-7;
   }
 
   .banner {
-    @apply mb-4 rounded-lg border border-slate-600 bg-slate-800 px-3.5 py-2.5;
+    @apply mb-4 rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm text-muted;
   }
 
   .card {
-    @apply cursor-pointer rounded-xl border border-slate-700 bg-slate-900 p-4 hover:border-slate-500;
+    @apply rounded-2xl border border-border bg-surface p-4;
+  }
+
+  .card-hover {
+    @apply cursor-pointer rounded-2xl border border-border bg-surface p-4 transition hover:border-teal/40;
   }
 
   .btn-primary {
-    @apply cursor-pointer rounded-lg bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply cursor-pointer rounded-xl bg-teal-strong px-4 py-2.5 font-medium text-app hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
-    @apply cursor-pointer rounded-lg bg-slate-600 px-4 py-2.5 text-white hover:bg-slate-500 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply cursor-pointer rounded-xl border border-border bg-surface-muted px-4 py-2.5 text-ink hover:border-teal/40 disabled:opacity-50;
+  }
+
+  .btn-play {
+    @apply flex h-16 w-16 cursor-pointer items-center justify-center rounded-full bg-cream text-app;
+  }
+
+  .btn-danger {
+    @apply cursor-pointer rounded-xl border border-error/40 px-4 py-2.5 text-error hover:bg-error/10;
   }
 
   .input-field {
-    @apply mb-2 block w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-slate-100 placeholder:text-slate-400;
+    @apply mb-2 block w-full rounded-2xl border border-border bg-surface-raised px-3 py-3 text-ink placeholder:text-muted;
+  }
+
+  .chip-teal {
+    @apply inline-flex items-center rounded-full border border-teal/30 bg-teal/10 px-2.5 py-1 text-xs font-medium text-teal;
+  }
+
+  .chip-green {
+    @apply inline-flex items-center rounded-full border border-green/30 bg-green/10 px-2.5 py-1 text-xs font-medium text-green;
+  }
+
+  .chip-amber {
+    @apply inline-flex items-center rounded-full border border-amber/30 bg-amber/10 px-2.5 py-1 text-xs font-medium text-amber;
+  }
+
+  .section-title {
+    @apply text-lg font-semibold text-ink;
+  }
+
+  .bottom-nav {
+    @apply fixed bottom-0 left-1/2 z-20 flex w-full max-w-[430px] -translate-x-1/2 border-t border-border bg-surface/95 px-3 py-2;
+  }
+
+  .bottom-nav-item {
+    @apply flex flex-1 flex-col items-center gap-1 py-1 text-xs;
+  }
+
+  .bottom-nav-item-active {
+    @apply text-teal;
+  }
+
+  .mini-player {
+    @apply fixed bottom-16 left-1/2 z-20 w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-xl border border-border bg-surface px-3 py-2;
+  }
+
+  .progress-bar {
+    @apply h-1 w-full overflow-hidden rounded-full bg-white/15;
+  }
+
+  .progress-bar-fill {
+    @apply h-full rounded-full bg-amber;
+  }
+
+  .sheet-overlay {
+    @apply fixed inset-0 z-40 bg-black/60;
+  }
+
+  .sheet-panel {
+    @apply fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-3xl border border-border bg-surface-raised p-5;
+  }
+
+  .modal-panel {
+    @apply mx-auto max-w-sm rounded-2xl border border-border bg-surface-raised p-5;
   }
 
   .error-text {
-    @apply text-red-400;
-  }
-
-  .track-actions {
-    @apply mt-2 flex gap-2;
-  }
-
-  .player {
-    @apply mt-5;
-  }
-
-  .player audio {
-    @apply mt-3 w-full;
+    @apply text-error;
   }
 }

@@ -19,6 +19,7 @@ export interface TonezenApi {
         sortOrder: number;
         title: string;
         filename: string;
+        durationMs?: number;
         localPath?: string;
       }>
     >;
@@ -26,6 +27,28 @@ export interface TonezenApi {
   download: {
     track: (bookId: string, trackId: string) => Promise<string>;
     delete: (bookId: string, trackId: string) => Promise<void>;
+    list: () => Promise<
+      Array<{
+        bookId: string;
+        title: string;
+        author?: string;
+        contentType: string;
+        downloadedTracks: number;
+        totalTracks: number;
+        sizeBytes: number;
+        downloadProgress: number;
+      }>
+    >;
+    storageStats: () => Promise<{ usedBytes: number }>;
+    deleteAll: () => Promise<void>;
+  };
+  favorites: {
+    list: () => Promise<string[]>;
+    toggle: (bookId: string) => Promise<string[]>;
+  };
+  sync: {
+    status: () => Promise<{ pendingCount: number }>;
+    trigger: () => Promise<void>;
   };
   progress: {
     get: (bookId: string) => Promise<{

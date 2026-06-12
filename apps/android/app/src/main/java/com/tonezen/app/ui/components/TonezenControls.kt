@@ -81,13 +81,20 @@ internal fun PlayTriangle(tint: Color, modifier: Modifier = Modifier) {
 }
 
 @Composable
-internal fun ProgressBar(progress: Float) {
+internal fun ProgressBar(progress: Float, onSeek: ((Float) -> Unit)? = null) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(4.dp)
             .clip(RoundedCornerShape(999.dp))
-            .background(Color.White.copy(alpha = 0.16f)),
+            .background(Color.White.copy(alpha = 0.16f))
+            .then(
+                if (onSeek != null) {
+                    Modifier.clickable { onSeek(progress.coerceIn(0f, 1f)) }
+                } else {
+                    Modifier
+                },
+            ),
     ) {
         Box(
             modifier = Modifier

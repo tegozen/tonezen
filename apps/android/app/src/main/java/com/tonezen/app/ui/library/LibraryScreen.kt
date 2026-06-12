@@ -16,9 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -31,21 +29,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
+import com.tonezen.app.domain.library.LibraryFilterState
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.ui.components.BookCover
-import com.tonezen.app.ui.components.BottomDestination
 import com.tonezen.app.ui.components.EmptyLibrary
 import com.tonezen.app.ui.components.IconCircle
-import com.tonezen.app.ui.components.MiniPlayer
+import com.tonezen.app.ui.components.LibraryFilterSheet
 import com.tonezen.app.ui.components.OfflineBanner
 import com.tonezen.app.ui.components.OverflowGlyph
-import com.tonezen.app.ui.components.SearchGlyph
 import com.tonezen.app.ui.components.SearchRow
 import com.tonezen.app.ui.components.StatusChip
-import com.tonezen.app.ui.components.TonezenBottomNavigation
 import com.tonezen.app.ui.components.TonezenTabs
-import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenScreenBrush
@@ -53,101 +48,78 @@ import com.tonezen.app.ui.theme.TonezenTeal
 
 @Composable
 internal fun LibraryScreen(
+    padding: PaddingValues,
     books: List<Book>,
+    allBooks: List<Book>,
     downloadedBookIds: Set<String>,
+    favoriteBookIds: Set<String>,
     offlineBanner: Boolean,
-    nowPlayingTitle: String?,
+    filter: LibraryFilterState,
+    showFilterSheet: Boolean,
     onBookClick: (Book) -> Unit,
-    onLogout: () -> Unit,
+    onSearchChange: (String) -> Unit,
+    onFilterClick: () -> Unit,
+    onDismissFilterSheet: () -> Unit,
+    onApplyFilter: (LibraryFilterState) -> Unit,
+    onResetFilter: () -> Unit,
+    onContentFilterChange: (com.tonezen.app.domain.library.LibraryContentFilter) -> Unit,
+    onSortOrderChange: (com.tonezen.app.domain.library.LibrarySortOrder) -> Unit,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val audiobooks = books.filter { it.contentType == ContentType.AUDIOBOOK }
     val music = books.filter { it.contentType == ContentType.MUSIC }
     val tabBooks = if (selectedTab == 0) audiobooks else music
 
-    Scaffold(
-        containerColor = TonezenAppBg,
-        bottomBar = {
-            Column {
-                MiniPlayer(
-                    title = nowPlayingTitle ?: audiobooks.firstOrNull()?.title,
-                    subtitle = nowPlayingTitle?.let { stringResource(R.string.now_playing) }
-                        ?: audiobooks.firstOrNull()?.author,
-                    enabled = books.isNotEmpty(),
+    if (showFilterSheet) {
+        LibraryFilterSheet(
+            filter = filter,
+            onDismiss = onDismissFilterSheet,
+            onApply = onApplyFilter,
+            onReset = onResetFilter,
+            onContentFilterChange = onContentFilterChange,
+            onSortOrderChange = onSortOrderChange,
+        )
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(TonezenScreenBrush)
+            .padding(padding),
+        contentPadding = PaddingValues(start = 20.dp, top = 28.dp, end = 20.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        item { LibraryHeader() }
+        if (offlineBanner) {
+            item { OfflineBanner() }
+        }
+        item {
+            TonezenTabs(selectedTab = selectedTab, onSelect = { selectedTab = it })
+        }
+        item {
+            SearchRow(
+                query = filter.query,
+                onQueryChange = onSearchChange,
+                onFilterClick = onFilterClick,
+            )
+        }
+        if (allBooks.isEmpty()) {
+            item { EmptyLibrary() }
+        } else {
+            item {
+                LibrarySection(
+                    title = if (selectedTab == 0) stringResource(R.string.tab_audiobooks) else stringResource(R.string.tab_music),
+                    books = tabBooks,
+                    downloadedBookIds = downloadedBookIds,
+                    onBookClick = onBookClick,
                 )
-                TonezenBottomNavigation(selected = BottomDestination.Library)
-            }
-        },
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(TonezenScreenBrush)
-                .padding(padding),
-            contentPadding = PaddingValues(start = 20.dp, top = 28.dp, end = 20.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            item {
-                LibraryHeader(onLogout = onLogout)
-            }
-            if (offlineBanner) {
-                item {
-                    OfflineBanner()
-                }
-            }
-            item {
-                TonezenTabs(
-                    selectedTab = selectedTab,
-                    onSelect = { selectedTab = it },
-                )
-            }
-            item {
-                SearchRow()
-            }
-            if (books.isEmpty()) {
-                item {
-                    EmptyLibrary()
-                }
-            } else {
-                item {
-                    LibrarySection(
-                        title = if (selectedTab == 0) {
-                            stringResource(R.string.tab_audiobooks)
-                        } else {
-                            stringResource(R.string.tab_music)
-                        },
-                        books = tabBooks,
-                        downloadedBookIds = downloadedBookIds,
-                        onBookClick = onBookClick,
-                    )
-                }
-                if (selectedTab == 0 && music.isNotEmpty()) {
-                    item {
-                        LibrarySection(
-                            title = stringResource(R.string.tab_music),
-                            books = music,
-                            downloadedBookIds = downloadedBookIds,
-                            onBookClick = onBookClick,
-                        )
-                    }
-                }
-                if (selectedTab == 1 && audiobooks.isNotEmpty()) {
-                    item {
-                        LibrarySection(
-                            title = stringResource(R.string.tab_audiobooks),
-                            books = audiobooks,
-                            downloadedBookIds = downloadedBookIds,
-                            onBookClick = onBookClick,
-                        )
-                    }
-                }
             }
         }
     }
 }
 
 @Composable
-private fun LibraryHeader(onLogout: () -> Unit) {
+private fun LibraryHeader() {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -159,12 +131,8 @@ private fun LibraryHeader(onLogout: () -> Unit) {
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconCircle { SearchGlyph() }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             IconCircle { OverflowGlyph() }
-            TextButton(onClick = onLogout) {
-                Text(stringResource(R.string.sign_out), color = TonezenMuted)
-            }
         }
     }
 }
@@ -200,45 +168,23 @@ private fun LibrarySection(
 @Composable
 private fun LibraryBookCard(book: Book, downloaded: Boolean, onClick: () -> Unit) {
     Column(
-        modifier = Modifier
-            .width(154.dp)
-            .clickable(onClick = onClick),
+        modifier = Modifier.width(154.dp).clickable(onClick = onClick),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Box {
-            BookCover(
-                book = book,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(0.78f),
-            )
+            BookCover(book = book, modifier = Modifier.fillMaxWidth().aspectRatio(0.78f))
             if (downloaded) {
                 StatusChip(
                     label = stringResource(R.string.offline),
                     tone = TonezenTeal,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(8.dp),
+                    modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
                 )
             }
         }
         Row(verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = book.title,
-                    color = TonezenInk,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = book.author.orEmpty(),
-                    color = TonezenMuted,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Text(book.title, color = TonezenInk, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(book.author.orEmpty(), color = TonezenMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(":", color = TonezenMuted, style = MaterialTheme.typography.titleMedium)
         }

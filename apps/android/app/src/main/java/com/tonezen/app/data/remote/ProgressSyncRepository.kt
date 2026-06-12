@@ -81,7 +81,7 @@ class ProgressSyncRepository @Inject constructor(
         progressRepository.upsertProgressEntity(entity.copy(pendingSync = false))
     }
 
-    private suspend fun flushPending(accessToken: String) {
+    suspend fun flushPending(accessToken: String) {
         for (entity in progressRepository.getPendingProgress()) {
             pushProgress(accessToken, entity)
         }

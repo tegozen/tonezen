@@ -3,6 +3,7 @@ package com.tonezen.app.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,7 +34,7 @@ import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenTeal
 
-internal enum class BottomDestination(val labelRes: Int, val glyph: String) {
+enum class BottomDestination(val labelRes: Int, val glyph: String) {
     Library(R.string.nav_library, "L"),
     Player(R.string.nav_player, "P"),
     Downloads(R.string.nav_downloads, "D"),
@@ -41,7 +42,10 @@ internal enum class BottomDestination(val labelRes: Int, val glyph: String) {
 }
 
 @Composable
-internal fun TonezenBottomNavigation(selected: BottomDestination) {
+internal fun TonezenBottomNavigation(
+    selected: BottomDestination,
+    onSelect: (BottomDestination) -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -51,17 +55,25 @@ internal fun TonezenBottomNavigation(selected: BottomDestination) {
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BottomNavItem(BottomDestination.Library, selected)
-        BottomNavItem(BottomDestination.Player, selected)
-        BottomNavItem(BottomDestination.Downloads, selected)
-        BottomNavItem(BottomDestination.Profile, selected)
+        BottomNavItem(BottomDestination.Library, selected) { onSelect(BottomDestination.Library) }
+        BottomNavItem(BottomDestination.Player, selected) { onSelect(BottomDestination.Player) }
+        BottomNavItem(BottomDestination.Downloads, selected) { onSelect(BottomDestination.Downloads) }
+        BottomNavItem(BottomDestination.Profile, selected) { onSelect(BottomDestination.Profile) }
     }
 }
 
 @Composable
-private fun BottomNavItem(destination: BottomDestination, selected: BottomDestination) {
+private fun BottomNavItem(
+    destination: BottomDestination,
+    selected: BottomDestination,
+    onClick: () -> Unit,
+) {
     val active = destination == selected
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        modifier = Modifier.clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
         Box(
             modifier = Modifier
                 .size(26.dp)
@@ -84,12 +96,20 @@ private fun BottomNavItem(destination: BottomDestination, selected: BottomDestin
 }
 
 @Composable
-internal fun MiniPlayer(title: String?, subtitle: String?, enabled: Boolean) {
+internal fun MiniPlayer(
+    title: String?,
+    subtitle: String?,
+    enabled: Boolean,
+    isPlaying: Boolean = false,
+    onBarClick: () -> Unit = {},
+    onPlayPauseClick: () -> Unit = {},
+) {
     if (!enabled || title == null) return
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 8.dp),
+            .padding(horizontal = 18.dp, vertical = 8.dp)
+            .clickable(onClick = onBarClick),
         color = TonezenSurface.copy(alpha = 0.96f),
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
@@ -105,7 +125,22 @@ internal fun MiniPlayer(title: String?, subtitle: String?, enabled: Boolean) {
                 Text(title, color = TonezenInk, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(subtitle.orEmpty(), color = TonezenMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1)
             }
-            PlayTriangle(tint = TonezenInk, modifier = Modifier.size(28.dp))
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onPlayPauseClick),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (isPlaying) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Box(Modifier.size(width = 3.dp, height = 14.dp).background(TonezenInk, RoundedCornerShape(1.dp)))
+                        Box(Modifier.size(width = 3.dp, height = 14.dp).background(TonezenInk, RoundedCornerShape(1.dp)))
+                    }
+                } else {
+                    PlayTriangle(tint = TonezenInk, modifier = Modifier.size(22.dp))
+                }
+            }
         }
     }
 }

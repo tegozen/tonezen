@@ -47,4 +47,60 @@ export class DownloadManager {
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     LocalDatabase.setTrackLocalPath(trackId, null);
   }
+
+  deleteAll(): void {
+    if (fs.existsSync(this.downloadsRoot)) {
+      fs.rmSync(this.downloadsRoot, { recursive: true, force: true });
+      fs.mkdirSync(this.downloadsRoot, { recursive: true });
+    }
+    LocalDatabase.clearAllLocalPaths();
+  }
+
+  getStorageStats(): { usedBytes: number } {
+    let usedBytes = 0;
+    const walk = (dir: string) => {
+      if (!fs.existsSync(dir)) return;
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else usedBytes += fs.statSync(full).size;
+      }
+    };
+    walk(this.downloadsRoot);
+    return { usedBytes };
+  }
+
+  listDownloadSummaries(): Array<{
+    bookId: string;
+    title: string;
+    author?: string;
+    contentType: string;
+    downloadedTracks: number;
+    totalTracks: number;
+    sizeBytes: number;
+    downloadProgress: number;
+  }> {
+    const books = LocalDatabase.getBooks();
+    return books
+      .map((book) => {
+        const tracks = LocalDatabase.getTracks(book.id);
+        const downloaded = tracks.filter((t) => t.localPath);
+        if (downloaded.length === 0) return null;
+        const sizeBytes = downloaded.reduce((sum, track) => {
+          if (!track.localPath || !fs.existsSync(track.localPath)) return sum;
+          return sum + fs.statSync(track.localPath).size;
+        }, 0);
+        return {
+          bookId: book.id,
+          title: book.title,
+          author: book.author,
+          contentType: book.contentType,
+          downloadedTracks: downloaded.length,
+          totalTracks: tracks.length,
+          sizeBytes,
+          downloadProgress: downloaded.length / Math.max(tracks.length, 1),
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  }
 }

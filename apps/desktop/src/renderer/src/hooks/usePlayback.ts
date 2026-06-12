@@ -13,6 +13,10 @@ const cycleResolver = new CyclePlaybackResolver();
 export function usePlayback(selectedBook: Book | null, tracks: Track[]) {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [progressLabel, setProgressLabel] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [positionMs, setPositionMs] = useState(0);
+  const [durationMs, setDurationMs] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const lastProgressSaveRef = useRef(0);
   const lastPositionSyncRef = useRef(0);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -121,35 +125,25 @@ export function usePlayback(selectedBook: Book | null, tracks: Track[]) {
 
   playTrackRef.current = playTrack;
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const onPlay = () => setMediaPlaybackState("playing");
-    const onPause = () => setMediaPlaybackState("paused");
-    const onEmptied = () => setMediaPlaybackState("none");
-
-    audio.addEventListener("play", onPlay);
-    audio.addEventListener("pause", onPause);
-    audio.addEventListener("emptied", onEmptied);
-    return () => {
-      audio.removeEventListener("play", onPlay);
-      audio.removeEventListener("pause", onPause);
-      audio.removeEventListener("emptied", onEmptied);
-    };
-  }, [selectedBook]);
-
   const stopPlayback = useCallback(() => {
     audioRef.current?.pause();
     clearMediaSession();
     window.tonezen.playback.setActive(false);
+    setIsPlaying(false);
   }, []);
 
   const onTimeUpdate = useCallback(() => {
     const book = selectedBookRef.current;
     const track = currentTrackRef.current;
     const audio = audioRef.current;
-    if (!book || book.contentType !== "audiobook" || !track || !audio) return;
+    if (!audio) return;
+
+    setPositionMs(Math.floor(audio.currentTime * 1000));
+    if (Number.isFinite(audio.duration) && audio.duration > 0) {
+      setDurationMs(Math.floor(audio.duration * 1000));
+    }
+
+    if (!book || book.contentType !== "audiobook" || !track) return;
 
     const now = Date.now();
     if (now - lastPositionSyncRef.current >= 1000) {
@@ -190,9 +184,67 @@ export function usePlayback(selectedBook: Book | null, tracks: Track[]) {
     [],
   );
 
+  const pauseOrResume = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) void audio.play();
+    else audio.pause();
+  }, []);
+
+  const seekBy = useCallback(
+    (deltaMs: number) => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      const next = Math.max(0, audio.currentTime + deltaMs / 1000);
+      audio.currentTime = Number.isFinite(audio.duration) ? Math.min(audio.duration, next) : next;
+      syncPositionState();
+    },
+    [syncPositionState],
+  );
+
+  const cycleSpeed = useCallback(() => {
+    const speeds = [0.75, 1, 1.25, 1.5, 2];
+    setPlaybackSpeed((current) => {
+      const index = speeds.indexOf(current);
+      const next = speeds[(index + 1) % speeds.length];
+      if (audioRef.current) audioRef.current.playbackRate = next;
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onPlay = () => {
+      setIsPlaying(true);
+      setMediaPlaybackState("playing");
+    };
+    const onPause = () => {
+      setIsPlaying(false);
+      setMediaPlaybackState("paused");
+    };
+    const onLoaded = () => {
+      if (Number.isFinite(audio.duration)) {
+        setDurationMs(Math.floor(audio.duration * 1000));
+      }
+    };
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
+    audio.addEventListener("loadedmetadata", onLoaded);
+    return () => {
+      audio.removeEventListener("play", onPlay);
+      audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("loadedmetadata", onLoaded);
+    };
+  }, [selectedBook]);
+
   return {
     currentTrack,
     progressLabel,
+    isPlaying,
+    positionMs,
+    durationMs,
+    playbackSpeed,
     audioRef,
     playTrack,
     stopPlayback,
@@ -200,5 +252,8 @@ export function usePlayback(selectedBook: Book | null, tracks: Track[]) {
     onTrackEnded,
     resumeProgress,
     setInitialTrackState,
+    pauseOrResume,
+    seekBy,
+    cycleSpeed,
   };
 }

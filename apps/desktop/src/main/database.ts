@@ -198,4 +198,32 @@ export const LocalDatabase = {
   markProgressSynced(bookId: string): void {
     db!.prepare(`UPDATE audiobook_progress SET pending_sync = 0 WHERE book_id = ?`).run(bookId);
   },
+
+  getFavoriteBookIds(): string[] {
+    const rows = db!.prepare(`SELECT book_id FROM favorites`).all() as Array<{ book_id: string }>;
+    return rows.map((r) => r.book_id);
+  },
+
+  toggleFavorite(bookId: string): void {
+    const existing = db!.prepare(`SELECT book_id FROM favorites WHERE book_id = ?`).get(bookId);
+    if (existing) {
+      db!.prepare(`DELETE FROM favorites WHERE book_id = ?`).run(bookId);
+    } else {
+      db!.prepare(`INSERT INTO favorites (book_id, pending_sync) VALUES (?, 1)`).run(bookId);
+    }
+  },
+
+  getPendingSyncCount(): number {
+    const progress = db!
+      .prepare(`SELECT COUNT(*) as count FROM audiobook_progress WHERE pending_sync = 1`)
+      .get() as { count: number };
+    const favorites = db!
+      .prepare(`SELECT COUNT(*) as count FROM favorites WHERE pending_sync = 1`)
+      .get() as { count: number };
+    return progress.count + favorites.count;
+  },
+
+  clearAllLocalPaths(): void {
+    db!.prepare(`UPDATE tracks SET local_path = NULL`).run();
+  },
 };

@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,9 +35,9 @@ import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
 
 @Composable
-internal fun IconCircle(content: @Composable () -> Unit) {
+internal fun IconCircle(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(36.dp)
             .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.06f))
@@ -89,7 +91,11 @@ private fun TonezenTab(label: String, selected: Boolean, modifier: Modifier = Mo
 }
 
 @Composable
-internal fun SearchRow() {
+internal fun SearchRow(
+    query: String = "",
+    onQueryChange: (String) -> Unit = {},
+    onFilterClick: () -> Unit = {},
+) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Row(
             modifier = Modifier
@@ -103,16 +109,29 @@ internal fun SearchRow() {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             SearchGlyph()
-            Text(
-                text = stringResource(R.string.search_library),
-                color = TonezenMuted,
-                style = MaterialTheme.typography.bodyMedium,
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                singleLine = true,
+                textStyle = TextStyle(color = TonezenInk),
+                modifier = Modifier.weight(1f),
+                decorationBox = { inner ->
+                    if (query.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.search_library),
+                            color = TonezenMuted,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                    inner()
+                },
             )
         }
         Box(
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(12.dp))
+                .clickable(onClick = onFilterClick)
                 .background(TonezenSurfaceRaised.copy(alpha = 0.92f))
                 .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,

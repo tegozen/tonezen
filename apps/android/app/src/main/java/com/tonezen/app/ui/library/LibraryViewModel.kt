@@ -6,6 +6,10 @@ import com.tonezen.app.data.local.CatalogRepository
 import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
+import com.tonezen.app.domain.library.LibraryContentFilter
+import com.tonezen.app.domain.library.LibraryFilterState
+import com.tonezen.app.domain.library.LibrarySortOrder
+import com.tonezen.app.domain.library.filterAndSortBooks
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.playback.PlaybackClient
@@ -45,28 +49,39 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    fun selectBook(book: Book) {
-        _uiState.update { it.copy(selectedBook = book) }
-    }
-
-    fun clearSelection() {
-        playbackClient.pause()
-        viewModelScope.launch {
-            val books = _uiState.value.books
-            _uiState.update {
-                it.copy(
-                    selectedBook = null,
-                    nowPlayingTitle = null,
-                    downloadedBookIds = catalogRepository.downloadedBookIds(books),
-                )
-            }
+    val filteredBooks: List<Book>
+        get() {
+            val state = _uiState.value
+            return filterAndSortBooks(
+                books = state.books,
+                downloadedBookIds = state.downloadedBookIds,
+                favoriteBookIds = state.favoriteBookIds,
+                filter = state.filter,
+            )
         }
+
+    fun setSearchQuery(query: String) {
+        _uiState.update { it.copy(filter = it.filter.copy(query = query)) }
     }
 
-    fun logout() {
-        progressSyncRepository.stop()
-        playbackClient.stopAndRelease()
-        sessionRepository.clearSession()
+    fun setFilterSheetVisible(visible: Boolean) {
+        _uiState.update { it.copy(showFilterSheet = visible) }
+    }
+
+    fun applyFilter(filter: LibraryFilterState) {
+        _uiState.update { it.copy(filter = filter, showFilterSheet = false) }
+    }
+
+    fun resetFilter() {
+        _uiState.update { it.copy(filter = LibraryFilterState()) }
+    }
+
+    fun setContentFilter(contentFilter: LibraryContentFilter) {
+        _uiState.update { it.copy(filter = it.filter.copy(contentFilter = contentFilter)) }
+    }
+
+    fun setSortOrder(sortOrder: LibrarySortOrder) {
+        _uiState.update { it.copy(filter = it.filter.copy(sortOrder = sortOrder)) }
     }
 
     private fun refreshSessionState(session: StoredSession?) {
@@ -79,11 +94,13 @@ class LibraryViewModel @Inject constructor(
         val refreshed = sessionRepository.refreshIfNeeded(session)
         refreshSessionState(refreshed)
         val local = catalogRepository.getAllBooks()
+        val favorites = catalogRepository.getFavoriteBookIds()
         if (local.isNotEmpty()) {
             _uiState.update {
                 it.copy(
                     books = local,
                     downloadedBookIds = catalogRepository.downloadedBookIds(local),
+                    favoriteBookIds = favorites,
                 )
             }
         }
@@ -101,7 +118,20 @@ class LibraryViewModel @Inject constructor(
             it.copy(
                 books = remoteBooks,
                 downloadedBookIds = catalogRepository.downloadedBookIds(remoteBooks),
+                favoriteBookIds = catalogRepository.getFavoriteBookIds(),
             )
+        }
+    }
+
+    fun refreshDownloads() {
+        viewModelScope.launch {
+            val books = _uiState.value.books
+            _uiState.update {
+                it.copy(
+                    downloadedBookIds = catalogRepository.downloadedBookIds(books),
+                    favoriteBookIds = catalogRepository.getFavoriteBookIds(),
+                )
+            }
         }
     }
 }

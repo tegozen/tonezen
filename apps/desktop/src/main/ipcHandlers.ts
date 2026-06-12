@@ -43,6 +43,16 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   ipcMain.handle("download:delete", (_e, bookId: string, trackId: string) => {
     downloadManager.deleteLocalTrack(bookId, trackId);
   });
+  ipcMain.handle("download:list", () => downloadManager.listDownloadSummaries());
+  ipcMain.handle("download:storageStats", () => downloadManager.getStorageStats());
+  ipcMain.handle("download:deleteAll", () => downloadManager.deleteAll());
+  ipcMain.handle("favorites:list", () => LocalDatabase.getFavoriteBookIds());
+  ipcMain.handle("favorites:toggle", (_e, bookId: string) => {
+    LocalDatabase.toggleFavorite(bookId);
+    return LocalDatabase.getFavoriteBookIds();
+  });
+  ipcMain.handle("sync:status", () => progressSync.getSyncStatus());
+  ipcMain.handle("sync:trigger", () => progressSync.triggerSync());
   ipcMain.handle("progress:get", (_e, bookId: string) => LocalDatabase.getProgress(bookId));
   ipcMain.handle("progress:save", async (_e, bookId: string, trackId: string, positionMs: number) => {
     await progressSync.saveLocal(bookId, trackId, positionMs);

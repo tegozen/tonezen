@@ -104,9 +104,36 @@ class PlaybackClient @Inject constructor(
         controller?.play()
     }
 
+    fun seekTo(positionMs: Long) {
+        controller?.seekTo(positionMs.coerceAtLeast(0L))
+    }
+
+    fun seekBy(deltaMs: Long) {
+        val controller = controller ?: return
+        val target = (controller.currentPosition + deltaMs).coerceAtLeast(0L)
+        val duration = controller.duration
+        controller.seekTo(if (duration > 0) target.coerceAtMost(duration) else target)
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        controller?.setPlaybackSpeed(speed.coerceIn(0.5f, 2.0f))
+    }
+
+    fun playbackSpeed(): Float = controller?.playbackParameters?.speed ?: 1f
+
+    fun skipToNext() {
+        controller?.seekToNextMediaItem()
+    }
+
+    fun skipToPrevious() {
+        controller?.seekToPreviousMediaItem()
+    }
+
     fun isPlaying(): Boolean = controller?.isPlaying == true
 
     fun currentPositionMs(): Long = controller?.currentPosition?.coerceAtLeast(0L) ?: 0L
+
+    fun durationMs(): Long = controller?.duration?.coerceAtLeast(0L) ?: 0L
 
     fun stopAndRelease() {
         stopPositionTicks()

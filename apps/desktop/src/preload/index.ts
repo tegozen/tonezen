@@ -17,6 +17,17 @@ contextBridge.exposeInMainWorld("tonezen", {
   download: {
     track: (bookId: string, trackId: string) => ipcRenderer.invoke("download:track", bookId, trackId),
     delete: (bookId: string, trackId: string) => ipcRenderer.invoke("download:delete", bookId, trackId),
+    list: () => ipcRenderer.invoke("download:list"),
+    storageStats: () => ipcRenderer.invoke("download:storageStats"),
+    deleteAll: () => ipcRenderer.invoke("download:deleteAll"),
+  },
+  favorites: {
+    list: () => ipcRenderer.invoke("favorites:list"),
+    toggle: (bookId: string) => ipcRenderer.invoke("favorites:toggle", bookId),
+  },
+  sync: {
+    status: () => ipcRenderer.invoke("sync:status"),
+    trigger: () => ipcRenderer.invoke("sync:trigger"),
   },
   progress: {
     get: (bookId: string) => ipcRenderer.invoke("progress:get", bookId),

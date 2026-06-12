@@ -93,7 +93,7 @@ export class ProgressSyncService {
     await this.pushProgress(progress);
   }
 
-  private async pullAll(): Promise<void> {
+  async pullAll(): Promise<void> {
     await this.refreshSession();
     const token = this.getAccessToken();
     if (!token) return;
@@ -122,10 +122,19 @@ export class ProgressSyncService {
     }
   }
 
-  private async flushPending(): Promise<void> {
+  async flushPending(): Promise<void> {
     for (const progress of LocalDatabase.getPendingProgress()) {
       await this.pushProgress(progress);
     }
+  }
+
+  getSyncStatus(): { pendingCount: number } {
+    return { pendingCount: LocalDatabase.getPendingSyncCount() };
+  }
+
+  async triggerSync(): Promise<void> {
+    await this.pullAll();
+    await this.flushPending();
   }
 
   private async pushProgress(progress: AudiobookProgress): Promise<void> {
