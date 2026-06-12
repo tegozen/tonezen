@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld("tonezen", {
     setOnline: (online: boolean) => ipcRenderer.invoke("session:setOnline", online),
     login: (email: string, password: string) => ipcRenderer.invoke("session:login", email, password),
     logout: () => ipcRenderer.invoke("session:logout"),
+    updateProfile: (displayName: string) => ipcRenderer.invoke("session:updateProfile", displayName),
+    changePassword: (newPassword: string) => ipcRenderer.invoke("session:changePassword", newPassword),
   },
   catalog: {
     sync: () => ipcRenderer.invoke("catalog:sync"),

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   CheckCircleIcon,
   ChevronRightIcon,
@@ -10,6 +10,12 @@ import {
   WarningIcon,
 } from "../components/TonezenIcons";
 import { strings } from "../i18n/strings";
+import { AccountSettingsPage } from "./profile/AccountSettingsPage";
+import { PrivacySettingsPage } from "./profile/PrivacySettingsPage";
+import { StorageSettingsPage } from "./profile/StorageSettingsPage";
+import { SyncSettingsPage } from "./profile/SyncSettingsPage";
+
+type ProfileSettingsPage = "account" | "sync" | "storage" | "privacy";
 
 interface ProfilePageProps {
   displayName: string | null;
@@ -28,6 +34,8 @@ interface ProfilePageProps {
   onCancelSignOut: () => void;
   onSyncNow: () => void;
   onCloseSyncDialog: () => void;
+  onOpenDownloads: () => void;
+  onProfileUpdated: () => void;
 }
 
 function formatGb(bytes: number): string {
@@ -51,7 +59,48 @@ export function ProfilePage({
   onCancelSignOut,
   onSyncNow,
   onCloseSyncDialog,
+  onOpenDownloads,
+  onProfileUpdated,
 }: ProfilePageProps) {
+  const [activePage, setActivePage] = useState<ProfileSettingsPage | null>(null);
+
+  if (activePage === "account") {
+    return (
+      <AccountSettingsPage
+        displayName={displayName ?? ""}
+        email={email ?? ""}
+        onBack={() => setActivePage(null)}
+        onProfileUpdated={onProfileUpdated}
+      />
+    );
+  }
+  if (activePage === "sync") {
+    return (
+      <SyncSettingsPage
+        online={online}
+        pendingCount={pendingCount}
+        syncing={syncing}
+        onBack={() => setActivePage(null)}
+        onSyncNow={onSyncNow}
+      />
+    );
+  }
+  if (activePage === "storage") {
+    return (
+      <StorageSettingsPage
+        usedBytes={storageUsedBytes}
+        onBack={() => setActivePage(null)}
+        onOpenDownloads={() => {
+          setActivePage(null);
+          onOpenDownloads();
+        }}
+      />
+    );
+  }
+  if (activePage === "privacy") {
+    return <PrivacySettingsPage onBack={() => setActivePage(null)} />;
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -102,10 +151,30 @@ export function ProfilePage({
         </button>
       </div>
       <div className="space-y-2">
-        <SettingsRow icon={<ProfileIcon className="h-6 w-6" />} title={strings.settingsAccount} subtitle={email ?? ""} />
-        <SettingsRow icon={<SyncIcon className="h-6 w-6" />} title={strings.settingsSync} subtitle={strings.syncNow} />
-        <SettingsRow icon={<StorageIcon className="h-6 w-6" />} title={strings.settingsStorage} subtitle={formatGb(storageUsedBytes)} />
-        <SettingsRow icon={<LockIcon className="h-6 w-6" />} title={strings.settingsPrivacy} subtitle="" />
+        <SettingsRow
+          icon={<ProfileIcon className="h-6 w-6" />}
+          title={strings.settingsAccount}
+          subtitle={strings.settingsAccountSubtitle}
+          onClick={() => setActivePage("account")}
+        />
+        <SettingsRow
+          icon={<SyncIcon className="h-6 w-6" />}
+          title={strings.settingsSync}
+          subtitle={strings.settingsSyncSubtitle}
+          onClick={() => setActivePage("sync")}
+        />
+        <SettingsRow
+          icon={<StorageIcon className="h-6 w-6" />}
+          title={strings.settingsStorage}
+          subtitle={formatGb(storageUsedBytes)}
+          onClick={() => setActivePage("storage")}
+        />
+        <SettingsRow
+          icon={<LockIcon className="h-6 w-6" />}
+          title={strings.settingsPrivacy}
+          subtitle={strings.settingsPrivacySubtitle}
+          onClick={() => setActivePage("privacy")}
+        />
       </div>
       <div className="card flex gap-3 border-amber/30 text-sm text-muted">
         <WarningIcon className="h-5 w-5 shrink-0 text-amber" />
@@ -147,9 +216,19 @@ export function ProfilePage({
   );
 }
 
-function SettingsRow({ icon, title, subtitle }: { icon: ReactNode; title: string; subtitle: string }) {
+function SettingsRow({
+  icon,
+  title,
+  subtitle,
+  onClick,
+}: {
+  icon: ReactNode;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+}) {
   return (
-    <div className="card flex items-center justify-between px-4 py-3">
+    <button type="button" className="card-hover flex w-full items-center justify-between px-4 py-3 text-left" onClick={onClick}>
       <div className="flex items-center gap-3">
         <div className="text-ink">{icon}</div>
         <div>
@@ -158,6 +237,6 @@ function SettingsRow({ icon, title, subtitle }: { icon: ReactNode; title: string
         </div>
       </div>
       <ChevronRightIcon className="h-5 w-5 text-muted" />
-    </div>
+    </button>
   );
 }

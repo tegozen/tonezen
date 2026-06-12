@@ -7,6 +7,12 @@ export interface TonezenApi {
       password: string,
     ) => Promise<{ state: string; email: string | null; displayName: string | null }>;
     logout: () => Promise<void>;
+    updateProfile: (
+      displayName: string,
+    ) => Promise<{ state: string; email: string | null; displayName: string | null }>;
+    changePassword: (
+      newPassword: string,
+    ) => Promise<{ state: string; email: string | null; displayName: string | null }>;
   };
   catalog: {
     sync: () => Promise<Array<{ id: string; title: string; contentType: string; author?: string }>>;

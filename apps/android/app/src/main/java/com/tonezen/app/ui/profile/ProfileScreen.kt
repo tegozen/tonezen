@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -25,6 +24,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.activity.compose.BackHandler
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -33,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
 import com.tonezen.app.ui.theme.TonezenFaint
@@ -67,20 +69,19 @@ internal fun ProfileScreen(
     onOpenDownloads: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     BackHandler(
         enabled = state.showSignOutConfirm ||
             state.showSyncDialog ||
-            state.showPrivacyDialog ||
             state.showOverflowMenu ||
-            state.showAccountScreen,
+            state.activeSettingsScreen != null,
     ) {
         when {
             state.showSignOutConfirm -> viewModel.setSignOutConfirmVisible(false)
             state.showSyncDialog -> viewModel.setSyncDialogVisible(false)
-            state.showPrivacyDialog -> viewModel.setPrivacyDialogVisible(false)
             state.showOverflowMenu -> viewModel.setOverflowMenuVisible(false)
-            state.showAccountScreen -> viewModel.setAccountScreenVisible(false)
+            state.activeSettingsScreen != null -> viewModel.closeSettingsScreen()
         }
     }
 
@@ -102,21 +103,8 @@ internal fun ProfileScreen(
             },
         )
     }
-    if (state.showPrivacyDialog) {
-        AlertDialog(
-            onDismissRequest = { viewModel.setPrivacyDialogVisible(false) },
-            title = { Text(stringResource(R.string.settings_privacy_dialog_title)) },
-            text = { Text(stringResource(R.string.settings_privacy_dialog_body), color = TonezenMuted) },
-            confirmButton = {
-                TextButton(onClick = { viewModel.setPrivacyDialogVisible(false) }) {
-                    Text(stringResource(R.string.apply), color = TonezenTeal)
-                }
-            },
-        )
-    }
-
-    if (state.showAccountScreen) {
-        AccountSettingsScreen(
+    when (state.activeSettingsScreen) {
+        ProfileSettingsAction.Account -> AccountSettingsScreen(
             padding = padding,
             displayName = state.displayName.orEmpty(),
             email = state.email.orEmpty(),
@@ -125,24 +113,47 @@ internal fun ProfileScreen(
             profileError = resolveAccountError(state.profileError),
             passwordError = resolveAccountError(state.passwordError),
             passwordFormNonce = state.passwordFormNonce,
-            onBack = { viewModel.setAccountScreenVisible(false) },
+            onBack = viewModel::closeSettingsScreen,
             onSaveProfile = viewModel::saveProfile,
             onChangePassword = viewModel::changePassword,
         )
-    } else {
-        ProfileScreenContent(
+        ProfileSettingsAction.Sync -> SyncSettingsScreen(
+            padding = padding,
+            sessionState = state.sessionState,
+            lastSyncTime = state.lastSyncTime,
+            pendingSyncCount = state.pendingSyncCount,
+            syncing = state.syncing,
+            onBack = viewModel::closeSettingsScreen,
+            onSyncNow = viewModel::syncNow,
+        )
+        ProfileSettingsAction.Storage -> StorageSettingsScreen(
+            padding = padding,
+            usedBytes = state.storageUsedBytes,
+            totalBytes = state.storageTotalBytes,
+            onBack = viewModel::closeSettingsScreen,
+            onOpenDownloads = {
+                viewModel.closeSettingsScreen()
+                onOpenDownloads()
+            },
+        )
+        ProfileSettingsAction.Privacy -> PrivacySettingsScreen(
+            padding = padding,
+            onBack = viewModel::closeSettingsScreen,
+            onOpenAppSettings = {
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = android.net.Uri.fromParts("package", context.packageName, null)
+                }
+                context.startActivity(intent)
+            },
+        )
+        null -> ProfileScreenContent(
             padding = padding,
             state = state,
             onOverflowClick = { viewModel.setOverflowMenuVisible(true) },
             onDismissOverflow = { viewModel.setOverflowMenuVisible(false) },
             onSignOutClick = { viewModel.setSignOutConfirmVisible(true) },
             onSyncNow = viewModel::syncNow,
-            onSettingsClick = { action ->
-                viewModel.onSettingsClick(action)
-                if (action == ProfileSettingsAction.Storage) {
-                    onOpenDownloads()
-                }
-            },
+            onSettingsClick = viewModel::onSettingsClick,
         )
     }
 }

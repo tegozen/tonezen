@@ -61,6 +61,7 @@ class ProfileViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     storageUsedBytes = stats.usedBytes,
+                    storageTotalBytes = stats.totalBytes,
                     pendingSyncCount = pending,
                 )
             }
@@ -79,18 +80,18 @@ class ProfileViewModel @Inject constructor(
         _uiState.update { it.copy(showSyncDialog = visible) }
     }
 
-    fun setAccountScreenVisible(visible: Boolean) {
+    fun openSettingsScreen(action: ProfileSettingsAction) {
         _uiState.update {
             it.copy(
-                showAccountScreen = visible,
-                profileError = if (visible) null else it.profileError,
-                passwordError = if (visible) null else it.passwordError,
+                activeSettingsScreen = action,
+                profileError = if (action == ProfileSettingsAction.Account) null else it.profileError,
+                passwordError = if (action == ProfileSettingsAction.Account) null else it.passwordError,
             )
         }
     }
 
-    fun setPrivacyDialogVisible(visible: Boolean) {
-        _uiState.update { it.copy(showPrivacyDialog = visible) }
+    fun closeSettingsScreen() {
+        _uiState.update { it.copy(activeSettingsScreen = null) }
     }
 
     fun saveProfile(displayName: String) {
@@ -155,16 +156,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun onSettingsClick(action: ProfileSettingsAction) {
-        when (action) {
-            ProfileSettingsAction.Account -> {
-                setAccountScreenVisible(true)
-            }
-            ProfileSettingsAction.Sync -> syncNow()
-            ProfileSettingsAction.Storage -> Unit
-            ProfileSettingsAction.Privacy -> {
-                _uiState.update { it.copy(showPrivacyDialog = true) }
-            }
-        }
+        openSettingsScreen(action)
     }
 
     fun syncNow() {

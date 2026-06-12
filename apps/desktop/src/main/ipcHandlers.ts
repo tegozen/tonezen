@@ -34,6 +34,14 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     progressSync.stop();
     sessionService.logout();
   });
+  ipcMain.handle("session:updateProfile", async (_e, displayName: string) => {
+    const result = await sessionService.updateProfile(displayName);
+    return { ...sessionService.getSnapshot(), ...result };
+  });
+  ipcMain.handle("session:changePassword", async (_e, newPassword: string) => {
+    await sessionService.changePassword(newPassword);
+    return sessionService.getSnapshot();
+  });
   ipcMain.handle("catalog:sync", () => catalogSync.syncCatalog());
   ipcMain.handle("db:getBooks", () => LocalDatabase.getBooks());
   ipcMain.handle("db:getTracks", (_e, bookId: string) => LocalDatabase.getTracks(bookId));

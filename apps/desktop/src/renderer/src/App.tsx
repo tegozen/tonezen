@@ -25,6 +25,7 @@ export function App() {
     setError,
     login,
     logout,
+    refreshSession,
   } = useTonezenSession();
 
   const [activeTab, setActiveTab] = useState<BottomTab>("library");
@@ -304,6 +305,8 @@ export function App() {
                 .finally(() => setSyncing(false));
             }}
             onCloseSyncDialog={() => setShowSyncDialog(false)}
+            onOpenDownloads={() => setActiveTab("downloads")}
+            onProfileUpdated={() => void refreshSession()}
           />
         )}
         {error && <p className="error-text">{error}</p>}

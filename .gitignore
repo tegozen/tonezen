@@ -1,6 +1,7 @@
 # Environment
-.env
-.env.local
+.env*
+!.env.example
+!**/.env.example
 *.local
 
 # Data volumes
@@ -12,9 +13,14 @@ node_modules/
 dist/
 *.log
 .npm
+*.tsbuildinfo
+.eslintcache
 
 # Android
 apps/android/.gradle/
+apps/android/.kotlin/
+apps/android/.cxx/
+apps/android/captures/
 apps/android/build/
 apps/android/app/build/
 apps/android/local.properties
@@ -22,6 +28,9 @@ apps/android/.idea/
 *.iml
 *.apk
 *.aab
+*.hprof
+*.jks
+*.keystore
 
 # Desktop
 apps/desktop/out/

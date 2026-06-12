@@ -42,6 +42,34 @@ export class SupabaseAuthClient {
     return this.tokenRequest({ grant_type: "refresh_token", refresh_token: refreshToken });
   }
 
+  async updateUser(
+    accessToken: string,
+    updates: { displayName?: string; password?: string },
+  ): Promise<GoTrueUser> {
+    const body: Record<string, unknown> = {};
+    if (updates.displayName != null) {
+      body.data = { full_name: updates.displayName };
+    }
+    if (updates.password != null) {
+      body.password = updates.password;
+    }
+    const url = `${this.config.baseUrl.replace(/\/$/, "")}/auth/v1/user`;
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: this.config.anonKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Profile update failed (${response.status}): ${text}`);
+    }
+    return (await response.json()) as GoTrueUser;
+  }
+
   private async tokenRequest(body: Record<string, string>): Promise<GoTrueSession> {
     const url = `${this.config.baseUrl.replace(/\/$/, "")}/auth/v1/token?grant_type=${body.grant_type}`;
     const response = await fetch(url, {

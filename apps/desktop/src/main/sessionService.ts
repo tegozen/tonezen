@@ -60,6 +60,30 @@ export class SessionService {
     if (fs.existsSync(this.sessionPath)) fs.unlinkSync(this.sessionPath);
   }
 
+  async updateProfile(displayName: string): Promise<{ displayName: string | null }> {
+    if (!this.online) throw new Error("__account_offline__");
+    await this.refreshIfNeeded();
+    if (!this.session || !this.authClient) throw new Error("__not_signed_in__");
+    const trimmed = displayName.trim();
+    if (!trimmed || trimmed === this.session.displayName) {
+      return { displayName: this.session.displayName };
+    }
+    const user = await this.authClient.updateUser(this.session.accessToken, { displayName: trimmed });
+    this.session = {
+      ...this.session,
+      displayName: displayNameFromUser(user, this.session.email),
+    };
+    this.persist(this.session);
+    return { displayName: this.session.displayName };
+  }
+
+  async changePassword(newPassword: string): Promise<void> {
+    if (!this.online) throw new Error("__account_offline__");
+    await this.refreshIfNeeded();
+    if (!this.session || !this.authClient) throw new Error("__not_signed_in__");
+    await this.authClient.updateUser(this.session.accessToken, { password: newPassword });
+  }
+
   async refreshIfNeeded(): Promise<SessionState> {
     if (!this.session) return "Unauthenticated";
     if (!this.manager.shouldRefresh(this.session, this.online)) {
