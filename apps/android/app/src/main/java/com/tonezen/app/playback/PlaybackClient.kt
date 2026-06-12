@@ -150,6 +150,26 @@ class PlaybackClient @Inject constructor(
         controller?.seekToPreviousMediaItem()
     }
 
+    fun queuedTrackIds(): Set<String> {
+        val mediaController = controller ?: return emptySet()
+        return (0 until mediaController.mediaItemCount)
+            .mapNotNull { index ->
+                mediaController.getMediaItemAt(index).mediaId?.takeIf { it.isNotEmpty() }
+            }
+            .toSet()
+    }
+
+    fun appendQueueItems(items: List<QueuePlayItem>) {
+        if (items.isEmpty()) return
+        connect()
+        val mediaController = controller ?: return
+        val existingIds = queuedTrackIds()
+        val newItems = items.filter { it.trackId !in existingIds }
+        if (newItems.isEmpty()) return
+        mediaController.addMediaItems(newItems.map(PlaybackMediaFactory::toMediaItem))
+        refreshSnapshot(mediaController)
+    }
+
     fun isPlaying(): Boolean = controller?.isPlaying == true
 
     fun currentPositionMs(): Long = controller?.currentPosition?.coerceAtLeast(0L) ?: 0L
@@ -160,7 +180,11 @@ class PlaybackClient @Inject constructor(
         stopPositionTicks()
         listener?.let { controller?.removeListener(it) }
         listener = null
-        controller?.release()
+        controller?.run {
+            stop()
+            clearMediaItems()
+            release()
+        }
         controller = null
         controllerFuture = null
         pendingQueuePlay = null

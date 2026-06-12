@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.domain.model.Book
@@ -42,11 +43,13 @@ internal fun CycleDetailScreen(
     downloadedBookIds: Set<String>,
     onBack: () -> Unit,
     onBookClick: (Book) -> Unit,
+    bottomScrollPadding: Dp,
 ) {
     TonezenFixedHeaderScreen(
         hazeState = hazeState,
         padding = padding,
         onBack = onBack,
+        bottomScrollPadding = bottomScrollPadding,
         verticalArrangement = Arrangement.spacedBy(20.dp),
         title = {
             Text(

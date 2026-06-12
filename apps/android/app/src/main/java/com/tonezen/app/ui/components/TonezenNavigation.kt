@@ -36,7 +36,6 @@ import com.tonezen.app.ui.theme.trackCoverBrush
 
 enum class BottomDestination(val labelRes: Int) {
     Library(R.string.nav_library),
-    Downloads(R.string.nav_downloads),
     Profile(R.string.nav_profile),
 }
 
@@ -48,12 +47,11 @@ internal fun TonezenBottomNavigation(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 10.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         BottomNavItem(BottomDestination.Library, selected) { onSelect(BottomDestination.Library) }
-        BottomNavItem(BottomDestination.Downloads, selected) { onSelect(BottomDestination.Downloads) }
         BottomNavItem(BottomDestination.Profile, selected) { onSelect(BottomDestination.Profile) }
     }
 }
@@ -84,7 +82,6 @@ private fun BottomNavItem(
             val tint = if (active) TonezenAppBg else TonezenMuted
             when (destination) {
                 BottomDestination.Library -> LibraryGlyph(tint = tint)
-                BottomDestination.Downloads -> DownloadGlyph(tint = tint)
                 BottomDestination.Profile -> ProfileGlyph(tint = tint)
             }
         }
@@ -105,11 +102,12 @@ internal fun MiniPlayer(
     isPlaying: Boolean = false,
     positionMs: Long = 0L,
     durationMs: Long = 0L,
+    downloadProgress: Float? = null,
     onBarClick: () -> Unit = {},
     onPlayPauseClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    if (!enabled || title == null) return
+    if (!enabled || title.isNullOrBlank()) return
     val progress = if (durationMs > 0L) {
         (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
     } else {
@@ -153,21 +151,12 @@ internal fun MiniPlayer(
                     }
                 }
             }
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(TonezenTeal.copy(alpha = 0.18f))
-                    .border(BorderStroke(1.dp, TonezenTeal.copy(alpha = 0.35f)), CircleShape)
-                    .clickable(onClick = onPlayPauseClick),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (isPlaying) {
-                    PauseGlyph(tint = TonezenTeal, size = 20.dp)
-                } else {
-                    PlayGlyph(tint = TonezenTeal, size = 20.dp)
-                }
-            }
+            PlayButton(
+                isPlaying = isPlaying && downloadProgress == null,
+                downloadProgress = downloadProgress,
+                modifier = Modifier.size(40.dp),
+                onClick = onPlayPauseClick,
+            )
         }
         MiniPlayerProgressBar(progress = progress)
     }

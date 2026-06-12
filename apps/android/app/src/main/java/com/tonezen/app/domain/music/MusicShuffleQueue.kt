@@ -7,9 +7,9 @@ object MusicShuffleQueue {
     ): List<MusicLibraryTrack> {
         if (entries.isEmpty()) return emptyList()
         if (entries.size == 1) return entries
-        val start = entries.find { it.track.id == startTrackId } ?: entries.first()
-        val rest = entries.filter { it.track.id != startTrackId }.shuffled()
-        return listOf(start) + rest
+        val index = entries.indexOfFirst { it.track.id == startTrackId }
+        if (index < 0) return entries
+        return entries.drop(index) + entries.take(index)
     }
 
     fun nextIndex(currentIndex: Int, size: Int): Int =

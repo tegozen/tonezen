@@ -1,4 +1,4 @@
-﻿package com.tonezen.app.ui.player
+package com.tonezen.app.ui.player
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,7 +24,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tonezen.app.R
-import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.ui.components.PlayButton
 import com.tonezen.app.ui.components.ProgressBar
 import com.tonezen.app.ui.components.RoundControl
@@ -33,6 +32,7 @@ import com.tonezen.app.ui.components.SkipNextGlyph
 import com.tonezen.app.ui.components.SkipPreviousGlyph
 import com.tonezen.app.ui.components.TonezenGlassModalBottomSheet
 import com.tonezen.app.ui.components.TrackCoverArt
+import com.tonezen.app.playback.MusicDownloadState
 import com.tonezen.app.ui.shell.AppShellUiState
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
@@ -47,6 +47,7 @@ internal fun NowPlayingSheet(
     visible: Boolean,
     hazeState: HazeState,
     shellState: AppShellUiState,
+    musicDownload: MusicDownloadState,
     onDismiss: () -> Unit,
     viewModel: NowPlayingViewModel = hiltViewModel(),
 ) {
@@ -63,6 +64,7 @@ internal fun NowPlayingSheet(
     ) {
         NowPlayingContent(
             shellState = shellState,
+            musicDownload = musicDownload,
             viewModel = viewModel,
         )
     }
@@ -71,6 +73,7 @@ internal fun NowPlayingSheet(
 @Composable
 internal fun NowPlayingContent(
     shellState: AppShellUiState,
+    musicDownload: MusicDownloadState,
     viewModel: NowPlayingViewModel = hiltViewModel(),
     scrollState: androidx.compose.foundation.ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
@@ -84,8 +87,9 @@ internal fun NowPlayingContent(
     } else {
         0f
     }
-    val isAudiobook = state.contentType == ContentType.AUDIOBOOK
-    val isDownloading = state.downloadProgress != null
+    val activeTrackId = state.coverSeed ?: shellState.nowPlayingCoverSeed
+    val downloadProgress = activeTrackId?.let { musicDownload.progressForTrack(it) }
+    val isDownloading = downloadProgress != null
 
     Column(
         modifier = modifier
@@ -103,7 +107,7 @@ internal fun NowPlayingContent(
                 seed = coverSeed,
                 title = title,
                 isPlaying = state.isPlaying && !isDownloading,
-                downloadProgress = state.downloadProgress,
+                downloadProgress = downloadProgress,
                 modifier = Modifier.size(168.dp),
                 cornerRadius = 24,
             )
@@ -161,12 +165,13 @@ internal fun NowPlayingContent(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (isAudiobook) {
-                RoundControl(label = stringResource(R.string.rewind_15), outlined = true) {
-                    viewModel.seekBy(-15_000L)
-                }
-            } else {
-                Row(modifier = Modifier.size(48.dp)) {}
+            RoundControl(
+                label = stringResource(R.string.rewind_15),
+                outlined = true,
+                size = 40.dp,
+                enabled = !isDownloading,
+            ) {
+                viewModel.seekBy(-15_000L)
             }
             RoundIconControl(
                 outlined = true,
@@ -179,6 +184,7 @@ internal fun NowPlayingContent(
             }
             PlayButton(
                 isPlaying = state.isPlaying && !isDownloading,
+                downloadProgress = downloadProgress,
                 modifier = Modifier.size(64.dp),
                 onClick = viewModel::pauseOrResume,
             )
@@ -195,12 +201,13 @@ internal fun NowPlayingContent(
                     },
                 )
             }
-            if (isAudiobook) {
-                RoundControl(label = stringResource(R.string.forward_15), outlined = true) {
-                    viewModel.seekBy(15_000L)
-                }
-            } else {
-                Row(modifier = Modifier.size(48.dp)) {}
+            RoundControl(
+                label = stringResource(R.string.forward_15),
+                outlined = true,
+                size = 40.dp,
+                enabled = !isDownloading,
+            ) {
+                viewModel.seekBy(15_000L)
             }
         }
     }

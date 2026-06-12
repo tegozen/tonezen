@@ -3,6 +3,7 @@ package com.tonezen.app.ui.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonezen.app.data.local.CatalogRepository
+import com.tonezen.app.data.local.LocalLibraryNotifier
 import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.data.remote.AuthRepository
 import com.tonezen.app.data.remote.ProgressSyncRepository
@@ -10,7 +11,6 @@ import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.playback.PlaybackClient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
-import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -29,6 +29,7 @@ class ProfileViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val networkMonitor: NetworkMonitor,
     private val playbackClient: PlaybackClient,
+    private val localLibraryNotifier: LocalLibraryNotifier,
 ) : ViewModel() {
     private val syncTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
     private val memberSinceFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
@@ -37,6 +38,13 @@ class ProfileViewModel @Inject constructor(
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            progressSyncRepository.lastSyncAtEpochMs.collectLatest { epochMs ->
+                _uiState.update {
+                    it.copy(lastSyncTime = epochMs?.let { value -> formatSyncTime(value) })
+                }
+            }
+        }
         viewModelScope.launch {
             sessionRepository.session.collectLatest { session ->
                 val resolvedSession = sessionRepository.enrichProfileMetadataIfMissing(session) ?: session
@@ -68,12 +76,8 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun setOverflowMenuVisible(visible: Boolean) {
-        _uiState.update { it.copy(showOverflowMenu = visible) }
-    }
-
     fun setSignOutConfirmVisible(visible: Boolean) {
-        _uiState.update { it.copy(showSignOutConfirm = visible, showOverflowMenu = false) }
+        _uiState.update { it.copy(showSignOutConfirm = visible) }
     }
 
     fun setSyncDialogVisible(visible: Boolean) {
@@ -91,7 +95,23 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun closeSettingsScreen() {
-        _uiState.update { it.copy(activeSettingsScreen = null) }
+        _uiState.update { it.copy(activeSettingsScreen = null, showDeleteAllConfirm = false) }
+    }
+
+    fun setDeleteAllConfirmVisible(visible: Boolean) {
+        _uiState.update { it.copy(showDeleteAllConfirm = visible) }
+    }
+
+    fun deleteAllDownloads() {
+        viewModelScope.launch {
+            try {
+                catalogRepository.deleteAllDownloads()
+                localLibraryNotifier.notifyLocalLibraryChanged()
+                refreshStats()
+            } finally {
+                _uiState.update { it.copy(showDeleteAllConfirm = false) }
+            }
+        }
     }
 
     fun saveProfile(displayName: String) {
@@ -174,15 +194,16 @@ class ProfileViewModel @Inject constructor(
                 }
                 refreshStats()
             } finally {
-                _uiState.update {
-                    it.copy(
-                        syncing = false,
-                        lastSyncTime = LocalTime.now().format(syncTimeFormatter),
-                    )
-                }
+                _uiState.update { it.copy(syncing = false) }
             }
         }
     }
+
+    private fun formatSyncTime(epochMs: Long): String =
+        Instant.ofEpochMilli(epochMs)
+            .atZone(ZoneId.systemDefault())
+            .toLocalTime()
+            .format(syncTimeFormatter)
 
     fun logout() {
         progressSyncRepository.stop()

@@ -9,6 +9,8 @@ import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.music.MusicLibraryTrack
 import com.tonezen.app.domain.music.MusicShuffleQueue
+import com.tonezen.app.playback.MusicDownloadNotifier
+import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.PlaybackQueueBuilder
@@ -36,7 +38,6 @@ data class NowPlayingUiState(
     val upNext: List<Track> = emptyList(),
     val canSkipPrevious: Boolean = true,
     val canSkipNext: Boolean = false,
-    val downloadProgress: Float? = null,
 )
 
 private data class AlbumTrackEntry(
@@ -51,6 +52,8 @@ class NowPlayingViewModel @Inject constructor(
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val trackDownloadEnsurer: TrackDownloadEnsurer,
     private val playbackEvents: PlaybackEvents,
+    private val musicDownloadNotifier: MusicDownloadNotifier,
+    private val musicPlaybackQueue: MusicPlaybackQueue,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(NowPlayingUiState())
     val uiState: StateFlow<NowPlayingUiState> = _uiState.asStateFlow()
@@ -66,8 +69,8 @@ class NowPlayingViewModel @Inject constructor(
         viewModelScope.launch {
             var lastCatalogTrackId: String? = null
             playbackClient.snapshot.collect { snapshot ->
+                val downloading = musicDownloadNotifier.state.value.isTrackDownloading
                 _uiState.update {
-                    val downloading = it.downloadProgress != null
                     it.copy(
                         title = if (downloading) it.title else snapshot.trackTitle,
                         subtitle = if (downloading) it.subtitle else formatSubtitle(snapshot.artist, snapshot.albumTitle),
@@ -86,7 +89,7 @@ class NowPlayingViewModel @Inject constructor(
                 if (
                     trackId != null &&
                     trackId != lastCatalogTrackId &&
-                    _uiState.value.downloadProgress == null
+                    !musicDownloadNotifier.state.value.isTrackDownloading
                 ) {
                     lastCatalogTrackId = trackId
                     scheduleAlbumRefresh(trackId)
@@ -116,7 +119,7 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun pauseOrResume() {
-        if (_uiState.value.downloadProgress != null) return
+        if (musicDownloadNotifier.state.value.isTrackDownloading) return
         if (_uiState.value.isPlaying) playbackClient.pause() else playbackClient.play()
     }
 
@@ -129,7 +132,7 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun skipPrevious() {
-        if (_uiState.value.downloadProgress != null) return
+        if (musicDownloadNotifier.state.value.isTrackDownloading) return
         if (_uiState.value.contentType == ContentType.MUSIC && libraryTracks.size > 1) {
             if (_uiState.value.positionMs > 3_000L) {
                 playbackClient.seekTo(0)
@@ -147,7 +150,7 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun skipNext() {
-        if (_uiState.value.downloadProgress != null) return
+        if (musicDownloadNotifier.state.value.isTrackDownloading) return
         if (libraryTracks.size <= 1) return
         if (_uiState.value.contentType == ContentType.MUSIC) {
             preserveShuffleOrder = true
@@ -160,7 +163,7 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun playTrack(track: Track) {
-        if (_uiState.value.downloadProgress != null) return
+        if (musicDownloadNotifier.state.value.isTrackDownloading) return
         val index = libraryTracks.indexOfFirst { it.track.id == track.id }
         if (index >= 0) {
             preserveShuffleOrder = true
@@ -188,12 +191,14 @@ class NowPlayingViewModel @Inject constructor(
             playbackClient.pause()
         }
 
+        if (needsDownload) {
+            musicDownloadNotifier.beginTrack(target.id)
+        }
         _uiState.update {
             it.copy(
                 title = target.title,
                 subtitle = formatSubtitle(book.author, book.title),
                 coverSeed = target.id,
-                downloadProgress = if (needsDownload) 0f else null,
                 isPlaying = false,
             )
         }
@@ -202,16 +207,16 @@ class NowPlayingViewModel @Inject constructor(
         val ensured = withContext(Dispatchers.IO) {
             val fresh = catalogRepository.getTracksForBook(book.id)
                 .find { it.id == target.id } ?: target
-            val progress = if (needsDownload) createProgressReporter() else null
+            val progress = if (needsDownload) createProgressReporter(target.id) else null
             val outcome = trackDownloadEnsurer.ensureTrackLocal(book.id, fresh, progress)
             outcome.track != null
         }
         if (!ensured) {
-            _uiState.update { it.copy(downloadProgress = null) }
+            musicDownloadNotifier.finishTrack()
             return
         }
 
-        _uiState.update { it.copy(downloadProgress = null) }
+        musicDownloadNotifier.finishTrack()
 
         val queue = buildLocalQueue()
         if (queue.isEmpty()) return
@@ -258,7 +263,7 @@ class NowPlayingViewModel @Inject constructor(
         }
     }
 
-    private fun createProgressReporter(): (Float) -> Unit {
+    private fun createProgressReporter(trackId: String): (Float) -> Unit {
         val reporter = object {
             var lastBucket = -1
         }
@@ -267,7 +272,7 @@ class NowPlayingViewModel @Inject constructor(
             if (bucket > reporter.lastBucket || progress >= 1f) {
                 reporter.lastBucket = bucket
                 viewModelScope.launch(Dispatchers.Main.immediate) {
-                    _uiState.update { it.copy(downloadProgress = progress.coerceIn(0f, 1f)) }
+                    musicDownloadNotifier.updateTrack(trackId, progress)
                 }
             }
         }
@@ -316,6 +321,11 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     private suspend fun resolveMusicShuffle(activeTrackId: String): List<AlbumTrackEntry> {
+        val sessionQueue = musicPlaybackQueue.get()
+        if (sessionQueue.isNotEmpty()) {
+            return sessionQueue.map { AlbumTrackEntry(it.book, it.track) }
+        }
+
         val catalog = catalogRepository.resolveMusicLibraryTracks()
             .map { AlbumTrackEntry(it.book, it.track) }
         if (catalog.isEmpty()) return emptyList()

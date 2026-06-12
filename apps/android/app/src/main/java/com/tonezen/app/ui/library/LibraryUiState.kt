@@ -5,12 +5,14 @@ import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.SessionState
 
-data class MusicTrackPreview(
+data class MusicListTrack(
     val trackId: String,
     val trackTitle: String,
     val artist: String,
     val albumTitle: String,
     val bookId: String,
+    val durationMs: Long? = null,
+    val isDownloaded: Boolean,
 )
 
 data class MusicPlaybackUi(
@@ -33,8 +35,7 @@ data class LibraryUiState(
     val filter: LibraryFilterState = LibraryFilterState(),
     val showFilterSheet: Boolean = false,
     val nowPlayingTitle: String? = null,
-    val musicPreview: MusicTrackPreview? = null,
+    val musicTrackList: List<MusicListTrack> = emptyList(),
     val musicPlayback: MusicPlaybackUi = MusicPlaybackUi(),
-    val musicDownloadProgress: Float? = null,
     val musicPlaybackErrorRes: Int? = null,
 )

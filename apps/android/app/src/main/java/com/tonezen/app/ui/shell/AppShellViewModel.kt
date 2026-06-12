@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Cycle
+import com.tonezen.app.playback.MusicDownloadNotifier
+import com.tonezen.app.playback.MusicDownloadState
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.ui.components.BottomDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,25 +20,42 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class AppShellViewModel @Inject constructor(
     private val playbackClient: PlaybackClient,
+    musicDownloadNotifier: MusicDownloadNotifier,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AppShellUiState())
     val uiState: StateFlow<AppShellUiState> = _uiState.asStateFlow()
+    val musicDownloadState: StateFlow<MusicDownloadState> = musicDownloadNotifier.state
 
     init {
         playbackClient.connect()
         viewModelScope.launch {
             playbackClient.snapshot.collectLatest { snapshot ->
+                val trackId = snapshot.trackId?.takeIf { it.isNotBlank() }
+                val trackTitle = snapshot.trackTitle?.takeIf { it.isNotBlank() }
+                val hasPlayback = trackId != null || trackTitle != null
                 _uiState.update {
-                    it.copy(
-                        isPlaying = snapshot.isPlaying,
-                        nowPlayingTitle = snapshot.trackTitle ?: it.nowPlayingTitle,
-                        nowPlayingSubtitle = formatNowPlayingSubtitle(snapshot.artist, snapshot.albumTitle)
-                            ?: it.nowPlayingSubtitle,
-                        nowPlayingCoverSeed = snapshot.trackId ?: snapshot.trackTitle,
-                        positionMs = snapshot.positionMs,
-                        durationMs = snapshot.durationMs,
-                        showMiniPlayer = snapshot.trackTitle != null || snapshot.isPlaying,
-                    )
+                    if (!hasPlayback) {
+                        it.copy(
+                            isPlaying = false,
+                            nowPlayingTitle = null,
+                            nowPlayingSubtitle = null,
+                            nowPlayingCoverSeed = null,
+                            positionMs = 0L,
+                            durationMs = 0L,
+                            showMiniPlayer = false,
+                            showExpandedPlayer = false,
+                        )
+                    } else {
+                        it.copy(
+                            isPlaying = snapshot.isPlaying,
+                            nowPlayingTitle = trackTitle,
+                            nowPlayingSubtitle = formatNowPlayingSubtitle(snapshot.artist, snapshot.albumTitle),
+                            nowPlayingCoverSeed = trackId ?: trackTitle,
+                            positionMs = snapshot.positionMs,
+                            durationMs = snapshot.durationMs,
+                            showMiniPlayer = true,
+                        )
+                    }
                 }
             }
         }
@@ -89,7 +108,7 @@ class AppShellViewModel @Inject constructor(
             it.copy(
                 nowPlayingTitle = title ?: it.nowPlayingTitle,
                 nowPlayingSubtitle = subtitle ?: it.nowPlayingSubtitle,
-                showMiniPlayer = title != null,
+                showMiniPlayer = !title.isNullOrBlank(),
             )
         }
     }

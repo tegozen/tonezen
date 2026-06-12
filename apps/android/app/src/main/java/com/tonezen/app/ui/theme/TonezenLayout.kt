@@ -9,13 +9,22 @@ internal val TonezenScreenHorizontalPadding = 20.dp
 internal val TonezenChromeHorizontalMargin = 8.dp
 internal val TonezenChromeBarOuterVerticalMargin = 4.dp
 internal val TonezenChromeBarVerticalPadding = 8.dp
-internal val TonezenBottomChromeScrollPadding = 88.dp
+internal val TonezenBottomChromeScrollPadding = 104.dp
+internal val TonezenBottomChromeScrollPaddingWithMiniPlayer = 176.dp
+
+internal fun tonezenBottomChromeScrollPadding(showMiniPlayer: Boolean): Dp =
+    if (showMiniPlayer) TonezenBottomChromeScrollPaddingWithMiniPlayer else TonezenBottomChromeScrollPadding
 internal val TonezenTopChromeScrollPaddingAudiobooks = 144.dp
-internal val TonezenTopChromeScrollPaddingMusic = 88.dp
+internal val TonezenTopChromeScrollPaddingMusic = 72.dp
 internal val TonezenTopChromeOfflineBannerExtra = 44.dp
-internal val TonezenBackChromeScrollPadding = 68.dp
-internal val TonezenDownloadsChromeScrollPadding = 112.dp
+internal val TonezenBackChromeHeight = 68.dp
+internal val TonezenBackChromeScrollPadding = TonezenBackChromeHeight + 16.dp
 internal val TonezenProfileChromeScrollPadding = 80.dp
+internal val TonezenProfileBottomExtraScrollPadding = 20.dp
+internal val TonezenMiniPlayerBodyHeight = 75.dp
+internal val TonezenBottomChromeMiniPlayerHeight =
+    1.dp + TonezenChromeBarVerticalPadding + TonezenMiniPlayerBodyHeight + TonezenChromeBarVerticalPadding
+internal val TonezenOverlayScrollGap = 16.dp
 
 internal val TonezenSheetTopShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
 

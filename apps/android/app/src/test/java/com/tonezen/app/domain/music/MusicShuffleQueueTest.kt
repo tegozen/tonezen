@@ -31,11 +31,10 @@ class MusicShuffleQueueTest {
     }
 
     @Test
-    fun `shuffle keeps start first while permuting the rest`() {
+    fun `order rotates to start without reshuffling`() {
         val entries = tracks("a", "b", "c", "d", "e", "f")
         val ordered = MusicShuffleQueue.order(entries, "d")
-        assertEquals("d", ordered.first().track.id)
-        assertTrue(ordered.drop(1).map { it.track.id }.distinct().size == 5)
+        assertEquals(listOf("d", "e", "f", "a", "b", "c"), ordered.map { it.track.id })
     }
 
     private fun tracks(vararg ids: String) = ids.mapIndexed { index, id ->

@@ -40,13 +40,19 @@ internal fun RoundControl(
     outlined: Boolean,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    size: androidx.compose.ui.unit.Dp = 48.dp,
     onClick: () -> Unit,
 ) {
     val background = Color.White.copy(alpha = if (enabled) 0.08f else 0.04f)
     val borderColor = if (outlined) Color.White.copy(alpha = if (enabled) 0.16f else 0.08f) else Color.Transparent
+    val textStyle = if (size < 48.dp) {
+        MaterialTheme.typography.labelSmall
+    } else {
+        MaterialTheme.typography.labelMedium
+    }
     Box(
         modifier = modifier
-            .size(48.dp)
+            .size(size)
             .clip(CircleShape)
             .background(background)
             .border(BorderStroke(if (outlined) 1.dp else 0.dp, borderColor), CircleShape)
@@ -56,7 +62,7 @@ internal fun RoundControl(
         Text(
             label,
             color = TonezenInk.copy(alpha = if (enabled) 0.92f else 0.38f),
-            style = MaterialTheme.typography.labelMedium,
+            style = textStyle,
             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
         )
     }

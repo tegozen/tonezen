@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.ui.theme.TonezenBorder
@@ -178,6 +179,7 @@ internal fun TonezenBackChromeBar(
 internal fun TonezenBottomChromeBar(
     hazeState: HazeState,
     modifier: Modifier = Modifier,
+    showMiniPlayerSlot: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
@@ -191,12 +193,22 @@ internal fun TonezenBottomChromeBar(
                 .padding(horizontal = TonezenChromeHorizontalMargin)
                 .tonezenGlassChrome(hazeState),
         ) {
-            HorizontalDivider(
-                modifier = Modifier.fillMaxWidth(),
-                thickness = 1.dp,
-                color = TonezenChromeBarBorder,
+            if (showMiniPlayerSlot) {
+                HorizontalDivider(
+                    modifier = Modifier.fillMaxWidth(),
+                    thickness = 1.dp,
+                    color = TonezenChromeBarBorder,
+                )
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        top = if (showMiniPlayerSlot) TonezenChromeBarVerticalPadding else 0.dp,
+                        bottom = TonezenChromeBarVerticalPadding,
+                    ),
+                content = content,
             )
-            content()
         }
     }
 }
@@ -269,6 +281,7 @@ internal fun TonezenFixedHeaderScreen(
     modifier: Modifier = Modifier,
     trailing: (@Composable () -> Unit)? = null,
     verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(16.dp),
+    bottomScrollPadding: Dp = 24.dp,
     content: LazyListScope.() -> Unit,
 ) {
     Box(
@@ -283,6 +296,7 @@ internal fun TonezenFixedHeaderScreen(
                 .haze(state = hazeState),
             contentPadding = tonezenScrollContentPadding(
                 top = TonezenBackChromeScrollPadding,
+                bottom = bottomScrollPadding,
             ),
             verticalArrangement = verticalArrangement,
             content = content,

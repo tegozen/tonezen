@@ -1,6 +1,5 @@
 package com.tonezen.app.ui.profile
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,15 +12,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.activity.compose.BackHandler
@@ -45,10 +40,8 @@ import com.tonezen.app.R
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.components.CheckCircleGlyph
 import com.tonezen.app.ui.components.ChevronRightGlyph
-import com.tonezen.app.ui.components.IconCircle
 import com.tonezen.app.ui.components.LockGlyph
 import com.tonezen.app.ui.components.OfflineSyncDialog
-import com.tonezen.app.ui.components.OverflowGlyph
 import com.tonezen.app.ui.components.ProfileGlyph
 import com.tonezen.app.ui.components.SignOutConfirmDialog
 import com.tonezen.app.ui.components.StatusChip
@@ -57,9 +50,11 @@ import com.tonezen.app.ui.components.SyncGlyph
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.components.TonezenTopChromeBar
-import com.tonezen.app.ui.theme.TonezenBottomChromeScrollPadding
+import com.tonezen.app.ui.theme.TonezenProfileBottomExtraScrollPadding
 import com.tonezen.app.ui.theme.TonezenProfileChromeScrollPadding
+import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
 import com.tonezen.app.ui.theme.tonezenScreenContentPadding
+import com.tonezen.app.ui.theme.TonezenError
 import com.tonezen.app.ui.theme.TonezenGreen
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
@@ -74,7 +69,7 @@ internal fun ProfileScreen(
     padding: PaddingValues,
     hazeState: HazeState,
     viewModel: ProfileViewModel,
-    onOpenDownloads: () -> Unit,
+    showMiniPlayer: Boolean = false,
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -82,13 +77,13 @@ internal fun ProfileScreen(
     BackHandler(
         enabled = state.showSignOutConfirm ||
             state.showSyncDialog ||
-            state.showOverflowMenu ||
+            state.showDeleteAllConfirm ||
             state.activeSettingsScreen != null,
     ) {
         when {
+            state.showDeleteAllConfirm -> viewModel.setDeleteAllConfirmVisible(false)
             state.showSignOutConfirm -> viewModel.setSignOutConfirmVisible(false)
             state.showSyncDialog -> viewModel.setSyncDialogVisible(false)
-            state.showOverflowMenu -> viewModel.setOverflowMenuVisible(false)
             state.activeSettingsScreen != null -> viewModel.closeSettingsScreen()
         }
     }
@@ -132,20 +127,18 @@ internal fun ProfileScreen(
             sessionState = state.sessionState,
             lastSyncTime = state.lastSyncTime,
             pendingSyncCount = state.pendingSyncCount,
-            syncing = state.syncing,
             onBack = viewModel::closeSettingsScreen,
-            onSyncNow = viewModel::syncNow,
         )
         ProfileSettingsAction.Storage -> StorageSettingsScreen(
             padding = padding,
             hazeState = hazeState,
             usedBytes = state.storageUsedBytes,
             totalBytes = state.storageTotalBytes,
+            showDeleteAllConfirm = state.showDeleteAllConfirm,
             onBack = viewModel::closeSettingsScreen,
-            onOpenDownloads = {
-                viewModel.closeSettingsScreen()
-                onOpenDownloads()
-            },
+            onDeleteAllClick = { viewModel.setDeleteAllConfirmVisible(true) },
+            onDismissDeleteAllConfirm = { viewModel.setDeleteAllConfirmVisible(false) },
+            onConfirmDeleteAll = viewModel::deleteAllDownloads,
         )
         ProfileSettingsAction.Privacy -> PrivacySettingsScreen(
             padding = padding,
@@ -162,10 +155,8 @@ internal fun ProfileScreen(
             padding = padding,
             hazeState = hazeState,
             state = state,
-            onOverflowClick = { viewModel.setOverflowMenuVisible(true) },
-            onDismissOverflow = { viewModel.setOverflowMenuVisible(false) },
+            showMiniPlayer = showMiniPlayer,
             onSignOutClick = { viewModel.setSignOutConfirmVisible(true) },
-            onSyncNow = viewModel::syncNow,
             onSettingsClick = viewModel::onSettingsClick,
         )
     }
@@ -176,10 +167,8 @@ internal fun ProfileScreenContent(
     padding: PaddingValues,
     hazeState: HazeState,
     state: ProfileUiState,
-    onOverflowClick: () -> Unit,
-    onDismissOverflow: () -> Unit,
+    showMiniPlayer: Boolean = false,
     onSignOutClick: () -> Unit,
-    onSyncNow: () -> Unit,
     onSettingsClick: (ProfileSettingsAction) -> Unit,
 ) {
     val online = state.sessionState == SessionState.AUTHENTICATED_ONLINE
@@ -222,7 +211,7 @@ internal fun ProfileScreenContent(
                 .haze(state = hazeState),
             contentPadding = tonezenScreenContentPadding(
                 top = TonezenProfileChromeScrollPadding,
-                bottom = TonezenBottomChromeScrollPadding,
+                bottom = tonezenBottomChromeScrollPadding(showMiniPlayer) + TonezenProfileBottomExtraScrollPadding,
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -240,18 +229,17 @@ internal fun ProfileScreenContent(
                     SyncStatusCard(
                         lastSyncTime = state.lastSyncTime,
                         pendingSyncCount = state.pendingSyncCount,
-                        syncing = state.syncing,
-                        onSyncNow = onSyncNow,
                     )
                 }
             }
             item {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     ProfileSectionLabel(stringResource(R.string.profile_settings_section))
                     SettingsGroup(
                         items = settingsItems,
                         onItemClick = onSettingsClick,
                     )
+                    SignOutCard(onClick = onSignOutClick)
                 }
             }
         }
@@ -260,39 +248,19 @@ internal fun ProfileScreenContent(
             hazeState = hazeState,
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        stringResource(R.string.profile_title),
-                        color = TonezenInk,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    StatusChip(
-                        label = if (online) stringResource(R.string.online) else stringResource(R.string.offline),
-                        tone = if (online) TonezenGreen else TonezenAmber,
-                    )
-                }
-                Box {
-                    IconCircle(modifier = Modifier.clickable(onClick = onOverflowClick)) {
-                        OverflowGlyph()
-                    }
-                    DropdownMenu(
-                        expanded = state.showOverflowMenu,
-                        onDismissRequest = onDismissOverflow,
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.sign_out), color = TonezenInk) },
-                            onClick = onSignOutClick,
-                        )
-                    }
-                }
+                Text(
+                    stringResource(R.string.profile_title),
+                    color = TonezenInk,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                StatusChip(
+                    label = if (online) stringResource(R.string.online) else stringResource(R.string.offline),
+                    tone = if (online) TonezenGreen else TonezenAmber,
+                )
             }
         }
     }
@@ -371,8 +339,6 @@ private fun ProfileSectionLabel(label: String) {
 private fun SyncStatusCard(
     lastSyncTime: String?,
     pendingSyncCount: Int,
-    syncing: Boolean,
-    onSyncNow: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -382,48 +348,52 @@ private fun SyncStatusCard(
             .border(1.dp, TonezenBorder, RoundedCornerShape(16.dp))
             .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
     ) {
         CheckCircleGlyph(tint = TonezenTeal, size = 22.dp)
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 stringResource(R.string.sync_status_all_set),
                 color = TonezenInk,
                 fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
             )
             Text(
                 if (lastSyncTime != null) {
                     stringResource(R.string.last_sync_today_at, lastSyncTime)
                 } else {
-                    stringResource(R.string.last_sync_today)
+                    stringResource(R.string.last_sync_never)
                 },
                 color = TonezenMuted,
                 style = MaterialTheme.typography.bodySmall,
-                maxLines = 2,
             )
             if (pendingSyncCount > 0) {
                 StatusChip(label = stringResource(R.string.pending), tone = TonezenAmber)
             }
         }
-        OutlinedButton(
-            onClick = onSyncNow,
-            enabled = !syncing,
-            modifier = Modifier.wrapContentWidth(),
-            shape = RoundedCornerShape(999.dp),
-            border = BorderStroke(1.dp, TonezenTeal.copy(alpha = 0.55f)),
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-        ) {
-            Text(
-                stringResource(R.string.sync_now),
-                color = TonezenTeal,
-                style = MaterialTheme.typography.labelLarge,
-            )
-        }
+    }
+}
+
+@Composable
+private fun SignOutCard(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(TonezenSurfaceRaised)
+            .border(1.dp, TonezenBorder, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            stringResource(R.string.sign_out),
+            color = TonezenError,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
 

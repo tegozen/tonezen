@@ -16,7 +16,8 @@ import dev.chrisbanes.haze.HazeState
 import androidx.compose.runtime.remember
 import com.tonezen.app.ui.library.LibraryScreen
 import com.tonezen.app.ui.library.MusicPlaybackUi
-import com.tonezen.app.ui.library.MusicTrackPreview
+import com.tonezen.app.playback.MusicDownloadState
+import com.tonezen.app.ui.library.MusicListTrack
 import com.tonezen.app.ui.profile.ProfileScreenContent
 import com.tonezen.app.ui.profile.ProfileUiState
 import com.tonezen.app.ui.theme.TonezenTheme
@@ -120,19 +121,34 @@ private fun LibraryScreenPreview() {
             onResetFilter = {},
             onContentFilterChange = {},
             onSortOrderChange = {},
-            musicPreview = MusicTrackPreview(
-                trackId = "track-1",
-                trackTitle = "Самая",
-                artist = "Miyagi & Andy Panda",
-                albumTitle = "Miyagi",
-                bookId = "piano",
+            musicTrackList = listOf(
+                MusicListTrack(
+                    trackId = "track-1",
+                    trackTitle = "Самая",
+                    artist = "Miyagi & Andy Panda",
+                    albumTitle = "Miyagi",
+                    bookId = "piano",
+                    durationMs = 245_000L,
+                    isDownloaded = true,
+                ),
+                MusicListTrack(
+                    trackId = "track-2",
+                    trackTitle = "Люби меня",
+                    artist = "Miyagi",
+                    albumTitle = "Music",
+                    bookId = "piano",
+                    durationMs = 198_000L,
+                    isDownloaded = false,
+                ),
             ),
             musicPlayback = MusicPlaybackUi(),
-            musicDownloadProgress = null,
+            musicDownload = MusicDownloadState(),
             musicPlaybackErrorRes = null,
-            onMusicPlayPause = {},
-            onMusicShuffle = {},
+            onMusicTrackClick = {},
+            onDownloadMusicTrack = {},
+            onDownloadAllMusic = {},
             onMusicTabSelected = {},
+            showMiniPlayer = false,
         )
     }
 }
@@ -160,10 +176,7 @@ private fun ProfileScreenPreview() {
             padding = PaddingValues(0.dp),
             hazeState = remember { HazeState() },
             state = profilePreviewState,
-            onOverflowClick = {},
-            onDismissOverflow = {},
             onSignOutClick = {},
-            onSyncNow = {},
             onSettingsClick = {},
         )
     }

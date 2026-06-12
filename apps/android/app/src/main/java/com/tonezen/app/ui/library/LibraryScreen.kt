@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -37,7 +40,8 @@ import com.tonezen.app.ui.components.SearchRow
 import com.tonezen.app.ui.components.StatusChip
 import com.tonezen.app.ui.components.TonezenTabs
 import com.tonezen.app.ui.components.TonezenTopChromeBar
-import com.tonezen.app.ui.theme.TonezenBottomChromeScrollPadding
+import com.tonezen.app.playback.MusicDownloadState
+import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenTeal
@@ -70,13 +74,15 @@ internal fun LibraryScreen(
     onResetFilter: () -> Unit,
     onContentFilterChange: (com.tonezen.app.domain.library.LibraryContentFilter) -> Unit,
     onSortOrderChange: (com.tonezen.app.domain.library.LibrarySortOrder) -> Unit,
-    musicPreview: MusicTrackPreview?,
+    musicTrackList: List<MusicListTrack>,
     musicPlayback: MusicPlaybackUi,
-    musicDownloadProgress: Float?,
+    musicDownload: MusicDownloadState,
     musicPlaybackErrorRes: Int?,
-    onMusicPlayPause: () -> Unit,
-    onMusicShuffle: () -> Unit,
+    onMusicTrackClick: (MusicListTrack) -> Unit,
+    onDownloadMusicTrack: (MusicListTrack) -> Unit,
+    onDownloadAllMusic: () -> Unit,
     onMusicTabSelected: () -> Unit,
+    showMiniPlayer: Boolean,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val music = allBooks.filter { it.contentType == ContentType.MUSIC }
@@ -88,6 +94,9 @@ internal fun LibraryScreen(
             TonezenTopChromeScrollPaddingMusic
         }
         if (offlineBanner) base + TonezenTopChromeOfflineBannerExtra else base
+    }
+    val bottomChromeScrollPadding = remember(showMiniPlayer) {
+        tonezenBottomChromeScrollPadding(showMiniPlayer)
     }
 
     LaunchedEffect(selectedTab) {
@@ -120,7 +129,7 @@ internal fun LibraryScreen(
                 .background(TonezenSurface),
             contentPadding = tonezenScreenContentPadding(
                 top = topChromeScrollPadding,
-                bottom = TonezenBottomChromeScrollPadding,
+                bottom = bottomChromeScrollPadding,
             ),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
@@ -153,14 +162,33 @@ internal fun LibraryScreen(
                 item { EmptyLibrary(offline = offlineBanner) }
             } else {
                 item {
-                    MusicPlayHero(
-                        preview = musicPreview,
-                        playback = musicPlayback,
-                        downloadProgress = musicDownloadProgress,
-                        playbackErrorRes = musicPlaybackErrorRes,
-                        onPlayPause = onMusicPlayPause,
-                        onShuffle = onMusicShuffle,
-                        modifier = Modifier.padding(top = 16.dp),
+                    MusicDownloadAllButton(
+                        tracks = musicTrackList,
+                        musicDownload = musicDownload,
+                        onClick = onDownloadAllMusic,
+                    )
+                }
+                if (musicPlaybackErrorRes != null) {
+                    item {
+                        Text(
+                            text = stringResource(musicPlaybackErrorRes),
+                            color = Color(0xFFF87171),
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+                items(musicTrackList, key = { it.trackId }) { track ->
+                    val isActive = musicPlayback.trackId == track.trackId
+                    val trackDownloadProgress = musicDownload.progressForTrack(track.trackId)
+                    val isDownloading = trackDownloadProgress != null
+                    MusicTrackRow(
+                        track = track,
+                        isActive = isActive,
+                        isDownloading = isDownloading,
+                        downloadProgress = trackDownloadProgress,
+                        onClick = { onMusicTrackClick(track) },
+                        onDownloadClick = { onDownloadMusicTrack(track) },
                     )
                 }
             }

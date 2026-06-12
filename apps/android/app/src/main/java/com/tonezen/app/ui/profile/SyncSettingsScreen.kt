@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,14 +25,12 @@ import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.components.StatusChip
 import com.tonezen.app.ui.theme.TonezenAmber
-import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenGreen
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
-import com.tonezen.app.ui.theme.TonezenTeal
 import dev.chrisbanes.haze.HazeState
 
 @Composable
@@ -44,9 +40,7 @@ internal fun SyncSettingsScreen(
     sessionState: SessionState,
     lastSyncTime: String?,
     pendingSyncCount: Int,
-    syncing: Boolean,
     onBack: () -> Unit,
-    onSyncNow: () -> Unit,
 ) {
     val online = sessionState == SessionState.AUTHENTICATED_ONLINE
 
@@ -92,19 +86,11 @@ internal fun SyncSettingsScreen(
                     if (lastSyncTime != null) {
                         stringResource(R.string.last_sync_today_at, lastSyncTime)
                     } else {
-                        stringResource(R.string.last_sync_today)
+                        stringResource(R.string.last_sync_never)
                     },
                     color = TonezenMuted,
                     style = MaterialTheme.typography.bodySmall,
                 )
-                Button(
-                    onClick = onSyncNow,
-                    enabled = !syncing,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = TonezenTeal, contentColor = TonezenAppBg),
-                ) {
-                    Text(stringResource(R.string.sync_now))
-                }
             }
         }
         item {

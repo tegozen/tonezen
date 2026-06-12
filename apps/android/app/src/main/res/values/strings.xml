@@ -32,8 +32,8 @@
     <string name="back">Назад</string>
     <string name="speed_normal">1.0x</string>
     <string name="speed_format">%1$.2fx</string>
-    <string name="rewind_15">15</string>
-    <string name="forward_15">15</string>
+    <string name="rewind_15">-15</string>
+    <string name="forward_15">+15</string>
     <string name="details">Подробнее</string>
     <string name="tracks">Треки</string>
     <string name="chapters">Главы</string>
@@ -102,13 +102,14 @@
     <string name="sync_now">Отправить прогресс сейчас</string>
     <string name="last_sync_today">Последняя синхронизация: сегодня</string>
     <string name="last_sync_today_at">Последняя синхронизация: сегодня, %1$s</string>
+    <string name="last_sync_never">Синхронизация ещё не выполнялась</string>
     <string name="settings_account">Аккаунт</string>
     <string name="settings_sync">Синхронизация</string>
     <string name="settings_storage">Хранилище</string>
     <string name="settings_privacy">Конфиденциальность</string>
     <string name="settings_account_subtitle">Имя, email, пароль</string>
     <string name="settings_sync_subtitle">Прогресс и избранное</string>
-    <string name="settings_storage_subtitle">Загрузки, кэш, устройство</string>
+    <string name="settings_storage_subtitle">Офлайн-файлы на устройстве</string>
     <string name="settings_privacy_subtitle">Блокировка, данные, разрешения</string>
     <string name="settings_account_page_title">Аккаунт</string>
     <string name="settings_account_profile_section">Профиль</string>
@@ -165,4 +166,6 @@
     <string name="music_playback_error_offline">Нет сети — нужен интернет для первой загрузки</string>
     <string name="music_playback_error_login">Войдите в аккаунт, чтобы скачать трек</string>
     <string name="music_playback_error_download">Не удалось скачать трек</string>
+    <string name="music_download_all">Скачать все</string>
+    <string name="music_download_all_progress">%1$d из %2$d</string>
 </resources>

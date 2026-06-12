@@ -11,7 +11,6 @@ data class ProfileUiState(
     val pendingSyncCount: Int = 0,
     val storageUsedBytes: Long = 0L,
     val storageTotalBytes: Long? = null,
-    val showOverflowMenu: Boolean = false,
     val showSignOutConfirm: Boolean = false,
     val showSyncDialog: Boolean = false,
     val activeSettingsScreen: ProfileSettingsAction? = null,
@@ -22,4 +21,5 @@ data class ProfileUiState(
     val passwordFormNonce: Int = 0,
     val syncing: Boolean = false,
     val lastSyncTime: String? = null,
+    val showDeleteAllConfirm: Boolean = false,
 )

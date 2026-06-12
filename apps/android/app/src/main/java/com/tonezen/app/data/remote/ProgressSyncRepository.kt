@@ -15,8 +15,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 @Singleton
@@ -35,6 +38,9 @@ class ProgressSyncRepository @Inject constructor(
     private val _updates = MutableSharedFlow<AudiobookProgress>(extraBufferCapacity = 8)
     val updates: SharedFlow<AudiobookProgress> = _updates.asSharedFlow()
 
+    private val _lastSyncAtEpochMs = MutableStateFlow<Long?>(null)
+    val lastSyncAtEpochMs: StateFlow<Long?> = _lastSyncAtEpochMs.asStateFlow()
+
     private var activeUserId: String? = null
 
     fun start(session: StoredSession) {
@@ -45,6 +51,7 @@ class ProgressSyncRepository @Inject constructor(
         scope.launch {
             pullAll(session.accessToken)
             flushPending(session.accessToken)
+            markSynced()
         }
     }
 
@@ -62,6 +69,7 @@ class ProgressSyncRepository @Inject constructor(
         for (row in apiClient.fetchProgress(accessToken)) {
             applyRemoteEntity(row.toProgressEntity())
         }
+        markSynced()
     }
 
     suspend fun saveLocal(progress: AudiobookProgress, pendingSync: Boolean, accessToken: String?) {
@@ -85,6 +93,11 @@ class ProgressSyncRepository @Inject constructor(
         for (entity in progressRepository.getPendingProgress()) {
             pushProgress(accessToken, entity)
         }
+        markSynced()
+    }
+
+    private fun markSynced() {
+        _lastSyncAtEpochMs.value = System.currentTimeMillis()
     }
 
     private suspend fun applyRemoteEntity(remoteEntity: AudiobookProgressEntity) {

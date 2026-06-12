@@ -3,6 +3,7 @@ package com.tonezen.app.ui.player
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonezen.app.data.local.CatalogRepository
+import com.tonezen.app.data.local.LocalLibraryNotifier
 import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
@@ -11,6 +12,7 @@ import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.music.MusicShuffleQueue
+import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.PlaybackQueueBuilder
@@ -34,6 +36,8 @@ class BookDetailViewModel @Inject constructor(
     private val playbackClient: PlaybackClient,
     private val playbackEvents: PlaybackEvents,
     private val playbackQueueBuilder: PlaybackQueueBuilder,
+    private val localLibraryNotifier: LocalLibraryNotifier,
+    private val musicPlaybackQueue: MusicPlaybackQueue,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BookDetailUiState())
     val uiState: StateFlow<BookDetailUiState> = _uiState.asStateFlow()
@@ -96,6 +100,7 @@ class BookDetailViewModel @Inject constructor(
                         val catalog = catalogRepository.resolveMusicLibraryTracks()
                         MusicShuffleQueue.order(catalog, track.id)
                     }
+                    musicPlaybackQueue.set(libraryTracks)
                     val target = libraryTracks.find { it.track.id == track.id } ?: return@launch
                     withContext(Dispatchers.IO) {
                         playbackQueueBuilder.buildSingleMusicItem(target.book, track)
@@ -163,6 +168,7 @@ class BookDetailViewModel @Inject constructor(
             tracks.forEach { track ->
                 downloadRepository.deleteLocalTrack(book.id, track.id)
             }
+            localLibraryNotifier.notifyLocalLibraryChanged()
             loadBook(book)
         }
     }
@@ -173,6 +179,7 @@ class BookDetailViewModel @Inject constructor(
         viewModelScope.launch {
             downloadRepository.deleteLocalTrack(book.id, track.id)
             catalogRepository.clearTrackLocalPath(book.id, track.id)
+            localLibraryNotifier.notifyLocalLibraryChanged()
             loadBook(book)
             dismissTrackActions()
         }

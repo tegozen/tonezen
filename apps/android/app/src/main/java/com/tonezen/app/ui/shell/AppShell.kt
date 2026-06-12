@@ -19,8 +19,6 @@ import com.tonezen.app.ui.components.BottomDestination
 import com.tonezen.app.ui.components.MiniPlayer
 import com.tonezen.app.ui.components.TonezenBottomChromeBar
 import com.tonezen.app.ui.components.TonezenBottomNavigation
-import com.tonezen.app.ui.downloads.DownloadsScreen
-import com.tonezen.app.ui.downloads.DownloadsViewModel
 import com.tonezen.app.ui.library.CycleDetailScreen
 import com.tonezen.app.ui.library.LibraryScreen
 import com.tonezen.app.ui.library.LibraryViewModel
@@ -31,6 +29,7 @@ import com.tonezen.app.ui.profile.ProfileScreen
 import com.tonezen.app.ui.profile.ProfileViewModel
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.withoutBottom
+import com.tonezen.app.ui.theme.tonezenOverlayBottomScrollPadding
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.runtime.remember
 
@@ -38,14 +37,17 @@ import androidx.compose.runtime.remember
 fun AppShell(
     libraryViewModel: LibraryViewModel = hiltViewModel(),
     shellViewModel: AppShellViewModel = hiltViewModel(),
-    downloadsViewModel: DownloadsViewModel = hiltViewModel(),
     profileViewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val libraryState by libraryViewModel.uiState.collectAsState()
     val shellState by shellViewModel.uiState.collectAsState()
+    val musicDownload by shellViewModel.musicDownloadState.collectAsState()
     val selectedBook = shellState.selectedBook
     val selectedCycle = shellState.selectedCycle
     val inLibraryOverlay = selectedCycle != null || selectedBook != null
+    val miniPlayerVisible = shellState.showMiniPlayer && !shellState.nowPlayingTitle.isNullOrBlank()
+    val showBottomChrome = miniPlayerVisible || !inLibraryOverlay
+    val overlayBottomScrollPadding = tonezenOverlayBottomScrollPadding(miniPlayerVisible)
     val hazeState = remember { HazeState() }
 
     Scaffold(
@@ -92,6 +94,7 @@ fun AppShell(
                             onMarkComplete = bookDetailViewModel::markTrackComplete,
                             onPlayNext = bookDetailViewModel::playNextTrack,
                             onRemoveDownload = bookDetailViewModel::removeTrackDownload,
+                            bottomScrollPadding = overlayBottomScrollPadding,
                         )
                     }
 
@@ -102,6 +105,7 @@ fun AppShell(
                         downloadedBookIds = libraryState.downloadedBookIds,
                         onBack = shellViewModel::closeCycle,
                         onBookClick = shellViewModel::openBook,
+                        bottomScrollPadding = overlayBottomScrollPadding,
                     )
 
                     shellState.currentTab == BottomDestination.Library -> LibraryScreen(
@@ -125,50 +129,59 @@ fun AppShell(
                         onResetFilter = libraryViewModel::resetFilter,
                         onContentFilterChange = libraryViewModel::setContentFilter,
                         onSortOrderChange = libraryViewModel::setSortOrder,
-                        musicPreview = libraryState.musicPreview,
+                        musicTrackList = libraryState.musicTrackList,
                         musicPlayback = libraryState.musicPlayback,
-                        musicDownloadProgress = libraryState.musicDownloadProgress,
+                        musicDownload = musicDownload,
                         musicPlaybackErrorRes = libraryState.musicPlaybackErrorRes,
-                        onMusicPlayPause = libraryViewModel::toggleMusicPlayback,
-                        onMusicShuffle = libraryViewModel::shuffleMusicPreview,
+                        onMusicTrackClick = libraryViewModel::onMusicTrackClick,
+                        onDownloadMusicTrack = libraryViewModel::downloadMusicTrack,
+                        onDownloadAllMusic = libraryViewModel::downloadAllMusic,
                         onMusicTabSelected = libraryViewModel::onMusicTabSelected,
+                        showMiniPlayer = shellState.showMiniPlayer,
                     )
 
-                    shellState.currentTab == BottomDestination.Downloads -> DownloadsScreen(
-                        padding = PaddingValues(0.dp),
-                        hazeState = hazeState,
-                        viewModel = downloadsViewModel,
-                    )
-
-                    shellState.currentTab == BottomDestination.Profile -> ProfileScreen(
+                    else -> ProfileScreen(
                         padding = PaddingValues(0.dp),
                         hazeState = hazeState,
                         viewModel = profileViewModel,
-                        onOpenDownloads = { shellViewModel.selectTab(BottomDestination.Downloads) },
+                        showMiniPlayer = shellState.showMiniPlayer,
                     )
                 }
             }
 
-            TonezenBottomChromeBar(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                hazeState = hazeState,
-            ) {
-                MiniPlayer(
-                    title = shellState.nowPlayingTitle,
-                    subtitle = shellState.nowPlayingSubtitle,
-                    coverSeed = shellState.nowPlayingCoverSeed,
-                    enabled = shellState.showMiniPlayer,
-                    isPlaying = shellState.isPlaying,
-                    positionMs = shellState.positionMs,
-                    durationMs = shellState.durationMs,
-                    onBarClick = shellViewModel::onMiniPlayerClick,
-                    onPlayPauseClick = shellViewModel::onMiniPlayerPlayPause,
-                )
-                if (!inLibraryOverlay) {
-                    TonezenBottomNavigation(
-                        selected = shellState.currentTab,
-                        onSelect = shellViewModel::selectTab,
-                    )
+            if (showBottomChrome) {
+                TonezenBottomChromeBar(
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    hazeState = hazeState,
+                    showMiniPlayerSlot = miniPlayerVisible,
+                ) {
+                    if (miniPlayerVisible) {
+                        MiniPlayer(
+                            title = shellState.nowPlayingTitle,
+                            subtitle = shellState.nowPlayingSubtitle,
+                            coverSeed = shellState.nowPlayingCoverSeed,
+                            enabled = true,
+                            isPlaying = shellState.isPlaying,
+                            positionMs = shellState.positionMs,
+                            durationMs = shellState.durationMs,
+                            downloadProgress = shellState.nowPlayingCoverSeed
+                                ?.let { musicDownload.progressForTrack(it) },
+                            onBarClick = shellViewModel::onMiniPlayerClick,
+                            onPlayPauseClick = {
+                                if (libraryState.musicPlayback.isActive) {
+                                    libraryViewModel.onMiniPlayerPlayPause()
+                                } else {
+                                    shellViewModel.onMiniPlayerPlayPause()
+                                }
+                            },
+                        )
+                    }
+                    if (!inLibraryOverlay) {
+                        TonezenBottomNavigation(
+                            selected = shellState.currentTab,
+                            onSelect = shellViewModel::selectTab,
+                        )
+                    }
                 }
             }
 
@@ -176,6 +189,7 @@ fun AppShell(
                 visible = shellState.showExpandedPlayer,
                 hazeState = hazeState,
                 shellState = shellState,
+                musicDownload = musicDownload,
                 onDismiss = shellViewModel::dismissExpandedPlayer,
             )
         }

@@ -35,6 +35,13 @@ class PlaybackQueueBuilder @Inject constructor(
 
     fun itemForLocalTrack(book: Book, track: Track): QueuePlayItem = singleQueueItem(book, track)
 
+    fun itemForMusicLibraryTrack(
+        entry: MusicLibraryTrack,
+        localTrack: Track,
+        indexInLibrary: Int,
+        librarySize: Int,
+    ): QueuePlayItem = queueItem(entry.book, localTrack, indexInLibrary + 1, librarySize)
+
     suspend fun buildLocalMusicLibraryQueue(
         libraryTracks: List<MusicLibraryTrack>,
         resolveLocalTrack: suspend (MusicLibraryTrack) -> Track?,

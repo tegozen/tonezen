@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.domain.model.Book
@@ -55,6 +56,7 @@ internal fun BookDetailScreen(
     onMarkComplete: () -> Unit,
     onPlayNext: () -> Unit,
     onRemoveDownload: () -> Unit,
+    bottomScrollPadding: Dp,
 ) {
     val tracks = uiState.tracks
     val activeTrackId = uiState.activeTrackId
@@ -88,6 +90,7 @@ internal fun BookDetailScreen(
         hazeState = hazeState,
         padding = padding,
         onBack = onBack,
+        bottomScrollPadding = bottomScrollPadding,
         title = {
             Text(
                 text = stringResource(R.string.chapters),
