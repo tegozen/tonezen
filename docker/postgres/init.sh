@@ -41,7 +41,15 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   GRANT authenticated TO authenticator;
   GRANT service_role TO authenticator;
   GRANT ALL ON SCHEMA public TO supabase_auth_admin;
-  GRANT ALL ON SCHEMA public TO postgres;
+
+  CREATE SCHEMA IF NOT EXISTS auth AUTHORIZATION supabase_auth_admin;
+  GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role, supabase_admin;
+  GRANT ALL ON SCHEMA auth TO supabase_auth_admin;
+
+  GRANT ALL ON DATABASE ${POSTGRES_DB} TO supabase_storage_admin;
+  GRANT ALL ON DATABASE ${POSTGRES_DB} TO supabase_auth_admin;
+
+  ALTER ROLE supabase_auth_admin SET search_path TO auth, public;
 EOSQL
 
 for f in /docker-entrypoint-initdb.d/migrations/*.sql; do

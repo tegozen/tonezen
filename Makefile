@@ -1,6 +1,6 @@
-.PHONY: test lint up down indexer-test api-test desktop-test android-test storage-export storage-import gen-env
+.PHONY: test lint up down indexer-test api-test desktop-test android-test storage-export storage-import gen-env scripts-test
 
-test: indexer-test api-test desktop-test
+test: indexer-test api-test desktop-test scripts-test
 	@echo "All unit tests passed"
 
 lint:
@@ -35,3 +35,6 @@ storage-import:
 
 gen-env:
 	node scripts/gen-env.mjs $(if $(FORCE),--force,)
+
+scripts-test:
+	node --test scripts/seed-admin.test.mjs

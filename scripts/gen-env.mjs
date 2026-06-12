@@ -25,10 +25,21 @@ const SECRET_KEYS = [
   "PG_META_CRYPTO_KEY",
 ];
 
+const GENERATED_IF_EMPTY_KEYS = ["ADMIN_PASSWORD"];
+
 const force = process.argv.includes("--force");
 
 function randomSecret(bytes = 32) {
   return crypto.randomBytes(bytes).toString("base64url");
+}
+
+function randomPassword(length = 16) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  let out = "";
+  while (out.length < length) {
+    out += alphabet[crypto.randomInt(alphabet.length)];
+  }
+  return out;
 }
 
 function base64urlJson(value) {
@@ -116,11 +127,20 @@ function main() {
   for (const key of SECRET_KEYS) {
     values.set(key, secrets[key]);
   }
+  for (const key of GENERATED_IF_EMPTY_KEYS) {
+    if (!values.get(key)) {
+      values.set(key, randomPassword());
+    }
+  }
 
   fs.writeFileSync(ENV_PATH, renderEnv(template, values), "utf8");
 
   console.log(`Wrote ${ENV_PATH}`);
   console.log("Generated: " + SECRET_KEYS.join(", "));
+  if (values.get("ADMIN_PASSWORD")) {
+    console.log(`Admin login: ${values.get("ADMIN_EMAIL") ?? "admin@tonezen.local"}`);
+    console.log(`Admin password: ${values.get("ADMIN_PASSWORD")}`);
+  }
   console.log("");
   console.log("Next:");
   console.log("  docker compose up -d --build");

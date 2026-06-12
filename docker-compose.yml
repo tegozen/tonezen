@@ -27,7 +27,7 @@ services:
       GOTRUE_API_PORT: 9999
       API_EXTERNAL_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}?search_path=auth
       GOTRUE_SITE_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-}
       GOTRUE_DISABLE_SIGNUP: ${GOTRUE_DISABLE_SIGNUP:-false}
@@ -40,6 +40,35 @@ services:
       GOTRUE_SMTP_HOST: mail
       GOTRUE_SMTP_PORT: 2500
       GOTRUE_SMTP_SENDER_NAME: Tonezen
+
+  bootstrap:
+    image: node:20-alpine
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+      auth:
+        condition: service_started
+    environment:
+      AUTH_INTERNAL_URL: http://auth:9999
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@tonezen.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-tonezen}
+      PGPASSWORD: tonezen-postgres-internal
+    volumes:
+      - ./scripts/seed-admin.mjs:/app/seed-admin.mjs:ro
+      - ./scripts/fix-gotrue-migrations.sql:/app/fix-gotrue-migrations.sql:ro
+    command:
+      - sh
+      - -c
+      - |
+        apk add --no-cache postgresql-client >/dev/null
+        for i in $(seq 1 60); do
+          psql -h db -U supabase_admin -d "$$POSTGRES_DB" -f /app/fix-gotrue-migrations.sql >/dev/null 2>&1 && break
+          sleep 2
+        done
+        node /app/seed-admin.mjs
 
   rest:
     image: postgrest/postgrest:v12.2.3
@@ -168,7 +197,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://postgres:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
+      DATABASE_URL: postgres://supabase_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
       JWT_SECRET: ${JWT_SECRET}
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       STORAGE_INTERNAL_URL: http://storage:5000
@@ -205,7 +234,7 @@ services:
       storage:
         condition: service_started
     environment:
-      DATABASE_URL: postgres://postgres:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
+      DATABASE_URL: postgres://supabase_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
       CONTENT_ROOT: /var/lib/storage/tonezen/content
       INDEXER_INTERVAL_SECONDS: 60
     volumes:
