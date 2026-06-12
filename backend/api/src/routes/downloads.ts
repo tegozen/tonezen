@@ -9,7 +9,7 @@ export function registerDownloadRoutes(app: Express, deps: RouteDeps): void {
       res.status(400).json({ error: "track_ids required" });
       return;
     }
-    const rows = await deps.repo.getTrackStoragePaths(trackIds);
+    const rows = await deps.downloads.getTrackStoragePaths(trackIds);
     try {
       const signed = await signStoragePaths(
         rows.map((row) => row.storage_path),

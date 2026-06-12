@@ -35,6 +35,8 @@ Dependencies point inward only. Domain logic must not import Android, Electron, 
 
 - Indexer and API: pure functions + thin IO layer
 - Do not mix audiobook progress sync with music local state
+- **Domain modules:** split IO by API domain (`catalog`, `downloads`, `favorites`, `progress`, …) — one repository module per domain under `db/`, aligned with `routes/` and OpenAPI; avoid monolithic `ApiRepository` god objects
+- Repositories: SQL/IO only; conflict resolution and other rules live in pure `lib/` helpers
 
 ### Sync (audiobooks)
 

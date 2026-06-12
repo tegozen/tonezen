@@ -45,7 +45,7 @@ Apply in order of priority:
 ### Architecture (Tonezen)
 
 - **Clients:** `ui → domain → data`; domain must not import platform SDKs (Android, Electron, Supabase)
-- **Backend/indexer:** pure functions + thin IO layer
+- **Backend/indexer:** pure functions + thin IO layer; **split data access by API domain** (one repo module per domain under `db/`, aligned with `routes/` — not a monolithic repository)
 - **API changes:** `docs/openapi.yaml` → tests → code (refactor alone does not change the contract)
 - **Sync:** audiobook progress syncs; music progress stays local — do not merge these paths
 - **Auth:** offline-safe JWT handling — do not add sync exp checks or forced logout
@@ -134,3 +134,7 @@ Do not commit unless the user explicitly asks (see [git-commit](../git-commit/SK
 **User:** «этот модуль слишком большой» (file open in editor)
 
 → Scope = open file; confirm in one line; split by responsibility within same layer.
+
+**User:** `/refactor backend/api/src/db.ts`
+
+→ Split into `db/catalog.ts`, `db/downloads.ts`, `db/favorites.ts`, `db/progress.ts`; inject domain repos via `RouteDeps`; keep LWW and other rules in `lib/`; run `npm test` in `backend/api`.

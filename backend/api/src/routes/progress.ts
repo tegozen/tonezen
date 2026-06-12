@@ -3,7 +3,7 @@ import type { RouteDeps } from "./deps.js";
 
 export function registerProgressRoutes(app: Express, deps: RouteDeps): void {
   app.get("/progress/audiobooks", ...deps.requiredAuth, async (req, res) => {
-    const progress = await deps.repo.getAudiobookProgress(req.user!.id);
+    const progress = await deps.progress.getAudiobookProgress(req.user!.id);
     res.json({ progress });
   });
 
@@ -13,7 +13,7 @@ export function registerProgressRoutes(app: Express, deps: RouteDeps): void {
       res.status(400).json({ error: "track_id, position_ms, updated_at required" });
       return;
     }
-    const result = await deps.repo.upsertAudiobookProgress(
+    const result = await deps.progress.upsertAudiobookProgress(
       req.user!.id,
       req.params.bookId as string,
       track_id,

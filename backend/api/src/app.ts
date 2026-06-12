@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import pg from "pg";
-import { ApiRepository } from "./db.js";
 import type { StorageSignConfig } from "./lib/storageSign.js";
 import { createRouteDeps } from "./routes/deps.js";
 import { registerCatalogRoutes } from "./routes/catalog.js";
@@ -16,8 +15,7 @@ export interface AppConfig {
 
 export function createApp(pool: pg.Pool, config: AppConfig) {
   const app = express();
-  const repo = new ApiRepository(pool);
-  const deps = createRouteDeps(repo, config.jwtSecret, config.storage);
+  const deps = createRouteDeps(pool, config.jwtSecret, config.storage);
 
   app.use(cors());
   app.use(express.json());
