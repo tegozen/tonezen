@@ -139,8 +139,8 @@ class ProfileViewModel @Inject constructor(
                         avatarUrl = session.avatarUrl ?: updated.avatarUrl,
                     ),
                 )
-            } catch (e: Exception) {
-                _uiState.update { it.copy(profileError = e.message) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(profileError = PROFILE_UPDATE_FAILED_ERROR) }
             } finally {
                 _uiState.update { it.copy(profileSaving = false) }
             }
@@ -170,8 +170,8 @@ class ProfileViewModel @Inject constructor(
                     newPassword = newPassword,
                 )
                 _uiState.update { it.copy(passwordFormNonce = it.passwordFormNonce + 1) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(passwordError = e.message) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(passwordError = PASSWORD_CHANGE_FAILED_ERROR) }
             } finally {
                 _uiState.update { it.copy(passwordSaving = false) }
             }
@@ -219,8 +219,8 @@ class ProfileViewModel @Inject constructor(
                         avatarUploadError = null,
                     )
                 }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(avatarUploadError = e.message) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(avatarUploadError = AVATAR_UPLOAD_FAILED_ERROR) }
             } finally {
                 _uiState.update { it.copy(avatarUploading = false) }
             }
@@ -270,6 +270,9 @@ class ProfileViewModel @Inject constructor(
         const val ACCOUNT_OFFLINE_ERROR = "__account_offline__"
         const val PASSWORD_MISMATCH_ERROR = "__password_mismatch__"
         const val PASSWORD_TOO_SHORT_ERROR = "__password_too_short__"
+        const val PROFILE_UPDATE_FAILED_ERROR = "__profile_update_failed__"
+        const val PASSWORD_CHANGE_FAILED_ERROR = "__password_change_failed__"
+        const val AVATAR_UPLOAD_FAILED_ERROR = "__avatar_upload_failed__"
         const val NOT_SIGNED_IN_ERROR = "__not_signed_in__"
         private const val MIN_PASSWORD_LENGTH = 6
     }

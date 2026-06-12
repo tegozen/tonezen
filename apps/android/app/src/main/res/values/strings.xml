@@ -61,6 +61,7 @@
     <string name="auth_card_body">Используйте аккаунт Tonezen для синхронизации аудиокниг. Прогресс музыки хранится локально.</string>
     <string name="email">Email</string>
     <string name="password">Пароль</string>
+    <string name="auth_login_failed">Не удалось войти. Проверьте email и пароль.</string>
     <string name="sign_in">Войти</string>
     <string name="sign_out">Выйти</string>
     <string name="sign_out_confirm_title">Выйти из аккаунта?</string>
@@ -121,6 +122,9 @@
     <string name="settings_account_password_too_short">Пароль должен быть не короче 6 символов</string>
     <string name="settings_account_offline">Нужно подключение к интернету</string>
     <string name="settings_account_password_mismatch">Пароли не совпадают</string>
+    <string name="settings_account_update_failed">Не удалось сохранить профиль</string>
+    <string name="settings_account_password_change_failed">Не удалось сменить пароль</string>
+    <string name="settings_account_avatar_upload_failed">Не удалось загрузить аватар</string>
     <string name="settings_account_not_signed_in">Войдите в аккаунт</string>
     <string name="settings_account_avatar_change">Изменить фото</string>
     <string name="settings_account_avatar_crop_title">Фото профиля</string>

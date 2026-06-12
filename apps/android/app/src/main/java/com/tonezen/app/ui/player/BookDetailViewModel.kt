@@ -171,8 +171,8 @@ class BookDetailViewModel @Inject constructor(
                 }
                 _uiState.update { it.copy(downloadProgress = null) }
                 loadBook(book)
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message, downloadProgress = null) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(error = DOWNLOAD_FAILED_ERROR, downloadProgress = null) }
             }
         }
     }
@@ -313,4 +313,8 @@ class BookDetailViewModel @Inject constructor(
     }
 
     private fun estimateDownloadBytes(trackCount: Int): Long = trackCount * 32L * 1024L * 1024L
+
+    companion object {
+        const val DOWNLOAD_FAILED_ERROR = "__book_download_failed__"
+    }
 }

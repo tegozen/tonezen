@@ -27,9 +27,8 @@ class AvatarRepository(
             .header("x-upsert", "true")
             .build()
         httpClient.newCall(request).execute().use { response ->
-            val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                throw IllegalStateException("Avatar upload failed (${response.code}): $text")
+                throw RemoteHttpException(response.code, "Avatar upload failed (${response.code})")
             }
         }
         publicAvatarUrl(userId)

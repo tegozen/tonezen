@@ -2,6 +2,7 @@ package com.tonezen.app.data.remote
 
 import android.content.Context
 import android.net.Uri
+import com.tonezen.app.data.local.SafeLocalStorage
 import com.tonezen.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,8 +27,9 @@ class DownloadRepository(
     ): File = withContext(Dispatchers.IO) {
         onProgress(0f)
         val url = resolveDownloadUrl(signedUrlForTrack(accessToken, trackId))
-        val dir = File(context.filesDir, "downloads/$bookId").apply { mkdirs() }
-        val target = File(dir, "$trackId.mp3")
+        val target = SafeLocalStorage.trackFile(context.filesDir, bookId, trackId)
+            ?: throw IllegalArgumentException("Invalid download target")
+        target.parentFile?.mkdirs()
         val request = Request.Builder().url(url).build()
         apiClient.httpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IllegalStateException("Download failed: ${response.code}")
@@ -56,7 +58,7 @@ class DownloadRepository(
     }
 
     suspend fun deleteLocalTrack(bookId: String, trackId: String) = withContext(Dispatchers.IO) {
-        File(context.filesDir, "downloads/$bookId/$trackId.mp3").delete()
+        SafeLocalStorage.trackFile(context.filesDir, bookId, trackId)?.delete()
     }
 
     /** Storage signed URLs may be relative (/object/sign/...) or use localhost on dev hosts. */

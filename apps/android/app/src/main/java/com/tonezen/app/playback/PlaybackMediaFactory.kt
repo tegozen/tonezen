@@ -39,10 +39,11 @@ object PlaybackMediaFactory {
             .build()
     }
 
-    private fun mediaUriFor(pathOrUrl: String): Uri =
+    private fun mediaUriFor(pathOrUrl: String): Uri {
         if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
-            Uri.parse(pathOrUrl)
-        } else {
-            Uri.fromFile(File(pathOrUrl))
+            return Uri.parse(pathOrUrl)
         }
+        require(!pathOrUrl.contains("..")) { "Invalid local media path" }
+        return Uri.fromFile(File(pathOrUrl))
+    }
 }

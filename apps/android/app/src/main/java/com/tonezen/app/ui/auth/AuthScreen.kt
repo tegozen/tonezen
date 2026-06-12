@@ -132,7 +132,7 @@ private fun AuthSignInForm(
         )
         error?.let {
             Text(
-                it,
+                resolveAuthError(it),
                 color = TonezenError,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(horizontal = 2.dp),
@@ -233,6 +233,12 @@ private fun TonezenAuthField(
             cursorColor = TonezenTeal,
         ),
     )
+}
+
+@Composable
+internal fun resolveAuthError(error: String): String = when (error) {
+    AuthViewModel.AUTH_LOGIN_FAILED_ERROR -> stringResource(R.string.auth_login_failed)
+    else -> stringResource(R.string.auth_login_failed)
 }
 
 @Composable

@@ -126,9 +126,13 @@ class CatalogRepository @Inject constructor(
         catalogDao.upsertTracks(
             tracks.map { track ->
                 val existing = existingById[track.id]
-                val localPath = existing?.localPath?.takeIf { File(it).isFile && File(it).length() > 0L }
+                val localPath = existing?.localPath?.takeIf {
+                    SafeLocalStorage.isUnderAppFilesRoot(context.filesDir, it) &&
+                        File(it).isFile &&
+                        File(it).length() > 0L
+                }
                     ?: expectedTrackFile(book.id, track.id)
-                        .takeIf { it.isFile && it.length() > 0L }
+                        ?.takeIf { it.isFile && it.length() > 0L }
                         ?.absolutePath
                 TrackEntity(
                     track.id,
@@ -150,9 +154,12 @@ class CatalogRepository @Inject constructor(
 
     suspend fun resolveLocalTrackPath(bookId: String, trackId: String): String? {
         val fromDb = catalogDao.getTracksForBook(bookId).find { it.id == trackId }?.localPath
-        if (fromDb != null && File(fromDb).isFile && File(fromDb).length() > 0L) return fromDb
+        if (fromDb != null && SafeLocalStorage.isUnderAppFilesRoot(context.filesDir, fromDb)) {
+            val file = File(fromDb)
+            if (file.isFile && file.length() > 0L) return fromDb
+        }
         val onDisk = expectedTrackFile(bookId, trackId)
-        if (onDisk.isFile && onDisk.length() > 0L) {
+        if (onDisk?.isFile == true && onDisk.length() > 0L) {
             markTrackDownloaded(bookId, trackId, onDisk.absolutePath)
             return onDisk.absolutePath
         }
@@ -160,8 +167,8 @@ class CatalogRepository @Inject constructor(
         return null
     }
 
-    private fun expectedTrackFile(bookId: String, trackId: String): File =
-        File(context.filesDir, "downloads/$bookId/$trackId.mp3")
+    private fun expectedTrackFile(bookId: String, trackId: String): File? =
+        SafeLocalStorage.trackFile(context.filesDir, bookId, trackId)
 
     suspend fun clearLocalDownloads(bookId: String) {
         catalogDao.clearLocalPathsForBook(bookId)

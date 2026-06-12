@@ -25,9 +25,13 @@ class AuthViewModel @Inject constructor(
             try {
                 val signedIn = authRepository.signInWithPassword(email, password)
                 sessionRepository.saveSession(signedIn)
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(error = AUTH_LOGIN_FAILED_ERROR) }
             }
         }
+    }
+
+    companion object {
+        const val AUTH_LOGIN_FAILED_ERROR = "__auth_login_failed__"
     }
 }

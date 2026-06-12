@@ -309,12 +309,15 @@ internal fun resolveAccountError(error: String?): String? = when (error) {
     ProfileViewModel.PASSWORD_MISMATCH_ERROR -> stringResource(R.string.settings_account_password_mismatch)
     ProfileViewModel.NOT_SIGNED_IN_ERROR -> stringResource(R.string.settings_account_not_signed_in)
     ProfileViewModel.PASSWORD_TOO_SHORT_ERROR -> stringResource(R.string.settings_account_password_too_short)
-    else -> error
+    ProfileViewModel.PROFILE_UPDATE_FAILED_ERROR -> stringResource(R.string.settings_account_update_failed)
+    ProfileViewModel.PASSWORD_CHANGE_FAILED_ERROR -> stringResource(R.string.settings_account_password_change_failed)
+    else -> null
 }
 
 @Composable
 internal fun resolveAvatarUploadError(error: String?): String? = when (error) {
     ProfileViewModel.ACCOUNT_OFFLINE_ERROR -> stringResource(R.string.settings_account_offline)
     ProfileViewModel.NOT_SIGNED_IN_ERROR -> stringResource(R.string.settings_account_not_signed_in)
-    else -> error
+    ProfileViewModel.AVATAR_UPLOAD_FAILED_ERROR -> stringResource(R.string.settings_account_avatar_upload_failed)
+    else -> null
 }

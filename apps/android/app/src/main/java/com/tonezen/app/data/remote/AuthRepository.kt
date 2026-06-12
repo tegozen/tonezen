@@ -59,11 +59,10 @@ class AuthRepository(
             .header("Authorization", "Bearer $accessToken")
             .build()
         httpClient.newCall(request).execute().use { response ->
-            val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                throw IllegalStateException("Profile update failed (${response.code}): $text")
+                throw RemoteHttpException(response.code, "Profile update failed (${response.code})")
             }
-            val user = JSONObject(text)
+            val user = JSONObject(response.body?.string().orEmpty())
             val resolvedEmail = user.optString("email", "")
             StoredSession(
                 userId = user.getString("id"),
@@ -91,11 +90,10 @@ class AuthRepository(
             .header("Authorization", "Bearer $anonKey")
             .build()
         httpClient.newCall(request).execute().use { response ->
-            val text = response.body?.string().orEmpty()
             if (!response.isSuccessful) {
-                throw IllegalStateException("Auth failed (${response.code}): $text")
+                throw RemoteHttpException(response.code, "Auth token request failed (${response.code})")
             }
-            val json = JSONObject(text)
+            val json = JSONObject(response.body?.string().orEmpty())
             val expiresIn = json.getInt("expires_in")
             val user = json.getJSONObject("user")
             val resolvedEmail = user.optString("email", "").ifBlank { fallbackEmail }

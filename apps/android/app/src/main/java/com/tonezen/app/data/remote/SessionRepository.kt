@@ -49,13 +49,15 @@ class SessionRepository @Inject constructor(
                 val refreshed = authRepository.refreshSession(session.refreshToken)
                 saveSession(refreshed)
                 refreshed
-            } catch (_: Exception) {
-                if (networkMonitor.isOnline()) {
+            } catch (e: RemoteHttpException) {
+                if (networkMonitor.isOnline() && e.isInvalidRefreshToken) {
                     clearSession()
                     null
                 } else {
                     session
                 }
+            } catch (_: Exception) {
+                session
             } finally {
                 sessionManager.endRefresh()
             }
