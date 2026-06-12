@@ -1,5 +1,9 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { SupabaseAuthClient, sessionFromGoTrue } from "../src/shared/supabaseAuth.js";
+import {
+  SupabaseAuthClient,
+  displayNameFromUser,
+  sessionFromGoTrue,
+} from "../src/shared/supabaseAuth.js";
 
 describe("SupabaseAuthClient", () => {
   afterEach(() => {
@@ -16,7 +20,11 @@ describe("SupabaseAuthClient", () => {
           refresh_token: "rt",
           expires_in: 3600,
           token_type: "bearer",
-          user: { id: "user-1", email: "a@b.c" },
+          user: {
+            id: "user-1",
+            email: "a@b.c",
+            user_metadata: { full_name: "Alex Mercer" },
+          },
         }),
       }),
     );
@@ -29,5 +37,11 @@ describe("SupabaseAuthClient", () => {
     expect(result.access_token).toBe("at");
     const session = sessionFromGoTrue(result);
     expect(session.userId).toBe("user-1");
+    expect(session.email).toBe("a@b.c");
+    expect(session.displayName).toBe("Alex Mercer");
+  });
+
+  it("falls back to email local part when display name is missing", () => {
+    expect(displayNameFromUser({ id: "u1", email: "admin@tonezen.local" })).toBe("Admin");
   });
 });

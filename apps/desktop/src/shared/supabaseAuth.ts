@@ -1,9 +1,29 @@
+import type { StoredSession } from "./types.js";
+
+export interface GoTrueUser {
+  id: string;
+  email?: string;
+  user_metadata?: Record<string, unknown>;
+}
+
 export interface GoTrueSession {
   access_token: string;
   refresh_token: string;
   expires_in: number;
   token_type: string;
-  user: { id: string; email?: string };
+  user: GoTrueUser;
+}
+
+export function displayNameFromUser(user: GoTrueUser, fallbackEmail = ""): string {
+  const meta = user.user_metadata ?? {};
+  const fromMeta = meta.full_name ?? meta.display_name;
+  if (typeof fromMeta === "string" && fromMeta.trim()) {
+    return fromMeta.trim();
+  }
+  const email = (user.email ?? fallbackEmail).trim();
+  const localPart = email.split("@")[0]?.trim();
+  if (!localPart) return "";
+  return localPart.charAt(0).toUpperCase() + localPart.slice(1);
 }
 
 export interface AuthConfig {
@@ -41,14 +61,12 @@ export class SupabaseAuthClient {
   }
 }
 
-export function sessionFromGoTrue(result: GoTrueSession): {
-  userId: string;
-  accessToken: string;
-  refreshToken: string;
-  expiresAtEpochSeconds: number;
-} {
+export function sessionFromGoTrue(result: GoTrueSession, fallbackEmail = ""): StoredSession {
+  const email = result.user.email ?? fallbackEmail;
   return {
     userId: result.user.id,
+    email,
+    displayName: displayNameFromUser(result.user, email),
     accessToken: result.access_token,
     refreshToken: result.refresh_token,
     expiresAtEpochSeconds: Math.floor(Date.now() / 1000) + result.expires_in,

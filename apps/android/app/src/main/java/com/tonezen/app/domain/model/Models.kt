@@ -11,6 +11,8 @@ enum class SessionState {
 
 data class StoredSession(
     val userId: String,
+    val email: String,
+    val displayName: String,
     val accessToken: String,
     val refreshToken: String,
     val expiresAtEpochSeconds: Long,

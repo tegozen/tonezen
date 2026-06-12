@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 
 export function useTonezenSession() {
   const [sessionState, setSessionState] = useState("Unauthenticated");
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -11,6 +13,8 @@ export function useTonezenSession() {
     await window.tonezen.session.setOnline(online);
     const snap = await window.tonezen.session.get();
     setSessionState(snap.state);
+    setUserEmail(snap.email);
+    setDisplayName(snap.displayName);
   }, []);
 
   useEffect(() => {
@@ -30,6 +34,8 @@ export function useTonezenSession() {
       setError(null);
       const snap = await window.tonezen.session.login(email, password);
       setSessionState(snap.state);
+      setUserEmail(snap.email);
+      setDisplayName(snap.displayName);
       return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Login failed");
@@ -44,6 +50,8 @@ export function useTonezenSession() {
 
   return {
     sessionState,
+    userEmail,
+    displayName,
     email,
     setEmail,
     password,

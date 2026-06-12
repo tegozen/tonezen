@@ -6,6 +6,8 @@ export type SessionState =
 
 export interface StoredSession {
   userId: string;
+  email: string;
+  displayName: string;
   accessToken: string;
   refreshToken: string;
   expiresAtEpochSeconds: number;

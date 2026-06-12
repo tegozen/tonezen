@@ -20,7 +20,8 @@ class AuthRepository(
                 .put("email", email)
                 .put("password", password)
                 .toString()
-            tokenRequest("password", body)
+            val session = tokenRequest("password", body, fallbackEmail = email)
+            if (session.email.isBlank()) session.copy(email = email) else session
         }
 
     suspend fun refreshSession(refreshToken: String): StoredSession =
@@ -29,7 +30,11 @@ class AuthRepository(
             tokenRequest("refresh_token", body)
         }
 
-    private fun tokenRequest(grantType: String, jsonBody: String): StoredSession {
+    private fun tokenRequest(
+        grantType: String,
+        jsonBody: String,
+        fallbackEmail: String = "",
+    ): StoredSession {
         val url = "${supabaseUrl.trimEnd('/')}/auth/v1/token?grant_type=$grantType"
         val request = Request.Builder()
             .url(url)
@@ -45,12 +50,25 @@ class AuthRepository(
             val json = JSONObject(text)
             val expiresIn = json.getInt("expires_in")
             val user = json.getJSONObject("user")
+            val resolvedEmail = user.optString("email", "").ifBlank { fallbackEmail }
             return StoredSession(
                 userId = user.getString("id"),
+                email = resolvedEmail,
+                displayName = displayNameFromUser(user, resolvedEmail),
                 accessToken = json.getString("access_token"),
                 refreshToken = json.getString("refresh_token"),
                 expiresAtEpochSeconds = System.currentTimeMillis() / 1000 + expiresIn,
             )
         }
+    }
+
+    private fun displayNameFromUser(user: JSONObject, fallbackEmail: String): String {
+        val meta = user.optJSONObject("user_metadata")
+        val fromMeta = meta?.optString("full_name")?.takeIf { it.isNotBlank() }
+            ?: meta?.optString("display_name")?.takeIf { it.isNotBlank() }
+        if (fromMeta != null) return fromMeta
+        val localPart = fallbackEmail.substringBefore("@").trim()
+        if (localPart.isEmpty()) return ""
+        return localPart.replaceFirstChar { it.uppercase() }
     }
 }

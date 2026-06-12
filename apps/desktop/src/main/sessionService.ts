@@ -2,7 +2,7 @@ import { safeStorage } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { SessionManager } from "../shared/session.js";
-import { SupabaseAuthClient, sessionFromGoTrue } from "../shared/supabaseAuth.js";
+import { SupabaseAuthClient, displayNameFromUser, sessionFromGoTrue } from "../shared/supabaseAuth.js";
 import type { SessionState, StoredSession } from "../shared/types.js";
 
 const SESSION_FILE = "session.dat";
@@ -37,15 +37,19 @@ export class SessionService {
     return this.session;
   }
 
-  getSnapshot(): { state: SessionState; userId: string | null } {
+  getSnapshot(): { state: SessionState; email: string | null; displayName: string | null } {
     const state = this.manager.resolveState(this.session, this.online);
-    return { state, userId: this.session?.userId ?? null };
+    return {
+      state,
+      email: this.session?.email || null,
+      displayName: this.session?.displayName || null,
+    };
   }
 
   async login(email: string, password: string): Promise<StoredSession> {
     if (!this.authClient) throw new Error("SessionService not initialized");
     const result = await this.authClient.signInWithPassword(email, password);
-    const session = sessionFromGoTrue(result);
+    const session = sessionFromGoTrue(result, email);
     this.session = session;
     this.persist(session);
     return session;
@@ -72,7 +76,7 @@ export class SessionService {
         return "Unauthenticated";
       }
       const result = await this.authClient.refreshSession(this.session.refreshToken);
-      this.session = sessionFromGoTrue(result);
+      this.session = sessionFromGoTrue(result, this.session.email);
       this.persist(this.session);
       return "AuthenticatedOnline";
     } catch {
@@ -100,7 +104,16 @@ export class SessionService {
       const json = safeStorage.isEncryptionAvailable()
         ? safeStorage.decryptString(raw)
         : raw.toString("utf-8");
-      return JSON.parse(json) as StoredSession;
+      const parsed = JSON.parse(json) as StoredSession;
+      const email = parsed.email ?? "";
+      const displayName =
+        parsed.displayName ||
+        displayNameFromUser({ id: parsed.userId, email }, email);
+      return {
+        ...parsed,
+        email,
+        displayName,
+      };
     } catch {
       return null;
     }

@@ -1,8 +1,11 @@
 export interface TonezenApi {
   session: {
-    get: () => Promise<{ state: string; userId: string | null }>;
+    get: () => Promise<{ state: string; email: string | null; displayName: string | null }>;
     setOnline: (online: boolean) => Promise<void>;
-    login: (email: string, password: string) => Promise<{ state: string; userId: string | null }>;
+    login: (
+      email: string,
+      password: string,
+    ) => Promise<{ state: string; email: string | null; displayName: string | null }>;
     logout: () => Promise<void>;
   };
   catalog: {

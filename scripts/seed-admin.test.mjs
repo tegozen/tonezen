@@ -12,7 +12,7 @@ test("buildAdminUserPayload confirms email and sets admin metadata", () => {
   assert.equal(payload.email, "admin@tonezen.local");
   assert.equal(payload.password, "secret");
   assert.equal(payload.email_confirm, true);
-  assert.deepEqual(payload.user_metadata, { role: "admin" });
+  assert.deepEqual(payload.user_metadata, { role: "admin", full_name: "Admin" });
 });
 
 test("findUserByEmail returns matching user", async () => {

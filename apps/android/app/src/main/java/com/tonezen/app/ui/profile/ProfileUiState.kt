@@ -4,8 +4,8 @@ import com.tonezen.app.domain.model.SessionState
 
 data class ProfileUiState(
     val sessionState: SessionState = SessionState.UNAUTHENTICATED,
+    val displayName: String? = null,
     val email: String? = null,
-    val userId: String? = null,
     val pendingSyncCount: Int = 0,
     val storageUsedBytes: Long = 0L,
     val showOverflowMenu: Boolean = false,

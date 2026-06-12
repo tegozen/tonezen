@@ -12,7 +12,8 @@ import {
 import { strings } from "../i18n/strings";
 
 interface ProfilePageProps {
-  userId: string | null;
+  displayName: string | null;
+  email: string | null;
   online: boolean;
   pendingCount: number;
   storageUsedBytes: number;
@@ -34,7 +35,8 @@ function formatGb(bytes: number): string {
 }
 
 export function ProfilePage({
-  userId,
+  displayName,
+  email,
   online,
   pendingCount,
   storageUsedBytes,
@@ -84,8 +86,8 @@ export function ProfilePage({
           <ProfileIcon className="h-8 w-8" />
         </div>
         <div>
-          <div className="font-semibold">{userId}</div>
-          <div className="text-sm text-muted">{userId}</div>
+          <div className="font-semibold">{displayName}</div>
+          {email && <div className="text-sm text-muted">{email}</div>}
         </div>
       </div>
       <div className="card space-y-3">
@@ -100,7 +102,7 @@ export function ProfilePage({
         </button>
       </div>
       <div className="space-y-2">
-        <SettingsRow icon={<ProfileIcon className="h-6 w-6" />} title={strings.settingsAccount} subtitle={strings.email} />
+        <SettingsRow icon={<ProfileIcon className="h-6 w-6" />} title={strings.settingsAccount} subtitle={email ?? ""} />
         <SettingsRow icon={<SyncIcon className="h-6 w-6" />} title={strings.settingsSync} subtitle={strings.syncNow} />
         <SettingsRow icon={<StorageIcon className="h-6 w-6" />} title={strings.settingsStorage} subtitle={formatGb(storageUsedBytes)} />
         <SettingsRow icon={<LockIcon className="h-6 w-6" />} title={strings.settingsPrivacy} subtitle="" />

@@ -15,6 +15,8 @@ import { ProfilePage } from "./pages/ProfilePage";
 export function App() {
   const {
     sessionState,
+    userEmail,
+    displayName,
     email,
     setEmail,
     password,
@@ -273,7 +275,8 @@ export function App() {
         )}
         {activeTab === "profile" && (
           <ProfilePage
-            userId={email || "user"}
+            displayName={displayName}
+            email={userEmail}
             online={sessionState === "AuthenticatedOnline"}
             pendingCount={pendingCount}
             storageUsedBytes={storageUsed}

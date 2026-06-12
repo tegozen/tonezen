@@ -4,6 +4,8 @@ import { SessionManager } from "../src/shared/session.js";
 describe("SessionManager", () => {
   const session = {
     userId: "u1",
+    email: "user@example.com",
+    displayName: "User",
     accessToken: "a",
     refreshToken: "r",
     expiresAtEpochSeconds: 1000,

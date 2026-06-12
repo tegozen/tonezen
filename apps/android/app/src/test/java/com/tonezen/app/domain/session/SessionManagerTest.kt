@@ -11,6 +11,8 @@ import org.junit.Test
 class SessionManagerTest {
     private val session = StoredSession(
         userId = "u1",
+        email = "user@example.com",
+        displayName = "User",
         accessToken = "access",
         refreshToken = "refresh",
         expiresAtEpochSeconds = 1000,

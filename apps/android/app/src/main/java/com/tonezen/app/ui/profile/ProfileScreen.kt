@@ -124,8 +124,10 @@ internal fun ProfileScreen(
                     ProfileGlyph(tint = TonezenTeal, size = 30.dp)
                 }
                 Column {
-                    Text(state.email.orEmpty(), color = TonezenInk, fontWeight = FontWeight.SemiBold)
-                    Text(state.userId.orEmpty(), color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
+                    Text(state.displayName.orEmpty(), color = TonezenInk, fontWeight = FontWeight.SemiBold)
+                    state.email?.takeIf { it.isNotBlank() }?.let { email ->
+                        Text(email, color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         }
@@ -152,7 +154,7 @@ internal fun ProfileScreen(
         item {
             SettingsRow(
                 title = stringResource(R.string.settings_account),
-                subtitle = stringResource(R.string.email),
+                subtitle = state.email.orEmpty(),
                 icon = { ProfileGlyph(tint = TonezenInk) },
             )
             SettingsRow(

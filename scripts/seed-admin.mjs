@@ -6,6 +6,7 @@
  *   AUTH_INTERNAL_URL  — default http://auth:9999
  *   SERVICE_ROLE_KEY     — required
  *   ADMIN_EMAIL          — default admin@tonezen.local
+ *   ADMIN_DISPLAY_NAME   — default Admin
  *   ADMIN_PASSWORD       — required
  */
 
@@ -14,6 +15,7 @@ import { pathToFileURL } from "node:url";
 const AUTH_INTERNAL_URL = process.env.AUTH_INTERNAL_URL ?? "http://auth:9999";
 const SERVICE_ROLE_KEY = process.env.SERVICE_ROLE_KEY ?? "";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@tonezen.local";
+const ADMIN_DISPLAY_NAME = process.env.ADMIN_DISPLAY_NAME ?? "Admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "";
 
 export function adminHeaders(serviceRoleKey) {
@@ -24,12 +26,12 @@ export function adminHeaders(serviceRoleKey) {
   };
 }
 
-export function buildAdminUserPayload(email, password) {
+export function buildAdminUserPayload(email, password, displayName = ADMIN_DISPLAY_NAME) {
   return {
     email,
     password,
     email_confirm: true,
-    user_metadata: { role: "admin" },
+    user_metadata: { role: "admin", full_name: displayName },
   };
 }
 

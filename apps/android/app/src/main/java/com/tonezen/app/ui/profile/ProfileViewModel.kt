@@ -33,8 +33,8 @@ class ProfileViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         sessionState = sessionRepository.resolveState(session),
-                        email = session?.userId,
-                        userId = session?.userId,
+                        displayName = session?.displayName,
+                        email = session?.email,
                     )
                 }
                 refreshStats()
