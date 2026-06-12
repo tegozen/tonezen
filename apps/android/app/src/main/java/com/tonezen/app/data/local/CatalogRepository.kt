@@ -85,6 +85,11 @@ class CatalogRepository @Inject constructor(
                 }
             }.awaitAll()
         }
+        val remoteIds = remoteBooks.map { it.id }
+        if (remoteIds.isNotEmpty()) {
+            catalogDao.deleteTracksForBooksNotIn(remoteIds)
+            catalogDao.deleteBooksNotIn(remoteIds)
+        }
         remoteBooks
     }
 

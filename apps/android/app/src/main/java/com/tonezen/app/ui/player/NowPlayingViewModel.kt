@@ -8,7 +8,9 @@ import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.music.MusicLibraryTrack
+import com.tonezen.app.domain.music.MusicShuffleQueue
 import com.tonezen.app.playback.PlaybackClient
+import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.PlaybackQueueBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -48,6 +50,7 @@ class NowPlayingViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val trackDownloadEnsurer: TrackDownloadEnsurer,
+    private val playbackEvents: PlaybackEvents,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(NowPlayingUiState())
     val uiState: StateFlow<NowPlayingUiState> = _uiState.asStateFlow()
@@ -56,6 +59,7 @@ class NowPlayingViewModel @Inject constructor(
     private var currentTrackIndex: Int = -1
     private var playJob: Job? = null
     private var catalogJob: Job? = null
+    private var preserveShuffleOrder = false
 
     init {
         playbackClient.connect()
@@ -89,10 +93,18 @@ class NowPlayingViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            playbackEvents.trackEnded.collect {
+                if (_uiState.value.contentType == ContentType.MUSIC && libraryTracks.size > 1) {
+                    skipNext()
+                }
+            }
+        }
     }
 
     fun refreshCatalogContext() {
         val trackId = playbackClient.snapshot.value.trackId ?: return
+        preserveShuffleOrder = true
         scheduleAlbumRefresh(trackId)
     }
 
@@ -118,6 +130,15 @@ class NowPlayingViewModel @Inject constructor(
 
     fun skipPrevious() {
         if (_uiState.value.downloadProgress != null) return
+        if (_uiState.value.contentType == ContentType.MUSIC && libraryTracks.size > 1) {
+            if (_uiState.value.positionMs > 3_000L) {
+                playbackClient.seekTo(0)
+            } else {
+                preserveShuffleOrder = true
+                skipToIndex(MusicShuffleQueue.previousIndex(currentTrackIndex, libraryTracks.size))
+            }
+            return
+        }
         when {
             currentTrackIndex > 0 -> skipToIndex(currentTrackIndex - 1)
             _uiState.value.positionMs > 3_000L -> playbackClient.seekTo(0)
@@ -127,6 +148,12 @@ class NowPlayingViewModel @Inject constructor(
 
     fun skipNext() {
         if (_uiState.value.downloadProgress != null) return
+        if (libraryTracks.size <= 1) return
+        if (_uiState.value.contentType == ContentType.MUSIC) {
+            preserveShuffleOrder = true
+            skipToIndex(MusicShuffleQueue.nextIndex(currentTrackIndex, libraryTracks.size))
+            return
+        }
         if (currentTrackIndex in 0 until libraryTracks.lastIndex) {
             skipToIndex(currentTrackIndex + 1)
         }
@@ -135,7 +162,10 @@ class NowPlayingViewModel @Inject constructor(
     fun playTrack(track: Track) {
         if (_uiState.value.downloadProgress != null) return
         val index = libraryTracks.indexOfFirst { it.track.id == track.id }
-        if (index >= 0) skipToIndex(index)
+        if (index >= 0) {
+            preserveShuffleOrder = true
+            skipToIndex(index)
+        }
     }
 
     private fun skipToIndex(index: Int) {
@@ -204,10 +234,27 @@ class NowPlayingViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 activeBook = book,
-                upNext = libraryTracks.drop(index + 1).map { entry -> entry.track },
-                canSkipPrevious = index > 0 || it.positionMs > 3_000L,
-                canSkipNext = index < libraryTracks.lastIndex,
+                upNext = when (book.contentType) {
+                    ContentType.MUSIC -> musicUpNext(index, libraryTracks.size)
+                    else -> libraryTracks.drop(index + 1).map { entry -> entry.track }
+                },
+                canSkipPrevious = when (book.contentType) {
+                    ContentType.MUSIC -> libraryTracks.size > 1
+                    else -> index > 0 || it.positionMs > 3_000L
+                },
+                canSkipNext = when (book.contentType) {
+                    ContentType.MUSIC -> libraryTracks.size > 1
+                    else -> index < libraryTracks.lastIndex
+                },
             )
+        }
+    }
+
+    private fun musicUpNext(index: Int, trackCount: Int): List<Track> {
+        if (trackCount <= 1) return emptyList()
+        val entries = libraryTracks
+        return (1 until trackCount.coerceAtMost(4)).map { offset ->
+            entries[(index + offset) % trackCount].track
         }
     }
 
@@ -233,8 +280,7 @@ class NowPlayingViewModel @Inject constructor(
         }
 
         val entries = when (book.contentType) {
-            ContentType.MUSIC -> catalogRepository.resolveMusicLibraryTracks()
-                .map { AlbumTrackEntry(it.book, it.track) }
+            ContentType.MUSIC -> resolveMusicShuffle(activeTrackId)
             ContentType.AUDIOBOOK -> catalogRepository.getTracksForBook(book.id)
                 .sortedBy { it.sortOrder }
                 .map { AlbumTrackEntry(book, it) }
@@ -250,16 +296,57 @@ class NowPlayingViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 activeBook = entries[index].book,
-                upNext = entries.drop(index + 1).map { entry -> entry.track },
-                canSkipPrevious = index > 0 || it.positionMs > 3_000L,
-                canSkipNext = index < entries.lastIndex,
+                contentType = book.contentType,
+                upNext = if (book.contentType == ContentType.MUSIC) {
+                    musicUpNext(index, entries.size)
+                } else {
+                    entries.drop(index + 1).map { entry -> entry.track }
+                },
+                canSkipPrevious = when (book.contentType) {
+                    ContentType.MUSIC -> entries.size > 1
+                    else -> index > 0 || it.positionMs > 3_000L
+                },
+                canSkipNext = when (book.contentType) {
+                    ContentType.MUSIC -> entries.size > 1
+                    else -> index < entries.lastIndex
+                },
             )
         }
+        preserveShuffleOrder = false
+    }
+
+    private suspend fun resolveMusicShuffle(activeTrackId: String): List<AlbumTrackEntry> {
+        val catalog = catalogRepository.resolveMusicLibraryTracks()
+            .map { AlbumTrackEntry(it.book, it.track) }
+        if (catalog.isEmpty()) return emptyList()
+
+        val catalogIds = catalog.map { it.track.id }.toSet()
+        val currentIds = libraryTracks.map { it.track.id }.toSet()
+        val newIndex = libraryTracks.indexOfFirst { it.track.id == activeTrackId }
+        val adjacentSkip = libraryTracks.isNotEmpty() && currentTrackIndex >= 0 && newIndex >= 0 && (
+            newIndex == MusicShuffleQueue.nextIndex(currentTrackIndex, libraryTracks.size) ||
+                newIndex == MusicShuffleQueue.previousIndex(currentTrackIndex, libraryTracks.size) ||
+                newIndex == currentTrackIndex
+            )
+
+        val useExistingOrder = preserveShuffleOrder || adjacentSkip || (
+            catalogIds == currentIds && newIndex >= 0
+            )
+
+        if (useExistingOrder && libraryTracks.isNotEmpty() && catalogIds == currentIds) {
+            return libraryTracks
+        }
+
+        return MusicShuffleQueue.order(
+            catalog.map { MusicLibraryTrack(it.book, it.track) },
+            activeTrackId,
+        ).map { AlbumTrackEntry(it.book, it.track) }
     }
 
     private fun clearAlbumContext() {
         libraryTracks = emptyList()
         currentTrackIndex = -1
+        preserveShuffleOrder = false
         _uiState.update {
             it.copy(
                 upNext = emptyList(),

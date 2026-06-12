@@ -17,8 +17,9 @@ import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.domain.music.MusicLibraryTrack
+import com.tonezen.app.domain.music.MusicShuffleQueue
 import com.tonezen.app.playback.PlaybackClient
-import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.PlaybackQueueBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -42,7 +43,6 @@ class LibraryViewModel @Inject constructor(
     private val playbackClient: PlaybackClient,
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val trackDownloadEnsurer: TrackDownloadEnsurer,
-    private val playbackEvents: PlaybackEvents,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
@@ -78,14 +78,6 @@ class LibraryViewModel @Inject constructor(
                             isPlaying = snapshot.isPlaying && isMusic,
                         ),
                     )
-                }
-            }
-        }
-        viewModelScope.launch {
-            playbackEvents.trackEnded.collect {
-                val playback = _uiState.value.musicPlayback
-                if (playback.isActive) {
-                    playNextRandomTrack(playback.trackId)
                 }
             }
         }
@@ -228,17 +220,6 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    private fun playNextRandomTrack(currentTrackId: String?) {
-        playJob?.cancel()
-        playJob = viewModelScope.launch {
-            val preview = pickRandomMusicPreview(excludeTrackId = currentTrackId) ?: return@launch
-            val alreadyLocal = withContext(Dispatchers.IO) {
-                trackDownloadEnsurer.isTrackLocal(preview.bookId, preview.trackId)
-            }
-            playMusicTrack(preview, showDownloadProgress = !alreadyLocal)
-        }
-    }
-
     private fun schedulePrefetch(excludeTrackId: String) {
         prefetchJob?.cancel()
         prefetchJob = viewModelScope.launch(Dispatchers.IO) {
@@ -256,21 +237,15 @@ class LibraryViewModel @Inject constructor(
 
     private suspend fun rebuildMusicCandidates(books: List<Book>) {
         musicCandidates = withContext(Dispatchers.IO) {
-            buildList {
-                for (book in books.filter { it.contentType == ContentType.MUSIC }) {
-                    catalogRepository.getTracksForBook(book.id).forEach { track ->
-                        add(book to track)
-                    }
-                }
+            catalogRepository.resolveMusicLibraryTracks().map { entry ->
+                entry.book to entry.track
             }
         }
     }
 
     private suspend fun buildMusicTrackBookMap(books: List<Book>): Map<String, String> = buildMap {
-        for (book in books.filter { it.contentType == ContentType.MUSIC }) {
-            catalogRepository.getTracksForBook(book.id).forEach { track ->
-                put(track.id, book.id)
-            }
+        for (entry in catalogRepository.resolveMusicLibraryTracks()) {
+            put(entry.track.id, entry.book.id)
         }
     }
 
@@ -297,7 +272,8 @@ class LibraryViewModel @Inject constructor(
     private suspend fun playMusicTrack(preview: MusicTrackPreview, showDownloadProgress: Boolean) {
         val book = _uiState.value.books.find { it.id == preview.bookId } ?: return
         val libraryTracks = withContext(Dispatchers.IO) {
-            catalogRepository.resolveMusicLibraryTracks()
+            val catalog = catalogRepository.resolveMusicLibraryTracks()
+            MusicShuffleQueue.order(catalog, preview.trackId)
         }
         val targetEntry = libraryTracks.find { it.track.id == preview.trackId } ?: return
         val track = withContext(Dispatchers.IO) {

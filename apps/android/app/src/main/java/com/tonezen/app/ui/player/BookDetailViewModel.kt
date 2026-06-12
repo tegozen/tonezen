@@ -10,6 +10,7 @@ import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.domain.music.MusicShuffleQueue
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.PlaybackQueueBuilder
@@ -133,7 +134,8 @@ class BookDetailViewModel @Inject constructor(
                 }
                 ContentType.MUSIC -> {
                     val libraryTracks = withContext(Dispatchers.IO) {
-                        catalogRepository.resolveMusicLibraryTracks()
+                        val catalog = catalogRepository.resolveMusicLibraryTracks()
+                        MusicShuffleQueue.order(catalog, track.id)
                     }
                     val target = libraryTracks.find { it.track.id == track.id } ?: return@launch
                     withContext(Dispatchers.IO) {

@@ -10,13 +10,16 @@ data class MusicLibraryTrack(
 )
 
 object MusicLibraryResolver {
+    private const val MUSIC_LIBRARY_SLUG = "music-library"
+
     fun resolve(
         allBooks: List<Book>,
         tracksForBook: (String) -> List<Track>,
-    ): List<MusicLibraryTrack> =
-        allBooks
-            .asSequence()
-            .filter { it.contentType == ContentType.MUSIC }
+    ): List<MusicLibraryTrack> {
+        val musicBooks = allBooks.filter { it.contentType == ContentType.MUSIC }
+        val libraryBooks = musicBooks.filter { it.slug == MUSIC_LIBRARY_SLUG }
+        val sourceBooks = libraryBooks.ifEmpty { musicBooks }
+        return sourceBooks
             .flatMap { book ->
                 tracksForBook(book.id).map { track -> MusicLibraryTrack(book, track) }
             }
@@ -29,5 +32,5 @@ object MusicLibraryResolver {
                 ),
             )
             .distinctBy { it.track.id }
-            .toList()
+    }
 }

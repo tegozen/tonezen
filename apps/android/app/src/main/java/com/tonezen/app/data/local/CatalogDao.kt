@@ -16,6 +16,12 @@ interface CatalogDao {
     @Query("SELECT bookId FROM tracks WHERE id = :trackId LIMIT 1")
     suspend fun getBookIdForTrack(trackId: String): String?
 
+    @Query("DELETE FROM tracks WHERE bookId NOT IN (:bookIds)")
+    suspend fun deleteTracksForBooksNotIn(bookIds: List<String>)
+
+    @Query("DELETE FROM books WHERE id NOT IN (:bookIds)")
+    suspend fun deleteBooksNotIn(bookIds: List<String>)
+
     @Query("SELECT * FROM tracks WHERE bookId = :bookId ORDER BY sortOrder")
     suspend fun getTracksForBook(bookId: String): List<TrackEntity>
 
