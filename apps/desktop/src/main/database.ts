@@ -10,7 +10,7 @@ let db: Database.Database | null = null;
 
 export const LocalDatabase = {
   init(userDataPath: string): void {
-    const dbPath = path.join(userDataPath, "tplayer.db");
+    const dbPath = path.join(userDataPath, "tonezen.db");
     db = new Database(dbPath);
     db.exec(`
       CREATE TABLE IF NOT EXISTS books (

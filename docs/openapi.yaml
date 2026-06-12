@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: TPlayer API
+  title: Tonezen API
   version: 1.0.0
   description: Offline-first media player API
 

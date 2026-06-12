@@ -1,4 +1,4 @@
-name: TPlayer CI
+name: Tonezen CI
 
 on:
   push:

@@ -1,4 +1,4 @@
-# TPlayer
+# Tonezen
 
 Offline-first cross-platform media player for audiobooks and music.
 
@@ -65,7 +65,7 @@ Storage files live in `./data/storage/` (override with `STORAGE_HOST_PATH` in `.
 One-time setup — use the **root** `.env` (same file as backend):
 
 ```bash
-cp .env.example .env   # from repo root, edit TPLAYER_* URLs once
+cp .env.example .env   # from repo root, edit TONEZEN_* URLs once
 cd apps/desktop
 npm install
 npm run dev
@@ -96,7 +96,7 @@ Indexer runs automatically as a container (rescans content every `INDEXER_INTERV
 ## Project structure
 
 ```
-tplayer/
+tonezen/
 ├── AGENTS.md
 ├── apps/android/          # Kotlin Android app
 ├── apps/desktop/          # Electron desktop app
@@ -123,7 +123,7 @@ TDD is required for domain logic, indexer parsers, and API handlers. See AGENTS.
 
 1. Copy `.env.example` to `.env` and set strong secrets (`JWT_SECRET`, `POSTGRES_PASSWORD`, `SERVICE_ROLE_KEY`).
 2. Set `API_EXTERNAL_URL`, `GOTRUE_SITE_URL`, `SUPABASE_PUBLIC_URL` to your public domain.
-3. Set `STORAGE_HOST_PATH` to your VPS storage directory (e.g. `/var/tplayer/storage`).
+3. Set `STORAGE_HOST_PATH` to your VPS storage directory (e.g. `/var/tonezen/storage`).
 4. Run `docker compose up -d --build`.
 5. Upload content via Studio (Storage → bucket `content`).
 6. Register a user via Supabase Auth (`POST /auth/v1/signup`) or disable signup in GoTrue.
@@ -133,9 +133,9 @@ TDD is required for domain logic, indexer parsers, and API handlers. See AGENTS.
 
 **Desktop** — set once in root `.env`:
 
-- `TPLAYER_API_URL` — e.g. `https://your.domain/api/v1`
-- `TPLAYER_SUPABASE_URL` — e.g. `https://your.domain`
-- `TPLAYER_SUPABASE_ANON_KEY` — from `.env`
+- `TONEZEN_API_URL` — e.g. `https://your.domain/api/v1`
+- `TONEZEN_SUPABASE_URL` — e.g. `https://your.domain`
+- `TONEZEN_SUPABASE_ANON_KEY` — from `.env`
 
 Then `cd apps/desktop && npm run dev` — no manual `set`/`export` needed.
 

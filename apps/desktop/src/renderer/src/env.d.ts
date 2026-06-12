@@ -1,4 +1,4 @@
-export interface TPlayerApi {
+export interface TonezenApi {
   session: {
     get: () => Promise<{ state: string; userId: string | null }>;
     setOnline: (online: boolean) => Promise<void>;
@@ -49,7 +49,7 @@ export interface TPlayerApi {
 
 declare global {
   interface Window {
-    tplayer: TPlayerApi;
+    tonezen: TonezenApi;
   }
 }
 

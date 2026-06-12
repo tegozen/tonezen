@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.tplayer.app"
+    namespace = "com.tonezen.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.tplayer.app"
+        applicationId = "com.tonezen.app"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

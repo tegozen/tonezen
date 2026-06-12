@@ -11,19 +11,19 @@ describe("loadAppEnv", () => {
     process.env = { ...originalEnv };
   });
 
-  it("loads TPLAYER_* from a temp .env file", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tplayer-env-"));
+  it("loads TONEZEN_* from a temp .env file", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tonezen-env-"));
     const envFile = path.join(dir, ".env");
     fs.writeFileSync(
       envFile,
-      "TPLAYER_API_URL=https://example.com/api/v1\nTPLAYER_SUPABASE_URL=https://example.com\n",
+      "TONEZEN_API_URL=https://example.com/api/v1\nTONEZEN_SUPABASE_URL=https://example.com\n",
     );
 
     const prevCwd = process.cwd();
     try {
       process.chdir(dir);
-      delete process.env.TPLAYER_API_URL;
-      delete process.env.TPLAYER_SUPABASE_URL;
+      delete process.env.TONEZEN_API_URL;
+      delete process.env.TONEZEN_SUPABASE_URL;
       loadAppEnv();
       const config = getClientConfig();
       expect(config.apiBaseUrl).toBe("https://example.com/api/v1");

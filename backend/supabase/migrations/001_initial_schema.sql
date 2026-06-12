@@ -1,4 +1,4 @@
--- TPlayer catalog schema + RLS
+-- Tonezen catalog schema + RLS
 -- Migration: 001_initial_schema.sql
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

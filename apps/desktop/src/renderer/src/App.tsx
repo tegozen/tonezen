@@ -34,7 +34,7 @@ export function App() {
   currentTrackRef.current = currentTrack;
 
   useEffect(() => {
-    return window.tplayer.progress.onUpdated((progress) => {
+    return window.tonezen.progress.onUpdated((progress) => {
       if (selectedBook?.id === progress.bookId) {
         const track = tracks.find((t) => t.id === progress.trackId);
         setProgressLabel(track ? `Continue: ${track.title}` : null);
@@ -44,14 +44,14 @@ export function App() {
 
   const refreshSession = useCallback(async () => {
     const online = navigator.onLine;
-    await window.tplayer.session.setOnline(online);
-    const snap = await window.tplayer.session.get();
+    await window.tonezen.session.setOnline(online);
+    const snap = await window.tonezen.session.get();
     setSessionState(snap.state);
   }, []);
 
   useEffect(() => {
     refreshSession();
-    window.tplayer.db.getBooks().then(setBooks);
+    window.tonezen.db.getBooks().then(setBooks);
     const onOnline = () => refreshSession();
     const onOffline = () => refreshSession();
     window.addEventListener("online", onOnline);
@@ -133,7 +133,7 @@ export function App() {
       if (!track.localPath || !selectedBookRef.current) return;
       const book = selectedBookRef.current;
       setCurrentTrack(track);
-      window.tplayer.playback.setActive(true);
+      window.tonezen.playback.setActive(true);
       syncMediaSessionForTrack(track, book);
       if (audioRef.current) {
         audioRef.current.src = `file://${track.localPath}`;
@@ -167,7 +167,7 @@ export function App() {
   const login = async () => {
     try {
       setError(null);
-      const snap = await window.tplayer.session.login(email, password);
+      const snap = await window.tonezen.session.login(email, password);
       setSessionState(snap.state);
       await syncCatalog();
     } catch (e) {
@@ -178,15 +178,15 @@ export function App() {
   const logout = async () => {
     audioRef.current?.pause();
     clearMediaSession();
-    window.tplayer.playback.setActive(false);
-    await window.tplayer.session.logout();
+    window.tonezen.playback.setActive(false);
+    await window.tonezen.session.logout();
     await refreshSession();
   };
 
   const syncCatalog = async () => {
     setSyncing(true);
     try {
-      const synced = await window.tplayer.catalog.sync();
+      const synced = await window.tonezen.catalog.sync();
       setBooks(synced as Book[]);
     } finally {
       setSyncing(false);
@@ -195,9 +195,9 @@ export function App() {
 
   const openBook = async (book: Book) => {
     setSelectedBook(book);
-    const bookTracks = await window.tplayer.db.getTracks(book.id);
+    const bookTracks = await window.tonezen.db.getTracks(book.id);
     setTracks(bookTracks as Track[]);
-    const saved = await window.tplayer.progress.get(book.id);
+    const saved = await window.tonezen.progress.get(book.id);
     if (saved && book.contentType === "audiobook") {
       const resumeTrack = bookTracks.find((t) => t.id === saved.trackId) ?? bookTracks[0];
       setCurrentTrack(resumeTrack ?? null);
@@ -211,7 +211,7 @@ export function App() {
   const downloadTrack = async (track: Track) => {
     if (!selectedBook) return;
     try {
-      const localPath = await window.tplayer.download.track(selectedBook.id, track.id);
+      const localPath = await window.tonezen.download.track(selectedBook.id, track.id);
       await openBook(selectedBook);
       playTrack({ ...track, localPath });
     } catch (e) {
@@ -233,12 +233,12 @@ export function App() {
 
     if (now - lastProgressSaveRef.current < 15000) return;
     lastProgressSaveRef.current = now;
-    void window.tplayer.progress.save(book.id, track.id, Math.floor(audio.currentTime * 1000));
+    void window.tonezen.progress.save(book.id, track.id, Math.floor(audio.currentTime * 1000));
   };
 
   const resumeProgress = async () => {
     if (!selectedBook) return;
-    const saved = await window.tplayer.progress.get(selectedBook.id);
+    const saved = await window.tonezen.progress.get(selectedBook.id);
     if (!saved) return;
     const track = tracks.find((t) => t.id === saved.trackId);
     if (track?.localPath) playTrack(track, saved.positionMs);
@@ -253,14 +253,14 @@ export function App() {
   const leaveBook = () => {
     audioRef.current?.pause();
     clearMediaSession();
-    window.tplayer.playback.setActive(false);
+    window.tonezen.playback.setActive(false);
     setSelectedBook(null);
   };
 
   if (sessionState === "Unauthenticated") {
     return (
       <div className="app">
-        <h1>TPlayer</h1>
+        <h1>Tonezen</h1>
         <p>Sign in with your account to sync audiobook progress.</p>
         <input
           placeholder="Email"
@@ -283,7 +283,7 @@ export function App() {
 
   return (
     <div className="app">
-      <h1>TPlayer</h1>
+      <h1>Tonezen</h1>
       {sessionState === "AuthenticatedOffline" && (
         <div className="banner">No network — sync paused</div>
       )}
@@ -331,7 +331,7 @@ export function App() {
                     <button
                       className="secondary"
                       onClick={() =>
-                        window.tplayer.download.delete(selectedBook.id, track.id).then(() => openBook(selectedBook))
+                        window.tonezen.download.delete(selectedBook.id, track.id).then(() => openBook(selectedBook))
                       }
                     >
                       Delete

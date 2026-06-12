@@ -30,7 +30,7 @@ export function setupMediaSession(track: MediaSessionTrackInfo, handlers: MediaS
 
   navigator.mediaSession.metadata = new MediaMetadata({
     title: track.title,
-    artist: track.artist ?? "TPlayer",
+    artist: track.artist ?? "Tonezen",
     album: track.album,
     artwork,
   });

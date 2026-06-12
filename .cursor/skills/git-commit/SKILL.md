@@ -1,9 +1,9 @@
 ---
 name: git-commit
-description: Creates git commits following TPlayer Conventional Commits and safety rules. Use when the user asks to commit, create a commit, save changes to git, or says "закоммить"/"сделай коммит".
+description: Creates git commits following Tonezen Conventional Commits and safety rules. Use when the user asks to commit, create a commit, save changes to git, or says "закоммить"/"сделай коммит".
 ---
 
-# Git Commit (TPlayer)
+# Git Commit (Tonezen)
 
 Create commits only when the user explicitly asks. Never commit unless requested.
 

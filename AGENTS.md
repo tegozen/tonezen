@@ -1,4 +1,4 @@
-# TPlayer — Agent & Developer Guide
+# Tonezen — Agent & Developer Guide
 
 ## Project Overview
 

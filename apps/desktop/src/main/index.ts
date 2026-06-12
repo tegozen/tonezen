@@ -76,7 +76,7 @@ function buildTrayMenu(): Menu {
 function createTray(): void {
   const icon = nativeImage.createEmpty();
   tray = new Tray(icon);
-  tray.setToolTip("TPlayer");
+  tray.setToolTip("Tonezen");
   tray.setContextMenu(buildTrayMenu());
   tray.on("click", () => {
     if (mainWindow?.isVisible()) mainWindow.hide();

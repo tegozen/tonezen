@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-contextBridge.exposeInMainWorld("tplayer", {
+contextBridge.exposeInMainWorld("tonezen", {
   session: {
     get: () => ipcRenderer.invoke("session:get"),
     setOnline: (online: boolean) => ipcRenderer.invoke("session:setOnline", online),

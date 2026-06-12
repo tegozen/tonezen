@@ -1,5 +1,5 @@
 {
-  "name": "@tplayer/indexer",
+  "name": "@tonezen/indexer",
   "version": "0.1.0",
   "private": true,
   "type": "module",

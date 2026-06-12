@@ -1,8 +1,8 @@
 {
-  "name": "@tplayer/desktop",
+  "name": "@tonezen/desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "TPlayer desktop — offline-first media player",
+  "description": "Tonezen desktop — offline-first media player",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
