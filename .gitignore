@@ -5,9 +5,7 @@
 
 # Data volumes
 data/postgres/
-data/content/**/*.mp3
-data/content/**/*.m4a
-!data/content/**/.gitkeep
+backups/
 
 # Node
 node_modules/

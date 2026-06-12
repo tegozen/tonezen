@@ -47,18 +47,26 @@ docker compose up -d
 
 Services:
 
-| Service | URL / Port |
-|---------|------------|
-| Studio (admin UI) | http://localhost:3000 |
-| Kong (API + Auth + Storage + Realtime) | http://localhost:8000 |
+| Service | URL |
+|---------|-----|
+| Kong (single entry point) | http://localhost:8000 |
+| Studio (admin UI) | http://localhost:8000 |
 | API | http://localhost:8000/api/v1 |
 | Auth | http://localhost:8000/auth/v1 |
 | Storage | http://localhost:8000/storage/v1 |
 | Realtime (WebSocket) | ws://localhost:8000/realtime/v1/websocket |
-| Postgres | :5432 |
 
 Upload audio via **Studio → Storage → bucket `content`** — see [docs/content-layout.md](docs/content-layout.md).
-Storage files live in `./data/storage/` (override with `STORAGE_HOST_PATH` in `.env`).
+Storage lives in the Docker volume `tonezen-storage` (not a host bind mount).
+
+Export for migration to another server:
+
+```bash
+./scripts/storage-export.sh                    # → backups/tonezen-storage-<timestamp>.tar.gz
+./scripts/storage-import.sh backups/file.tar.gz   # on the target host
+```
+
+Or via Makefile: `make storage-export`, `make storage-import ARCHIVE=backups/file.tar.gz`.
 
 ### Desktop
 
@@ -123,8 +131,8 @@ TDD is required for domain logic, indexer parsers, and API handlers. See AGENTS.
 
 1. Copy `.env.example` to `.env` and set strong secrets (`JWT_SECRET`, `POSTGRES_PASSWORD`, `SERVICE_ROLE_KEY`).
 2. Set `API_EXTERNAL_URL`, `GOTRUE_SITE_URL`, `SUPABASE_PUBLIC_URL` to your public domain.
-3. Set `STORAGE_HOST_PATH` to your VPS storage directory (e.g. `/var/tonezen/storage`).
-4. Run `docker compose up -d --build`.
+3. Run `docker compose up -d --build`.
+4. (Optional) Restore content from another server: `make storage-import ARCHIVE=backups/tonezen-storage.tar.gz`.
 5. Upload content via Studio (Storage → bucket `content`).
 6. Register a user via Supabase Auth (`POST /auth/v1/signup`) or disable signup in GoTrue.
 7. Configure client apps — desktop reads root `.env` automatically; Android uses `build.gradle.kts`.
@@ -142,7 +150,7 @@ Then `cd apps/desktop && npm run dev` — no manual `set`/`export` needed.
 ### Security checklist
 
 - [ ] Change all default secrets in `.env`
-- [ ] Restrict Postgres port via firewall (only Kong/Studio public)
+- [ ] Expose only Kong (`KONG_HTTP_PORT`) to the public internet
 - [ ] Use HTTPS reverse proxy in front of Kong (Caddy/Traefik)
 - [ ] Set `GOTRUE_DISABLE_SIGNUP=true` if you want invite-only registration
 

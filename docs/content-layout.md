@@ -1,6 +1,6 @@
 # Content Storage Layout
 
-Upload audio to **Supabase Storage** bucket `content` via Studio (http://localhost:3000 → Storage).
+Upload audio to **Supabase Storage** bucket `content` via Studio (http://localhost:8000 → Storage).
 
 Use this folder structure inside the bucket. The catalog indexer scans the storage file backend and upserts metadata into Postgres.
 
@@ -71,7 +71,7 @@ content/music/{album-slug}/
 
 ## Indexer behavior
 
-- Scans `./data/storage/{STORAGE_TENANT_ID}/{STORAGE_BUCKET}/` on the host (storage file backend)
+- Scans `tonezen/content/` inside the `tonezen-storage` Docker volume
 - Computes SHA-256 checksum and file size for each audio file
 - Extracts duration via ffprobe when available
 - Sets `deleted_at` on catalog entries removed from storage (soft delete)

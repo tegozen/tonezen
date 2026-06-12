@@ -2,8 +2,6 @@ services:
   db:
     image: supabase/postgres:15.8.1.060
     restart: unless-stopped
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-tonezen}
@@ -30,7 +28,7 @@ services:
       API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
       GOTRUE_DB_DRIVER: postgres
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}
-      GOTRUE_SITE_URL: ${GOTRUE_SITE_URL:-http://localhost:3000}
+      GOTRUE_SITE_URL: ${GOTRUE_SITE_URL:-http://localhost:8000}
       GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-}
       GOTRUE_DISABLE_SIGNUP: ${GOTRUE_DISABLE_SIGNUP:-false}
       GOTRUE_JWT_SECRET: ${JWT_SECRET}
@@ -64,8 +62,8 @@ services:
         condition: service_healthy
     environment:
       PG_META_PORT: 8080
-      PG_META_DB_HOST: ${POSTGRES_HOST:-db}
-      PG_META_DB_PORT: ${POSTGRES_PORT:-5432}
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
       PG_META_DB_NAME: ${POSTGRES_DB:-tonezen}
       PG_META_DB_USER: supabase_admin
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
@@ -79,13 +77,11 @@ services:
         condition: service_healthy
       meta:
         condition: service_started
-    ports:
-      - "${STUDIO_HTTP_PORT:-3000}:3000"
     environment:
       HOSTNAME: "0.0.0.0"
       STUDIO_PG_META_URL: http://meta:8080
-      POSTGRES_HOST: ${POSTGRES_HOST:-db}
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
       POSTGRES_DB: ${POSTGRES_DB:-tonezen}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PG_META_CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
@@ -106,8 +102,8 @@ services:
         condition: service_healthy
     environment:
       PORT: 4000
-      DB_HOST: ${POSTGRES_HOST:-db}
-      DB_PORT: ${POSTGRES_PORT:-5432}
+      DB_HOST: db
+      DB_PORT: 5432
       DB_USER: supabase_admin
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB:-tonezen}
@@ -143,14 +139,14 @@ services:
       STORAGE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
       FILE_SIZE_LIMIT: 524288000
       STORAGE_BACKEND: file
-      GLOBAL_S3_BUCKET: ${STORAGE_BUCKET:-content}
-      TENANT_ID: ${STORAGE_TENANT_ID:-tonezen}
-      REGION: ${REGION:-local}
+      GLOBAL_S3_BUCKET: content
+      TENANT_ID: tonezen
+      REGION: local
       ENABLE_IMAGE_TRANSFORMATION: "false"
       IMGPROXY_URL: http://imgproxy:5001
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
     volumes:
-      - ${STORAGE_HOST_PATH:-./data/storage}:/var/lib/storage
+      - tonezen-storage:/var/lib/storage
 
   imgproxy:
     image: darthsim/imgproxy:v3.8.0
@@ -161,7 +157,7 @@ services:
       IMGPROXY_USE_ETAG: "true"
       IMGPROXY_ENABLE_WEBP_DETECTION: "true"
     volumes:
-      - ${STORAGE_HOST_PATH:-./data/storage}:/var/lib/storage:ro
+      - tonezen-storage:/var/lib/storage:ro
 
   api:
     build:
@@ -172,15 +168,11 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}
       JWT_SECRET: ${JWT_SECRET}
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       STORAGE_INTERNAL_URL: http://storage:5000
-      STORAGE_BUCKET: ${STORAGE_BUCKET:-content}
-      STORAGE_SIGN_EXPIRES_IN: ${STORAGE_SIGN_EXPIRES_IN:-900}
       PORT: 3001
-    ports:
-      - "3001:3001"
 
   kong:
     image: kong:2.8.1
@@ -191,6 +183,7 @@ services:
       - api
       - realtime
       - storage
+      - studio
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
@@ -212,15 +205,16 @@ services:
       storage:
         condition: service_started
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      CONTENT_ROOT: /var/lib/storage/${STORAGE_TENANT_ID:-tonezen}/${STORAGE_BUCKET:-content}
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}
+      CONTENT_ROOT: /var/lib/storage/tonezen/content
       INDEXER_INTERVAL_SECONDS: ${INDEXER_INTERVAL_SECONDS:-60}
     volumes:
-      - ${STORAGE_HOST_PATH:-./data/storage}:/var/lib/storage:ro
+      - tonezen-storage:/var/lib/storage:ro
 
   mail:
     image: inbucket/inbucket:3.0.3
     restart: unless-stopped
-    ports:
-      - "2500:2500"
-      - "9000:9000"
+
+volumes:
+  tonezen-storage:
+    name: tonezen-storage
