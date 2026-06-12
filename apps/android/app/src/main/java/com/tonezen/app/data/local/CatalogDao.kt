@@ -25,6 +25,15 @@ interface CatalogDao {
     @Query("SELECT * FROM tracks WHERE bookId = :bookId ORDER BY sortOrder")
     suspend fun getTracksForBook(bookId: String): List<TrackEntity>
 
+    @Query("SELECT * FROM tracks ORDER BY bookId, sortOrder")
+    suspend fun getAllTracks(): List<TrackEntity>
+
+    @Query("SELECT * FROM tracks WHERE bookId IN (:bookIds) ORDER BY bookId, sortOrder")
+    suspend fun getTracksForBooks(bookIds: List<String>): List<TrackEntity>
+
+    @Query("SELECT DISTINCT bookId FROM tracks WHERE localPath IS NOT NULL AND localPath != ''")
+    suspend fun getBookIdsWithDownloads(): List<String>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertBooks(books: List<BookEntity>)
 
@@ -33,6 +42,9 @@ interface CatalogDao {
 
     @Query("SELECT * FROM audiobook_progress WHERE bookId = :bookId")
     suspend fun getProgress(bookId: String): AudiobookProgressEntity?
+
+    @Query("SELECT * FROM audiobook_progress WHERE bookId IN (:bookIds)")
+    suspend fun getProgressForBooks(bookIds: List<String>): List<AudiobookProgressEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertProgress(progress: AudiobookProgressEntity)

@@ -114,17 +114,27 @@ class LibraryViewModel @Inject constructor(
                 } else if (snapshot.contentType == ContentType.AUDIOBOOK) {
                     cycleHandler.onAudiobookSnapshot(snapshot)
                 }
+                val current = _uiState.value
+                val cyclePlayback = when {
+                    isMusic -> CyclePlaybackUi()
+                    snapshot.contentType == ContentType.AUDIOBOOK && session.activeAudiobookBookId != null ->
+                        cycleHandler.resolveCyclePlaybackUi(snapshot)
+                    current.cyclePlayback.isPreparing -> current.cyclePlayback
+                    else -> CyclePlaybackUi()
+                }
+                val musicPlayback = musicHandler.musicPlaybackUi(snapshot)
+                val nowPlayingTitle = snapshot.trackTitle ?: current.nowPlayingTitle
+                if (
+                    musicPlayback == current.musicPlayback &&
+                    cyclePlayback == current.cyclePlayback &&
+                    nowPlayingTitle == current.nowPlayingTitle
+                ) {
+                    return@collectLatest
+                }
                 _uiState.update { state ->
-                    val cyclePlayback = when {
-                        isMusic -> CyclePlaybackUi()
-                        snapshot.contentType == ContentType.AUDIOBOOK && session.activeAudiobookBookId != null ->
-                            cycleHandler.resolveCyclePlaybackUi(snapshot)
-                        state.cyclePlayback.isPreparing -> state.cyclePlayback
-                        else -> CyclePlaybackUi()
-                    }
                     state.copy(
-                        nowPlayingTitle = snapshot.trackTitle ?: state.nowPlayingTitle,
-                        musicPlayback = musicHandler.musicPlaybackUi(snapshot),
+                        nowPlayingTitle = nowPlayingTitle,
+                        musicPlayback = musicPlayback,
                         cyclePlayback = cyclePlayback,
                     )
                 }
@@ -280,8 +290,7 @@ class LibraryViewModel @Inject constructor(
     }
 
     private suspend fun updateBooks(books: List<Book>) {
-        session.musicBookIdByTrackId = musicHandler.buildMusicTrackBookMap(books)
-        musicHandler.rebuildMusicCandidates(books)
+        musicHandler.reloadMusicCatalogData()
         val trackList = musicHandler.buildMusicTrackListForCatalogUpdate()
         _uiState.update {
             it.copy(

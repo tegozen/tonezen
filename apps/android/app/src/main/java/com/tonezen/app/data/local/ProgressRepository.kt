@@ -28,4 +28,10 @@ class ProgressRepository @Inject constructor(
     suspend fun deleteProgress(bookId: String) {
         catalogDao.deleteProgress(bookId)
     }
+
+    suspend fun getProgressForBooks(bookIds: Collection<String>): Map<String, AudiobookProgress?> {
+        if (bookIds.isEmpty()) return emptyMap()
+        return catalogDao.getProgressForBooks(bookIds.distinct())
+            .associate { it.bookId to it.toDomain() }
+    }
 }

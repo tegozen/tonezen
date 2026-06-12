@@ -44,12 +44,38 @@ class CatalogRepository @Inject constructor(
 
     suspend fun resolveMusicLibraryTracks(): List<MusicLibraryTrack> {
         val allBooks = getAllBooks()
-        val tracksByBookId = allBooks.associate { book ->
-            book.id to getTracksForBook(book.id)
-        }
+        val tracksByBookId = getAllTracksByBookId()
         return MusicLibraryResolver.resolve(allBooks) { bookId ->
             tracksByBookId[bookId].orEmpty()
         }
+    }
+
+    suspend fun getAllTracksByBookId(): Map<String, List<Track>> =
+        catalogDao.getAllTracks()
+            .map { it.toDomain() }
+            .groupBy { it.bookId }
+
+    suspend fun getTracksByBookIds(bookIds: Collection<String>): Map<String, List<Track>> {
+        if (bookIds.isEmpty()) return emptyMap()
+        return catalogDao.getTracksForBooks(bookIds.distinct())
+            .map { it.toDomain() }
+            .groupBy { it.bookId }
+    }
+
+    suspend fun getProgressByBookIds(bookIds: Collection<String>): Map<String, AudiobookProgress?> =
+        progressRepository.getProgressForBooks(bookIds)
+
+    suspend fun getDownloadedTrackIds(): Set<String> = withContext(Dispatchers.IO) {
+        catalogDao.getAllTracks()
+            .asSequence()
+            .filter { entity ->
+                val path = entity.localPath ?: return@filter false
+                SafeLocalStorage.isUnderAppFilesRoot(context.filesDir, path) &&
+                    File(path).isFile &&
+                    File(path).length() > 0L
+            }
+            .map { it.id }
+            .toSet()
     }
 
     suspend fun getTracksForBook(bookId: String): List<Track> =
@@ -62,10 +88,10 @@ class CatalogRepository @Inject constructor(
         progressRepository.deleteProgress(bookId)
     }
 
-    suspend fun downloadedBookIds(books: List<Book>): Set<String> = books
-        .filter { book -> catalogDao.getTracksForBook(book.id).any { it.localPath != null } }
-        .map { it.id }
-        .toSet()
+    suspend fun downloadedBookIds(books: List<Book>): Set<String> {
+        val withDownloads = catalogDao.getBookIdsWithDownloads().toSet()
+        return books.asSequence().map { it.id }.filter { it in withDownloads }.toSet()
+    }
 
     suspend fun getAllCycles(): List<Cycle> = withContext(Dispatchers.IO) {
         val booksById = catalogDao.getAllBooks().associate { it.id to it.toDomain() }
@@ -184,9 +210,10 @@ class CatalogRepository @Inject constructor(
 
     suspend fun getDownloadedBookSummaries(): List<DownloadedBookSummary> {
         val books = catalogDao.getAllBooks()
+        val tracksByBookId = catalogDao.getAllTracks().groupBy { it.bookId }
         return books.mapNotNull { entity ->
             val book = entity.toDomain()
-            val tracks = catalogDao.getTracksForBook(book.id)
+            val tracks = tracksByBookId[book.id].orEmpty()
             val downloaded = tracks.filter { it.localPath != null }
             if (downloaded.isEmpty()) return@mapNotNull null
             val sizeBytes = downloaded.sumOf { track ->

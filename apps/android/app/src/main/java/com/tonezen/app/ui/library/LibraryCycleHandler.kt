@@ -174,15 +174,18 @@ internal class LibraryCycleHandler(
 
     suspend fun refreshCycleCardStates(cycles: List<Cycle>, downloadedBookIds: Set<String>) {
         val states = withContext(Dispatchers.IO) {
+            val bookIds = cycles.flatMap { cycle -> cycle.books.map { it.id } }.toSet()
+            val tracksByBookId = catalogRepository.getTracksByBookIds(bookIds)
+            val progressByBookId = catalogRepository.getProgressByBookIds(bookIds)
             cycles.associate { cycle ->
-                val tracksByBookId = cycle.books.associate { book ->
-                    book.id to catalogRepository.getTracksForBook(book.id)
+                val cycleTracks = cycle.books.associate { book ->
+                    book.id to tracksByBookId[book.id].orEmpty()
                 }
-                val progressByBookId = cycle.books.associate { book ->
-                    book.id to catalogRepository.getProgress(book.id)
+                val cycleProgress = cycle.books.associate { book ->
+                    book.id to progressByBookId[book.id]
                 }
-                val fraction = resolveCycleListenFraction(cycle, tracksByBookId, progressByBookId)
-                val allTracks = tracksByBookId.values.flatten()
+                val fraction = resolveCycleListenFraction(cycle, cycleTracks, cycleProgress)
+                val allTracks = cycleTracks.values.flatten()
                 val isFullyDownloaded = allTracks.isNotEmpty() &&
                     allTracks.all { !it.localPath.isNullOrBlank() }
                 cycle.id to CycleCardState(
@@ -190,7 +193,7 @@ internal class LibraryCycleHandler(
                     progressFraction = fraction?.takeIf { it > 0f },
                     showDownload = allTracks.any { it.localPath.isNullOrBlank() },
                     showRemoveDownload = allTracks.any { !it.localPath.isNullOrBlank() },
-                    isListened = isCycleFullyListened(cycle, tracksByBookId, progressByBookId),
+                    isListened = isCycleFullyListened(cycle, cycleTracks, cycleProgress),
                 )
             }
         }

@@ -253,18 +253,23 @@ internal class LibraryMusicHandler(
         }
     }
 
-    suspend fun rebuildMusicCandidates(books: List<Book>) {
-        session.musicCandidates = withContext(Dispatchers.IO) {
-            catalogRepository.resolveMusicLibraryTracks().map { entry ->
-                entry.book to entry.track
-            }
+    suspend fun reloadMusicCatalogData() {
+        val entries = withContext(Dispatchers.IO) {
+            catalogRepository.resolveMusicLibraryTracks()
         }
+        session.musicCandidates = entries.map { it.book to it.track }
+        session.musicBookIdByTrackId = entries.associate { it.track.id to it.book.id }
     }
 
-    suspend fun buildMusicTrackBookMap(books: List<Book>): Map<String, String> = buildMap {
-        for (entry in catalogRepository.resolveMusicLibraryTracks()) {
-            put(entry.track.id, entry.book.id)
+    suspend fun rebuildMusicCandidates(books: List<Book>) {
+        reloadMusicCatalogData()
+    }
+
+    suspend fun buildMusicTrackBookMap(books: List<Book>): Map<String, String> {
+        if (session.musicBookIdByTrackId.isEmpty()) {
+            reloadMusicCatalogData()
         }
+        return session.musicBookIdByTrackId
     }
 
     suspend fun buildMusicTrackListForCatalogUpdate(): List<MusicListTrack> = when {
@@ -286,27 +291,35 @@ internal class LibraryMusicHandler(
     private suspend fun buildMusicTrackList(shuffle: Boolean): List<MusicListTrack> {
         if (session.musicCandidates.isEmpty()) return emptyList()
         val ordered = if (shuffle) session.musicCandidates.shuffled() else session.musicCandidates
-        return withContext(Dispatchers.IO) {
-            ordered.map { (book, track) -> toListTrack(book, track) }
+        val downloadedTrackIds = withContext(Dispatchers.IO) {
+            catalogRepository.getDownloadedTrackIds()
         }
+        return ordered.map { (book, track) -> toListTrack(book, track, downloadedTrackIds) }
     }
 
     private suspend fun refreshMusicTrackListDownloadState(
         list: List<MusicListTrack>,
-    ): List<MusicListTrack> = withContext(Dispatchers.IO) {
-        list.map { item ->
-            item.copy(isDownloaded = trackDownloadEnsurer.isTrackLocal(item.bookId, item.trackId))
+    ): List<MusicListTrack> {
+        val downloadedTrackIds = withContext(Dispatchers.IO) {
+            catalogRepository.getDownloadedTrackIds()
+        }
+        return list.map { item ->
+            item.copy(isDownloaded = item.trackId in downloadedTrackIds)
         }
     }
 
-    private suspend fun toListTrack(book: Book, track: Track): MusicListTrack = MusicListTrack(
+    private fun toListTrack(
+        book: Book,
+        track: Track,
+        downloadedTrackIds: Set<String>,
+    ): MusicListTrack = MusicListTrack(
         trackId = track.id,
         trackTitle = track.title,
         artist = book.author ?: book.title,
         albumTitle = book.title,
         bookId = book.id,
         durationMs = track.durationMs,
-        isDownloaded = trackDownloadEnsurer.isTrackLocal(book.id, track.id),
+        isDownloaded = track.id in downloadedTrackIds,
     )
 
     private suspend fun resolvePlaybackTrack(playback: MusicPlaybackUi): MusicListTrack? {
