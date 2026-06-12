@@ -16,6 +16,8 @@ data class StoredSession(
     val accessToken: String,
     val refreshToken: String,
     val expiresAtEpochSeconds: Long,
+    val memberSinceEpochMs: Long? = null,
+    val avatarUrl: String? = null,
 )
 
 data class AudiobookProgress(

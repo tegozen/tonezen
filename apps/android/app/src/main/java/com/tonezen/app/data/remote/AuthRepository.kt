@@ -8,6 +8,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.time.Instant
 
 class AuthRepository(
     private val supabaseUrl: String,
@@ -58,6 +59,8 @@ class AuthRepository(
                 accessToken = json.getString("access_token"),
                 refreshToken = json.getString("refresh_token"),
                 expiresAtEpochSeconds = System.currentTimeMillis() / 1000 + expiresIn,
+                memberSinceEpochMs = memberSinceFromUser(user),
+                avatarUrl = avatarUrlFromUser(user),
             )
         }
     }
@@ -70,5 +73,16 @@ class AuthRepository(
         val localPart = fallbackEmail.substringBefore("@").trim()
         if (localPart.isEmpty()) return ""
         return localPart.replaceFirstChar { it.uppercase() }
+    }
+
+    private fun memberSinceFromUser(user: JSONObject): Long? {
+        val createdAt = user.optString("created_at").takeIf { it.isNotBlank() } ?: return null
+        return runCatching { Instant.parse(createdAt).toEpochMilli() }.getOrNull()
+    }
+
+    private fun avatarUrlFromUser(user: JSONObject): String? {
+        val meta = user.optJSONObject("user_metadata") ?: return null
+        return meta.optString("avatar_url").takeIf { it.isNotBlank() }
+            ?: meta.optString("picture").takeIf { it.isNotBlank() }
     }
 }

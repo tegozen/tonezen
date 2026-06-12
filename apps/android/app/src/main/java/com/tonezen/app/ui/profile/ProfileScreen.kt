@@ -1,5 +1,6 @@
 package com.tonezen.app.ui.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,10 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -28,11 +28,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import coil.compose.AsyncImage
+import com.tonezen.app.ui.theme.TonezenFaint
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.domain.model.SessionState
+import com.tonezen.app.ui.components.CheckCircleGlyph
 import com.tonezen.app.ui.components.ChevronRightGlyph
 import com.tonezen.app.ui.components.IconCircle
 import com.tonezen.app.ui.components.LockGlyph
@@ -45,7 +50,6 @@ import com.tonezen.app.ui.components.StorageGlyph
 import com.tonezen.app.ui.components.SyncGlyph
 import com.tonezen.app.ui.components.WarningGlyph
 import com.tonezen.app.ui.theme.TonezenAmber
-import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenGreen
 import com.tonezen.app.ui.theme.TonezenInk
@@ -60,7 +64,6 @@ internal fun ProfileScreen(
     viewModel: ProfileViewModel,
 ) {
     val state by viewModel.uiState.collectAsState()
-    val online = state.sessionState == SessionState.AUTHENTICATED_ONLINE
 
     if (state.showSignOutConfirm) {
         SignOutConfirmDialog(
@@ -81,8 +84,54 @@ internal fun ProfileScreen(
         )
     }
 
+    ProfileScreenContent(
+        padding = padding,
+        state = state,
+        onOverflowClick = { viewModel.setOverflowMenuVisible(true) },
+        onDismissOverflow = { viewModel.setOverflowMenuVisible(false) },
+        onSignOutClick = { viewModel.setSignOutConfirmVisible(true) },
+        onSyncNow = viewModel::syncNow,
+    )
+}
+
+@Composable
+internal fun ProfileScreenContent(
+    padding: PaddingValues,
+    state: ProfileUiState,
+    onOverflowClick: () -> Unit,
+    onDismissOverflow: () -> Unit,
+    onSignOutClick: () -> Unit,
+    onSyncNow: () -> Unit,
+) {
+    val online = state.sessionState == SessionState.AUTHENTICATED_ONLINE
+    val settingsItems = listOf(
+        SettingsItem(
+            titleRes = R.string.settings_account,
+            subtitleRes = R.string.settings_account_subtitle,
+            icon = { ProfileGlyph(tint = TonezenInk) },
+        ),
+        SettingsItem(
+            titleRes = R.string.settings_sync,
+            subtitleRes = R.string.settings_sync_subtitle,
+            icon = { SyncGlyph(tint = TonezenInk) },
+        ),
+        SettingsItem(
+            titleRes = R.string.settings_storage,
+            subtitleRes = R.string.settings_storage_subtitle,
+            icon = { StorageGlyph(tint = TonezenInk) },
+        ),
+        SettingsItem(
+            titleRes = R.string.settings_privacy,
+            subtitleRes = R.string.settings_privacy_subtitle,
+            icon = { LockGlyph(tint = TonezenInk) },
+        ),
+    )
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(TonezenScreenBrush).padding(padding),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(TonezenScreenBrush)
+            .padding(padding),
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -92,127 +141,272 @@ internal fun ProfileScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(stringResource(R.string.profile_title), color = TonezenInk, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.profile_title),
+                        color = TonezenInk,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
                     StatusChip(
                         label = if (online) stringResource(R.string.online) else stringResource(R.string.offline),
                         tone = if (online) TonezenGreen else TonezenAmber,
                     )
-                    Box {
-                        IconCircle(modifier = Modifier.clickable { viewModel.setOverflowMenuVisible(true) }) {
-                            OverflowGlyph()
-                        }
-                        DropdownMenu(
-                            expanded = state.showOverflowMenu,
-                            onDismissRequest = { viewModel.setOverflowMenuVisible(false) },
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.sign_out), color = TonezenInk) },
-                                onClick = { viewModel.setSignOutConfirmVisible(true) },
-                            )
-                        }
+                }
+                Box {
+                    IconCircle(modifier = Modifier.clickable(onClick = onOverflowClick)) {
+                        OverflowGlyph()
+                    }
+                    DropdownMenu(
+                        expanded = state.showOverflowMenu,
+                        onDismissRequest = onDismissOverflow,
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.sign_out), color = TonezenInk) },
+                            onClick = onSignOutClick,
+                        )
                     }
                 }
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier.size(56.dp).clip(CircleShape).background(TonezenSurfaceRaised),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    ProfileGlyph(tint = TonezenTeal, size = 30.dp)
-                }
-                Column {
-                    Text(state.displayName.orEmpty(), color = TonezenInk, fontWeight = FontWeight.SemiBold)
-                    state.email?.takeIf { it.isNotBlank() }?.let { email ->
-                        Text(email, color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
+            ProfileUserCard(
+                displayName = state.displayName.orEmpty(),
+                email = state.email,
+                memberSinceLabel = state.memberSinceLabel,
+                avatarUrl = state.avatarUrl,
+            )
+        }
+        item {
+            Column {
+                ProfileSectionLabel(stringResource(R.string.profile_sync_status_section))
+                SyncStatusCard(
+                    lastSyncTime = state.lastSyncTime,
+                    pendingSyncCount = state.pendingSyncCount,
+                    syncing = state.syncing,
+                    onSyncNow = onSyncNow,
+                )
             }
         }
         item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(TonezenSurfaceRaised)
-                    .border(1.dp, TonezenBorder, RoundedCornerShape(16.dp))
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(stringResource(R.string.sync_status_all_set), color = TonezenInk, fontWeight = FontWeight.SemiBold)
-                Text(state.lastSyncLabel ?: stringResource(R.string.last_sync_today), color = TonezenMuted)
-                if (state.pendingSyncCount > 0) {
-                    StatusChip(label = stringResource(R.string.pending), tone = TonezenAmber)
-                }
-                OutlinedButton(onClick = viewModel::syncNow, enabled = !state.syncing) {
-                    Text(stringResource(R.string.sync_now), color = TonezenTeal)
-                }
+            Column {
+                ProfileSectionLabel(stringResource(R.string.profile_settings_section))
+                SettingsGroup(items = settingsItems)
             }
         }
         item {
-            SettingsRow(
-                title = stringResource(R.string.settings_account),
-                subtitle = state.email.orEmpty(),
-                icon = { ProfileGlyph(tint = TonezenInk) },
-            )
-            SettingsRow(
-                title = stringResource(R.string.settings_sync),
-                subtitle = stringResource(R.string.sync_now),
-                icon = { SyncGlyph(tint = TonezenInk) },
-            )
-            SettingsRow(
-                title = stringResource(R.string.settings_storage),
-                subtitle = formatGb(state.storageUsedBytes),
-                icon = { StorageGlyph(tint = TonezenInk) },
-            )
-            SettingsRow(
-                title = stringResource(R.string.settings_privacy),
-                subtitle = "",
-                icon = { LockGlyph(tint = TonezenInk) },
-            )
+            MusicProgressWarningCard()
         }
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(TonezenSurfaceRaised)
-                    .border(1.dp, TonezenAmber.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
-                .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                WarningGlyph(tint = TonezenAmber)
-                Text(stringResource(R.string.music_progress_local_warning), color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun ProfileUserCard(
+    displayName: String,
+    email: String?,
+    memberSinceLabel: String?,
+    avatarUrl: String?,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(TonezenSurfaceRaised)
+            .border(1.dp, TonezenBorder, RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(58.dp)
+                .border(2.dp, Color.White.copy(alpha = 0.16f), CircleShape)
+                .padding(2.dp)
+                .clip(CircleShape)
+                .background(TonezenSurfaceRaised),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (!avatarUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = avatarUrl,
+                    contentDescription = null,
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                ProfileGlyph(tint = TonezenTeal, size = 28.dp)
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                displayName,
+                color = TonezenInk,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            email?.takeIf { it.isNotBlank() }?.let { value ->
+                Text(value, color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
+            }
+            memberSinceLabel?.let { value ->
+                Text(
+                    stringResource(R.string.profile_member_since, value),
+                    color = TonezenFaint,
+                    style = MaterialTheme.typography.labelSmall,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SettingsRow(title: String, subtitle: String, icon: @Composable () -> Unit) {
+private fun ProfileSectionLabel(label: String) {
+    Text(
+        label.uppercase(),
+        color = TonezenMuted,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun SyncStatusCard(
+    lastSyncTime: String?,
+    pendingSyncCount: Int,
+    syncing: Boolean,
+    onSyncNow: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(TonezenSurfaceRaised.copy(alpha = 0.6f))
+            .clip(RoundedCornerShape(16.dp))
+            .background(TonezenSurfaceRaised)
+            .border(1.dp, TonezenBorder, RoundedCornerShape(16.dp))
             .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            icon()
-            Column {
-                Text(title, color = TonezenInk, fontWeight = FontWeight.Medium)
-                if (subtitle.isNotBlank()) {
-                    Text(subtitle, color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f),
+        ) {
+            CheckCircleGlyph(tint = TonezenTeal, size = 22.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    stringResource(R.string.sync_status_all_set),
+                    color = TonezenInk,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    if (lastSyncTime != null) {
+                        stringResource(R.string.last_sync_today_at, lastSyncTime)
+                    } else {
+                        stringResource(R.string.last_sync_today)
+                    },
+                    color = TonezenMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (pendingSyncCount > 0) {
+                    StatusChip(label = stringResource(R.string.pending), tone = TonezenAmber)
                 }
+            }
+        }
+        OutlinedButton(
+            onClick = onSyncNow,
+            enabled = !syncing,
+            shape = RoundedCornerShape(999.dp),
+            border = BorderStroke(1.dp, TonezenTeal.copy(alpha = 0.55f)),
+        ) {
+            Text(stringResource(R.string.sync_now), color = TonezenTeal)
+        }
+    }
+}
+
+@Composable
+private fun SettingsGroup(items: List<SettingsItem>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(TonezenSurfaceRaised)
+            .border(1.dp, TonezenBorder, RoundedCornerShape(16.dp)),
+    ) {
+        items.forEachIndexed { index, item ->
+            SettingsRow(
+                title = stringResource(item.titleRes),
+                subtitle = stringResource(item.subtitleRes),
+                icon = item.icon,
+            )
+            if (index < items.lastIndex) {
+                HorizontalDivider(color = TonezenBorder.copy(alpha = 0.65f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsRow(
+    title: String,
+    subtitle: String,
+    icon: @Composable () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f),
+        ) {
+            icon()
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, color = TonezenInk, fontWeight = FontWeight.Medium)
+                Text(subtitle, color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
             }
         }
         ChevronRightGlyph()
     }
 }
 
-private fun formatGb(bytes: Long): String = "%.1f GB".format(bytes / (1024.0 * 1024.0 * 1024.0))
+@Composable
+private fun MusicProgressWarningCard() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(TonezenAmber.copy(alpha = 0.08f))
+            .border(1.dp, TonezenAmber.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        WarningGlyph(tint = TonezenAmber, modifier = Modifier.padding(top = 2.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                stringResource(R.string.music_progress_local_title),
+                color = TonezenInk,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                stringResource(R.string.music_progress_local_body),
+                color = TonezenMuted,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+private data class SettingsItem(
+    val titleRes: Int,
+    val subtitleRes: Int,
+    val icon: @Composable () -> Unit,
+)

@@ -22,6 +22,8 @@ class SecureSessionStore(context: Context) {
             .putString(KEY_ACCESS, session.accessToken)
             .putString(KEY_REFRESH, session.refreshToken)
             .putLong(KEY_EXPIRES, session.expiresAtEpochSeconds)
+            .putLong(KEY_MEMBER_SINCE, session.memberSinceEpochMs ?: 0L)
+            .putString(KEY_AVATAR_URL, session.avatarUrl.orEmpty())
             .apply()
     }
 
@@ -34,7 +36,9 @@ class SecureSessionStore(context: Context) {
         val refresh = prefs.getString(KEY_REFRESH, null) ?: return null
         val expires = prefs.getLong(KEY_EXPIRES, 0)
         if (expires == 0L) return null
-        return StoredSession(userId, email, displayName, access, refresh, expires)
+        val memberSince = prefs.getLong(KEY_MEMBER_SINCE, 0L).takeIf { it > 0L }
+        val avatarUrl = prefs.getString(KEY_AVATAR_URL, "").orEmpty().takeIf { it.isNotBlank() }
+        return StoredSession(userId, email, displayName, access, refresh, expires, memberSince, avatarUrl)
     }
 
     fun clear() {
@@ -54,5 +58,7 @@ class SecureSessionStore(context: Context) {
         private const val KEY_ACCESS = "access_token"
         private const val KEY_REFRESH = "refresh_token"
         private const val KEY_EXPIRES = "expires_at"
+        private const val KEY_MEMBER_SINCE = "member_since"
+        private const val KEY_AVATAR_URL = "avatar_url"
     }
 }

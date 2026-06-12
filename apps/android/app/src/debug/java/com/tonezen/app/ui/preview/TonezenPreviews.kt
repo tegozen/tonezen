@@ -9,8 +9,11 @@ import androidx.compose.ui.unit.dp
 import com.tonezen.app.domain.library.LibraryFilterState
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
+import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.auth.AuthScreen
 import com.tonezen.app.ui.library.LibraryScreen
+import com.tonezen.app.ui.profile.ProfileScreenContent
+import com.tonezen.app.ui.profile.ProfileUiState
 import com.tonezen.app.ui.theme.TonezenTheme
 
 private val previewBooks = listOf(
@@ -100,6 +103,33 @@ private fun LibraryScreenPreview() {
             onResetFilter = {},
             onContentFilterChange = {},
             onSortOrderChange = {},
+        )
+    }
+}
+
+@Preview(
+    name = "Profile",
+    showBackground = true,
+    backgroundColor = 0xFF020617,
+    device = Devices.PIXEL_7,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun ProfileScreenPreview() {
+    TonezenTheme {
+        ProfileScreenContent(
+            padding = PaddingValues(0.dp),
+            state = ProfileUiState(
+                sessionState = SessionState.AUTHENTICATED_ONLINE,
+                displayName = "Alex Mercer",
+                email = "alex.mercer@example.com",
+                memberSinceLabel = "Aug 2024",
+                lastSyncTime = "10:18",
+            ),
+            onOverflowClick = {},
+            onDismissOverflow = {},
+            onSignOutClick = {},
+            onSyncNow = {},
         )
     }
 }

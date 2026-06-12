@@ -8,6 +8,11 @@ import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.playback.PlaybackClient
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Instant
+import java.time.LocalTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +29,9 @@ class ProfileViewModel @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val playbackClient: PlaybackClient,
 ) : ViewModel() {
+    private val syncTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
+    private val memberSinceFormatter = DateTimeFormatter.ofPattern("MMM yyyy", Locale.getDefault())
+
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
@@ -35,6 +43,8 @@ class ProfileViewModel @Inject constructor(
                         sessionState = sessionRepository.resolveState(session),
                         displayName = session?.displayName,
                         email = session?.email,
+                        memberSinceLabel = formatMemberSince(session?.memberSinceEpochMs),
+                        avatarUrl = session?.avatarUrl,
                     )
                 }
                 refreshStats()
@@ -82,7 +92,12 @@ class ProfileViewModel @Inject constructor(
                 }
                 refreshStats()
             } finally {
-                _uiState.update { it.copy(syncing = false, lastSyncLabel = "today") }
+                _uiState.update {
+                    it.copy(
+                        syncing = false,
+                        lastSyncTime = LocalTime.now().format(syncTimeFormatter),
+                    )
+                }
             }
         }
     }
@@ -91,5 +106,12 @@ class ProfileViewModel @Inject constructor(
         progressSyncRepository.stop()
         playbackClient.stopAndRelease()
         sessionRepository.clearSession()
+    }
+
+    private fun formatMemberSince(epochMs: Long?): String? {
+        if (epochMs == null) return null
+        return Instant.ofEpochMilli(epochMs)
+            .atZone(ZoneId.systemDefault())
+            .format(memberSinceFormatter)
     }
 }
