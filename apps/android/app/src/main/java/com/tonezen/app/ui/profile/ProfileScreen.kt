@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -355,42 +356,48 @@ private fun SyncStatusCard(
             .background(TonezenSurfaceRaised)
             .border(1.dp, TonezenBorder, RoundedCornerShape(16.dp))
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        CheckCircleGlyph(tint = TonezenTeal, size = 22.dp)
+        Column(
             modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            CheckCircleGlyph(tint = TonezenTeal, size = 22.dp)
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    stringResource(R.string.sync_status_all_set),
-                    color = TonezenInk,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    if (lastSyncTime != null) {
-                        stringResource(R.string.last_sync_today_at, lastSyncTime)
-                    } else {
-                        stringResource(R.string.last_sync_today)
-                    },
-                    color = TonezenMuted,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                if (pendingSyncCount > 0) {
-                    StatusChip(label = stringResource(R.string.pending), tone = TonezenAmber)
-                }
+            Text(
+                stringResource(R.string.sync_status_all_set),
+                color = TonezenInk,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+            )
+            Text(
+                if (lastSyncTime != null) {
+                    stringResource(R.string.last_sync_today_at, lastSyncTime)
+                } else {
+                    stringResource(R.string.last_sync_today)
+                },
+                color = TonezenMuted,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 2,
+            )
+            if (pendingSyncCount > 0) {
+                StatusChip(label = stringResource(R.string.pending), tone = TonezenAmber)
             }
         }
         OutlinedButton(
             onClick = onSyncNow,
             enabled = !syncing,
+            modifier = Modifier.wrapContentWidth(),
             shape = RoundedCornerShape(999.dp),
             border = BorderStroke(1.dp, TonezenTeal.copy(alpha = 0.55f)),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
         ) {
-            Text(stringResource(R.string.sync_now), color = TonezenTeal)
+            Text(
+                stringResource(R.string.sync_now),
+                color = TonezenTeal,
+                style = MaterialTheme.typography.labelLarge,
+            )
         }
     }
 }
