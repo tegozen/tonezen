@@ -1,4 +1,5 @@
 import { app, Menu, Tray, nativeImage, type BrowserWindow } from "electron";
+import { appIconPngPath, trayIconPath } from "./assets.js";
 import type { WindowLifecycleManager } from "./windowLifecycle.js";
 
 function buildTrayMenu(mainWindow: BrowserWindow, lifecycle: WindowLifecycleManager): Menu {
@@ -22,7 +23,8 @@ function buildTrayMenu(mainWindow: BrowserWindow, lifecycle: WindowLifecycleMana
 }
 
 export function createAppTray(mainWindow: BrowserWindow, lifecycle: WindowLifecycleManager): Tray {
-  const icon = nativeImage.createEmpty();
+  const trayIcon = nativeImage.createFromPath(trayIconPath);
+  const icon = trayIcon.isEmpty() ? nativeImage.createFromPath(appIconPngPath) : trayIcon;
   const tray = new Tray(icon);
   tray.setToolTip("Tonezen");
   tray.setContextMenu(buildTrayMenu(mainWindow, lifecycle));

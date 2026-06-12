@@ -4,13 +4,16 @@ Tonezen is an offline-first media player for audiobooks and music. The product s
 
 ## Reference Mockups
 
-These images are the current visual source of truth for the mobile app direction.
+These images are the current visual source of truth for the mobile app and landing page direction.
 
 - [Main library/player reference](brandbook-assets/tonezen-main-reference.png)
 - [Missing pages: sign in, downloads, profile, details](brandbook-assets/tonezen-missing-pages.png)
 - [Modals and bottom sheets](brandbook-assets/tonezen-modals.png)
+- [Landing page reference](brandbook-assets/tonezen-landing-fullhd.png)
 
 ![Main reference](brandbook-assets/tonezen-main-reference.png)
+
+![Landing page reference](brandbook-assets/tonezen-landing-fullhd.png)
 
 ## Product Principles
 

@@ -8,11 +8,13 @@ import { DownloadManager } from "./downloadManager.js";
 import { ProgressSyncService } from "./progressSync.js";
 import { getClientConfig, loadAppEnv, loadPackagedEnv } from "./loadEnv.js";
 import { createMainWindow } from "./mainWindow.js";
+import { closeSplashWindow, createSplashWindow } from "./splashWindow.js";
 import { createAppTray } from "./tray.js";
 import { PlaybackPowerBlocker } from "./playbackPowerBlocker.js";
 import { registerIpcHandlers } from "./ipcHandlers.js";
 
 loadAppEnv();
+app.setAppUserModelId("com.tonezen.desktop");
 
 const lifecycle = new WindowLifecycleManager();
 const sessionService = new SessionService();
@@ -23,6 +25,7 @@ let downloadManager: DownloadManager;
 let progressSync: ProgressSyncService;
 
 app.whenReady().then(() => {
+  const splashWindow = createSplashWindow();
   if (app.isPackaged) {
     loadPackagedEnv(process.execPath);
   }
@@ -49,7 +52,7 @@ app.whenReady().then(() => {
     },
   );
 
-  const mainWindow = createMainWindow(lifecycle);
+  const mainWindow = createMainWindow(lifecycle, () => closeSplashWindow(splashWindow));
   createAppTray(mainWindow, lifecycle);
   progressSync.setMainWindow(mainWindow);
   void startProgressSyncIfNeeded();

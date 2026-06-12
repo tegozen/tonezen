@@ -19,6 +19,7 @@ class MainActivity : ComponentActivity() {
     ) { /* optional; playback works without notification on older APIs */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.Theme_Tonezen)
         super.onCreate(savedInstanceState)
         requestNotificationPermissionIfNeeded()
         setContent {

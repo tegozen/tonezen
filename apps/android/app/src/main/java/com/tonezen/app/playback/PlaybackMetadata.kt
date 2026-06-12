@@ -15,6 +15,6 @@ data class PlaybackMetadata(
 
 data class QueuePlayItem(
     val trackId: String,
-    val localPath: String,
+    val mediaUri: String,
     val metadata: PlaybackMetadata,
 )

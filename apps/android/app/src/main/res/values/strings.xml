@@ -156,4 +156,6 @@
     <string name="published_label">Год издания</string>
     <string name="show_password">Показать пароль</string>
     <string name="hide_password">Скрыть пароль</string>
+    <string name="music_next_track">Следующий трек</string>
+    <string name="music_shuffle">Другой трек</string>
 </resources>

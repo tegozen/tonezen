@@ -9,18 +9,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -33,10 +33,10 @@ import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenTeal
+import com.tonezen.app.ui.theme.trackCoverBrush
 
 enum class BottomDestination(val labelRes: Int) {
     Library(R.string.nav_library),
-    Player(R.string.nav_player),
     Downloads(R.string.nav_downloads),
     Profile(R.string.nav_profile),
 }
@@ -56,7 +56,6 @@ internal fun TonezenBottomNavigation(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         BottomNavItem(BottomDestination.Library, selected) { onSelect(BottomDestination.Library) }
-        BottomNavItem(BottomDestination.Player, selected) { onSelect(BottomDestination.Player) }
         BottomNavItem(BottomDestination.Downloads, selected) { onSelect(BottomDestination.Downloads) }
         BottomNavItem(BottomDestination.Profile, selected) { onSelect(BottomDestination.Profile) }
     }
@@ -77,18 +76,17 @@ private fun BottomNavItem(
         Box(
             modifier = Modifier
                 .size(26.dp)
-                .clip(if (destination == BottomDestination.Player) CircleShape else RoundedCornerShape(6.dp))
+                .clip(RoundedCornerShape(6.dp))
                 .background(if (active) TonezenTeal.copy(alpha = 0.95f) else Color.Transparent)
                 .border(
                     BorderStroke(1.dp, if (active) TonezenTeal else TonezenMuted.copy(alpha = 0.7f)),
-                    if (destination == BottomDestination.Player) CircleShape else RoundedCornerShape(6.dp),
+                    RoundedCornerShape(6.dp),
                 ),
             contentAlignment = Alignment.Center,
         ) {
             val tint = if (active) TonezenAppBg else TonezenMuted
             when (destination) {
                 BottomDestination.Library -> LibraryGlyph(tint = tint)
-                BottomDestination.Player -> PlayerGlyph(tint = tint)
                 BottomDestination.Downloads -> DownloadGlyph(tint = tint)
                 BottomDestination.Profile -> ProfileGlyph(tint = tint)
             }
@@ -105,43 +103,85 @@ private fun BottomNavItem(
 internal fun MiniPlayer(
     title: String?,
     subtitle: String?,
+    coverSeed: String?,
     enabled: Boolean,
     isPlaying: Boolean = false,
+    positionMs: Long = 0L,
+    durationMs: Long = 0L,
     onBarClick: () -> Unit = {},
     onPlayPauseClick: () -> Unit = {},
 ) {
     if (!enabled || title == null) return
-    Surface(
+    val progress = if (durationMs > 0L) {
+        (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 8.dp)
-            .clickable(onClick = onBarClick),
-        color = TonezenSurface.copy(alpha = 0.96f),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
-        tonalElevation = 0.dp,
+            .background(TonezenSurface.copy(alpha = 0.98f))
+            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.06f))),
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(Color.White.copy(alpha = 0.08f)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress)
+                    .height(3.dp)
+                    .background(TonezenTeal),
+            )
+        }
         Row(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            MiniCover()
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, color = TonezenInk, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(subtitle.orEmpty(), color = TonezenMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onBarClick),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                MiniCover(seed = coverSeed ?: title, title = title)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        title,
+                        color = TonezenInk,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (!subtitle.isNullOrBlank()) {
+                        Text(
+                            subtitle,
+                            color = TonezenMuted,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
+                    .background(TonezenTeal.copy(alpha = 0.18f))
+                    .border(BorderStroke(1.dp, TonezenTeal.copy(alpha = 0.35f)), CircleShape)
                     .clickable(onClick = onPlayPauseClick),
                 contentAlignment = Alignment.Center,
             ) {
                 if (isPlaying) {
-                    PauseGlyph(tint = TonezenInk, size = 22.dp)
+                    PauseGlyph(tint = TonezenTeal, size = 20.dp)
                 } else {
-                    PlayGlyph(tint = TonezenInk, size = 22.dp)
+                    PlayGlyph(tint = TonezenTeal, size = 20.dp)
                 }
             }
         }
@@ -149,15 +189,24 @@ internal fun MiniPlayer(
 }
 
 @Composable
-private fun MiniCover() {
+private fun MiniCover(seed: String, title: String) {
+    val brush = remember(seed) { trackCoverBrush(seed) }
+    val initials = remember(title) {
+        title.trim()
+            .split(Regex("\\s+"))
+            .take(2)
+            .mapNotNull { it.firstOrNull()?.uppercaseChar()?.toString() }
+            .joinToString("")
+            .ifBlank { "♪" }
+    }
     Box(
         modifier = Modifier
             .size(48.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(Brush.verticalGradient(listOf(Color(0xFF0B2535), Color(0xFF14213D))))
+            .background(brush)
             .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center,
     ) {
-        Text(stringResource(R.string.app_name).take(1), color = TonezenAmber, fontWeight = FontWeight.Bold)
+        Text(initials, color = TonezenAmber, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
     }
 }

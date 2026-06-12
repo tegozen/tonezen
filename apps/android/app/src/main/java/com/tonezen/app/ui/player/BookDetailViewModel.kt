@@ -12,8 +12,7 @@ import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackEvents
-import com.tonezen.app.playback.PlaybackMetadata
-import com.tonezen.app.playback.QueuePlayItem
+import com.tonezen.app.playback.PlaybackQueueBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +32,7 @@ class BookDetailViewModel @Inject constructor(
     private val progressSyncRepository: ProgressSyncRepository,
     private val playbackClient: PlaybackClient,
     private val playbackEvents: PlaybackEvents,
+    private val playbackQueueBuilder: PlaybackQueueBuilder,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BookDetailUiState())
     val uiState: StateFlow<BookDetailUiState> = _uiState.asStateFlow()
@@ -107,22 +107,30 @@ class BookDetailViewModel @Inject constructor(
         val book = _uiState.value.book ?: return
         viewModelScope.launch {
             val tracks = catalogRepository.getTracksForBook(book.id)
-            val downloaded = tracks.filter { it.localPath != null }.sortedBy { it.sortOrder }
-            if (downloaded.isEmpty()) return@launch
+            val queue = playbackQueueBuilder.buildAudiobookQueue(book, tracks)
+            if (queue.isEmpty()) return@launch
             val progress = catalogRepository.getProgress(book.id)
-            val track = progress?.let { p -> downloaded.find { it.id == p.trackId } } ?: downloaded.first()
-            val startMs = if (track.id == progress?.trackId) progress.positionMs else 0L
-            startBookPlayback(book, downloaded, track, startMs)
+            val startTrackId = progress?.trackId ?: queue.first().trackId
+            val startIndex = queue.indexOfFirst { it.trackId == startTrackId }.coerceAtLeast(0)
+            val startMs = if (queue[startIndex].trackId == progress?.trackId) progress.positionMs else 0L
+            currentTrack = tracks.find { it.id == startTrackId }
+            playbackClient.playQueue(queue, startIndex, startMs)
+            _uiState.update { it.copy(nowPlayingTitle = currentTrack?.title) }
+            loadBook(book)
         }
     }
 
     fun playTrack(track: Track) {
         val book = _uiState.value.book ?: return
         viewModelScope.launch {
-            val tracks = catalogRepository.getTracksForBook(book.id)
-            val downloaded = tracks.filter { it.localPath != null }.sortedBy { it.sortOrder }
-            val target = downloaded.find { it.id == track.id } ?: return@launch
-            startBookPlayback(book, downloaded, target, 0L)
+            val item = when (book.contentType) {
+                ContentType.AUDIOBOOK -> playbackQueueBuilder.buildSingleAudiobookItem(book, track)
+                ContentType.MUSIC -> playbackQueueBuilder.buildSingleMusicItem(book, track)
+            } ?: return@launch
+            currentTrack = track
+            playbackClient.playQueue(listOf(item), startIndex = 0)
+            _uiState.update { it.copy(nowPlayingTitle = track.title) }
+            loadBook(book)
         }
     }
 
@@ -231,12 +239,9 @@ class BookDetailViewModel @Inject constructor(
         val book = _uiState.value.book ?: return
         val current = currentTrack ?: return
         viewModelScope.launch {
-            val tracks = catalogRepository.getTracksForBook(book.id)
-                .filter { it.localPath != null }
-                .sortedBy { it.sortOrder }
-            val index = tracks.indexOfFirst { it.id == current.id }
-            val next = tracks.getOrNull(index + 1) ?: return@launch
-            startBookPlayback(book, tracks, next, 0L)
+            val tracks = catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
+            val next = tracks.dropWhile { it.id != current.id }.drop(1).firstOrNull() ?: return@launch
+            playTrack(next)
             dismissTrackActions()
         }
     }
@@ -252,39 +257,6 @@ class BookDetailViewModel @Inject constructor(
             saveAudiobookProgress(book.id, track.id, track.durationMs ?: 0L)
             dismissTrackActions()
         }
-    }
-
-    private fun startBookPlayback(
-        book: Book,
-        downloadedTracks: List<Track>,
-        startTrack: Track,
-        startMs: Long,
-    ) {
-        val startIndex = downloadedTracks.indexOfFirst { it.id == startTrack.id }.coerceAtLeast(0)
-        val queueItems = downloadedTracks.map { track ->
-            QueuePlayItem(
-                trackId = track.id,
-                localPath = track.localPath!!,
-                metadata = buildPlaybackMetadata(track, book, downloadedTracks),
-            )
-        }
-        currentTrack = startTrack
-        playbackClient.playQueue(queueItems, startIndex, startMs)
-        _uiState.update {
-            it.copy(nowPlayingTitle = startTrack.title, progressTrackTitle = null)
-        }
-    }
-
-    private fun buildPlaybackMetadata(track: Track, book: Book, downloadedTracks: List<Track>): PlaybackMetadata {
-        val trackNumber = (downloadedTracks.indexOfFirst { it.id == track.id } + 1).coerceAtLeast(1)
-        return PlaybackMetadata(
-            trackTitle = track.title,
-            artist = book.author ?: book.title,
-            albumTitle = book.title,
-            trackNumber = trackNumber,
-            totalTracks = downloadedTracks.size,
-            contentType = book.contentType,
-        )
     }
 
     private fun onPlaybackEnded() {

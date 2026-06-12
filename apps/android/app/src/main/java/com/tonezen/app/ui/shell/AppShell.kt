@@ -1,5 +1,6 @@
 package com.tonezen.app.ui.shell
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,9 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.tonezen.app.R
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.components.BottomDestination
 import com.tonezen.app.ui.components.MiniPlayer
@@ -22,7 +21,7 @@ import com.tonezen.app.ui.library.LibraryScreen
 import com.tonezen.app.ui.library.LibraryViewModel
 import com.tonezen.app.ui.player.BookDetailScreen
 import com.tonezen.app.ui.player.BookDetailViewModel
-import com.tonezen.app.ui.player.NowPlayingScreen
+import com.tonezen.app.ui.player.NowPlayingSheet
 import com.tonezen.app.ui.profile.ProfileScreen
 import com.tonezen.app.ui.profile.ProfileViewModel
 import com.tonezen.app.ui.theme.TonezenAppBg
@@ -75,22 +74,38 @@ fun AppShell(
     Scaffold(
         containerColor = TonezenAppBg,
         bottomBar = {
-            Column {
-                MiniPlayer(
-                    title = shellState.nowPlayingTitle ?: libraryState.nowPlayingTitle,
-                    subtitle = shellState.nowPlayingSubtitle ?: stringResource(R.string.now_playing),
-                    enabled = shellState.showMiniPlayer || libraryState.nowPlayingTitle != null,
-                    isPlaying = shellState.isPlaying,
-                    onBarClick = shellViewModel::onMiniPlayerClick,
-                    onPlayPauseClick = shellViewModel::onMiniPlayerPlayPause,
-                )
-                TonezenBottomNavigation(
-                    selected = shellState.currentTab,
-                    onSelect = shellViewModel::selectTab,
-                )
+            if (!shellState.showExpandedPlayer) {
+                Column {
+                    MiniPlayer(
+                        title = shellState.nowPlayingTitle,
+                        subtitle = shellState.nowPlayingSubtitle,
+                        coverSeed = shellState.nowPlayingCoverSeed,
+                        enabled = shellState.showMiniPlayer,
+                        isPlaying = shellState.isPlaying,
+                        positionMs = shellState.positionMs,
+                        durationMs = shellState.durationMs,
+                        onBarClick = shellViewModel::onMiniPlayerClick,
+                        onPlayPauseClick = shellViewModel::onMiniPlayerPlayPause,
+                    )
+                    TonezenBottomNavigation(
+                        selected = shellState.currentTab,
+                        onSelect = shellViewModel::selectTab,
+                    )
+                }
             }
         },
     ) { padding ->
+        BackHandler(enabled = shellState.showExpandedPlayer) {
+            shellViewModel.dismissExpandedPlayer()
+        }
+
+        if (shellState.showExpandedPlayer) {
+            NowPlayingSheet(
+                shellState = shellState,
+                onDismiss = shellViewModel::dismissExpandedPlayer,
+            )
+        }
+
         when (shellState.currentTab) {
             BottomDestination.Library -> LibraryScreen(
                 padding = padding,
@@ -113,18 +128,12 @@ fun AppShell(
                 onContentFilterChange = libraryViewModel::setContentFilter,
                 onSortOrderChange = libraryViewModel::setSortOrder,
                 onRefresh = libraryViewModel::refresh,
-            )
-
-            BottomDestination.Player -> NowPlayingScreen(
-                padding = padding,
-                shellState = shellState,
-                libraryBooks = libraryState.books,
-                downloadedBookIds = libraryState.downloadedBookIds,
-                favoriteBookIds = libraryState.favoriteBookIds,
-                onOpenBook = shellViewModel::openBook,
-                onPlayPause = shellViewModel::onMiniPlayerPlayPause,
-                onSeekBy = { /* handled by NowPlayingViewModel */ },
-                onGoToLibrary = { shellViewModel.selectTab(BottomDestination.Library) },
+                musicPreview = libraryState.musicPreview,
+                musicPlayback = libraryState.musicPlayback,
+                musicDownloadProgress = libraryState.musicDownloadProgress,
+                onMusicPlayPause = libraryViewModel::toggleMusicPlayback,
+                onMusicShuffle = libraryViewModel::shuffleMusicPreview,
+                onMusicTabSelected = libraryViewModel::onMusicTabSelected,
             )
 
             BottomDestination.Downloads -> DownloadsScreen(

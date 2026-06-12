@@ -38,6 +38,17 @@ internal val TonezenScreenBrush = Brush.verticalGradient(
     ),
 )
 
+internal fun trackCoverBrush(seed: String): Brush {
+    val variants = listOf(
+        listOf(Color(0xFF103344), Color(0xFF9BD6E3), Color(0xFF0F172A)),
+        listOf(Color(0xFF1D1712), Color(0xFF70513A), Color(0xFF111827)),
+        listOf(Color(0xFF0F3B39), Color(0xFF69B3A2), Color(0xFF10201F)),
+        listOf(Color(0xFF2A1B3D), Color(0xFF7C5CBF), Color(0xFF1A1025)),
+    )
+    val index = kotlin.math.abs(seed.hashCode()) % variants.size
+    return Brush.verticalGradient(variants[index])
+}
+
 internal fun coverBrush(book: Book): Brush {
     val variants = if (book.contentType == ContentType.AUDIOBOOK) {
         listOf(

@@ -8,6 +8,10 @@ data class AppShellUiState(
     val selectedBook: Book? = null,
     val nowPlayingTitle: String? = null,
     val nowPlayingSubtitle: String? = null,
+    val nowPlayingCoverSeed: String? = null,
     val isPlaying: Boolean = false,
+    val positionMs: Long = 0L,
+    val durationMs: Long = 0L,
     val showMiniPlayer: Boolean = false,
+    val showExpandedPlayer: Boolean = false,
 )

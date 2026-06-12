@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="tonezen_bg_app">#020617</color>
+    <color name="tonezen_bg_surface">#0f172a</color>
+    <color name="tonezen_accent_primary">#5eead4</color>
+    <color name="ic_launcher_background">#020617</color>
+</resources>

@@ -7,8 +7,10 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import androidx.media3.common.MediaMetadata
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import com.tonezen.app.domain.model.ContentType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +35,9 @@ data class PlaybackSnapshot(
     val durationMs: Long = 0L,
     val trackTitle: String? = null,
     val trackId: String? = null,
+    val artist: String? = null,
+    val albumTitle: String? = null,
+    val contentType: ContentType? = null,
 )
 
 private data class PendingQueuePlay(
@@ -58,6 +63,7 @@ class PlaybackClient @Inject constructor(
     private var controller: MediaController? = null
     private var listener: Player.Listener? = null
     private var pendingQueuePlay: PendingQueuePlay? = null
+    private var lastContentType: ContentType? = null
 
     fun connect() {
         if (controllerFuture != null) return
@@ -88,6 +94,19 @@ class PlaybackClient @Inject constructor(
         if (items.isEmpty()) return
         connect()
         val safeIndex = startIndex.coerceIn(0, items.lastIndex)
+        items.getOrNull(safeIndex)?.let { item ->
+            lastContentType = item.metadata.contentType
+            _snapshot.update {
+                PlaybackSnapshot(
+                    isPlaying = true,
+                    trackTitle = item.metadata.trackTitle,
+                    trackId = item.trackId,
+                    artist = item.metadata.artist,
+                    albumTitle = item.metadata.albumTitle,
+                    contentType = item.metadata.contentType,
+                )
+            }
+        }
         val mediaController = controller
         if (mediaController == null) {
             pendingQueuePlay = PendingQueuePlay(items, safeIndex, startPositionMs)
@@ -97,10 +116,12 @@ class PlaybackClient @Inject constructor(
     }
 
     fun pause() {
+        connect()
         controller?.pause()
     }
 
     fun play() {
+        connect()
         controller?.play()
     }
 
@@ -143,6 +164,7 @@ class PlaybackClient @Inject constructor(
         controller = null
         controllerFuture = null
         pendingQueuePlay = null
+        lastContentType = null
         _snapshot.value = PlaybackSnapshot()
     }
 
@@ -152,6 +174,8 @@ class PlaybackClient @Inject constructor(
         startIndex: Int,
         startPositionMs: Long,
     ) {
+        val startItem = items.getOrNull(startIndex)
+        startItem?.metadata?.contentType?.let { lastContentType = it }
         val mediaItems = items.map(PlaybackMediaFactory::toMediaItem)
         mediaController.setMediaItems(mediaItems, startIndex, startPositionMs)
         mediaController.prepare()
@@ -192,13 +216,18 @@ class PlaybackClient @Inject constructor(
     }
 
     private fun refreshSnapshot(mediaController: MediaController) {
+        val currentItem = mediaController.currentMediaItem
+        val metadata = currentItem?.mediaMetadata ?: mediaController.mediaMetadata
         _snapshot.update {
             PlaybackSnapshot(
                 isPlaying = mediaController.isPlaying,
                 positionMs = mediaController.currentPosition.coerceAtLeast(0L),
                 durationMs = mediaController.duration.coerceAtLeast(0L),
-                trackTitle = mediaController.mediaMetadata.title?.toString(),
-                trackId = mediaController.currentMediaItem?.mediaId,
+                trackTitle = metadata.title?.toString(),
+                trackId = currentItem?.mediaId,
+                artist = metadata.artist?.toString(),
+                albumTitle = metadata.albumTitle?.toString(),
+                contentType = lastContentType ?: metadata.mediaType?.toContentType(),
             )
         }
         if (mediaController.isPlaying) {
@@ -223,3 +252,10 @@ class PlaybackClient @Inject constructor(
         positionTickJob = null
     }
 }
+
+private fun Int.toContentType(): ContentType? =
+    when (this) {
+        MediaMetadata.MEDIA_TYPE_MUSIC -> ContentType.MUSIC
+        MediaMetadata.MEDIA_TYPE_AUDIO_BOOK -> ContentType.AUDIOBOOK
+        else -> null
+    }

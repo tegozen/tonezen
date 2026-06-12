@@ -21,11 +21,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -69,15 +72,30 @@ internal fun LibraryScreen(
     onContentFilterChange: (com.tonezen.app.domain.library.LibraryContentFilter) -> Unit,
     onSortOrderChange: (com.tonezen.app.domain.library.LibrarySortOrder) -> Unit,
     onRefresh: () -> Unit,
+    musicPreview: MusicTrackPreview?,
+    musicPlayback: MusicPlaybackUi,
+    musicDownloadProgress: Float?,
+    onMusicPlayPause: () -> Unit,
+    onMusicShuffle: () -> Unit,
+    onMusicTabSelected: () -> Unit,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val audiobooks = books.filter { it.contentType == ContentType.AUDIOBOOK }
-    val music = books.filter { it.contentType == ContentType.MUSIC }
-    val tabBooks = if (selectedTab == 0) audiobooks else music
+    val music = allBooks.filter { it.contentType == ContentType.MUSIC }
+    val isAudiobooksTab = selectedTab == 0
 
-    BackHandler(enabled = showFilterSheet, onBack = onDismissFilterSheet)
+    LaunchedEffect(selectedTab) {
+        if (!isAudiobooksTab && showFilterSheet) {
+            onDismissFilterSheet()
+        }
+        if (selectedTab == 1) {
+            onMusicTabSelected()
+        }
+    }
 
-    if (showFilterSheet) {
+    BackHandler(enabled = showFilterSheet && isAudiobooksTab, onBack = onDismissFilterSheet)
+
+    if (showFilterSheet && isAudiobooksTab) {
         LibraryFilterSheet(
             filter = filter,
             onDismiss = onDismissFilterSheet,
@@ -107,24 +125,44 @@ internal fun LibraryScreen(
             item { OfflineBanner() }
         }
         item {
-            TonezenTabs(selectedTab = selectedTab, onSelect = { selectedTab = it })
-        }
-        item {
-            SearchRow(
-                query = filter.query,
-                onQueryChange = onSearchChange,
-                onFilterClick = onFilterClick,
+            TonezenTabs(
+                selectedTab = selectedTab,
+                onSelect = { tab ->
+                    selectedTab = tab
+                    if (tab == 1) onDismissFilterSheet()
+                },
             )
         }
-        if (allBooks.isEmpty()) {
+        if (isAudiobooksTab) {
+            item {
+                SearchRow(
+                    query = filter.query,
+                    onQueryChange = onSearchChange,
+                    onFilterClick = onFilterClick,
+                )
+            }
+        }
+        if (isAudiobooksTab && allBooks.none { it.contentType == ContentType.AUDIOBOOK }) {
+            item { EmptyLibrary() }
+        } else if (isAudiobooksTab) {
+            item {
+                AudiobooksSection(
+                    books = audiobooks,
+                    downloadedBookIds = downloadedBookIds,
+                    onBookClick = onBookClick,
+                )
+            }
+        } else if (music.isEmpty()) {
             item { EmptyLibrary() }
         } else {
             item {
-                LibrarySection(
-                    title = if (selectedTab == 0) stringResource(R.string.tab_audiobooks) else stringResource(R.string.tab_music),
-                    books = tabBooks,
-                    downloadedBookIds = downloadedBookIds,
-                    onBookClick = onBookClick,
+                MusicPlayHero(
+                    preview = musicPreview,
+                    playback = musicPlayback,
+                    downloadProgress = musicDownloadProgress,
+                    onPlayPause = onMusicPlayPause,
+                    onShuffle = onMusicShuffle,
+                    modifier = Modifier.padding(top = 16.dp),
                 )
             }
         }
@@ -143,21 +181,18 @@ private fun LibraryHeader() {
 }
 
 @Composable
-private fun LibrarySection(
-    title: String,
+private fun AudiobooksSection(
     books: List<Book>,
     downloadedBookIds: Set<String>,
     onBookClick: (Book) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(title, color = TonezenInk, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Text(stringResource(R.string.see_all), color = TonezenTeal, style = MaterialTheme.typography.labelMedium)
-        }
+        Text(
+            stringResource(R.string.tab_audiobooks),
+            color = TonezenInk,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
         LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             items(books) { book ->
                 LibraryBookCard(

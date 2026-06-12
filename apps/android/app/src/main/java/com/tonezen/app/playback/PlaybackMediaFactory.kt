@@ -34,8 +34,15 @@ object PlaybackMediaFactory {
         meta.artworkUri?.let { metadataBuilder.setArtworkUri(it) }
         return MediaItem.Builder()
             .setMediaId(item.trackId)
-            .setUri(Uri.fromFile(File(item.localPath)))
+            .setUri(mediaUriFor(item.mediaUri))
             .setMediaMetadata(metadataBuilder.build())
             .build()
     }
+
+    private fun mediaUriFor(pathOrUrl: String): Uri =
+        if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
+            Uri.parse(pathOrUrl)
+        } else {
+            Uri.fromFile(File(pathOrUrl))
+        }
 }

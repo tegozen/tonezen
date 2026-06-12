@@ -12,6 +12,8 @@ import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.auth.AuthScreen
 import com.tonezen.app.ui.library.LibraryScreen
+import com.tonezen.app.ui.library.MusicPlaybackUi
+import com.tonezen.app.ui.library.MusicTrackPreview
 import com.tonezen.app.ui.profile.ProfileScreenContent
 import com.tonezen.app.ui.profile.ProfileUiState
 import com.tonezen.app.ui.theme.TonezenTheme
@@ -105,6 +107,18 @@ private fun LibraryScreenPreview() {
             onContentFilterChange = {},
             onSortOrderChange = {},
             onRefresh = {},
+            musicPreview = MusicTrackPreview(
+                trackId = "track-1",
+                trackTitle = "Самая",
+                artist = "Miyagi & Andy Panda",
+                albumTitle = "Miyagi",
+                bookId = "piano",
+            ),
+            musicPlayback = MusicPlaybackUi(),
+            musicDownloadProgress = null,
+            onMusicPlayPause = {},
+            onMusicShuffle = {},
+            onMusicTabSelected = {},
         )
     }
 }

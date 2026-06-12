@@ -1,12 +1,16 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
+import { appIconPath } from "./assets.js";
 import type { WindowLifecycleManager } from "./windowLifecycle.js";
 
-export function createMainWindow(lifecycle: WindowLifecycleManager): BrowserWindow {
+export function createMainWindow(lifecycle: WindowLifecycleManager, onReadyToShow?: () => void): BrowserWindow {
   const mainWindow = new BrowserWindow({
     width: 1100,
     height: 720,
-    show: true,
+    show: false,
+    backgroundColor: "#020617",
+    icon: appIconPath,
+    title: "Tonezen",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
@@ -33,6 +37,11 @@ export function createMainWindow(lifecycle: WindowLifecycleManager): BrowserWind
   } else {
     mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
+
+  mainWindow.once("ready-to-show", () => {
+    onReadyToShow?.();
+    mainWindow.show();
+  });
 
   return mainWindow;
 }

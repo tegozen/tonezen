@@ -24,11 +24,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.ui.theme.TonezenAmber
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.input.pointer.pointerInput
 import com.tonezen.app.ui.theme.TonezenAppBg
+import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
+import com.tonezen.app.ui.theme.TonezenTeal
 
 @Composable
 internal fun RoundControl(label: String, outlined: Boolean, onClick: () -> Unit) {
@@ -59,16 +63,33 @@ internal fun RoundIconControl(outlined: Boolean, onClick: () -> Unit, content: @
 }
 
 @Composable
-internal fun PlayButton(isPlaying: Boolean, onClick: () -> Unit) {
+internal fun PlayButton(
+    isPlaying: Boolean,
+    modifier: Modifier = Modifier,
+    downloadProgress: Float? = null,
+    onClick: () -> Unit,
+) {
+    val background = if (isPlaying) {
+        androidx.compose.ui.graphics.Brush.linearGradient(
+            listOf(Color(0xFF14B8A6), Color(0xFF0D9488), Color(0xFF0F766E)),
+        )
+    } else {
+        androidx.compose.ui.graphics.Brush.linearGradient(
+            listOf(Color(0xFF5EEAD4), Color(0xFF14B8A6), Color(0xFF0D9488)),
+        )
+    }
+    val downloading = downloadProgress != null
     Box(
-        modifier = Modifier
-            .size(72.dp)
+        modifier = modifier
             .clip(CircleShape)
-            .background(Color(0xFFF5E9D6))
-            .clickable(onClick = onClick),
+            .background(background)
+            .border(BorderStroke(2.dp, Color.White.copy(alpha = 0.22f)), CircleShape)
+            .then(if (downloading) Modifier else Modifier.clickable(onClick = onClick)),
         contentAlignment = Alignment.Center,
     ) {
-        if (isPlaying) {
+        if (downloading) {
+            DownloadProgressRing(progress = downloadProgress)
+        } else if (isPlaying) {
             PauseGlyph(tint = TonezenAppBg, size = 30.dp)
         } else {
             PlayGlyph(tint = TonezenAppBg, size = 30.dp)
@@ -77,27 +98,85 @@ internal fun PlayButton(isPlaying: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
+private fun DownloadProgressRing(progress: Float) {
+    val sweep = 360f * progress.coerceIn(0f, 1f)
+    val showIndeterminate = progress <= 0f
+    Box(contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.Canvas(modifier = Modifier.size(56.dp)) {
+            drawArc(
+                color = Color.White.copy(alpha = 0.2f),
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4.dp.toPx()),
+            )
+            if (showIndeterminate) {
+                drawArc(
+                    color = TonezenAppBg,
+                    startAngle = -90f,
+                    sweepAngle = 90f,
+                    useCenter = false,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 4.dp.toPx(),
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    ),
+                )
+            } else {
+                drawArc(
+                    color = TonezenAppBg,
+                    startAngle = -90f,
+                    sweepAngle = sweep,
+                    useCenter = false,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 4.dp.toPx(),
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    ),
+                )
+            }
+        }
+        Text(
+            text = if (showIndeterminate) "…" else "${(progress * 100).toInt()}%",
+            color = TonezenAppBg,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
 internal fun ProgressBar(progress: Float, onSeek: ((Float) -> Unit)? = null) {
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .height(4.dp)
-            .clip(RoundedCornerShape(999.dp))
-            .background(Color.White.copy(alpha = 0.16f))
+            .height(if (onSeek != null) 28.dp else 4.dp)
             .then(
                 if (onSeek != null) {
-                    Modifier.clickable { onSeek(progress.coerceIn(0f, 1f)) }
+                    Modifier.pointerInput(onSeek) {
+                        detectTapGestures { offset ->
+                            val fraction = (offset.x / size.width).coerceIn(0f, 1f)
+                            onSeek(fraction)
+                        }
+                    }
                 } else {
                     Modifier
                 },
             ),
+        contentAlignment = Alignment.CenterStart,
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .fillMaxWidth()
                 .height(4.dp)
-                .background(TonezenAmber),
-        )
+                .clip(RoundedCornerShape(999.dp))
+                .background(Color.White.copy(alpha = 0.16f)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress.coerceIn(0f, 1f))
+                    .height(4.dp)
+                    .background(TonezenTeal),
+            )
+        }
     }
 }
 

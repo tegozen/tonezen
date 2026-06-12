@@ -22,12 +22,18 @@ class AppShellViewModel @Inject constructor(
     val uiState: StateFlow<AppShellUiState> = _uiState.asStateFlow()
 
     init {
+        playbackClient.connect()
         viewModelScope.launch {
             playbackClient.snapshot.collectLatest { snapshot ->
                 _uiState.update {
                     it.copy(
                         isPlaying = snapshot.isPlaying,
                         nowPlayingTitle = snapshot.trackTitle ?: it.nowPlayingTitle,
+                        nowPlayingSubtitle = formatNowPlayingSubtitle(snapshot.artist, snapshot.albumTitle)
+                            ?: it.nowPlayingSubtitle,
+                        nowPlayingCoverSeed = snapshot.trackId ?: snapshot.trackTitle,
+                        positionMs = snapshot.positionMs,
+                        durationMs = snapshot.durationMs,
                         showMiniPlayer = snapshot.trackTitle != null || snapshot.isPlaying,
                     )
                 }
@@ -43,6 +49,7 @@ class AppShellViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 selectedBook = book,
+                showExpandedPlayer = false,
                 nowPlayingSubtitle = book.author,
             )
         }
@@ -53,7 +60,11 @@ class AppShellViewModel @Inject constructor(
     }
 
     fun onMiniPlayerClick() {
-        _uiState.update { it.copy(currentTab = BottomDestination.Player) }
+        _uiState.update { it.copy(showExpandedPlayer = true) }
+    }
+
+    fun dismissExpandedPlayer() {
+        _uiState.update { it.copy(showExpandedPlayer = false) }
     }
 
     fun onMiniPlayerPlayPause() {
@@ -71,6 +82,17 @@ class AppShellViewModel @Inject constructor(
                 nowPlayingSubtitle = subtitle ?: it.nowPlayingSubtitle,
                 showMiniPlayer = title != null,
             )
+        }
+    }
+
+    private fun formatNowPlayingSubtitle(artist: String?, album: String?): String? {
+        val cleanArtist = artist?.takeIf { it.isNotBlank() }
+        val cleanAlbum = album?.takeIf { it.isNotBlank() }
+        return when {
+            cleanArtist != null && cleanAlbum != null -> "$cleanArtist · $cleanAlbum"
+            cleanArtist != null -> cleanArtist
+            cleanAlbum != null -> cleanAlbum
+            else -> null
         }
     }
 }
