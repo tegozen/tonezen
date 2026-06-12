@@ -112,6 +112,7 @@ async function scanAudiobookFiles(bookPath: string): Promise<AudiobookFileScan[]
       filename,
       title: tags?.title ?? null,
       artist: tags?.artist ?? null,
+      durationMs: tags?.durationMs ?? null,
     });
   }
 
@@ -137,6 +138,7 @@ async function scanMusic(musicDir: string): Promise<ParsedBook[]> {
       artist: tags?.artist ?? null,
       album: tags?.album ?? null,
       trackNumber: tags?.trackNumber ?? null,
+      durationMs: tags?.durationMs ?? null,
     });
   }
 

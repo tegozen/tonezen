@@ -10,28 +10,59 @@ export class CatalogRepository {
       params.push(updatedSince);
       where += ` AND c.updated_at > $${params.length}`;
     }
-    const cyclesResult = await this.pool.query(
-      `SELECT c.id, c.slug, c.title, c.book_order FROM cycles c ${where} ORDER BY c.title`,
+    const result = await this.pool.query(
+      `SELECT c.id, c.slug, c.title, c.book_order,
+              b.id AS book_id, b.slug AS book_slug, b.content_type,
+              b.title AS book_title, b.author, b.cover_path, cb.sort_order
+       FROM cycles c
+       LEFT JOIN cycle_books cb ON cb.cycle_id = c.id
+       LEFT JOIN books b ON b.id = cb.book_id AND b.deleted_at IS NULL
+       ${where}
+       ORDER BY c.title, cb.sort_order`,
       params,
     );
-    const cycles = [];
-    for (const row of cyclesResult.rows) {
-      const booksResult = await this.pool.query(
-        `SELECT b.id, b.slug, b.content_type, b.title, b.author, b.cover_path
-         FROM books b
-         JOIN cycle_books cb ON cb.book_id = b.id
-         WHERE cb.cycle_id = $1 AND b.deleted_at IS NULL
-         ORDER BY cb.sort_order`,
-        [row.id],
-      );
-      cycles.push({
-        id: row.id,
-        slug: row.slug,
-        title: row.title,
-        book_order: row.book_order,
-        books: booksResult.rows,
-      });
+
+    const cycles: Array<{
+      id: string;
+      slug: string;
+      title: string;
+      book_order: unknown;
+      books: Array<{
+        id: string;
+        slug: string;
+        content_type: string;
+        title: string;
+        author: string | null;
+        cover_path: string | null;
+      }>;
+    }> = [];
+    const cycleIndex = new Map<string, number>();
+
+    for (const row of result.rows) {
+      let index = cycleIndex.get(row.id);
+      if (index === undefined) {
+        index = cycles.length;
+        cycleIndex.set(row.id, index);
+        cycles.push({
+          id: row.id,
+          slug: row.slug,
+          title: row.title,
+          book_order: row.book_order,
+          books: [],
+        });
+      }
+      if (row.book_id) {
+        cycles[index].books.push({
+          id: row.book_id,
+          slug: row.book_slug,
+          content_type: row.content_type,
+          title: row.book_title,
+          author: row.author,
+          cover_path: row.cover_path,
+        });
+      }
     }
+
     return cycles;
   }
 

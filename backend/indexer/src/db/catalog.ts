@@ -1,7 +1,14 @@
 import type pg from "pg";
 import type { ParsedBook, ParsedCycle } from "../parsers.js";
 import { storagePathForAudiobook, storagePathForMusic } from "../parsers.js";
-import { analyzeAudioFile, type FileMetadata } from "../mediaProbe.js";
+import {
+  analyzeAudioFile,
+  metadataFromStoredIfUnchanged,
+  resolveStorageObjectPath,
+  type FileMetadata,
+} from "../mediaProbe.js";
+import { stat } from "node:fs/promises";
+import path from "node:path";
 
 export class CatalogRepository {
   constructor(
@@ -93,11 +100,13 @@ export class CatalogRepository {
   private async upsertTrack(
     client: pg.PoolClient,
     bookId: string,
-    track: { filename: string; sortOrder: number; title: string },
+    track: { filename: string; sortOrder: number; title: string; durationMs?: number | null },
     storagePath: string,
     metadata: FileMetadata | null,
   ): Promise<void> {
-    const meta = metadata ?? (await analyzeAudioFile(this.contentRoot, storagePath));
+    const meta =
+      metadata ??
+      (await this.resolveFileMetadata(client, storagePath, track.durationMs ?? null));
     const trackResult = await client.query(
       `INSERT INTO tracks (book_id, sort_order, title, filename, updated_at, deleted_at)
        VALUES ($1, $2, $3, $4, now(), NULL)
@@ -135,6 +144,38 @@ export class CatalogRepository {
          updated_at = now()`,
       [trackId, storagePath, meta?.checksum ?? null, meta?.sizeBytes ?? null],
     );
+  }
+
+  private async resolveFileMetadata(
+    client: pg.PoolClient,
+    storagePath: string,
+    knownDurationMs: number | null,
+  ): Promise<FileMetadata | null> {
+    const filePath = await resolveStorageObjectPath(path.join(this.contentRoot, storagePath));
+    if (!filePath) return null;
+
+    let fileSizeBytes: number;
+    try {
+      fileSizeBytes = (await stat(filePath)).size;
+    } catch {
+      return null;
+    }
+
+    const existing = await client.query(
+      `SELECT tf.checksum, tf.size_bytes, t.duration_ms
+       FROM track_files tf
+       JOIN tracks t ON t.id = tf.track_id
+       WHERE tf.storage_path = $1`,
+      [storagePath],
+    );
+    if (existing.rows.length > 0) {
+      const reused = metadataFromStoredIfUnchanged(existing.rows[0], fileSizeBytes);
+      if (reused) return reused;
+    }
+
+    return analyzeAudioFile(this.contentRoot, storagePath, {
+      knownDurationMs: knownDurationMs ?? undefined,
+    });
   }
 
   private async softDeleteMissing(

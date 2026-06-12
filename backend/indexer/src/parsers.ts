@@ -2,6 +2,7 @@ export interface ParsedTrack {
   filename: string;
   sortOrder: number;
   title: string;
+  durationMs?: number | null;
 }
 
 export interface ParsedBook {
@@ -27,6 +28,7 @@ export interface MusicFileScan {
   artist: string | null;
   album: string | null;
   trackNumber: number | null;
+  durationMs?: number | null;
 }
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".ogg", ".opus", ".wav", ".aac"]);
@@ -66,6 +68,7 @@ export interface AudiobookFileScan {
   filename: string;
   title: string | null;
   artist: string | null;
+  durationMs?: number | null;
 }
 
 export function buildTracks(trackOrder: string[]): ParsedTrack[] {
@@ -77,6 +80,7 @@ export function buildAudiobookTracks(files: AudiobookFileScan[]): ParsedTrack[] 
     filename: file.filename,
     sortOrder: index,
     title: file.title?.trim() || trackTitleFromFilename(file.filename),
+    durationMs: file.durationMs ?? null,
   }));
 }
 
@@ -91,6 +95,7 @@ export function buildMusicLibrary(files: MusicFileScan[]): ParsedBook[] {
     filename: file.filename,
     sortOrder: file.trackNumber != null ? file.trackNumber - 1 : index,
     title: file.title?.trim() || trackTitleFromFilename(file.filename),
+    durationMs: file.durationMs ?? null,
   }));
 
   tracks.sort((a, b) => {

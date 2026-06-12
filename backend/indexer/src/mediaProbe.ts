@@ -18,6 +18,27 @@ export interface AudioTags {
   artist: string | null;
   album: string | null;
   trackNumber: number | null;
+  durationMs: number | null;
+}
+
+export interface StoredFileMetadata {
+  checksum: string | null;
+  size_bytes: number | null;
+  duration_ms: number | null;
+}
+
+/** Reuse DB metadata when file size is unchanged (avoids sha256/ffprobe on rescans). */
+export function metadataFromStoredIfUnchanged(
+  stored: StoredFileMetadata,
+  fileSizeBytes: number,
+): FileMetadata | null {
+  if (!stored.checksum || stored.size_bytes == null) return null;
+  if (Number(stored.size_bytes) !== fileSizeBytes) return null;
+  return {
+    sizeBytes: fileSizeBytes,
+    checksum: stored.checksum,
+    durationMs: stored.duration_ms,
+  };
 }
 
 function pickTag(tags: Record<string, string>, ...keys: string[]): string | null {
@@ -77,13 +98,21 @@ export async function probeAudioTags(filePath: string): Promise<AudioTags | null
       "-show_format",
       filePath,
     ]);
-    const json = JSON.parse(stdout) as { format?: { tags?: Record<string, string> } };
+    const json = JSON.parse(stdout) as {
+      format?: { tags?: Record<string, string>; duration?: string };
+    };
     const tags = json.format?.tags ?? {};
+    const durationRaw = json.format?.duration;
+    const durationSeconds = durationRaw != null ? parseFloat(durationRaw) : Number.NaN;
+    const durationMs = Number.isFinite(durationSeconds)
+      ? Math.round(durationSeconds * 1000)
+      : null;
     return {
       title: pickTag(tags, "title"),
       artist: pickTag(tags, "artist", "album_artist", "albumartist"),
       album: pickTag(tags, "album"),
       trackNumber: parseTrackNumber(pickTag(tags, "track", "tracknumber", "trck")),
+      durationMs,
     };
   } catch {
     return null;
@@ -122,6 +151,7 @@ export async function probeDurationMs(filePath: string): Promise<number | null> 
 export async function analyzeAudioFile(
   contentRoot: string,
   storagePath: string,
+  options?: { knownDurationMs?: number | null },
 ): Promise<FileMetadata | null> {
   const filePath = await resolveStorageObjectPath(path.join(contentRoot, storagePath));
   if (!filePath) return null;
@@ -129,7 +159,10 @@ export async function analyzeAudioFile(
   try {
     const info = await stat(filePath);
     const checksum = await sha256File(filePath);
-    const durationMs = await probeDurationMs(filePath);
+    const durationMs =
+      typeof options?.knownDurationMs === "number"
+        ? options.knownDurationMs
+        : await probeDurationMs(filePath);
     return { sizeBytes: info.size, checksum, durationMs };
   } catch {
     return null;
