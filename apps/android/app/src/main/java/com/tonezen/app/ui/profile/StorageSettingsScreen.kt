@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
@@ -25,6 +26,7 @@ import dev.chrisbanes.haze.HazeState
 internal fun StorageSettingsScreen(
     padding: PaddingValues,
     hazeState: HazeState,
+    bottomScrollPadding: Dp,
     usedBytes: Long,
     totalBytes: Long?,
     showDeleteAllConfirm: Boolean,
@@ -71,6 +73,7 @@ internal fun StorageSettingsScreen(
         hazeState = hazeState,
         padding = padding,
         onBack = onBack,
+        bottomScrollPadding = bottomScrollPadding,
         title = {
             Text(
                 stringResource(R.string.settings_storage_page_title),

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -49,7 +50,8 @@ import com.tonezen.app.R
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenChromeBarBackground
 import com.tonezen.app.ui.theme.TonezenChromeBarBorder
-import com.tonezen.app.ui.theme.TonezenBackChromeScrollPadding
+import com.tonezen.app.ui.theme.TonezenChromeHeaderRowHeight
+import com.tonezen.app.ui.theme.TonezenPageChromeScrollPadding
 import com.tonezen.app.ui.theme.TonezenChromeBarOuterVerticalMargin
 import com.tonezen.app.ui.theme.TonezenChromeBarVerticalPadding
 import com.tonezen.app.ui.theme.TonezenChromeHorizontalMargin
@@ -143,6 +145,35 @@ internal fun TonezenTopChromeBar(
 }
 
 @Composable
+internal fun TonezenTitleChromeBar(
+    hazeState: HazeState,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    TonezenChromeBarShell(hazeState = hazeState, modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = TonezenScreenHorizontalPadding,
+                    end = TonezenScreenHorizontalPadding,
+                    top = TonezenChromeBarVerticalPadding,
+                    bottom = TonezenChromeBarVerticalPadding,
+                )
+                .heightIn(min = TonezenChromeHeaderRowHeight),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            content()
+        }
+        HorizontalDivider(
+            modifier = Modifier.fillMaxWidth(),
+            thickness = 1.dp,
+            color = TonezenChromeBarBorder,
+        )
+    }
+}
+
+@Composable
 internal fun TonezenBackChromeBar(
     hazeState: HazeState,
     onBack: () -> Unit,
@@ -162,6 +193,7 @@ internal fun TonezenBackChromeBar(
                 ),
         ) {
             TonezenBackHeaderRow(
+                modifier = Modifier.heightIn(min = TonezenChromeHeaderRowHeight),
                 onBack = onBack,
                 title = title,
                 trailing = trailing,
@@ -295,7 +327,7 @@ internal fun TonezenFixedHeaderScreen(
                 .fillMaxSize()
                 .haze(state = hazeState),
             contentPadding = tonezenScrollContentPadding(
-                top = TonezenBackChromeScrollPadding,
+                top = TonezenPageChromeScrollPadding,
                 bottom = bottomScrollPadding,
             ),
             verticalArrangement = verticalArrangement,

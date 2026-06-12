@@ -12,10 +12,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun tonezenOverlayBottomScrollPadding(showMiniPlayer: Boolean): Dp {
+internal fun tonezenBottomChromeScrollPadding(
+    showMiniPlayer: Boolean,
+    showBottomNav: Boolean = true,
+    extraBottom: Dp = 0.dp,
+): Dp {
     val navigationBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val chromeHeight = if (showMiniPlayer) TonezenBottomChromeMiniPlayerHeight else 0.dp
-    return navigationBarInset + chromeHeight + TonezenOverlayScrollGap
+    val chromeHeight = tonezenBottomChromeContentHeight(
+        showMiniPlayer = showMiniPlayer,
+        showBottomNav = showBottomNav,
+    )
+    return navigationBarInset + chromeHeight + TonezenOverlayScrollGap + extraBottom
 }
 
 @Composable

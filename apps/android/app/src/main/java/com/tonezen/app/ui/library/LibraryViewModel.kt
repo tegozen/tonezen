@@ -125,7 +125,6 @@ class LibraryViewModel @Inject constructor(
             return filterCycles(
                 cycles = state.cycles,
                 downloadedBookIds = state.downloadedBookIds,
-                favoriteBookIds = state.favoriteBookIds,
                 filter = state.filter,
             )
         }
@@ -136,7 +135,6 @@ class LibraryViewModel @Inject constructor(
             return filterAndSortBooks(
                 books = state.books,
                 downloadedBookIds = state.downloadedBookIds,
-                favoriteBookIds = state.favoriteBookIds,
                 filter = state.filter,
             )
         }
@@ -277,7 +275,6 @@ class LibraryViewModel @Inject constructor(
             }
             val local = catalogRepository.getAllBooks()
             val localCycles = catalogRepository.getAllCycles()
-            val favorites = catalogRepository.getFavoriteBookIds()
             if (local.isEmpty()) {
                 withContext(Dispatchers.Main) {
                     _uiState.update { it.copy(isLoadingCatalog = true) }
@@ -285,7 +282,7 @@ class LibraryViewModel @Inject constructor(
             }
             if (local.isNotEmpty()) {
                 withContext(Dispatchers.Main) {
-                    updateCatalog(local, localCycles, favorites)
+                    updateCatalog(local, localCycles)
                     _uiState.update { it.copy(isLoadingCatalog = false) }
                 }
             }
@@ -304,18 +301,18 @@ class LibraryViewModel @Inject constructor(
         try {
             val remoteBooks = catalogRepository.syncFromRemote(accessToken)
             val remoteCycles = catalogRepository.getAllCycles()
-            updateCatalog(remoteBooks, remoteCycles, catalogRepository.getFavoriteBookIds())
+            updateCatalog(remoteBooks, remoteCycles)
         } finally {
             _uiState.update { it.copy(isLoadingCatalog = false) }
         }
     }
 
-    private suspend fun updateCatalog(books: List<Book>, cycles: List<Cycle>, favorites: Set<String>) {
-        updateBooks(books, favorites)
+    private suspend fun updateCatalog(books: List<Book>, cycles: List<Cycle>) {
+        updateBooks(books)
         _uiState.update { it.copy(cycles = cycles) }
     }
 
-    private suspend fun updateBooks(books: List<Book>, favorites: Set<String>) {
+    private suspend fun updateBooks(books: List<Book>) {
         musicBookIdByTrackId = withContext(Dispatchers.IO) { buildMusicTrackBookMap(books) }
         rebuildMusicCandidates(books)
         val trackList = when {
@@ -330,7 +327,6 @@ class LibraryViewModel @Inject constructor(
             it.copy(
                 books = books,
                 downloadedBookIds = catalogRepository.downloadedBookIds(books),
-                favoriteBookIds = favorites,
                 musicTrackList = trackList,
             )
         }
@@ -489,13 +485,9 @@ class LibraryViewModel @Inject constructor(
             val downloaded = withContext(Dispatchers.IO) {
                 catalogRepository.downloadedBookIds(books)
             }
-            val favorites = withContext(Dispatchers.IO) {
-                catalogRepository.getFavoriteBookIds()
-            }
             _uiState.update {
                 it.copy(
                     downloadedBookIds = downloaded,
-                    favoriteBookIds = favorites,
                     musicTrackList = trackList,
                 )
             }

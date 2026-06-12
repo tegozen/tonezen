@@ -23,10 +23,6 @@ contextBridge.exposeInMainWorld("tonezen", {
     storageStats: () => ipcRenderer.invoke("download:storageStats"),
     deleteAll: () => ipcRenderer.invoke("download:deleteAll"),
   },
-  favorites: {
-    list: () => ipcRenderer.invoke("favorites:list"),
-    toggle: (bookId: string) => ipcRenderer.invoke("favorites:toggle", bookId),
-  },
   sync: {
     status: () => ipcRenderer.invoke("sync:status"),
     trigger: () => ipcRenderer.invoke("sync:trigger"),

@@ -107,7 +107,6 @@ private fun LibraryScreenPreview() {
             books = previewBooks,
             allBooks = previewBooks,
             downloadedBookIds = setOf("midnight"),
-            favoriteBookIds = emptySet(),
             offlineBanner = false,
             isLoadingCatalog = false,
             filter = LibraryFilterState(),
@@ -177,6 +176,7 @@ private fun ProfileScreenPreview() {
             hazeState = remember { HazeState() },
             state = profilePreviewState,
             onSignOutClick = {},
+            onAccountClick = {},
             onSettingsClick = {},
         )
     }

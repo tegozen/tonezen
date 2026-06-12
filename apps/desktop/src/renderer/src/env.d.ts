@@ -51,10 +51,6 @@ export interface TonezenApi {
     storageStats: () => Promise<{ usedBytes: number }>;
     deleteAll: () => Promise<void>;
   };
-  favorites: {
-    list: () => Promise<string[]>;
-    toggle: (bookId: string) => Promise<string[]>;
-  };
   sync: {
     status: () => Promise<{ pendingCount: number }>;
     trigger: () => Promise<void>;

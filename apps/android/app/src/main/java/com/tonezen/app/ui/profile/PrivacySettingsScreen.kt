@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
@@ -34,6 +35,7 @@ import dev.chrisbanes.haze.HazeState
 internal fun PrivacySettingsScreen(
     padding: PaddingValues,
     hazeState: HazeState,
+    bottomScrollPadding: Dp,
     onBack: () -> Unit,
     onOpenAppSettings: () -> Unit,
 ) {
@@ -41,6 +43,7 @@ internal fun PrivacySettingsScreen(
         hazeState = hazeState,
         padding = padding,
         onBack = onBack,
+        bottomScrollPadding = bottomScrollPadding,
         title = {
             Text(
                 stringResource(R.string.settings_privacy_page_title),

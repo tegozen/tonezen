@@ -115,42 +115,6 @@ paths:
                           type: string
                           format: uri
 
-  /favorites:
-    get:
-      summary: List user favorites
-      responses:
-        "200":
-          description: Favorites
-    post:
-      summary: Add favorite
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [book_id]
-              properties:
-                book_id:
-                  type: string
-                  format: uuid
-      responses:
-        "201":
-          description: Created
-
-  /favorites/{bookId}:
-    delete:
-      summary: Remove favorite
-      parameters:
-        - name: bookId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        "204":
-          description: Deleted
-
   /progress/audiobooks:
     get:
       summary: Get all audiobook progress for user

@@ -37,7 +37,6 @@ export function App() {
   const [libraryTab, setLibraryTab] = useState(0);
   const [query, setQuery] = useState("");
   const [showFilterSheet, setShowFilterSheet] = useState(false);
-  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [downloads, setDownloads] = useState<
     Awaited<ReturnType<typeof window.tonezen.download.list>>
   >([]);
@@ -70,7 +69,6 @@ export function App() {
 
   const refreshBooks = useCallback(async () => {
     setBooks(await window.tonezen.db.getBooks());
-    setFavoriteIds(await window.tonezen.favorites.list());
     setDownloads(await window.tonezen.download.list());
     const stats = await window.tonezen.download.storageStats();
     setStorageUsed(stats.usedBytes);
@@ -134,11 +132,6 @@ export function App() {
     }
   };
 
-  const toggleFavorite = async () => {
-    if (!selectedBook) return;
-    setFavoriteIds(await window.tonezen.favorites.toggle(selectedBook.id));
-  };
-
   const upNext = useMemo(() => {
     if (!currentTrack) return [];
     const index = tracks.findIndex((track) => track.id === currentTrack.id);
@@ -175,7 +168,6 @@ export function App() {
             tracks={tracks}
             tab={bookTab}
             isPlaying={isPlaying}
-            isFavorite={favoriteIds.includes(selectedBook.id)}
             positionMs={positionMs}
             durationMs={durationMs}
             currentTrack={currentTrack}
@@ -188,7 +180,6 @@ export function App() {
             onDownloadRequest={() => setShowDownloadSheet(true)}
             onDownloadConfirm={() => void downloadBook()}
             onDownloadDismiss={() => setShowDownloadSheet(false)}
-            onToggleFavorite={() => void toggleFavorite()}
             onStartListening={() => void resumeProgress()}
           />
         </AppShell>
@@ -253,7 +244,6 @@ export function App() {
             positionMs={positionMs}
             durationMs={durationMs}
             upNext={upNext}
-            favoritesCount={favoriteIds.length}
             downloadsCount={downloads.length}
             onPlayPause={pauseOrResume}
             onSeekBy={seekBy}

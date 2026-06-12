@@ -163,21 +163,6 @@ class CatalogRepository @Inject constructor(
         catalogDao.clearLocalPathsForBook(bookId)
     }
 
-    suspend fun toggleFavorite(bookId: String) {
-        val existing = catalogDao.getFavorites().any { it.bookId == bookId }
-        if (existing) {
-            catalogDao.deleteFavorite(bookId)
-        } else {
-            catalogDao.upsertFavorite(FavoriteEntity(bookId, pendingSync = true))
-        }
-    }
-
-    suspend fun getFavoriteBookIds(): Set<String> =
-        catalogDao.getFavorites().map { it.bookId }.toSet()
-
-    suspend fun isFavorite(bookId: String): Boolean =
-        catalogDao.getFavorites().any { it.bookId == bookId }
-
     suspend fun isProgressPendingSync(bookId: String): Boolean =
         catalogDao.getProgress(bookId)?.pendingSync == true
 
@@ -220,7 +205,7 @@ class CatalogRepository @Inject constructor(
     }
 
     suspend fun getPendingSyncCount(): Int =
-        catalogDao.getPendingProgress().size + catalogDao.getFavorites().count { it.pendingSync }
+        catalogDao.getPendingProgress().size
 
     suspend fun deleteAllDownloads() {
         val books = catalogDao.getAllBooks()

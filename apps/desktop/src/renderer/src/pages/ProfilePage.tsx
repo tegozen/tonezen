@@ -6,16 +6,14 @@ import {
   MoreVerticalIcon,
   ProfileIcon,
   StorageIcon,
-  SyncIcon,
   WarningIcon,
 } from "../components/TonezenIcons";
 import { strings } from "../i18n/strings";
 import { AccountSettingsPage } from "./profile/AccountSettingsPage";
 import { PrivacySettingsPage } from "./profile/PrivacySettingsPage";
 import { StorageSettingsPage } from "./profile/StorageSettingsPage";
-import { SyncSettingsPage } from "./profile/SyncSettingsPage";
 
-type ProfileSettingsPage = "account" | "sync" | "storage" | "privacy";
+type ProfileSettingsPage = "account" | "storage" | "privacy";
 
 interface ProfilePageProps {
   displayName: string | null;
@@ -74,17 +72,6 @@ export function ProfilePage({
       />
     );
   }
-  if (activePage === "sync") {
-    return (
-      <SyncSettingsPage
-        online={online}
-        pendingCount={pendingCount}
-        syncing={syncing}
-        onBack={() => setActivePage(null)}
-        onSyncNow={onSyncNow}
-      />
-    );
-  }
   if (activePage === "storage") {
     return (
       <StorageSettingsPage
@@ -130,15 +117,20 @@ export function ProfilePage({
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-raised text-teal">
+      <button
+        type="button"
+        className="card-hover flex w-full items-center gap-3 px-4 py-4 text-left"
+        onClick={() => setActivePage("account")}
+      >
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-surface-raised text-teal">
           <ProfileIcon className="h-8 w-8" />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="font-semibold">{displayName}</div>
           {email && <div className="text-sm text-muted">{email}</div>}
         </div>
-      </div>
+        <ChevronRightIcon className="h-5 w-5 shrink-0 text-muted" />
+      </button>
       <div className="card space-y-3">
         <div className="flex items-center gap-2 font-semibold">
           <CheckCircleIcon className="h-5 w-5 text-teal" />
@@ -151,18 +143,6 @@ export function ProfilePage({
         </button>
       </div>
       <div className="space-y-2">
-        <SettingsRow
-          icon={<ProfileIcon className="h-6 w-6" />}
-          title={strings.settingsAccount}
-          subtitle={strings.settingsAccountSubtitle}
-          onClick={() => setActivePage("account")}
-        />
-        <SettingsRow
-          icon={<SyncIcon className="h-6 w-6" />}
-          title={strings.settingsSync}
-          subtitle={strings.settingsSyncSubtitle}
-          onClick={() => setActivePage("sync")}
-        />
         <SettingsRow
           icon={<StorageIcon className="h-6 w-6" />}
           title={strings.settingsStorage}

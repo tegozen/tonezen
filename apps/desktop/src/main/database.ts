@@ -36,10 +36,6 @@ export const LocalDatabase = {
         updated_at TEXT NOT NULL,
         pending_sync INTEGER NOT NULL DEFAULT 0
       );
-      CREATE TABLE IF NOT EXISTS favorites (
-        book_id TEXT PRIMARY KEY,
-        pending_sync INTEGER NOT NULL DEFAULT 0
-      );
     `);
   },
 
@@ -199,28 +195,11 @@ export const LocalDatabase = {
     db!.prepare(`UPDATE audiobook_progress SET pending_sync = 0 WHERE book_id = ?`).run(bookId);
   },
 
-  getFavoriteBookIds(): string[] {
-    const rows = db!.prepare(`SELECT book_id FROM favorites`).all() as Array<{ book_id: string }>;
-    return rows.map((r) => r.book_id);
-  },
-
-  toggleFavorite(bookId: string): void {
-    const existing = db!.prepare(`SELECT book_id FROM favorites WHERE book_id = ?`).get(bookId);
-    if (existing) {
-      db!.prepare(`DELETE FROM favorites WHERE book_id = ?`).run(bookId);
-    } else {
-      db!.prepare(`INSERT INTO favorites (book_id, pending_sync) VALUES (?, 1)`).run(bookId);
-    }
-  },
-
   getPendingSyncCount(): number {
     const progress = db!
       .prepare(`SELECT COUNT(*) as count FROM audiobook_progress WHERE pending_sync = 1`)
       .get() as { count: number };
-    const favorites = db!
-      .prepare(`SELECT COUNT(*) as count FROM favorites WHERE pending_sync = 1`)
-      .get() as { count: number };
-    return progress.count + favorites.count;
+    return progress.count;
   },
 
   clearAllLocalPaths(): void {

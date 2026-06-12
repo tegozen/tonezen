@@ -4,7 +4,6 @@ import {
   CloseIcon,
   DownloadsIcon,
   Forward15Icon,
-  HeartIcon,
   MoreVerticalIcon,
   PauseIcon,
   PlayIcon,
@@ -24,7 +23,6 @@ interface BookFlowPageProps {
   tracks: Track[];
   tab: "player" | "details";
   isPlaying: boolean;
-  isFavorite: boolean;
   positionMs: number;
   durationMs: number;
   currentTrack: Track | null;
@@ -37,7 +35,6 @@ interface BookFlowPageProps {
   onDownloadRequest: () => void;
   onDownloadConfirm: () => void;
   onDownloadDismiss: () => void;
-  onToggleFavorite: () => void;
   onStartListening: () => void;
 }
 
@@ -46,7 +43,6 @@ export function BookFlowPage({
   tracks,
   tab,
   isPlaying,
-  isFavorite,
   positionMs,
   durationMs,
   currentTrack,
@@ -59,7 +55,6 @@ export function BookFlowPage({
   onDownloadRequest,
   onDownloadConfirm,
   onDownloadDismiss,
-  onToggleFavorite,
   onStartListening,
 }: BookFlowPageProps) {
   const progress = durationMs > 0 ? positionMs / durationMs : 0;
@@ -91,16 +86,10 @@ export function BookFlowPage({
           <DownloadsIcon className="h-5 w-5" />
           {strings.download}
         </button>
-        <div className="flex gap-3">
-          <button type="button" className="btn-secondary flex flex-1 items-center justify-center gap-2" onClick={onToggleFavorite}>
-            <HeartIcon className="h-5 w-5" />
-            {isFavorite ? strings.favorites : strings.favorite}
-          </button>
-          <button type="button" className="btn-primary flex flex-1 items-center justify-center gap-2 bg-amber text-app" onClick={onStartListening}>
-            <PlayIcon className="h-5 w-5" />
-            {strings.startListening}
-          </button>
-        </div>
+        <button type="button" className="btn-primary flex w-full items-center justify-center gap-2 bg-amber text-app" onClick={onStartListening}>
+          <PlayIcon className="h-5 w-5" />
+          {strings.startListening}
+        </button>
         {showDownloadSheet && (
           <Sheet title={strings.downloadConfirmTitle} onDismiss={onDownloadDismiss}>
             <button type="button" className="btn-primary mt-4 flex w-full items-center justify-center gap-2" onClick={onDownloadConfirm}>

@@ -206,24 +206,14 @@ internal fun LibraryFilterSheet(
         ) {
             Text(stringResource(R.string.search_filter_title), color = TonezenInk, fontWeight = FontWeight.SemiBold)
             FilterChipRow(
-                label = stringResource(R.string.tab_audiobooks),
-                selected = filter.contentFilter == LibraryContentFilter.AUDIOBOOKS,
-                onClick = { onContentFilterChange(LibraryContentFilter.AUDIOBOOKS) },
-            )
-            FilterChipRow(
-                label = stringResource(R.string.tab_music),
-                selected = filter.contentFilter == LibraryContentFilter.MUSIC,
-                onClick = { onContentFilterChange(LibraryContentFilter.MUSIC) },
+                label = stringResource(R.string.filter_all),
+                selected = filter.contentFilter == LibraryContentFilter.ALL,
+                onClick = { onContentFilterChange(LibraryContentFilter.ALL) },
             )
             FilterChipRow(
                 label = stringResource(R.string.filter_downloaded),
                 selected = filter.contentFilter == LibraryContentFilter.DOWNLOADED,
                 onClick = { onContentFilterChange(LibraryContentFilter.DOWNLOADED) },
-            )
-            FilterChipRow(
-                label = stringResource(R.string.favorites),
-                selected = filter.contentFilter == LibraryContentFilter.FAVORITES,
-                onClick = { onContentFilterChange(LibraryContentFilter.FAVORITES) },
             )
             Text(stringResource(R.string.sort_by), color = TonezenMuted)
             FilterChipRow(

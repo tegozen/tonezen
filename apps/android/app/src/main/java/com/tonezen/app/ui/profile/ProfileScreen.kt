@@ -46,12 +46,11 @@ import com.tonezen.app.ui.components.ProfileGlyph
 import com.tonezen.app.ui.components.SignOutConfirmDialog
 import com.tonezen.app.ui.components.StatusChip
 import com.tonezen.app.ui.components.StorageGlyph
-import com.tonezen.app.ui.components.SyncGlyph
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenBorder
-import com.tonezen.app.ui.components.TonezenTopChromeBar
+import com.tonezen.app.ui.components.TonezenTitleChromeBar
+import com.tonezen.app.ui.theme.TonezenPageChromeScrollPadding
 import com.tonezen.app.ui.theme.TonezenProfileBottomExtraScrollPadding
-import com.tonezen.app.ui.theme.TonezenProfileChromeScrollPadding
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
 import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 import com.tonezen.app.ui.theme.TonezenError
@@ -73,6 +72,10 @@ internal fun ProfileScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val bottomScrollPadding = tonezenBottomChromeScrollPadding(
+        showMiniPlayer = showMiniPlayer,
+        showBottomNav = true,
+    )
 
     BackHandler(
         enabled = state.showSignOutConfirm ||
@@ -110,6 +113,7 @@ internal fun ProfileScreen(
         ProfileSettingsAction.Account -> AccountSettingsScreen(
             padding = padding,
             hazeState = hazeState,
+            bottomScrollPadding = bottomScrollPadding,
             displayName = state.displayName.orEmpty(),
             email = state.email.orEmpty(),
             profileSaving = state.profileSaving,
@@ -121,17 +125,10 @@ internal fun ProfileScreen(
             onSaveProfile = viewModel::saveProfile,
             onChangePassword = viewModel::changePassword,
         )
-        ProfileSettingsAction.Sync -> SyncSettingsScreen(
-            padding = padding,
-            hazeState = hazeState,
-            sessionState = state.sessionState,
-            lastSyncTime = state.lastSyncTime,
-            pendingSyncCount = state.pendingSyncCount,
-            onBack = viewModel::closeSettingsScreen,
-        )
         ProfileSettingsAction.Storage -> StorageSettingsScreen(
             padding = padding,
             hazeState = hazeState,
+            bottomScrollPadding = bottomScrollPadding,
             usedBytes = state.storageUsedBytes,
             totalBytes = state.storageTotalBytes,
             showDeleteAllConfirm = state.showDeleteAllConfirm,
@@ -143,6 +140,7 @@ internal fun ProfileScreen(
         ProfileSettingsAction.Privacy -> PrivacySettingsScreen(
             padding = padding,
             hazeState = hazeState,
+            bottomScrollPadding = bottomScrollPadding,
             onBack = viewModel::closeSettingsScreen,
             onOpenAppSettings = {
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -157,6 +155,7 @@ internal fun ProfileScreen(
             state = state,
             showMiniPlayer = showMiniPlayer,
             onSignOutClick = { viewModel.setSignOutConfirmVisible(true) },
+            onAccountClick = { viewModel.onSettingsClick(ProfileSettingsAction.Account) },
             onSettingsClick = viewModel::onSettingsClick,
         )
     }
@@ -169,22 +168,11 @@ internal fun ProfileScreenContent(
     state: ProfileUiState,
     showMiniPlayer: Boolean = false,
     onSignOutClick: () -> Unit,
+    onAccountClick: () -> Unit,
     onSettingsClick: (ProfileSettingsAction) -> Unit,
 ) {
     val online = state.sessionState == SessionState.AUTHENTICATED_ONLINE
     val settingsItems = listOf(
-        SettingsItem(
-            action = ProfileSettingsAction.Account,
-            titleRes = R.string.settings_account,
-            subtitleRes = R.string.settings_account_subtitle,
-            icon = { ProfileGlyph(tint = TonezenInk) },
-        ),
-        SettingsItem(
-            action = ProfileSettingsAction.Sync,
-            titleRes = R.string.settings_sync,
-            subtitleRes = R.string.settings_sync_subtitle,
-            icon = { SyncGlyph(tint = TonezenInk) },
-        ),
         SettingsItem(
             action = ProfileSettingsAction.Storage,
             titleRes = R.string.settings_storage,
@@ -210,8 +198,12 @@ internal fun ProfileScreenContent(
                 .fillMaxSize()
                 .haze(state = hazeState),
             contentPadding = tonezenScreenContentPadding(
-                top = TonezenProfileChromeScrollPadding,
-                bottom = tonezenBottomChromeScrollPadding(showMiniPlayer) + TonezenProfileBottomExtraScrollPadding,
+                top = TonezenPageChromeScrollPadding,
+                bottom = tonezenBottomChromeScrollPadding(
+                    showMiniPlayer = showMiniPlayer,
+                    showBottomNav = true,
+                    extraBottom = TonezenProfileBottomExtraScrollPadding,
+                ),
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -221,6 +213,7 @@ internal fun ProfileScreenContent(
                     email = state.email,
                     memberSinceLabel = state.memberSinceLabel,
                     avatarUrl = state.avatarUrl,
+                    onClick = onAccountClick,
                 )
             }
             item {
@@ -243,7 +236,7 @@ internal fun ProfileScreenContent(
                 }
             }
         }
-        TonezenTopChromeBar(
+        TonezenTitleChromeBar(
             modifier = Modifier.align(Alignment.TopCenter),
             hazeState = hazeState,
         ) {
@@ -272,11 +265,13 @@ private fun ProfileUserCard(
     email: String?,
     memberSinceLabel: String?,
     avatarUrl: String?,
+    onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
             .background(TonezenSurfaceRaised)
             .border(1.dp, TonezenBorder, RoundedCornerShape(16.dp))
             .padding(16.dp),

@@ -6,10 +6,7 @@ import com.tonezen.app.domain.model.Cycle
 
 enum class LibraryContentFilter {
     ALL,
-    AUDIOBOOKS,
-    MUSIC,
     DOWNLOADED,
-    FAVORITES,
 }
 
 enum class LibrarySortOrder {
@@ -21,13 +18,12 @@ enum class LibrarySortOrder {
 data class LibraryFilterState(
     val query: String = "",
     val contentFilter: LibraryContentFilter = LibraryContentFilter.ALL,
-    val sortOrder: LibrarySortOrder = LibrarySortOrder.TITLE,
+    val sortOrder: LibrarySortOrder = LibrarySortOrder.RECENTLY_PLAYED,
 )
 
 fun filterAndSortBooks(
     books: List<Book>,
     downloadedBookIds: Set<String>,
-    favoriteBookIds: Set<String>,
     filter: LibraryFilterState,
 ): List<Book> {
     val normalizedQuery = filter.query.trim().lowercase()
@@ -37,11 +33,8 @@ fun filterAndSortBooks(
             book.author.orEmpty().lowercase().contains(normalizedQuery)
         if (!matchesQuery) return@filter false
         when (filter.contentFilter) {
-            LibraryContentFilter.ALL -> true
-            LibraryContentFilter.AUDIOBOOKS -> book.contentType == ContentType.AUDIOBOOK
-            LibraryContentFilter.MUSIC -> book.contentType == ContentType.MUSIC
+            LibraryContentFilter.ALL -> book.contentType == ContentType.AUDIOBOOK
             LibraryContentFilter.DOWNLOADED -> downloadedBookIds.contains(book.id)
-            LibraryContentFilter.FAVORITES -> favoriteBookIds.contains(book.id)
         }
     }
     return when (filter.sortOrder) {
@@ -54,7 +47,6 @@ fun filterAndSortBooks(
 fun filterCycles(
     cycles: List<Cycle>,
     downloadedBookIds: Set<String>,
-    favoriteBookIds: Set<String>,
     filter: LibraryFilterState,
 ): List<Cycle> {
     val normalizedQuery = filter.query.trim().lowercase()
@@ -67,12 +59,9 @@ fun filterCycles(
             }
         if (!matchesQuery) return@filter false
         when (filter.contentFilter) {
-            LibraryContentFilter.ALL, LibraryContentFilter.AUDIOBOOKS -> true
-            LibraryContentFilter.MUSIC -> false
+            LibraryContentFilter.ALL -> true
             LibraryContentFilter.DOWNLOADED ->
                 cycle.books.any { downloadedBookIds.contains(it.id) }
-            LibraryContentFilter.FAVORITES ->
-                cycle.books.any { favoriteBookIds.contains(it.id) }
         }
     }
     return when (filter.sortOrder) {

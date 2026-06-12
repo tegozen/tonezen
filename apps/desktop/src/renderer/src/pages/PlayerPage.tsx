@@ -4,7 +4,6 @@ import {
   CheckCircleIcon,
   DownloadsIcon,
   Forward15Icon,
-  HeartIcon,
   PauseIcon,
   PlayIcon,
   QueueIcon,
@@ -26,7 +25,6 @@ interface PlayerPageProps {
   positionMs: number;
   durationMs: number;
   upNext: Track[];
-  favoritesCount: number;
   downloadsCount: number;
   onPlayPause: () => void;
   onSeekBy: (deltaMs: number) => void;
@@ -40,7 +38,6 @@ export function PlayerPage({
   positionMs,
   durationMs,
   upNext,
-  favoritesCount,
   downloadsCount,
   onPlayPause,
   onSeekBy,
@@ -93,9 +90,8 @@ export function PlayerPage({
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <Stat icon={<QueueIcon className="h-5 w-5" />} label={strings.queue} value={String(upNext.length + 1)} />
-        <Stat icon={<HeartIcon className="h-5 w-5" />} label={strings.favorites} value={String(favoritesCount)} />
         <Stat icon={<DownloadsIcon className="h-5 w-5" />} label={strings.downloads} value={String(downloadsCount)} />
         <Stat icon={<CheckCircleIcon className="h-5 w-5 text-teal" />} label={strings.synced} value="" />
       </div>

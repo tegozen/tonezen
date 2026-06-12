@@ -29,7 +29,7 @@ import com.tonezen.app.ui.profile.ProfileScreen
 import com.tonezen.app.ui.profile.ProfileViewModel
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.withoutBottom
-import com.tonezen.app.ui.theme.tonezenOverlayBottomScrollPadding
+import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.runtime.remember
 
@@ -47,7 +47,10 @@ fun AppShell(
     val inLibraryOverlay = selectedCycle != null || selectedBook != null
     val miniPlayerVisible = shellState.showMiniPlayer && !shellState.nowPlayingTitle.isNullOrBlank()
     val showBottomChrome = miniPlayerVisible || !inLibraryOverlay
-    val overlayBottomScrollPadding = tonezenOverlayBottomScrollPadding(miniPlayerVisible)
+    val overlayBottomScrollPadding = tonezenBottomChromeScrollPadding(
+        showMiniPlayer = miniPlayerVisible,
+        showBottomNav = false,
+    )
     val hazeState = remember { HazeState() }
 
     Scaffold(
@@ -115,7 +118,6 @@ fun AppShell(
                         books = libraryViewModel.filteredBooks,
                         allBooks = libraryState.books,
                         downloadedBookIds = libraryState.downloadedBookIds,
-                        favoriteBookIds = libraryState.favoriteBookIds,
                         offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
                         isLoadingCatalog = libraryState.isLoadingCatalog,
                         filter = libraryState.filter,

@@ -5,7 +5,6 @@ import type { StorageSignConfig } from "./lib/storageSign.js";
 import { createRouteDeps } from "./routes/deps.js";
 import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerDownloadRoutes } from "./routes/downloads.js";
-import { registerFavoriteRoutes } from "./routes/favorites.js";
 import { registerProgressRoutes } from "./routes/progress.js";
 
 export interface AppConfig {
@@ -24,7 +23,6 @@ export function createApp(pool: pg.Pool, config: AppConfig) {
 
   registerCatalogRoutes(app, deps);
   registerDownloadRoutes(app, deps);
-  registerFavoriteRoutes(app, deps);
   registerProgressRoutes(app, deps);
 
   return app;

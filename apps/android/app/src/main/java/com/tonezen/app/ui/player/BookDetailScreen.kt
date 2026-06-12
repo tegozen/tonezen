@@ -1,28 +1,18 @@
 package com.tonezen.app.ui.player
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
@@ -32,13 +22,12 @@ import com.tonezen.app.ui.components.DownloadConfirmSheet
 import com.tonezen.app.ui.components.OverflowGlyph
 import com.tonezen.app.ui.components.PlayingBars
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
+import com.tonezen.app.ui.components.TonezenTrackListRow
 import com.tonezen.app.ui.components.TrackActionsSheet
 import com.tonezen.app.ui.theme.TonezenAmber
-import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
-import com.tonezen.app.ui.theme.durationLabel
 import dev.chrisbanes.haze.HazeState
 
 @Composable
@@ -118,51 +107,30 @@ private fun ChapterRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .background(if (selected) TonezenAmber.copy(alpha = 0.08f) else Color.Transparent)
-            .border(
-                BorderStroke(
-                    1.dp,
-                    if (selected) TonezenAmber.copy(alpha = 0.18f) else TonezenBorder.copy(alpha = 0.35f),
-                ),
-                RoundedCornerShape(10.dp),
-            )
-            .padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        PlayingBars(active = selected)
-        Text(
-            (track.sortOrder + 1).toString(),
-            color = if (selected) TonezenAmber else TonezenMuted,
-        )
-        Column(modifier = Modifier.weight(1f)) {
+    TonezenTrackListRow(
+        title = track.title,
+        subtitle = track.localPath?.let { stringResource(R.string.offline) },
+        subtitleColor = TonezenTeal,
+        durationMs = track.durationMs,
+        isActive = selected,
+        onClick = onClick,
+        leading = {
+            PlayingBars(active = selected)
             Text(
-                track.title,
-                color = if (selected) TonezenAmber else TonezenInk,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                (track.sortOrder + 1).toString(),
+                color = if (selected) TonezenAmber else TonezenMuted,
             )
-            if (track.localPath != null) {
-                Text(
-                    stringResource(R.string.offline),
-                    color = TonezenTeal,
-                    style = MaterialTheme.typography.labelSmall,
+        },
+        trailing = {
+            Box(
+                modifier = Modifier.size(36.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                OverflowGlyph(
+                    modifier = Modifier.clickable(onClick = onLongClick),
+                    tint = TonezenMuted,
                 )
             }
-        }
-        Text(
-            durationLabel(track.durationMs),
-            color = TonezenMuted,
-            style = MaterialTheme.typography.bodySmall,
-        )
-        OverflowGlyph(
-            modifier = Modifier.clickable(onClick = onLongClick),
-            tint = TonezenMuted,
-        )
-    }
+        },
+    )
 }

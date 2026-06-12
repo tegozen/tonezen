@@ -40,15 +40,6 @@ interface CatalogDao {
     @Query("SELECT * FROM audiobook_progress WHERE pendingSync = 1")
     suspend fun getPendingProgress(): List<AudiobookProgressEntity>
 
-    @Query("SELECT * FROM favorites")
-    suspend fun getFavorites(): List<FavoriteEntity>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsertFavorite(favorite: FavoriteEntity)
-
-    @Query("DELETE FROM favorites WHERE bookId = :bookId")
-    suspend fun deleteFavorite(bookId: String)
-
     @Query("UPDATE tracks SET localPath = NULL WHERE bookId = :bookId")
     suspend fun clearLocalPathsForBook(bookId: String)
 

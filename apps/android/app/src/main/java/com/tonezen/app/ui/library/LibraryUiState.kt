@@ -31,7 +31,6 @@ data class LibraryUiState(
     val cycles: List<Cycle> = emptyList(),
     val books: List<Book> = emptyList(),
     val downloadedBookIds: Set<String> = emptySet(),
-    val favoriteBookIds: Set<String> = emptySet(),
     val filter: LibraryFilterState = LibraryFilterState(),
     val showFilterSheet: Boolean = false,
     val nowPlayingTitle: String? = null,

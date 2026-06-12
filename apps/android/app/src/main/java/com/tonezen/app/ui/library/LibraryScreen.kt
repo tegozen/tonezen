@@ -60,7 +60,6 @@ internal fun LibraryScreen(
     books: List<Book>,
     allBooks: List<Book>,
     downloadedBookIds: Set<String>,
-    favoriteBookIds: Set<String>,
     offlineBanner: Boolean,
     isLoadingCatalog: Boolean,
     filter: LibraryFilterState,
@@ -95,9 +94,10 @@ internal fun LibraryScreen(
         }
         if (offlineBanner) base + TonezenTopChromeOfflineBannerExtra else base
     }
-    val bottomChromeScrollPadding = remember(showMiniPlayer) {
-        tonezenBottomChromeScrollPadding(showMiniPlayer)
-    }
+    val bottomChromeScrollPadding = tonezenBottomChromeScrollPadding(
+        showMiniPlayer = showMiniPlayer,
+        showBottomNav = true,
+    )
 
     LaunchedEffect(selectedTab) {
         if (!isAudiobooksTab && showFilterSheet) {

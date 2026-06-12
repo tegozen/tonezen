@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
@@ -54,6 +55,7 @@ import dev.chrisbanes.haze.HazeState
 internal fun AccountSettingsScreen(
     padding: PaddingValues,
     hazeState: HazeState,
+    bottomScrollPadding: Dp,
     displayName: String,
     email: String,
     profileSaving: Boolean,
@@ -75,6 +77,7 @@ internal fun AccountSettingsScreen(
         hazeState = hazeState,
         padding = padding,
         onBack = onBack,
+        bottomScrollPadding = bottomScrollPadding,
         title = {
             Text(
                 stringResource(R.string.settings_account_page_title),

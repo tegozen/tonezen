@@ -16,20 +16,28 @@ class LibraryFilterTest {
         val result = filterAndSortBooks(
             books = books,
             downloadedBookIds = setOf("1"),
-            favoriteBookIds = emptySet(),
             filter = LibraryFilterState(contentFilter = LibraryContentFilter.DOWNLOADED),
         )
         assertEquals(listOf("1"), result.map { it.id })
     }
 
     @Test
-    fun filtersByQuery() {
+    fun filtersAllShowsAudiobooksOnly() {
         val result = filterAndSortBooks(
             books = books,
             downloadedBookIds = emptySet(),
-            favoriteBookIds = emptySet(),
-            filter = LibraryFilterState(query = "beta"),
+            filter = LibraryFilterState(contentFilter = LibraryContentFilter.ALL),
         )
-        assertEquals(listOf("2"), result.map { it.id })
+        assertEquals(listOf("1"), result.map { it.id })
+    }
+
+    @Test
+    fun filtersByQueryWithinAudiobooks() {
+        val result = filterAndSortBooks(
+            books = books,
+            downloadedBookIds = emptySet(),
+            filter = LibraryFilterState(query = "alpha"),
+        )
+        assertEquals(listOf("1"), result.map { it.id })
     }
 }
