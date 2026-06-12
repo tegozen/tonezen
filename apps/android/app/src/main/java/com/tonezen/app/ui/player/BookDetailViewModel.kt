@@ -20,7 +20,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val PLAYBACK_SPEEDS = floatArrayOf(0.75f, 1f, 1.25f, 1.5f, 2f)
 
@@ -123,12 +125,33 @@ class BookDetailViewModel @Inject constructor(
     fun playTrack(track: Track) {
         val book = _uiState.value.book ?: return
         viewModelScope.launch {
-            val item = when (book.contentType) {
-                ContentType.AUDIOBOOK -> playbackQueueBuilder.buildSingleAudiobookItem(book, track)
-                ContentType.MUSIC -> playbackQueueBuilder.buildSingleMusicItem(book, track)
-            } ?: return@launch
-            currentTrack = track
-            playbackClient.playQueue(listOf(item), startIndex = 0)
+            when (book.contentType) {
+                ContentType.AUDIOBOOK -> {
+                    val item = playbackQueueBuilder.buildSingleAudiobookItem(book, track) ?: return@launch
+                    currentTrack = track
+                    playbackClient.playQueue(listOf(item), startIndex = 0)
+                }
+                ContentType.MUSIC -> {
+                    val libraryTracks = withContext(Dispatchers.IO) {
+                        catalogRepository.resolveMusicLibraryTracks()
+                    }
+                    val target = libraryTracks.find { it.track.id == track.id } ?: return@launch
+                    withContext(Dispatchers.IO) {
+                        playbackQueueBuilder.buildSingleMusicItem(target.book, track)
+                    } ?: return@launch
+                    val queue = withContext(Dispatchers.IO) {
+                        playbackQueueBuilder.buildLocalMusicLibraryQueue(libraryTracks) { entry ->
+                            catalogRepository.getTracksForBook(entry.book.id)
+                                .find { it.id == entry.track.id }
+                                ?.takeIf { !it.localPath.isNullOrBlank() }
+                        }
+                    }
+                    if (queue.isEmpty()) return@launch
+                    val startIndex = queue.indexOfFirst { it.trackId == track.id }.coerceAtLeast(0)
+                    currentTrack = track
+                    playbackClient.playQueue(queue, startIndex)
+                }
+            }
             _uiState.update { it.copy(nowPlayingTitle = track.title) }
             loadBook(book)
         }

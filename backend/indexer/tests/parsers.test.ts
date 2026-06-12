@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildMusicAlbums,
+  buildMusicLibrary,
   buildTracks,
   isAudioFilename,
   parseBookMeta,
@@ -95,32 +95,31 @@ describe("parseTrackNumber", () => {
   });
 });
 
-describe("buildMusicAlbums", () => {
-  it("groups tracks by album metadata", () => {
-    const albums = buildMusicAlbums([
+describe("buildMusicLibrary", () => {
+  it("puts every file into one flat music library", () => {
+    const library = buildMusicLibrary([
       {
         filename: "01-a.mp3",
         title: "Track A",
         artist: "Band",
-        album: "Greatest Hits",
+        album: "Ignored Album Tag",
         trackNumber: 1,
       },
       {
         filename: "02-b.mp3",
         title: "Track B",
         artist: "Band",
-        album: "Greatest Hits",
+        album: "Another Album",
         trackNumber: 2,
       },
     ]);
-    expect(albums).toHaveLength(1);
-    expect(albums[0].title).toBe("Greatest Hits");
-    expect(albums[0].author).toBe("Band");
-    expect(albums[0].tracks.map((t) => t.title)).toEqual(["Track A", "Track B"]);
+    expect(library).toHaveLength(1);
+    expect(library[0].slug).toBe("music-library");
+    expect(library[0].tracks.map((t) => t.title)).toEqual(["Track A", "Track B"]);
   });
 
   it("falls back to filename when metadata is missing", () => {
-    const albums = buildMusicAlbums([
+    const library = buildMusicLibrary([
       {
         filename: "01-my-song.mp3",
         title: null,
@@ -129,8 +128,8 @@ describe("buildMusicAlbums", () => {
         trackNumber: null,
       },
     ]);
-    expect(albums).toHaveLength(1);
-    expect(albums[0].slug).toBe("01-my-song");
-    expect(albums[0].tracks[0].title).toBe("my song");
+    expect(library).toHaveLength(1);
+    expect(library[0].slug).toBe("music-library");
+    expect(library[0].tracks[0].title).toBe("my song");
   });
 });

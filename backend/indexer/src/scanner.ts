@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
-  buildMusicAlbums,
+  buildMusicLibrary,
   buildTracks,
   isAudioFilename,
   parseBookMeta,
@@ -113,5 +113,5 @@ async function scanMusic(musicDir: string): Promise<ParsedBook[]> {
     });
   }
 
-  return buildMusicAlbums(files);
+  return buildMusicLibrary(files);
 }

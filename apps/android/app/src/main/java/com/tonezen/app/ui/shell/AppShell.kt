@@ -1,6 +1,7 @@
 package com.tonezen.app.ui.shell
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -99,54 +100,54 @@ fun AppShell(
             shellViewModel.dismissExpandedPlayer()
         }
 
-        if (shellState.showExpandedPlayer) {
-            NowPlayingSheet(
-                shellState = shellState,
-                onDismiss = shellViewModel::dismissExpandedPlayer,
-            )
-        }
+        Box(modifier = Modifier.fillMaxSize()) {
+            when (shellState.currentTab) {
+                BottomDestination.Library -> LibraryScreen(
+                    padding = padding,
+                    books = libraryViewModel.filteredBooks,
+                    allBooks = libraryState.books,
+                    downloadedBookIds = libraryState.downloadedBookIds,
+                    favoriteBookIds = libraryState.favoriteBookIds,
+                    offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
+                    filter = libraryState.filter,
+                    showFilterSheet = libraryState.showFilterSheet,
+                    onBookClick = { book ->
+                        shellViewModel.openBook(book)
+                    },
+                    onSearchChange = libraryViewModel::setSearchQuery,
+                    onFilterClick = { libraryViewModel.setFilterSheetVisible(true) },
+                    onDismissFilterSheet = { libraryViewModel.setFilterSheetVisible(false) },
+                    onApplyFilter = libraryViewModel::applyFilter,
+                    onResetFilter = libraryViewModel::resetFilter,
+                    onContentFilterChange = libraryViewModel::setContentFilter,
+                    onSortOrderChange = libraryViewModel::setSortOrder,
+                    musicPreview = libraryState.musicPreview,
+                    musicPlayback = libraryState.musicPlayback,
+                    musicDownloadProgress = libraryState.musicDownloadProgress,
+                    musicPlaybackErrorRes = libraryState.musicPlaybackErrorRes,
+                    onMusicPlayPause = libraryViewModel::toggleMusicPlayback,
+                    onMusicShuffle = libraryViewModel::shuffleMusicPreview,
+                    onMusicTabSelected = libraryViewModel::onMusicTabSelected,
+                )
 
-        when (shellState.currentTab) {
-            BottomDestination.Library -> LibraryScreen(
-                padding = padding,
-                books = libraryViewModel.filteredBooks,
-                allBooks = libraryState.books,
-                downloadedBookIds = libraryState.downloadedBookIds,
-                favoriteBookIds = libraryState.favoriteBookIds,
-                offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
-                isRefreshing = libraryState.isRefreshing,
-                filter = libraryState.filter,
-                showFilterSheet = libraryState.showFilterSheet,
-                onBookClick = { book ->
-                    shellViewModel.openBook(book)
-                },
-                onSearchChange = libraryViewModel::setSearchQuery,
-                onFilterClick = { libraryViewModel.setFilterSheetVisible(true) },
-                onDismissFilterSheet = { libraryViewModel.setFilterSheetVisible(false) },
-                onApplyFilter = libraryViewModel::applyFilter,
-                onResetFilter = libraryViewModel::resetFilter,
-                onContentFilterChange = libraryViewModel::setContentFilter,
-                onSortOrderChange = libraryViewModel::setSortOrder,
-                onRefresh = libraryViewModel::refresh,
-                musicPreview = libraryState.musicPreview,
-                musicPlayback = libraryState.musicPlayback,
-                musicDownloadProgress = libraryState.musicDownloadProgress,
-                musicPlaybackErrorRes = libraryState.musicPlaybackErrorRes,
-                onMusicPlayPause = libraryViewModel::toggleMusicPlayback,
-                onMusicShuffle = libraryViewModel::shuffleMusicPreview,
-                onMusicTabSelected = libraryViewModel::onMusicTabSelected,
-            )
+                BottomDestination.Downloads -> DownloadsScreen(
+                    padding = padding,
+                    viewModel = downloadsViewModel,
+                )
 
-            BottomDestination.Downloads -> DownloadsScreen(
-                padding = padding,
-                viewModel = downloadsViewModel,
-            )
+                BottomDestination.Profile -> ProfileScreen(
+                    padding = padding,
+                    viewModel = profileViewModel,
+                    onOpenDownloads = { shellViewModel.selectTab(BottomDestination.Downloads) },
+                )
+            }
 
-            BottomDestination.Profile -> ProfileScreen(
-                padding = padding,
-                viewModel = profileViewModel,
-                onOpenDownloads = { shellViewModel.selectTab(BottomDestination.Downloads) },
-            )
+            if (shellState.showExpandedPlayer) {
+                NowPlayingSheet(
+                    shellState = shellState,
+                    onDismiss = shellViewModel::dismissExpandedPlayer,
+                )
+            }
         }
     }
 }

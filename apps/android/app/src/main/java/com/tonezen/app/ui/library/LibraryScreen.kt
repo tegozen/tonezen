@@ -15,10 +15,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,7 +49,6 @@ import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenTeal
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun LibraryScreen(
     padding: PaddingValues,
@@ -60,7 +57,6 @@ internal fun LibraryScreen(
     downloadedBookIds: Set<String>,
     favoriteBookIds: Set<String>,
     offlineBanner: Boolean,
-    isRefreshing: Boolean,
     filter: LibraryFilterState,
     showFilterSheet: Boolean,
     onBookClick: (Book) -> Unit,
@@ -71,7 +67,6 @@ internal fun LibraryScreen(
     onResetFilter: () -> Unit,
     onContentFilterChange: (com.tonezen.app.domain.library.LibraryContentFilter) -> Unit,
     onSortOrderChange: (com.tonezen.app.domain.library.LibrarySortOrder) -> Unit,
-    onRefresh: () -> Unit,
     musicPreview: MusicTrackPreview?,
     musicPlayback: MusicPlaybackUi,
     musicDownloadProgress: Float?,
@@ -107,20 +102,14 @@ internal fun LibraryScreen(
         )
     }
 
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = onRefresh,
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(padding),
+            .padding(padding)
+            .background(TonezenScreenBrush),
+        contentPadding = PaddingValues(start = 20.dp, top = 28.dp, end = 20.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(TonezenScreenBrush),
-            contentPadding = PaddingValues(start = 20.dp, top = 28.dp, end = 20.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
         item { LibraryHeader() }
         if (offlineBanner) {
             item { OfflineBanner() }
@@ -167,7 +156,6 @@ internal fun LibraryScreen(
                     modifier = Modifier.padding(top = 16.dp),
                 )
             }
-        }
         }
     }
 }

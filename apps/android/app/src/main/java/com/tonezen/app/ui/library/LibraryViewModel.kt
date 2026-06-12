@@ -148,16 +148,22 @@ class LibraryViewModel @Inject constructor(
     }
 
     private suspend fun loadLibrary(session: StoredSession?) {
-        val refreshed = sessionRepository.refreshIfNeeded(session)
-        refreshSessionState(refreshed)
-        val local = catalogRepository.getAllBooks()
-        val favorites = catalogRepository.getFavoriteBookIds()
-        if (local.isNotEmpty()) {
-            updateBooks(local, favorites)
-        }
-        if (networkMonitor.isOnline()) {
-            refreshed?.let { progressSyncRepository.start(it) }
-            syncCatalog(refreshed?.accessToken)
+        withContext(Dispatchers.IO) {
+            val refreshed = sessionRepository.refreshIfNeeded(session)
+            withContext(Dispatchers.Main) {
+                refreshSessionState(refreshed)
+            }
+            val local = catalogRepository.getAllBooks()
+            val favorites = catalogRepository.getFavoriteBookIds()
+            if (local.isNotEmpty()) {
+                withContext(Dispatchers.Main) {
+                    updateBooks(local, favorites)
+                }
+            }
+            if (networkMonitor.isOnline()) {
+                refreshed?.let { progressSyncRepository.start(it) }
+                syncCatalog(refreshed?.accessToken)
+            }
         }
     }
 
@@ -176,17 +182,6 @@ class LibraryViewModel @Inject constructor(
                 favoriteBookIds = favorites,
                 musicPreview = it.musicPreview ?: pickRandomMusicPreview(),
             )
-        }
-    }
-
-    fun refresh() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isRefreshing = true) }
-            try {
-                loadLibrary(sessionRepository.loadSession())
-            } finally {
-                _uiState.update { it.copy(isRefreshing = false) }
-            }
         }
     }
 
@@ -301,11 +296,15 @@ class LibraryViewModel @Inject constructor(
 
     private suspend fun playMusicTrack(preview: MusicTrackPreview, showDownloadProgress: Boolean) {
         val book = _uiState.value.books.find { it.id == preview.bookId } ?: return
+        val libraryTracks = withContext(Dispatchers.IO) {
+            catalogRepository.resolveMusicLibraryTracks()
+        }
+        val targetEntry = libraryTracks.find { it.track.id == preview.trackId } ?: return
         val track = withContext(Dispatchers.IO) {
-            catalogRepository.getTracksForBook(book.id).find { it.id == preview.trackId }
-        } ?: return
+            catalogRepository.getTracksForBook(targetEntry.book.id).find { it.id == preview.trackId }
+        } ?: targetEntry.track
         val needsDownload = withContext(Dispatchers.IO) {
-            track.localPath == null && !trackDownloadEnsurer.isTrackLocal(book.id, track.id)
+            track.localPath == null && !trackDownloadEnsurer.isTrackLocal(targetEntry.book.id, track.id)
         }
         if (showDownloadProgress && !needsDownload) {
             _uiState.update { it.copy(musicDownloadProgress = null) }
@@ -319,7 +318,7 @@ class LibraryViewModel @Inject constructor(
             null
         }
         val outcome = withContext(Dispatchers.IO) {
-            trackDownloadEnsurer.ensureTrackLocal(book.id, track, progressReporter)
+            trackDownloadEnsurer.ensureTrackLocal(targetEntry.book.id, track, progressReporter)
         }
         val localTrack = outcome.track ?: run {
             _uiState.update {
@@ -330,7 +329,15 @@ class LibraryViewModel @Inject constructor(
             }
             return
         }
-        val item = playbackQueueBuilder.itemForLocalTrack(book, localTrack)
+        val queue = withContext(Dispatchers.IO) {
+            playbackQueueBuilder.buildLocalMusicLibraryQueue(libraryTracks) { entry ->
+                catalogRepository.getTracksForBook(entry.book.id)
+                    .find { it.id == entry.track.id }
+                    ?.takeIf { !it.localPath.isNullOrBlank() }
+            }
+        }
+        if (queue.isEmpty()) return
+        val startIndex = queue.indexOfFirst { it.trackId == localTrack.id }.coerceAtLeast(0)
         _uiState.update {
             it.copy(
                 musicDownloadProgress = null,
@@ -339,8 +346,8 @@ class LibraryViewModel @Inject constructor(
                 nowPlayingTitle = track.title,
             )
         }
-        musicBookIdByTrackId = musicBookIdByTrackId + (track.id to book.id)
-        playbackClient.playQueue(listOf(item), startIndex = 0)
+        musicBookIdByTrackId = musicBookIdByTrackId + (track.id to targetEntry.book.id)
+        playbackClient.playQueue(queue, startIndex)
         refreshDownloadedBooks()
         schedulePrefetch(excludeTrackId = track.id)
     }

@@ -1,9 +1,12 @@
 package com.tonezen.app.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -13,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.ui.theme.TonezenTeal
@@ -25,6 +30,7 @@ internal fun TrackCoverArt(
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
     cornerRadius: Int = 20,
+    downloadProgress: Float? = null,
 ) {
     val brush = remember(seed) { trackCoverBrush(seed) }
     val initials = remember(title) {
@@ -48,6 +54,47 @@ internal fun TrackCoverArt(
             text = initials,
             color = Color.White.copy(alpha = if (isPlaying) 0.45f else 0.88f),
             style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Bold,
+        )
+        downloadProgress?.let { progress ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.58f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                CoverDownloadProgress(progress = progress)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CoverDownloadProgress(progress: Float) {
+    val sweep = 360f * progress.coerceIn(0f, 1f)
+    val showIndeterminate = progress <= 0f
+    Box(contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.size(72.dp)) {
+            val stroke = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round)
+            drawArc(
+                color = Color.White.copy(alpha = 0.22f),
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = stroke,
+            )
+            drawArc(
+                color = TonezenTeal,
+                startAngle = -90f,
+                sweepAngle = if (showIndeterminate) 72f else sweep,
+                useCenter = false,
+                style = stroke,
+            )
+        }
+        Text(
+            text = if (showIndeterminate) "…" else "${(progress * 100).toInt()}%",
+            color = TonezenTeal,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
         )
     }

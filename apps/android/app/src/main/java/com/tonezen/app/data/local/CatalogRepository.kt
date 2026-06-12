@@ -8,12 +8,21 @@ import com.tonezen.app.domain.downloads.StorageStats
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.domain.music.MusicLibraryResolver
+import com.tonezen.app.domain.music.MusicLibraryTrack
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 
 @Singleton
 class CatalogRepository @Inject constructor(
@@ -24,6 +33,21 @@ class CatalogRepository @Inject constructor(
 ) {
     suspend fun getAllBooks(): List<Book> =
         catalogDao.getAllBooks().map { it.toDomain() }
+
+    suspend fun findBookForTrack(trackId: String): Book? {
+        val bookId = catalogDao.getBookIdForTrack(trackId) ?: return null
+        return catalogDao.getBook(bookId)?.toDomain()
+    }
+
+    suspend fun resolveMusicLibraryTracks(): List<MusicLibraryTrack> {
+        val allBooks = getAllBooks()
+        val tracksByBookId = allBooks.associate { book ->
+            book.id to getTracksForBook(book.id)
+        }
+        return MusicLibraryResolver.resolve(allBooks) { bookId ->
+            tracksByBookId[bookId].orEmpty()
+        }
+    }
 
     suspend fun getTracksForBook(bookId: String): List<Track> =
         catalogDao.getTracksForBook(bookId).map { it.toDomain() }
@@ -36,7 +60,7 @@ class CatalogRepository @Inject constructor(
         .map { it.id }
         .toSet()
 
-    suspend fun syncFromRemote(accessToken: String?): List<Book> {
+    suspend fun syncFromRemote(accessToken: String?): List<Book> = withContext(Dispatchers.IO) {
         val remoteBooks = apiClient.fetchBooks(accessToken)
         catalogDao.upsertBooks(
             remoteBooks.map { book ->
@@ -51,29 +75,40 @@ class CatalogRepository @Inject constructor(
                 )
             },
         )
-        remoteBooks.forEach { book ->
-            val existingById = catalogDao.getTracksForBook(book.id).associateBy { it.id }
-            val (_, tracks) = apiClient.fetchBookDetail(book.id, accessToken)
-            catalogDao.upsertTracks(
-                tracks.map { track ->
-                    val existing = existingById[track.id]
-                    val localPath = existing?.localPath?.takeIf { File(it).isFile && File(it).length() > 0L }
-                        ?: expectedTrackFile(book.id, track.id)
-                            .takeIf { it.isFile && it.length() > 0L }
-                            ?.absolutePath
-                    TrackEntity(
-                        track.id,
-                        track.bookId,
-                        track.sortOrder,
-                        track.title,
-                        track.filename,
-                        track.durationMs,
-                        localPath,
-                    )
-                },
-            )
+        val semaphore = Semaphore(8)
+        coroutineScope {
+            remoteBooks.map { book ->
+                async {
+                    semaphore.withPermit {
+                        syncBookTracks(book, accessToken)
+                    }
+                }
+            }.awaitAll()
         }
-        return remoteBooks
+        remoteBooks
+    }
+
+    private suspend fun syncBookTracks(book: Book, accessToken: String?) {
+        val existingById = catalogDao.getTracksForBook(book.id).associateBy { it.id }
+        val (_, tracks) = apiClient.fetchBookDetail(book.id, accessToken)
+        catalogDao.upsertTracks(
+            tracks.map { track ->
+                val existing = existingById[track.id]
+                val localPath = existing?.localPath?.takeIf { File(it).isFile && File(it).length() > 0L }
+                    ?: expectedTrackFile(book.id, track.id)
+                        .takeIf { it.isFile && it.length() > 0L }
+                        ?.absolutePath
+                TrackEntity(
+                    track.id,
+                    track.bookId,
+                    track.sortOrder,
+                    track.title,
+                    track.filename,
+                    track.durationMs,
+                    localPath,
+                )
+            },
+        )
     }
 
     suspend fun markTrackDownloaded(bookId: String, trackId: String, localPath: String) {

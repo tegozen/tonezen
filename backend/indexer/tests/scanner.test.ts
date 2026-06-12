@@ -34,12 +34,13 @@ describe("scanContentRoot", () => {
     await rm(FIXTURE_ROOT, { recursive: true, force: true });
   });
 
-  it("discovers cycles and music albums from fixture tree", async () => {
+  it("discovers cycles and flat music library from fixture tree", async () => {
     const { cycles, musicAlbums } = await scanContentRoot(FIXTURE_ROOT);
     expect(cycles).toHaveLength(1);
     expect(cycles[0].slug).toBe("test-cycle");
     expect(cycles[0].books[0].tracks).toHaveLength(1);
     expect(musicAlbums).toHaveLength(1);
+    expect(musicAlbums[0].slug).toBe("music-library");
     expect(musicAlbums[0].contentType).toBe("music");
     expect(musicAlbums[0].tracks).toHaveLength(1);
     expect(musicAlbums[0].tracks[0].filename).toBe("01-track.mp3");

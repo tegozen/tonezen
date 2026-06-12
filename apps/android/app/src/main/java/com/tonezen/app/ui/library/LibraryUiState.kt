@@ -30,7 +30,6 @@ data class LibraryUiState(
     val filter: LibraryFilterState = LibraryFilterState(),
     val showFilterSheet: Boolean = false,
     val nowPlayingTitle: String? = null,
-    val isRefreshing: Boolean = false,
     val musicPreview: MusicTrackPreview? = null,
     val musicPlayback: MusicPlaybackUi = MusicPlaybackUi(),
     val musicDownloadProgress: Float? = null,

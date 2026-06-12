@@ -35,27 +35,51 @@ import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
 
 @Composable
-internal fun RoundControl(label: String, outlined: Boolean, onClick: () -> Unit) {
+internal fun RoundControl(
+    label: String,
+    outlined: Boolean,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val background = Color.White.copy(alpha = if (enabled) 0.08f else 0.04f)
+    val borderColor = if (outlined) Color.White.copy(alpha = if (enabled) 0.16f else 0.08f) else Color.Transparent
     Box(
-        modifier = Modifier
-            .size(42.dp)
+        modifier = modifier
+            .size(48.dp)
             .clip(CircleShape)
-            .clickable(onClick = onClick)
-            .border(BorderStroke(if (outlined) 1.4.dp else 0.dp, TonezenInk), CircleShape),
+            .background(background)
+            .border(BorderStroke(if (outlined) 1.dp else 0.dp, borderColor), CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = TonezenInk, style = MaterialTheme.typography.labelMedium)
+        Text(
+            label,
+            color = TonezenInk.copy(alpha = if (enabled) 0.92f else 0.38f),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+        )
     }
 }
 
 @Composable
-internal fun RoundIconControl(outlined: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
+internal fun RoundIconControl(
+    outlined: Boolean,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    size: androidx.compose.ui.unit.Dp = 48.dp,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val background = Color.White.copy(alpha = if (enabled) 0.08f else 0.04f)
+    val borderColor = if (outlined) Color.White.copy(alpha = if (enabled) 0.16f else 0.08f) else Color.Transparent
     Box(
-        modifier = Modifier
-            .size(42.dp)
+        modifier = modifier
+            .size(size)
             .clip(CircleShape)
-            .clickable(onClick = onClick)
-            .border(BorderStroke(if (outlined) 1.4.dp else 0.dp, TonezenInk), CircleShape),
+            .background(background)
+            .border(BorderStroke(if (outlined) 1.dp else 0.dp, borderColor), CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         content()

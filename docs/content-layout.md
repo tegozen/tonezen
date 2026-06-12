@@ -56,7 +56,7 @@ content/music/
   artist-song.flac
 ```
 
-The indexer reads tags from each file (title, artist, album, track number). Missing tags fall back to the filename. Tracks with the same album tag are grouped into one album; files without an album tag become standalone singles.
+The indexer reads tags from each file (title, artist, track number). All files become one flat music library; album tags are ignored.
 
 ## Indexer behavior
 

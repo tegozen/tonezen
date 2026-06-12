@@ -16,7 +16,6 @@
     <string name="synced">Синхронизировано</string>
     <string name="pending">Ожидает</string>
     <string name="paused">На паузе</string>
-    <string name="now_playing">Сейчас играет</string>
     <string name="continue_label">Продолжить</string>
     <string name="chapter_label">Глава %1$d</string>
     <string name="chapter_fallback">Глава</string>

@@ -120,65 +120,35 @@ export function buildTracks(trackOrder: string[]): ParsedTrack[] {
   }));
 }
 
-export function buildMusicAlbums(files: MusicFileScan[]): ParsedBook[] {
-  const groups = new Map<
-    string,
-    { albumTitle: string; artist: string | null; tracks: ParsedTrack[] }
-  >();
+export function buildMusicLibrary(files: MusicFileScan[]): ParsedBook[] {
+  if (files.length === 0) return [];
 
-  for (const file of files) {
-    const trackTitle = file.title?.trim() || trackTitleFromFilename(file.filename);
-    const artist = file.artist?.trim() || null;
-    const album = file.album?.trim() || null;
+  const tracks = files.map((file, index) => ({
+    filename: file.filename,
+    sortOrder: file.trackNumber != null ? file.trackNumber - 1 : index,
+    title: file.title?.trim() || trackTitleFromFilename(file.filename),
+  }));
 
-    let groupKey: string;
-    let albumTitle: string;
+  tracks.sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.filename.localeCompare(b.filename);
+  });
+  tracks.forEach((track, index) => {
+    track.sortOrder = index;
+  });
 
-    if (!album) {
-      groupKey = slugify(filenameBase(file.filename));
-      albumTitle = trackTitle;
-    } else {
-      groupKey = slugify(`${artist ?? "unknown"}-${album}`);
-      albumTitle = album;
-    }
+  const artist = files.map((file) => file.artist?.trim() || null).find(Boolean) ?? null;
 
-    if (!groups.has(groupKey)) {
-      groups.set(groupKey, { albumTitle, artist, tracks: [] });
-    }
-
-    const group = groups.get(groupKey)!;
-    if (!group.artist && artist) {
-      group.artist = artist;
-    }
-
-    group.tracks.push({
-      filename: file.filename,
-      sortOrder: file.trackNumber != null ? file.trackNumber - 1 : group.tracks.length,
-      title: trackTitle,
-    });
-  }
-
-  const albums: ParsedBook[] = [];
-  for (const [slug, group] of groups) {
-    group.tracks.sort((a, b) => {
-      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-      return a.filename.localeCompare(b.filename);
-    });
-    group.tracks.forEach((track, index) => {
-      track.sortOrder = index;
-    });
-
-    albums.push({
-      slug,
+  return [
+    {
+      slug: "music-library",
       contentType: "music",
-      title: group.albumTitle,
-      author: group.artist,
+      title: "Music",
+      author: artist,
       coverPath: null,
-      tracks: group.tracks,
-    });
-  }
-
-  return albums;
+      tracks,
+    },
+  ];
 }
 
 export function storagePathForAudiobook(

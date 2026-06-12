@@ -2,27 +2,34 @@
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -42,7 +49,6 @@ import com.tonezen.app.ui.shell.AppShellUiState
 import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
-import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenTeal
 import com.tonezen.app.ui.theme.durationLabel
 
@@ -53,27 +59,52 @@ internal fun NowPlayingSheet(
     onDismiss: () -> Unit,
     viewModel: NowPlayingViewModel = hiltViewModel(),
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val maxSheetHeight = LocalConfiguration.current.screenHeightDp.dp * 0.82f
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = TonezenAppBg,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = TonezenMuted.copy(alpha = 0.4f)) },
-    ) {
-        NowPlayingContent(
-            shellState = shellState,
-            onDismiss = onDismiss,
-            viewModel = viewModel,
-            modifier = Modifier.fillMaxHeight(0.94f),
+    LaunchedEffect(Unit) {
+        viewModel.refreshCatalogContext()
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(Color.Black.copy(alpha = 0.48f))
+                .clickable(onClick = onDismiss),
         )
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .heightIn(max = maxSheetHeight)
+                .navigationBarsPadding()
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .background(TonezenAppBg)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                    onClick = {},
+                ),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp, bottom = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                BottomSheetDefaults.DragHandle(color = TonezenMuted.copy(alpha = 0.4f))
+            }
+            NowPlayingContent(
+                shellState = shellState,
+                viewModel = viewModel,
+            )
+        }
     }
 }
 
 @Composable
 internal fun NowPlayingContent(
     shellState: AppShellUiState,
-    onDismiss: () -> Unit,
     viewModel: NowPlayingViewModel = hiltViewModel(),
     modifier: Modifier = Modifier,
 ) {
@@ -87,178 +118,124 @@ internal fun NowPlayingContent(
         0f
     }
     val isAudiobook = state.contentType == ContentType.AUDIOBOOK
+    val isDownloading = state.downloadProgress != null
+    val scrollState = rememberScrollState()
 
-    LazyColumn(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(TonezenScreenBrush),
-        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 40.dp),
+            .verticalScroll(scrollState)
+            .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    stringResource(R.string.now_playing),
-                    color = TonezenInk,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = "⌄",
-                    color = TonezenMuted,
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier
-                        .clickable(onClick = onDismiss)
-                        .padding(8.dp),
-                )
-            }
-        }
-
-        item {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            TrackCoverArt(
+                seed = coverSeed,
+                title = title,
+                isPlaying = state.isPlaying && !isDownloading,
+                downloadProgress = state.downloadProgress,
+                modifier = Modifier.size(168.dp),
+                cornerRadius = 24,
+            )
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(20.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                TrackCoverArt(
-                    seed = coverSeed,
-                    title = title,
-                    isPlaying = state.isPlaying,
-                    modifier = Modifier.size(200.dp),
-                    cornerRadius = 24,
+                Text(
+                    title,
+                    color = TonezenInk,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
+                if (!subtitle.isNullOrBlank()) {
                     Text(
-                        title,
-                        color = TonezenInk,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+                        subtitle,
+                        color = TonezenTeal,
+                        style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (!subtitle.isNullOrBlank()) {
-                        Text(
-                            subtitle,
-                            color = TonezenTeal,
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
                 }
             }
         }
 
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ProgressBar(
-                    progress = progress,
-                    onSeek = { fraction ->
-                        if (state.durationMs > 0) {
-                            viewModel.seekTo((state.durationMs * fraction).toLong())
-                        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ProgressBar(
+                progress = progress,
+                onSeek = { fraction ->
+                    if (state.durationMs > 0) {
+                        viewModel.seekTo((state.durationMs * fraction).toLong())
+                    }
+                },
+            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    durationLabel(state.positionMs),
+                    color = TonezenMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    durationLabel(state.durationMs),
+                    color = TonezenMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (isAudiobook) {
+                RoundControl(label = stringResource(R.string.rewind_15), outlined = true) {
+                    viewModel.seekBy(-15_000L)
+                }
+            } else {
+                Row(modifier = Modifier.size(48.dp)) {}
+            }
+            RoundIconControl(
+                outlined = true,
+                enabled = !isDownloading,
+                onClick = viewModel::skipPrevious,
+            ) {
+                SkipPreviousGlyph(
+                    tint = if (isDownloading) TonezenMuted.copy(alpha = 0.38f) else TonezenInk,
+                )
+            }
+            PlayButton(
+                isPlaying = state.isPlaying && !isDownloading,
+                modifier = Modifier.size(64.dp),
+                onClick = viewModel::pauseOrResume,
+            )
+            RoundIconControl(
+                outlined = true,
+                enabled = state.canSkipNext && !isDownloading,
+                onClick = viewModel::skipNext,
+            ) {
+                SkipNextGlyph(
+                    tint = when {
+                        isDownloading -> TonezenMuted.copy(alpha = 0.38f)
+                        state.canSkipNext -> TonezenInk
+                        else -> TonezenMuted.copy(alpha = 0.38f)
                     },
                 )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(
-                        durationLabel(state.positionMs),
-                        color = TonezenMuted,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Text(
-                        durationLabel(state.durationMs),
-                        color = TonezenMuted,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+            }
+            if (isAudiobook) {
+                RoundControl(label = stringResource(R.string.forward_15), outlined = true) {
+                    viewModel.seekBy(15_000L)
                 }
+            } else {
+                Row(modifier = Modifier.size(48.dp)) {}
             }
         }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (isAudiobook) {
-                    RoundControl(label = stringResource(R.string.rewind_15), outlined = true) {
-                        viewModel.seekBy(-15_000L)
-                    }
-                } else {
-                    Row(modifier = Modifier.size(42.dp)) {}
-                }
-                RoundIconControl(outlined = true, onClick = viewModel::skipPrevious) {
-                    SkipPreviousGlyph(tint = if (state.canSkip) TonezenInk else TonezenMuted.copy(alpha = 0.4f))
-                }
-                PlayButton(isPlaying = state.isPlaying, onClick = viewModel::pauseOrResume)
-                RoundIconControl(outlined = true, onClick = viewModel::skipNext) {
-                    SkipNextGlyph(tint = if (state.canSkip) TonezenInk else TonezenMuted.copy(alpha = 0.4f))
-                }
-                if (isAudiobook) {
-                    RoundControl(label = stringResource(R.string.forward_15), outlined = true) {
-                        viewModel.seekBy(15_000L)
-                    }
-                } else {
-                    Row(modifier = Modifier.size(42.dp)) {}
-                }
-            }
-        }
-
-        if (state.upNext.isNotEmpty()) {
-            item {
-                Text(
-                    stringResource(R.string.up_next),
-                    color = TonezenInk,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            items(state.upNext, key = { it.id }) { track ->
-                UpNextRow(
-                    track = track,
-                    onClick = { viewModel.playTrack(track) },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun UpNextRow(
-    track: com.tonezen.app.domain.model.Track,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            track.title,
-            color = TonezenInk,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            durationLabel(track.durationMs),
-            color = TonezenMuted,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(start = 12.dp),
-        )
     }
 }

@@ -10,6 +10,12 @@ interface CatalogDao {
     @Query("SELECT * FROM books ORDER BY title")
     suspend fun getAllBooks(): List<BookEntity>
 
+    @Query("SELECT * FROM books WHERE id = :bookId LIMIT 1")
+    suspend fun getBook(bookId: String): BookEntity?
+
+    @Query("SELECT bookId FROM tracks WHERE id = :trackId LIMIT 1")
+    suspend fun getBookIdForTrack(trackId: String): String?
+
     @Query("SELECT * FROM tracks WHERE bookId = :bookId ORDER BY sortOrder")
     suspend fun getTracksForBook(bookId: String): List<TrackEntity>
 

@@ -4,6 +4,7 @@ import com.tonezen.app.data.local.TrackDownloadEnsurer
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.domain.music.MusicLibraryTrack
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -11,6 +12,11 @@ import javax.inject.Singleton
 class PlaybackQueueBuilder @Inject constructor(
     private val trackDownloadEnsurer: TrackDownloadEnsurer,
 ) {
+    fun buildQueueFromLocalTracks(book: Book, tracks: List<Track>): List<QueuePlayItem> {
+        val localTracks = tracks.filter { !it.localPath.isNullOrBlank() }
+        return buildQueue(book, localTracks)
+    }
+
     suspend fun buildMusicQueue(book: Book, tracks: List<Track>): List<QueuePlayItem> {
         if (book.contentType != ContentType.MUSIC) return emptyList()
         return buildQueue(book, trackDownloadEnsurer.ensureTracksLocal(book, tracks))
@@ -28,6 +34,19 @@ class PlaybackQueueBuilder @Inject constructor(
     }
 
     fun itemForLocalTrack(book: Book, track: Track): QueuePlayItem = singleQueueItem(book, track)
+
+    suspend fun buildLocalMusicLibraryQueue(
+        libraryTracks: List<MusicLibraryTrack>,
+        resolveLocalTrack: suspend (MusicLibraryTrack) -> Track?,
+    ): List<QueuePlayItem> {
+        val localEntries = libraryTracks.mapNotNull { entry ->
+            resolveLocalTrack(entry)?.let { local -> entry.book to local }
+        }
+        if (localEntries.isEmpty()) return emptyList()
+        return localEntries.mapIndexed { index, (book, track) ->
+            queueItem(book, track, index + 1, libraryTracks.size)
+        }
+    }
 
     suspend fun buildSingleAudiobookItem(book: Book, track: Track): QueuePlayItem? {
         if (book.contentType != ContentType.AUDIOBOOK) return null

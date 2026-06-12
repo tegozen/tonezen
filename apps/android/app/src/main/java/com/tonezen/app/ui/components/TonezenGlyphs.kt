@@ -1,10 +1,15 @@
 package com.tonezen.app.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -26,8 +31,6 @@ private enum class TonezenSvgAsset(val fileName: String) {
     Download("download.svg"),
     Profile("profile.svg"),
     CheckCircle("check-circle.svg"),
-    SkipPrevious("skip-previous.svg"),
-    SkipNext("skip-next.svg"),
     ChevronLeft("chevron-left.svg"),
     ChevronRight("chevron-right.svg"),
     Storage("storage.svg"),
@@ -113,13 +116,47 @@ internal fun CheckCircleGlyph(modifier: Modifier = Modifier, tint: Color = Tonez
 }
 
 @Composable
-internal fun SkipPreviousGlyph(modifier: Modifier = Modifier, tint: Color = TonezenInk, size: Dp = 20.dp) {
-    TonezenSvgGlyph(TonezenSvgAsset.SkipPrevious, modifier, tint, size)
+internal fun SkipPreviousGlyph(modifier: Modifier = Modifier, tint: Color = TonezenInk, size: Dp = 22.dp) {
+    Canvas(modifier.then(Modifier.size(size))) {
+        val barWidth = this.size.width * 0.1f
+        val barHeight = this.size.height * 0.56f
+        val barTop = (this.size.height - barHeight) / 2f
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(this.size.width * 0.14f, barTop),
+            size = Size(barWidth, barHeight),
+            cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f),
+        )
+        val triangle = Path().apply {
+            moveTo(this@Canvas.size.width * 0.76f, this@Canvas.size.height * 0.2f)
+            lineTo(this@Canvas.size.width * 0.34f, this@Canvas.size.height * 0.5f)
+            lineTo(this@Canvas.size.width * 0.76f, this@Canvas.size.height * 0.8f)
+            close()
+        }
+        drawPath(triangle, tint)
+    }
 }
 
 @Composable
-internal fun SkipNextGlyph(modifier: Modifier = Modifier, tint: Color = TonezenInk, size: Dp = 20.dp) {
-    TonezenSvgGlyph(TonezenSvgAsset.SkipNext, modifier, tint, size)
+internal fun SkipNextGlyph(modifier: Modifier = Modifier, tint: Color = TonezenInk, size: Dp = 22.dp) {
+    Canvas(modifier.then(Modifier.size(size))) {
+        val barWidth = this.size.width * 0.1f
+        val barHeight = this.size.height * 0.56f
+        val barTop = (this.size.height - barHeight) / 2f
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(this.size.width * 0.76f, barTop),
+            size = Size(barWidth, barHeight),
+            cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f),
+        )
+        val triangle = Path().apply {
+            moveTo(this@Canvas.size.width * 0.24f, this@Canvas.size.height * 0.2f)
+            lineTo(this@Canvas.size.width * 0.66f, this@Canvas.size.height * 0.5f)
+            lineTo(this@Canvas.size.width * 0.24f, this@Canvas.size.height * 0.8f)
+            close()
+        }
+        drawPath(triangle, tint)
+    }
 }
 
 @Composable
