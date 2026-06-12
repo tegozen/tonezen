@@ -3,6 +3,8 @@ package com.tonezen.app.data.remote
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
+import com.tonezen.app.domain.model.Cycle
+import com.tonezen.app.domain.model.normalizeAuthor
 import com.tonezen.app.domain.model.Track
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,23 +21,32 @@ class ApiClient(
 ) {
     private val apiRoot = "${baseUrl.trimEnd('/')}/api/v1"
     suspend fun fetchBooks(accessToken: String?): List<Book> = withContext(Dispatchers.IO) {
-        val cycles = getJson("$apiRoot/catalog/cycles", accessToken)
-        val books = mutableListOf<Book>()
-        val cyclesArray = cycles.optJSONArray("cycles") ?: JSONArray()
-        for (i in 0 until cyclesArray.length()) {
-            val cycle = cyclesArray.getJSONObject(i)
-            val booksArray = cycle.optJSONArray("books") ?: JSONArray()
-            for (j in 0 until booksArray.length()) {
-                val b = booksArray.getJSONObject(j)
-                books.add(parseBook(b))
+        (fetchCyclesInternal(accessToken).flatMap { it.books } + fetchMusicAlbumsInternal(accessToken))
+            .distinctBy { it.id }
+    }
+
+    suspend fun fetchCycles(accessToken: String?): List<Cycle> = withContext(Dispatchers.IO) {
+        fetchCyclesInternal(accessToken)
+    }
+
+    private fun fetchCyclesInternal(accessToken: String?): List<Cycle> {
+        val cyclesJson = getJson("$apiRoot/catalog/cycles", accessToken)
+        val cyclesArray = cyclesJson.optJSONArray("cycles") ?: JSONArray()
+        return buildList {
+            for (i in 0 until cyclesArray.length()) {
+                add(parseCycle(cyclesArray.getJSONObject(i)))
             }
         }
+    }
+
+    private fun fetchMusicAlbumsInternal(accessToken: String?): List<Book> {
         val music = getJson("$apiRoot/catalog/music", accessToken)
         val albums = music.optJSONArray("albums") ?: JSONArray()
-        for (i in 0 until albums.length()) {
-            books.add(parseBook(albums.getJSONObject(i)))
+        return buildList {
+            for (i in 0 until albums.length()) {
+                add(parseBook(albums.getJSONObject(i)))
+            }
         }
-        books.distinctBy { it.id }
     }
 
     suspend fun fetchBookDetail(bookId: String, accessToken: String?): Pair<Book, List<Track>> =
@@ -136,6 +147,33 @@ class ApiClient(
         slug = json.getString("slug"),
         contentType = if (json.getString("content_type") == "music") ContentType.MUSIC else ContentType.AUDIOBOOK,
         title = json.getString("title"),
-        author = json.optString("author").takeIf { it.isNotBlank() },
+        author = normalizeAuthor(
+            if (json.isNull("author")) null else json.optString("author"),
+        ),
     )
+
+    private fun parseCycle(json: JSONObject): Cycle {
+        val booksArray = json.optJSONArray("books") ?: JSONArray()
+        val books = buildList {
+            for (index in 0 until booksArray.length()) {
+                add(parseBook(booksArray.getJSONObject(index)))
+            }
+        }
+        val booksBySlug = books.associateBy { it.slug }
+        val bookOrder = json.optJSONArray("book_order")?.let { order ->
+            buildList {
+                for (index in 0 until order.length()) {
+                    add(order.getString(index))
+                }
+            }
+        } ?: books.map { it.slug }
+        val orderedBooks = bookOrder.mapNotNull { booksBySlug[it] }
+        return Cycle(
+            id = json.getString("id"),
+            slug = json.getString("slug"),
+            title = json.getString("title"),
+            bookOrder = bookOrder,
+            books = orderedBooks.ifEmpty { books },
+        )
+    }
 }

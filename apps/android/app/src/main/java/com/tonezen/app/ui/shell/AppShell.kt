@@ -11,6 +11,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.components.BottomDestination
@@ -18,6 +19,7 @@ import com.tonezen.app.ui.components.MiniPlayer
 import com.tonezen.app.ui.components.TonezenBottomNavigation
 import com.tonezen.app.ui.downloads.DownloadsScreen
 import com.tonezen.app.ui.downloads.DownloadsViewModel
+import com.tonezen.app.ui.library.CycleDetailScreen
 import com.tonezen.app.ui.library.LibraryScreen
 import com.tonezen.app.ui.library.LibraryViewModel
 import com.tonezen.app.ui.player.BookDetailScreen
@@ -37,6 +39,7 @@ fun AppShell(
     val libraryState by libraryViewModel.uiState.collectAsState()
     val shellState by shellViewModel.uiState.collectAsState()
     val selectedBook = shellState.selectedBook
+    val selectedCycle = shellState.selectedCycle
 
     if (selectedBook != null) {
         val bookDetailViewModel: BookDetailViewModel = hiltViewModel(key = selectedBook.id)
@@ -68,6 +71,17 @@ fun AppShell(
             onMarkComplete = bookDetailViewModel::markTrackComplete,
             onPlayNext = bookDetailViewModel::playNextTrack,
             onRemoveDownload = bookDetailViewModel::removeTrackDownload,
+        )
+        return
+    }
+
+    if (selectedCycle != null) {
+        CycleDetailScreen(
+            padding = PaddingValues(0.dp),
+            cycle = selectedCycle,
+            downloadedBookIds = libraryState.downloadedBookIds,
+            onBack = shellViewModel::closeCycle,
+            onBookClick = shellViewModel::openBook,
         )
         return
     }
@@ -104,16 +118,18 @@ fun AppShell(
             when (shellState.currentTab) {
                 BottomDestination.Library -> LibraryScreen(
                     padding = padding,
+                    cycles = libraryViewModel.filteredCycles,
+                    allCycles = libraryState.cycles,
                     books = libraryViewModel.filteredBooks,
                     allBooks = libraryState.books,
                     downloadedBookIds = libraryState.downloadedBookIds,
                     favoriteBookIds = libraryState.favoriteBookIds,
                     offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
+                    isLoadingCatalog = libraryState.isLoadingCatalog,
                     filter = libraryState.filter,
                     showFilterSheet = libraryState.showFilterSheet,
-                    onBookClick = { book ->
-                        shellViewModel.openBook(book)
-                    },
+                    onCycleClick = shellViewModel::openCycle,
+                    onBookClick = shellViewModel::openBook,
                     onSearchChange = libraryViewModel::setSearchQuery,
                     onFilterClick = { libraryViewModel.setFilterSheetVisible(true) },
                     onDismissFilterSheet = { libraryViewModel.setFilterSheetVisible(false) },

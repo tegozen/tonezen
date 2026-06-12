@@ -20,7 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,7 +36,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
-import com.tonezen.app.ui.components.BackNavButton
+import com.tonezen.app.ui.components.TonezenBackHeaderRow
 import com.tonezen.app.ui.components.EyeGlyph
 import com.tonezen.app.ui.components.EyeOffGlyph
 import com.tonezen.app.ui.theme.TonezenAppBg
@@ -49,6 +48,7 @@ import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
+import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 
 @Composable
 internal fun AccountSettingsScreen(
@@ -75,25 +75,20 @@ internal fun AccountSettingsScreen(
             .fillMaxSize()
             .background(TonezenScreenBrush)
             .padding(padding),
-        contentPadding = PaddingValues(20.dp),
+        contentPadding = tonezenScreenContentPadding(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                BackNavButton(onClick = onBack)
-                Text(
-                    stringResource(R.string.settings_account_page_title),
-                    color = TonezenInk,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                TextButton(onClick = {}, enabled = false) {
-                    Text("")
-                }
-            }
+            TonezenBackHeaderRow(
+                onBack = onBack,
+                title = {
+                    Text(
+                        stringResource(R.string.settings_account_page_title),
+                        color = TonezenInk,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                },
+            )
         }
         item {
             AccountFormSection(title = stringResource(R.string.settings_account_profile_section)) {

@@ -7,6 +7,8 @@ import com.tonezen.app.domain.downloads.DownloadedBookSummary
 import com.tonezen.app.domain.downloads.StorageStats
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
+import com.tonezen.app.domain.model.Cycle
+import com.tonezen.app.domain.model.normalizeAuthor
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.music.MusicLibraryResolver
 import com.tonezen.app.domain.music.MusicLibraryTrack
@@ -23,6 +25,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 
 @Singleton
 class CatalogRepository @Inject constructor(
@@ -60,7 +63,13 @@ class CatalogRepository @Inject constructor(
         .map { it.id }
         .toSet()
 
+    suspend fun getAllCycles(): List<Cycle> = withContext(Dispatchers.IO) {
+        val booksById = catalogDao.getAllBooks().associate { it.id to it.toDomain() }
+        catalogDao.getAllCycles().mapNotNull { it.toDomain(booksById) }
+    }
+
     suspend fun syncFromRemote(accessToken: String?): List<Book> = withContext(Dispatchers.IO) {
+        val remoteCycles = apiClient.fetchCycles(accessToken)
         val remoteBooks = apiClient.fetchBooks(accessToken)
         catalogDao.upsertBooks(
             remoteBooks.map { book ->
@@ -69,12 +78,26 @@ class CatalogRepository @Inject constructor(
                     book.slug,
                     book.contentType.name.lowercase(),
                     book.title,
-                    book.author,
+                    normalizeAuthor(book.author),
                     null,
                     "",
                 )
             },
         )
+        catalogDao.upsertCycles(
+            remoteCycles.map { cycle ->
+                CycleEntity(
+                    id = cycle.id,
+                    slug = cycle.slug,
+                    title = cycle.title,
+                    bookOrderJson = JSONArray(cycle.books.map { it.id }).toString(),
+                )
+            },
+        )
+        val remoteCycleIds = remoteCycles.map { it.id }
+        if (remoteCycleIds.isNotEmpty()) {
+            catalogDao.deleteCyclesNotIn(remoteCycleIds)
+        }
         val semaphore = Semaphore(8)
         coroutineScope {
             remoteBooks.map { book ->

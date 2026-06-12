@@ -33,6 +33,32 @@ describe("scanContentRoot", () => {
     await rm(FIXTURE_ROOT, { recursive: true, force: true });
   });
 
+  it("discovers audiobook tracks stored as Supabase object directories", async () => {
+    await rm(path.join(FIXTURE_ROOT, "cycles", "storage-cycle", "book-a", "001-intro.mp3"), {
+      force: true,
+    });
+    await mkdir(
+      path.join(FIXTURE_ROOT, "cycles", "storage-cycle", "book-a", "001-intro.mp3"),
+      { recursive: true },
+    );
+    await writeFile(
+      path.join(
+        FIXTURE_ROOT,
+        "cycles",
+        "storage-cycle",
+        "book-a",
+        "001-intro.mp3",
+        "object-id",
+      ),
+      Buffer.from("audio"),
+    );
+
+    const { cycles } = await scanContentRoot(FIXTURE_ROOT);
+    const cycle = cycles.find((item) => item.slug === "storage-cycle");
+    expect(cycle).toBeDefined();
+    expect(cycle?.books[0].tracks[0].filename).toBe("001-intro.mp3");
+  });
+
   it("discovers cycles from directories and sorts books and tracks by name", async () => {
     const { cycles, musicAlbums } = await scanContentRoot(FIXTURE_ROOT);
     expect(cycles).toHaveLength(1);

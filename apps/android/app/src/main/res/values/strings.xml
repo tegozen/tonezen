@@ -11,6 +11,7 @@
     <string name="search_library">Поиск в библиотеке</string>
     <string name="filter">Фильтр</string>
     <string name="see_all">Показать все</string>
+    <string name="author_placeholder">Автор не указан</string>
     <string name="offline">Офлайн</string>
     <string name="online">Онлайн</string>
     <string name="synced">Синхронизировано</string>
@@ -37,7 +38,11 @@
     <string name="tracks">Треки</string>
     <string name="chapters">Главы</string>
     <string name="empty_library_title">Пока пусто</string>
-    <string name="empty_library_body">Войдите или синхронизируйте каталог, чтобы наполнить библиотеку.</string>
+    <string name="empty_library_body">На сервере пока нет контента. Загрузите аудио в хранилище — библиотека обновится автоматически.</string>
+    <string name="empty_library_offline_body">Нет подключения к серверу. Показаны только ранее загруженные книги.</string>
+    <string name="cycle_books_section">Книги цикла</string>
+    <string name="cycle_books_count">%1$d книг</string>
+    <string name="library_loading">Загрузка библиотеки…</string>
     <string name="empty_player_title">Ничего не играет</string>
     <string name="empty_player_body">Выберите что-нибудь в библиотеке, чтобы начать слушать.</string>
     <string name="go_to_library">Перейти в библиотеку</string>
@@ -94,7 +99,7 @@
     <string name="profile_sync_status_section">Статус синхронизации</string>
     <string name="profile_settings_section">Настройки</string>
     <string name="sync_status_all_set">Всё в порядке</string>
-    <string name="sync_now">Синхронизировать</string>
+    <string name="sync_now">Отправить прогресс сейчас</string>
     <string name="last_sync_today">Последняя синхронизация: сегодня</string>
     <string name="last_sync_today_at">Последняя синхронизация: сегодня, %1$s</string>
     <string name="settings_account">Аккаунт</string>
@@ -102,7 +107,7 @@
     <string name="settings_storage">Хранилище</string>
     <string name="settings_privacy">Конфиденциальность</string>
     <string name="settings_account_subtitle">Имя, email, пароль</string>
-    <string name="settings_sync_subtitle">Прогресс, избранное, каталог</string>
+    <string name="settings_sync_subtitle">Прогресс и избранное</string>
     <string name="settings_storage_subtitle">Загрузки, кэш, устройство</string>
     <string name="settings_privacy_subtitle">Блокировка, данные, разрешения</string>
     <string name="settings_account_page_title">Аккаунт</string>
@@ -120,7 +125,7 @@
     <string name="settings_sync_page_title">Синхронизация</string>
     <string name="settings_sync_what_section">Что синхронизируется</string>
     <string name="settings_sync_progress">Прогресс аудиокниг</string>
-    <string name="settings_sync_progress_desc">Позиция воспроизведения и завершённые главы</string>
+    <string name="settings_sync_progress_desc">Позиция воспроизведения синхронизируется автоматически, когда вы онлайн</string>
     <string name="settings_sync_favorites">Избранное</string>
     <string name="settings_sync_favorites_desc">Список избранных книг на всех устройствах</string>
     <string name="settings_sync_catalog">Каталог</string>

@@ -26,7 +26,9 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): TonezenDatabase =
-        Room.databaseBuilder(context, TonezenDatabase::class.java, "tonezen.db").build()
+        Room.databaseBuilder(context, TonezenDatabase::class.java, "tonezen.db")
+            .fallbackToDestructiveMigration()
+            .build()
 
     @Provides
     fun provideCatalogDao(db: TonezenDatabase): CatalogDao = db.catalogDao()

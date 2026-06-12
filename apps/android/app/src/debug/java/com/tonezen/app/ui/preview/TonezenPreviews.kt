@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import com.tonezen.app.domain.library.LibraryFilterState
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
+import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.auth.AuthScreen
 import com.tonezen.app.ui.library.LibraryScreen
@@ -40,6 +41,14 @@ private val previewBooks = listOf(
         title = "Peaceful Piano",
         author = "Various Artists",
     ),
+)
+
+private val previewCycle = Cycle(
+    id = "cycle-1",
+    slug = "midnight-cycle",
+    title = "The Midnight Cycle",
+    bookOrder = listOf("midnight", "atomic"),
+    books = previewBooks.filter { it.contentType == ContentType.AUDIOBOOK },
 )
 
 @Preview(
@@ -90,13 +99,17 @@ private fun LibraryScreenPreview() {
     TonezenTheme {
         LibraryScreen(
             padding = PaddingValues(0.dp),
+            cycles = listOf(previewCycle),
+            allCycles = listOf(previewCycle),
             books = previewBooks,
             allBooks = previewBooks,
             downloadedBookIds = setOf("midnight"),
             favoriteBookIds = emptySet(),
             offlineBanner = false,
+            isLoadingCatalog = false,
             filter = LibraryFilterState(),
             showFilterSheet = false,
+            onCycleClick = {},
             onBookClick = {},
             onSearchChange = {},
             onFilterClick = {},

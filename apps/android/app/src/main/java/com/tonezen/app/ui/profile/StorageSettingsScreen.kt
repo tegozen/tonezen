@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,12 +22,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
-import com.tonezen.app.ui.components.BackNavButton
+import com.tonezen.app.ui.components.TonezenBackHeaderRow
 import com.tonezen.app.ui.components.ChevronRightGlyph
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenScreenBrush
+import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 
 @Composable
 internal fun StorageSettingsScreen(
@@ -45,25 +45,20 @@ internal fun StorageSettingsScreen(
             .fillMaxSize()
             .background(TonezenScreenBrush)
             .padding(padding),
-        contentPadding = PaddingValues(20.dp),
+        contentPadding = tonezenScreenContentPadding(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                BackNavButton(onClick = onBack)
-                Text(
-                    stringResource(R.string.settings_storage_page_title),
-                    color = TonezenInk,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                TextButton(onClick = {}, enabled = false) {
-                    Text("")
-                }
-            }
+            TonezenBackHeaderRow(
+                onBack = onBack,
+                title = {
+                    Text(
+                        stringResource(R.string.settings_storage_page_title),
+                        color = TonezenInk,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                },
+            )
         }
         item {
             SettingsInfoSection(title = stringResource(R.string.settings_storage_downloads_section)) {

@@ -3,6 +3,7 @@ package com.tonezen.app.ui.shell
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonezen.app.domain.model.Book
+import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.ui.components.BottomDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -43,6 +44,14 @@ class AppShellViewModel @Inject constructor(
 
     fun selectTab(tab: BottomDestination) {
         _uiState.update { it.copy(currentTab = tab) }
+    }
+
+    fun openCycle(cycle: Cycle) {
+        _uiState.update { it.copy(selectedCycle = cycle, selectedBook = null) }
+    }
+
+    fun closeCycle() {
+        _uiState.update { it.copy(selectedCycle = null) }
     }
 
     fun openBook(book: Book) {

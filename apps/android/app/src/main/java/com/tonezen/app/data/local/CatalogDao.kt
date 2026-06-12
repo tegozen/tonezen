@@ -51,4 +51,13 @@ interface CatalogDao {
 
     @Query("UPDATE tracks SET localPath = NULL WHERE bookId = :bookId")
     suspend fun clearLocalPathsForBook(bookId: String)
+
+    @Query("SELECT * FROM cycles ORDER BY title")
+    suspend fun getAllCycles(): List<CycleEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertCycles(cycles: List<CycleEntity>)
+
+    @Query("DELETE FROM cycles WHERE id NOT IN (:cycleIds)")
+    suspend fun deleteCyclesNotIn(cycleIds: List<String>)
 }

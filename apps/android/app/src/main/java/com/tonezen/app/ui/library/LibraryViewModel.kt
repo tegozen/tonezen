@@ -13,8 +13,10 @@ import com.tonezen.app.domain.library.LibraryContentFilter
 import com.tonezen.app.domain.library.LibraryFilterState
 import com.tonezen.app.domain.library.LibrarySortOrder
 import com.tonezen.app.domain.library.filterAndSortBooks
+import com.tonezen.app.domain.library.filterCycles
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
+import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.music.MusicLibraryTrack
@@ -83,6 +85,17 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    val filteredCycles: List<Cycle>
+        get() {
+            val state = _uiState.value
+            return filterCycles(
+                cycles = state.cycles,
+                downloadedBookIds = state.downloadedBookIds,
+                favoriteBookIds = state.favoriteBookIds,
+                filter = state.filter,
+            )
+        }
+
     val filteredBooks: List<Book>
         get() {
             val state = _uiState.value
@@ -146,22 +159,43 @@ class LibraryViewModel @Inject constructor(
                 refreshSessionState(refreshed)
             }
             val local = catalogRepository.getAllBooks()
+            val localCycles = catalogRepository.getAllCycles()
             val favorites = catalogRepository.getFavoriteBookIds()
-            if (local.isNotEmpty()) {
+            if (local.isEmpty()) {
                 withContext(Dispatchers.Main) {
-                    updateBooks(local, favorites)
+                    _uiState.update { it.copy(isLoadingCatalog = true) }
                 }
             }
+            if (local.isNotEmpty()) {
+                withContext(Dispatchers.Main) {
+                    updateCatalog(local, localCycles, favorites)
+                    _uiState.update { it.copy(isLoadingCatalog = false) }
+                }
+            }
+            refreshed?.let { progressSyncRepository.start(it) }
             if (networkMonitor.isOnline()) {
-                refreshed?.let { progressSyncRepository.start(it) }
-                syncCatalog(refreshed?.accessToken)
+                refreshCatalogFromRemote(refreshed?.accessToken)
+            } else {
+                withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(isLoadingCatalog = false) }
+                }
             }
         }
     }
 
-    private suspend fun syncCatalog(accessToken: String?) {
-        val remoteBooks = catalogRepository.syncFromRemote(accessToken)
-        updateBooks(remoteBooks, catalogRepository.getFavoriteBookIds())
+    private suspend fun refreshCatalogFromRemote(accessToken: String?) {
+        try {
+            val remoteBooks = catalogRepository.syncFromRemote(accessToken)
+            val remoteCycles = catalogRepository.getAllCycles()
+            updateCatalog(remoteBooks, remoteCycles, catalogRepository.getFavoriteBookIds())
+        } finally {
+            _uiState.update { it.copy(isLoadingCatalog = false) }
+        }
+    }
+
+    private suspend fun updateCatalog(books: List<Book>, cycles: List<Cycle>, favorites: Set<String>) {
+        updateBooks(books, favorites)
+        _uiState.update { it.copy(cycles = cycles) }
     }
 
     private suspend fun updateBooks(books: List<Book>, favorites: Set<String>) {

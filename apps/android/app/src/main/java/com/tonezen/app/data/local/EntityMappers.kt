@@ -4,15 +4,18 @@ import com.tonezen.app.data.remote.ApiClient
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
+import com.tonezen.app.domain.model.normalizeAuthor
+import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.Track
 import java.time.Instant
+import org.json.JSONArray
 
 fun BookEntity.toDomain() = Book(
     id = id,
     slug = slug,
     contentType = if (contentType == "music") ContentType.MUSIC else ContentType.AUDIOBOOK,
     title = title,
-    author = author,
+    author = normalizeAuthor(author),
 )
 
 fun TrackEntity.toDomain() = Track(
@@ -47,3 +50,22 @@ fun ApiClient.RemoteProgress.toProgressEntity() = AudiobookProgressEntity(
     updatedAtEpochMs = Instant.parse(updatedAt).toEpochMilli(),
     pendingSync = false,
 )
+
+fun CycleEntity.toDomain(booksById: Map<String, Book>): Cycle? {
+    val bookIds = JSONArray(bookOrderJson).let { array ->
+        buildList {
+            for (index in 0 until array.length()) {
+                add(array.getString(index))
+            }
+        }
+    }
+    val books = bookIds.mapNotNull { booksById[it] }
+    if (books.isEmpty()) return null
+    return Cycle(
+        id = id,
+        slug = slug,
+        title = title,
+        bookOrder = books.map { it.slug },
+        books = books,
+    )
+}

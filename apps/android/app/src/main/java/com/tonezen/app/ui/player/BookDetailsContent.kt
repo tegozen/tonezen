@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.ui.components.TonezenBackHeaderRow
+import com.tonezen.app.ui.components.bookAuthorLabel
 import com.tonezen.app.ui.components.ActionButton
 import com.tonezen.app.ui.components.BookCover
 import com.tonezen.app.ui.components.StatusChip
@@ -34,6 +36,7 @@ import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenTeal
 import com.tonezen.app.ui.theme.durationLabel
+import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 
 @Composable
 internal fun BookDetailsContent(
@@ -54,28 +57,32 @@ internal fun BookDetailsContent(
             .fillMaxSize()
             .background(TonezenScreenBrush)
             .padding(padding),
-        contentPadding = PaddingValues(20.dp),
+        contentPadding = tonezenScreenContentPadding(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = onBack) { Text(stringResource(R.string.back), color = TonezenInk) }
-                Text(stringResource(R.string.details), color = TonezenInk, fontWeight = FontWeight.SemiBold)
-                TextButton(onClick = { onSelectTab(BookDetailTab.PLAYER) }) {
-                    Text(stringResource(R.string.nav_player), color = TonezenTeal)
-                }
-            }
+            TonezenBackHeaderRow(
+                onBack = onBack,
+                title = {
+                    Text(
+                        stringResource(R.string.details),
+                        color = TonezenInk,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                },
+                trailing = {
+                    TextButton(onClick = { onSelectTab(BookDetailTab.PLAYER) }) {
+                        Text(stringResource(R.string.nav_player), color = TonezenTeal)
+                    }
+                },
+            )
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 BookCover(book = book, modifier = Modifier.weight(0.42f).aspectRatio(0.78f))
                 Column(modifier = Modifier.weight(0.58f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(book.title, color = TonezenInk, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(book.author.orEmpty(), color = TonezenMuted)
+                    Text(bookAuthorLabel(book), color = TonezenMuted)
                     Text(stringResource(R.string.duration_label) + ": " + durationLabel(totalDuration), color = TonezenMuted)
                     Text(stringResource(R.string.chapters) + ": ${tracks.size}", color = TonezenMuted)
                 }

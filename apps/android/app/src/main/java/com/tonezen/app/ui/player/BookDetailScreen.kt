@@ -33,6 +33,8 @@ import com.tonezen.app.R
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.ui.components.bookAuthorLabel
+import com.tonezen.app.ui.components.BackNavButton
 import com.tonezen.app.ui.components.ActionButton
 import com.tonezen.app.ui.components.BookCover
 import com.tonezen.app.ui.components.DownloadConfirmSheet
@@ -55,6 +57,7 @@ import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
 import com.tonezen.app.ui.theme.durationLabel
+import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 
 @Composable
 internal fun BookDetailScreen(
@@ -138,9 +141,7 @@ internal fun BookDetailScreen(
                     .fillMaxSize()
                     .background(TonezenScreenBrush)
                     .padding(padding),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = 20.dp, top = 22.dp, end = 20.dp, bottom = 24.dp,
-                ),
+                contentPadding = tonezenScreenContentPadding(top = 22.dp),
                 verticalArrangement = Arrangement.spacedBy(22.dp),
             ) {
                 item {
@@ -209,9 +210,7 @@ private fun PlayerHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TextButton(onClick = onBack) {
-            Text(stringResource(R.string.back), color = TonezenInk)
-        }
+        BackNavButton(onClick = onBack)
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
@@ -268,7 +267,7 @@ private fun PlayerHero(
         )
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(book.title, color = TonezenInk, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, maxLines = 2)
-            Text(book.author.orEmpty(), color = TonezenMuted, style = MaterialTheme.typography.titleMedium)
+            Text(bookAuthorLabel(book), color = TonezenMuted, style = MaterialTheme.typography.titleMedium)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (hasDownloadedTracks) {

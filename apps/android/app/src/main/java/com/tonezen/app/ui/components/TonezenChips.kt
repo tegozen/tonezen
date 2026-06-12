@@ -66,7 +66,7 @@ internal fun OfflineBanner() {
 }
 
 @Composable
-internal fun EmptyLibrary() {
+internal fun EmptyLibrary(offline: Boolean = false) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -77,6 +77,24 @@ internal fun EmptyLibrary() {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(stringResource(R.string.empty_library_title), color = TonezenInk, style = MaterialTheme.typography.titleLarge)
-        Text(stringResource(R.string.empty_library_body), color = TonezenMuted, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            stringResource(if (offline) R.string.empty_library_offline_body else R.string.empty_library_body),
+            color = TonezenMuted,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+@Composable
+internal fun LibraryLoading() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(TonezenSurfaceRaised.copy(alpha = 0.85f))
+            .border(BorderStroke(1.dp, TonezenBorder), RoundedCornerShape(16.dp))
+            .padding(18.dp),
+    ) {
+        Text(stringResource(R.string.library_loading), color = TonezenMuted, style = MaterialTheme.typography.bodyMedium)
     }
 }

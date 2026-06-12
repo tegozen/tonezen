@@ -84,12 +84,19 @@ async function scanBooksInCycle(cyclePath: string): Promise<ParsedBook[]> {
   return books;
 }
 
-async function scanAudiobookFiles(bookPath: string): Promise<AudiobookFileScan[]> {
-  const entries = await readdir(bookPath, { withFileTypes: true });
-  const filenames = entries
-    .filter((entry) => entry.isFile() && isAudioFilename(entry.name))
+async function listAudioFilenames(dirPath: string): Promise<string[]> {
+  const entries = await readdir(dirPath, { withFileTypes: true });
+  return entries
+    .filter(
+      (entry) =>
+        isAudioFilename(entry.name) && (entry.isFile() || entry.isDirectory()),
+    )
     .map((entry) => entry.name)
     .sort((a, b) => a.localeCompare(b));
+}
+
+async function scanAudiobookFiles(bookPath: string): Promise<AudiobookFileScan[]> {
+  const filenames = await listAudioFilenames(bookPath);
 
   const files: AudiobookFileScan[] = [];
   for (const filename of filenames) {
