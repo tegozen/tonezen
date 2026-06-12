@@ -33,19 +33,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class MainUiState(
-    val sessionState: SessionState = SessionState.UNAUTHENTICATED,
-    val books: List<Book> = emptyList(),
-    val downloadedBookIds: Set<String> = emptySet(),
-    val selectedBook: Book? = null,
-    val tracks: List<Track> = emptyList(),
-    val progressLabel: String? = null,
-    val downloadProgress: Float? = null,
-    val nowPlayingTitle: String? = null,
-    val isPlaying: Boolean = false,
-    val error: String? = null,
-)
-
 @HiltViewModel
 class MainViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
