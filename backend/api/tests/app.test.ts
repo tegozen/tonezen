@@ -49,6 +49,35 @@ describe("API routes", () => {
     expect(res.status).toBe(401);
   });
 
+  it("POST /downloads/sign rejects oversized track_ids", async () => {
+    const res = await request(app)
+      .post("/downloads/sign")
+      .set("Authorization", `Bearer ${makeToken("user-1")}`)
+      .send({ track_ids: Array.from({ length: 101 }, (_, i) => `id-${i}`) });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /catalog/cycles rejects invalid updated_since", async () => {
+    const res = await request(app).get("/catalog/cycles?updated_since=not-a-date");
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects JWT signed with none algorithm", async () => {
+    const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
+    const payload = Buffer.from(JSON.stringify({ sub: "user-1", role: "authenticated" })).toString(
+      "base64url",
+    );
+    const token = `${header}.${payload}.`;
+
+    const res = await request(app)
+      .post("/downloads/sign")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ track_ids: ["t1"] });
+
+    expect(res.status).toBe(401);
+  });
+
   it("POST /downloads/sign returns storage signed urls", async () => {
     vi.mocked(mockPool.query).mockResolvedValueOnce({
       rows: [{ track_id: "t1", storage_path: "music/a/audio/1.mp3" }],
@@ -82,5 +111,23 @@ describe("API routes", () => {
       });
 
     expect(res.status).toBe(400);
+  });
+
+  it("PUT /progress/audiobooks rejects track not in book", async () => {
+    vi.mocked(mockPool.query)
+      .mockResolvedValueOnce({ rows: [{ content_type: "audiobook" }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never);
+
+    const res = await request(app)
+      .put("/progress/audiobooks/book-1")
+      .set("Authorization", `Bearer ${makeToken("user-1")}`)
+      .send({
+        track_id: "t-other",
+        position_ms: 100,
+        updated_at: new Date().toISOString(),
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("track_id does not belong to book");
   });
 });

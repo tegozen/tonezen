@@ -2,11 +2,17 @@ import type { Express } from "express";
 import { signStoragePaths } from "../lib/storageSign.js";
 import type { RouteDeps } from "./deps.js";
 
+const MAX_SIGN_TRACK_IDS = 100;
+
 export function registerDownloadRoutes(app: Express, deps: RouteDeps): void {
   app.post("/downloads/sign", ...deps.requiredAuth, async (req, res) => {
     const trackIds = req.body?.track_ids as string[] | undefined;
     if (!Array.isArray(trackIds) || trackIds.length === 0) {
       res.status(400).json({ error: "track_ids required" });
+      return;
+    }
+    if (trackIds.length > MAX_SIGN_TRACK_IDS) {
+      res.status(400).json({ error: `track_ids limited to ${MAX_SIGN_TRACK_IDS}` });
       return;
     }
     const rows = await deps.downloads.getTrackStoragePaths(trackIds);

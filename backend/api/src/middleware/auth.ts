@@ -27,7 +27,7 @@ export function authMiddleware(jwtSecret: string, optional = false) {
     }
     const token = header.slice(7);
     try {
-      const payload = jwt.verify(token, jwtSecret) as jwt.JwtPayload;
+      const payload = jwt.verify(token, jwtSecret, { algorithms: ["HS256"] }) as jwt.JwtPayload;
       const sub = payload.sub;
       if (!sub) {
         res.status(401).json({ error: "Invalid token" });

@@ -28,6 +28,10 @@ export function registerProgressRoutes(app: Express, deps: RouteDeps): void {
       res.status(400).json({ error: "Progress sync only for audiobooks" });
       return;
     }
+    if ("error" in result && result.error === "invalid_track") {
+      res.status(400).json({ error: "track_id does not belong to book" });
+      return;
+    }
     res.json(result);
   });
 }

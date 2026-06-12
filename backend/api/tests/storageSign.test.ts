@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { signStoragePath, signStoragePaths, toPublicDownloadUrl } from "../src/lib/storageSign.js";
+import { assertSafeStoragePath, signStoragePath, signStoragePaths, toPublicDownloadUrl } from "../src/lib/storageSign.js";
 
 describe("toPublicDownloadUrl", () => {
   it("prefixes relative storage sign paths with public base and /storage/v1", () => {
@@ -40,6 +40,12 @@ describe("signStoragePath", () => {
       "http://storage:5000/object/sign/content/music/a/audio/1.mp3",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("rejects path traversal", () => {
+    expect(() => assertSafeStoragePath("../secret.mp3")).toThrow("Invalid storage path");
+    expect(() => assertSafeStoragePath("music/../secret.mp3")).toThrow("Invalid storage path");
+    expect(() => assertSafeStoragePath("/absolute.mp3")).toThrow("Invalid storage path");
   });
 });
 

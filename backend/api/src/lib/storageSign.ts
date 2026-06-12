@@ -10,12 +10,25 @@ interface SignResponse {
   signedURL?: string;
 }
 
+/** Reject traversal or absolute paths before signing (paths must come from DB, not clients). */
+export function assertSafeStoragePath(path: string): void {
+  if (!path || path.startsWith("/") || path.includes("\\")) {
+    throw new Error("Invalid storage path");
+  }
+  for (const segment of path.split("/")) {
+    if (segment === "" || segment === "." || segment === "..") {
+      throw new Error("Invalid storage path");
+    }
+  }
+}
+
 /** Sign one object path via Supabase Storage API (service role). */
 export async function signStoragePath(
   path: string,
   config: StorageSignConfig,
   fetchImpl: typeof fetch = fetch,
 ): Promise<string> {
+  assertSafeStoragePath(path);
   const encodedPath = path
     .split("/")
     .map((segment) => encodeURIComponent(segment))

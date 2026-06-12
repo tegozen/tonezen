@@ -29,6 +29,14 @@ export class ProgressRepository {
       return { error: "not_audiobook" as const };
     }
 
+    const trackCheck = await this.pool.query(
+      `SELECT 1 FROM tracks WHERE id = $1 AND book_id = $2 AND deleted_at IS NULL`,
+      [trackId, bookId],
+    );
+    if (trackCheck.rows.length === 0) {
+      return { error: "invalid_track" as const };
+    }
+
     const existing = await this.pool.query(
       `SELECT book_id, track_id, position_ms, updated_at
        FROM audiobook_progress WHERE user_id = $1 AND book_id = $2`,

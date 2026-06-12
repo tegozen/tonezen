@@ -4,12 +4,22 @@ import type { RouteDeps } from "./deps.js";
 
 export function registerCatalogRoutes(app: Express, deps: RouteDeps): void {
   app.get("/catalog/cycles", deps.optionalAuth, async (req, res) => {
-    const cycles = await deps.catalog.getCycles(parseUpdatedSince(req.query));
+    const updatedSince = parseUpdatedSince(req.query);
+    if (updatedSince === false) {
+      res.status(400).json({ error: "Invalid updated_since" });
+      return;
+    }
+    const cycles = await deps.catalog.getCycles(updatedSince);
     res.json({ cycles });
   });
 
   app.get("/catalog/music", deps.optionalAuth, async (req, res) => {
-    const albums = await deps.catalog.getMusicAlbums(parseUpdatedSince(req.query));
+    const updatedSince = parseUpdatedSince(req.query);
+    if (updatedSince === false) {
+      res.status(400).json({ error: "Invalid updated_since" });
+      return;
+    }
+    const albums = await deps.catalog.getMusicAlbums(updatedSince);
     res.json({ albums });
   });
 
