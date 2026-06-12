@@ -26,16 +26,8 @@ describe("scanContentRoot", () => {
       }),
     );
 
-    await mkdir(path.join(FIXTURE_ROOT, "music", "album-one", "audio"), { recursive: true });
-    await writeFile(
-      path.join(FIXTURE_ROOT, "music", "album-one", "album.json"),
-      JSON.stringify({
-        content_type: "music",
-        title: "Album One",
-        author: "Band",
-        track_order: ["01-track.mp3"],
-      }),
-    );
+    await mkdir(path.join(FIXTURE_ROOT, "music"), { recursive: true });
+    await writeFile(path.join(FIXTURE_ROOT, "music", "01-track.mp3"), Buffer.alloc(0));
   });
 
   afterEach(async () => {
@@ -49,5 +41,7 @@ describe("scanContentRoot", () => {
     expect(cycles[0].books[0].tracks).toHaveLength(1);
     expect(musicAlbums).toHaveLength(1);
     expect(musicAlbums[0].contentType).toBe("music");
+    expect(musicAlbums[0].tracks).toHaveLength(1);
+    expect(musicAlbums[0].tracks[0].filename).toBe("01-track.mp3");
   });
 });

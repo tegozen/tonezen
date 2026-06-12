@@ -47,7 +47,7 @@ export class CatalogRepository {
         for (const track of album.tracks) {
           const key = `${album.slug}:${track.filename}`;
           activeTrackKeys.add(key);
-          const storagePath = storagePathForMusic(album.slug, track.filename);
+          const storagePath = storagePathForMusic(track.filename);
           await this.upsertTrack(client, bookId, track, storagePath, null);
         }
       }

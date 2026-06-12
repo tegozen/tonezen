@@ -17,9 +17,9 @@ const README = {
 `,
   music: `Музыка (music)
 
-Структура:
-  music/{album-slug}/album.json
-  music/{album-slug}/audio/*.mp3
+Загрузите аудиофайлы (.mp3, .flac, …) прямо в music/.
+Метаданные (название, исполнитель, альбом) читаются из тегов файла.
+Без тегов используется имя файла.
 
 См. docs/content-layout.md в репозитории Tonezen.
 `,

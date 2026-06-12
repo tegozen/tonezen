@@ -1,12 +1,15 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
+  buildMusicAlbums,
   buildTracks,
+  isAudioFilename,
   parseBookMeta,
   parseCycleMeta,
   type ParsedBook,
   type ParsedCycle,
 } from "./parsers.js";
+import { probeAudioTags } from "./mediaProbe.js";
 
 async function fileExists(filePath: string): Promise<boolean> {
   try {
@@ -90,30 +93,22 @@ async function scanBooksInCycle(booksDir: string, cycleSlug: string): Promise<Pa
 
 async function scanMusic(musicDir: string): Promise<ParsedBook[]> {
   const entries = await readdir(musicDir, { withFileTypes: true });
-  const albums: ParsedBook[] = [];
+  const files = [];
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const albumSlug = entry.name;
-    const albumPath = path.join(musicDir, albumSlug);
-    const albumJsonPath = path.join(albumPath, "album.json");
-    if (!(await fileExists(albumJsonPath))) continue;
+    if (!entry.isFile() || !isAudioFilename(entry.name)) continue;
 
-    const raw = JSON.parse(await readFile(albumJsonPath, "utf-8"));
-    const meta = parseBookMeta(raw, "music");
-    const coverPath = (await fileExists(path.join(albumPath, "cover.jpg")))
-      ? `music/${albumSlug}/cover.jpg`
-      : null;
+    const filePath = path.join(musicDir, entry.name);
+    const tags = await probeAudioTags(filePath);
 
-    albums.push({
-      slug: albumSlug,
-      contentType: "music",
-      title: meta.title,
-      author: meta.author ?? null,
-      coverPath,
-      tracks: buildTracks(meta.track_order),
+    files.push({
+      filename: entry.name,
+      title: tags?.title ?? null,
+      artist: tags?.artist ?? null,
+      album: tags?.album ?? null,
+      trackNumber: tags?.trackNumber ?? null,
     });
   }
 
-  return albums;
+  return buildMusicAlbums(files);
 }

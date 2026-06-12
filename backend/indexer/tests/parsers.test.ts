@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildMusicAlbums,
   buildTracks,
+  isAudioFilename,
   parseBookMeta,
   parseCycleMeta,
+  slugify,
   storagePathForAudiobook,
   storagePathForMusic,
   trackTitleFromFilename,
 } from "../src/parsers.js";
+import { parseTrackNumber } from "../src/mediaProbe.js";
 
 describe("parseCycleMeta", () => {
   it("parses valid cycle.json", () => {
@@ -65,6 +69,68 @@ describe("storage paths", () => {
   });
 
   it("builds music path", () => {
-    expect(storagePathForMusic("album", "01.mp3")).toBe("music/album/audio/01.mp3");
+    expect(storagePathForMusic("01.mp3")).toBe("music/01.mp3");
+  });
+});
+
+describe("isAudioFilename", () => {
+  it("accepts common audio extensions", () => {
+    expect(isAudioFilename("track.mp3")).toBe(true);
+    expect(isAudioFilename("track.flac")).toBe(true);
+    expect(isAudioFilename("README.txt")).toBe(false);
+  });
+});
+
+describe("slugify", () => {
+  it("normalizes text into slugs", () => {
+    expect(slugify("Artist Name - Album!")).toBe("artist-name-album");
+  });
+});
+
+describe("parseTrackNumber", () => {
+  it("parses track numbers from tag values", () => {
+    expect(parseTrackNumber("3/12")).toBe(3);
+    expect(parseTrackNumber("07")).toBe(7);
+    expect(parseTrackNumber(undefined)).toBeNull();
+  });
+});
+
+describe("buildMusicAlbums", () => {
+  it("groups tracks by album metadata", () => {
+    const albums = buildMusicAlbums([
+      {
+        filename: "01-a.mp3",
+        title: "Track A",
+        artist: "Band",
+        album: "Greatest Hits",
+        trackNumber: 1,
+      },
+      {
+        filename: "02-b.mp3",
+        title: "Track B",
+        artist: "Band",
+        album: "Greatest Hits",
+        trackNumber: 2,
+      },
+    ]);
+    expect(albums).toHaveLength(1);
+    expect(albums[0].title).toBe("Greatest Hits");
+    expect(albums[0].author).toBe("Band");
+    expect(albums[0].tracks.map((t) => t.title)).toEqual(["Track A", "Track B"]);
+  });
+
+  it("falls back to filename when metadata is missing", () => {
+    const albums = buildMusicAlbums([
+      {
+        filename: "01-my-song.mp3",
+        title: null,
+        artist: null,
+        album: null,
+        trackNumber: null,
+      },
+    ]);
+    expect(albums).toHaveLength(1);
+    expect(albums[0].slug).toBe("01-my-song");
+    expect(albums[0].tracks[0].title).toBe("my song");
   });
 });

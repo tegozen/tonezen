@@ -13,6 +13,58 @@ export interface FileMetadata {
   durationMs: number | null;
 }
 
+export interface AudioTags {
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  trackNumber: number | null;
+}
+
+function pickTag(tags: Record<string, string>, ...keys: string[]): string | null {
+  const normalized = new Map<string, string>();
+  for (const [key, value] of Object.entries(tags)) {
+    if (typeof value === "string" && value.trim()) {
+      normalized.set(key.toLowerCase(), value.trim());
+    }
+  }
+  for (const key of keys) {
+    const value = normalized.get(key.toLowerCase());
+    if (value) return value;
+  }
+  return null;
+}
+
+export function parseTrackNumber(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const match = raw.trim().match(/^(\d+)/);
+  if (!match) return null;
+  const n = parseInt(match[1], 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+export async function probeAudioTags(filePath: string): Promise<AudioTags | null> {
+  try {
+    const { stdout } = await execFileAsync("ffprobe", [
+      "-v",
+      "quiet",
+      "-print_format",
+      "json",
+      "-show_format",
+      filePath,
+    ]);
+    const json = JSON.parse(stdout) as { format?: { tags?: Record<string, string> } };
+    const tags = json.format?.tags ?? {};
+    return {
+      title: pickTag(tags, "title"),
+      artist: pickTag(tags, "artist", "album_artist", "albumartist"),
+      album: pickTag(tags, "album"),
+      trackNumber: parseTrackNumber(pickTag(tags, "track", "tracknumber", "trck")),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function sha256File(filePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const hash = createHash("sha256");

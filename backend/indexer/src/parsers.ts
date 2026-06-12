@@ -34,6 +34,38 @@ export interface ParsedCycle {
   books: ParsedBook[];
 }
 
+export interface MusicFileScan {
+  filename: string;
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  trackNumber: number | null;
+}
+
+const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".ogg", ".opus", ".wav", ".aac"]);
+
+export function isAudioFilename(filename: string): boolean {
+  const dot = filename.lastIndexOf(".");
+  if (dot < 0) return false;
+  return AUDIO_EXTENSIONS.has(filename.slice(dot).toLowerCase());
+}
+
+export function slugify(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "untitled"
+  );
+}
+
+export function filenameBase(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  return dot >= 0 ? filename.slice(0, dot) : filename;
+}
+
 export function parseCycleMeta(raw: unknown): CycleMeta {
   if (!raw || typeof raw !== "object") {
     throw new Error("Invalid cycle.json: expected object");
@@ -88,6 +120,67 @@ export function buildTracks(trackOrder: string[]): ParsedTrack[] {
   }));
 }
 
+export function buildMusicAlbums(files: MusicFileScan[]): ParsedBook[] {
+  const groups = new Map<
+    string,
+    { albumTitle: string; artist: string | null; tracks: ParsedTrack[] }
+  >();
+
+  for (const file of files) {
+    const trackTitle = file.title?.trim() || trackTitleFromFilename(file.filename);
+    const artist = file.artist?.trim() || null;
+    const album = file.album?.trim() || null;
+
+    let groupKey: string;
+    let albumTitle: string;
+
+    if (!album) {
+      groupKey = slugify(filenameBase(file.filename));
+      albumTitle = trackTitle;
+    } else {
+      groupKey = slugify(`${artist ?? "unknown"}-${album}`);
+      albumTitle = album;
+    }
+
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, { albumTitle, artist, tracks: [] });
+    }
+
+    const group = groups.get(groupKey)!;
+    if (!group.artist && artist) {
+      group.artist = artist;
+    }
+
+    group.tracks.push({
+      filename: file.filename,
+      sortOrder: file.trackNumber != null ? file.trackNumber - 1 : group.tracks.length,
+      title: trackTitle,
+    });
+  }
+
+  const albums: ParsedBook[] = [];
+  for (const [slug, group] of groups) {
+    group.tracks.sort((a, b) => {
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      return a.filename.localeCompare(b.filename);
+    });
+    group.tracks.forEach((track, index) => {
+      track.sortOrder = index;
+    });
+
+    albums.push({
+      slug,
+      contentType: "music",
+      title: group.albumTitle,
+      author: group.artist,
+      coverPath: null,
+      tracks: group.tracks,
+    });
+  }
+
+  return albums;
+}
+
 export function storagePathForAudiobook(
   cycleSlug: string,
   bookSlug: string,
@@ -96,6 +189,6 @@ export function storagePathForAudiobook(
   return `cycles/${cycleSlug}/books/${bookSlug}/audio/${filename}`;
 }
 
-export function storagePathForMusic(albumSlug: string, filename: string): string {
-  return `music/${albumSlug}/audio/${filename}`;
+export function storagePathForMusic(filename: string): string {
+  return `music/${filename}`;
 }
