@@ -131,6 +131,7 @@ fun AppShell(
                 musicPreview = libraryState.musicPreview,
                 musicPlayback = libraryState.musicPlayback,
                 musicDownloadProgress = libraryState.musicDownloadProgress,
+                musicPlaybackErrorRes = libraryState.musicPlaybackErrorRes,
                 onMusicPlayPause = libraryViewModel::toggleMusicPlayback,
                 onMusicShuffle = libraryViewModel::shuffleMusicPreview,
                 onMusicTabSelected = libraryViewModel::onMusicTabSelected,

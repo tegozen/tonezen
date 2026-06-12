@@ -158,4 +158,7 @@
     <string name="hide_password">Скрыть пароль</string>
     <string name="music_next_track">Следующий трек</string>
     <string name="music_shuffle">Другой трек</string>
+    <string name="music_playback_error_offline">Нет сети — нужен интернет для первой загрузки</string>
+    <string name="music_playback_error_login">Войдите в аккаунт, чтобы скачать трек</string>
+    <string name="music_playback_error_download">Не удалось скачать трек</string>
 </resources>

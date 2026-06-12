@@ -2,7 +2,9 @@ package com.tonezen.app.ui.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tonezen.app.R
 import com.tonezen.app.data.local.CatalogRepository
+import com.tonezen.app.data.local.EnsureTrackOutcome
 import com.tonezen.app.data.local.TrackDownloadEnsurer
 import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.data.remote.ProgressSyncRepository
@@ -216,7 +218,7 @@ class LibraryViewModel @Inject constructor(
         }
         val trackPreview = preview ?: return
         playJob?.cancel()
-        _uiState.update { it.copy(musicDownloadProgress = 0f) }
+        _uiState.update { it.copy(musicDownloadProgress = 0f, musicPlaybackErrorRes = null) }
         playJob = viewModelScope.launch { playMusicTrack(trackPreview, showDownloadProgress = true) }
     }
 
@@ -226,7 +228,7 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             val excludeId = _uiState.value.musicPlayback.takeIf { it.isActive }?.trackId
             _uiState.update {
-                it.copy(musicPreview = pickRandomMusicPreview(excludeTrackId = excludeId))
+                it.copy(musicPreview = pickRandomMusicPreview(excludeTrackId = excludeId), musicPlaybackErrorRes = null)
             }
         }
     }
@@ -316,15 +318,23 @@ class LibraryViewModel @Inject constructor(
         } else {
             null
         }
-        val item = withContext(Dispatchers.IO) {
-            playbackQueueBuilder.buildSingleMusicItem(book, track, progressReporter)
-        } ?: run {
-            _uiState.update { it.copy(musicDownloadProgress = null) }
+        val outcome = withContext(Dispatchers.IO) {
+            trackDownloadEnsurer.ensureTrackLocal(book.id, track, progressReporter)
+        }
+        val localTrack = outcome.track ?: run {
+            _uiState.update {
+                it.copy(
+                    musicDownloadProgress = null,
+                    musicPlaybackErrorRes = playbackErrorRes(outcome.failure),
+                )
+            }
             return
         }
+        val item = playbackQueueBuilder.itemForLocalTrack(book, localTrack)
         _uiState.update {
             it.copy(
                 musicDownloadProgress = null,
+                musicPlaybackErrorRes = null,
                 musicPreview = preview,
                 nowPlayingTitle = track.title,
             )
@@ -355,5 +365,11 @@ class LibraryViewModel @Inject constructor(
             catalogRepository.downloadedBookIds(_uiState.value.books)
         }
         _uiState.update { it.copy(downloadedBookIds = downloaded) }
+    }
+
+    private fun playbackErrorRes(failure: EnsureTrackOutcome.Failure?): Int = when (failure) {
+        EnsureTrackOutcome.Failure.OFFLINE -> R.string.music_playback_error_offline
+        EnsureTrackOutcome.Failure.NO_SESSION -> R.string.music_playback_error_login
+        EnsureTrackOutcome.Failure.DOWNLOAD_FAILED, null -> R.string.music_playback_error_download
     }
 }

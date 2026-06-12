@@ -1,5 +1,6 @@
 export interface StorageSignConfig {
   storageUrl: string;
+  publicBaseUrl: string;
   bucket: string;
   serviceRoleKey: string;
   expiresIn: number;
@@ -36,7 +37,25 @@ export async function signStoragePath(
   if (!data.signedURL) {
     throw new Error("Storage sign response missing signedURL");
   }
-  return data.signedURL;
+  return toPublicDownloadUrl(data.signedURL, config.publicBaseUrl);
+}
+
+/** Storage returns relative paths (/object/sign/...); clients need absolute Kong URLs. */
+export function toPublicDownloadUrl(signedURL: string, publicBaseUrl: string): string {
+  const base = publicBaseUrl.replace(/\/$/, "");
+  if (signedURL.startsWith("http://") || signedURL.startsWith("https://")) {
+    return signedURL;
+  }
+  if (signedURL.startsWith("/storage/v1/")) {
+    return `${base}${signedURL}`;
+  }
+  if (signedURL.startsWith("/object/")) {
+    return `${base}/storage/v1${signedURL}`;
+  }
+  if (signedURL.startsWith("/")) {
+    return `${base}${signedURL}`;
+  }
+  return signedURL;
 }
 
 export async function signStoragePaths(

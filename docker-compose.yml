@@ -229,6 +229,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       STORAGE_INTERNAL_URL: http://storage:5000
+      TONEZEN_BASE_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       PORT: 3001
 
   kong:

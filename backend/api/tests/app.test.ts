@@ -20,6 +20,7 @@ describe("API routes", () => {
     jwtSecret: JWT_SECRET,
     storage: {
       storageUrl: "http://storage:5000",
+      publicBaseUrl: "http://localhost:8000",
       bucket: "content",
       serviceRoleKey: "service-role-key",
       expiresIn: 900,

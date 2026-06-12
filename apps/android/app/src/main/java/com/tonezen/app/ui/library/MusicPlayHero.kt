@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.tonezen.app.R
 import com.tonezen.app.ui.components.PlayButton
 import com.tonezen.app.ui.components.SyncGlyph
 import com.tonezen.app.ui.components.TrackCoverArt
@@ -40,6 +42,7 @@ internal fun MusicPlayHero(
     preview: MusicTrackPreview?,
     playback: MusicPlaybackUi,
     downloadProgress: Float?,
+    playbackErrorRes: Int?,
     onPlayPause: () -> Unit,
     onShuffle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -155,6 +158,15 @@ internal fun MusicPlayHero(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.Center,
+                        )
+                    }
+                    if (playbackErrorRes != null) {
+                        Text(
+                            text = stringResource(playbackErrorRes),
+                            color = Color(0xFFF87171),
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 4.dp),
                         )
                     }
                 }

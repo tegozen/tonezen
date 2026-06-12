@@ -52,9 +52,15 @@ class CatalogRepository @Inject constructor(
             },
         )
         remoteBooks.forEach { book ->
+            val existingById = catalogDao.getTracksForBook(book.id).associateBy { it.id }
             val (_, tracks) = apiClient.fetchBookDetail(book.id, accessToken)
             catalogDao.upsertTracks(
                 tracks.map { track ->
+                    val existing = existingById[track.id]
+                    val localPath = existing?.localPath?.takeIf { File(it).isFile && File(it).length() > 0L }
+                        ?: expectedTrackFile(book.id, track.id)
+                            .takeIf { it.isFile && it.length() > 0L }
+                            ?.absolutePath
                     TrackEntity(
                         track.id,
                         track.bookId,
@@ -62,7 +68,7 @@ class CatalogRepository @Inject constructor(
                         track.title,
                         track.filename,
                         track.durationMs,
-                        track.localPath,
+                        localPath,
                     )
                 },
             )
@@ -74,6 +80,21 @@ class CatalogRepository @Inject constructor(
         val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId } ?: return
         catalogDao.upsertTracks(listOf(track.copy(localPath = localPath)))
     }
+
+    suspend fun resolveLocalTrackPath(bookId: String, trackId: String): String? {
+        val fromDb = catalogDao.getTracksForBook(bookId).find { it.id == trackId }?.localPath
+        if (fromDb != null && File(fromDb).isFile && File(fromDb).length() > 0L) return fromDb
+        val onDisk = expectedTrackFile(bookId, trackId)
+        if (onDisk.isFile && onDisk.length() > 0L) {
+            markTrackDownloaded(bookId, trackId, onDisk.absolutePath)
+            return onDisk.absolutePath
+        }
+        if (fromDb != null) clearTrackLocalPath(bookId, trackId)
+        return null
+    }
+
+    private fun expectedTrackFile(bookId: String, trackId: String): File =
+        File(context.filesDir, "downloads/$bookId/$trackId.mp3")
 
     suspend fun clearLocalDownloads(bookId: String) {
         catalogDao.clearLocalPathsForBook(bookId)

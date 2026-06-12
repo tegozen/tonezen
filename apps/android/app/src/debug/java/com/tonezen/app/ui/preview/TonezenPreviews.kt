@@ -116,6 +116,7 @@ private fun LibraryScreenPreview() {
             ),
             musicPlayback = MusicPlaybackUi(),
             musicDownloadProgress = null,
+            musicPlaybackErrorRes = null,
             onMusicPlayPause = {},
             onMusicShuffle = {},
             onMusicTabSelected = {},

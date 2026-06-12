@@ -1,6 +1,8 @@
 package com.tonezen.app.data.remote
 
 import android.content.Context
+import android.net.Uri
+import com.tonezen.app.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -23,7 +25,7 @@ class DownloadRepository(
         onProgress: (Float) -> Unit = {},
     ): File = withContext(Dispatchers.IO) {
         onProgress(0f)
-        val url = signedUrlForTrack(accessToken, trackId)
+        val url = resolveDownloadUrl(signedUrlForTrack(accessToken, trackId))
         val dir = File(context.filesDir, "downloads/$bookId").apply { mkdirs() }
         val target = File(dir, "$trackId.mp3")
         val request = Request.Builder().url(url).build()
@@ -55,5 +57,28 @@ class DownloadRepository(
 
     suspend fun deleteLocalTrack(bookId: String, trackId: String) = withContext(Dispatchers.IO) {
         File(context.filesDir, "downloads/$bookId/$trackId.mp3").delete()
+    }
+
+    /** Storage signed URLs may be relative (/object/sign/...) or use localhost on dev hosts. */
+    private fun resolveDownloadUrl(signedUrl: String): String {
+        val apiBase = BuildConfig.BASE_URL.trimEnd('/')
+        val absolute = when {
+            signedUrl.startsWith("http://") || signedUrl.startsWith("https://") -> signedUrl
+            signedUrl.startsWith("/storage/v1/") -> "$apiBase$signedUrl"
+            signedUrl.startsWith("/") -> "$apiBase/storage/v1$signedUrl"
+            else -> signedUrl
+        }
+        return rewriteLocalhostToEmulator(absolute, apiBase)
+    }
+
+    private fun rewriteLocalhostToEmulator(url: String, apiBase: String): String {
+        val parsed = Uri.parse(url)
+        val host = parsed.host ?: return url
+        if (host != "localhost" && host != "127.0.0.1") return url
+        val apiUri = Uri.parse(apiBase)
+        val apiHost = apiUri.host ?: return url
+        val port = parsed.port.takeIf { it != -1 } ?: apiUri.port
+        val authority = if (port != -1) "$apiHost:$port" else apiHost
+        return parsed.buildUpon().encodedAuthority(authority).build().toString()
     }
 }

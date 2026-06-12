@@ -34,4 +34,5 @@ data class LibraryUiState(
     val musicPreview: MusicTrackPreview? = null,
     val musicPlayback: MusicPlaybackUi = MusicPlaybackUi(),
     val musicDownloadProgress: Float? = null,
+    val musicPlaybackErrorRes: Int? = null,
 )

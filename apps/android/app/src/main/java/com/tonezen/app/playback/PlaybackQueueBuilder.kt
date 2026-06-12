@@ -22,13 +22,17 @@ class PlaybackQueueBuilder @Inject constructor(
         onProgress: ((Float) -> Unit)? = null,
     ): QueuePlayItem? {
         if (book.contentType != ContentType.MUSIC) return null
-        val local = trackDownloadEnsurer.ensureTrackLocal(book.id, track, onProgress) ?: return null
+        val outcome = trackDownloadEnsurer.ensureTrackLocal(book.id, track, onProgress)
+        val local = outcome.track ?: return null
         return singleQueueItem(book, local)
     }
 
+    fun itemForLocalTrack(book: Book, track: Track): QueuePlayItem = singleQueueItem(book, track)
+
     suspend fun buildSingleAudiobookItem(book: Book, track: Track): QueuePlayItem? {
         if (book.contentType != ContentType.AUDIOBOOK) return null
-        val local = trackDownloadEnsurer.ensureTrackLocal(book.id, track) ?: return null
+        val outcome = trackDownloadEnsurer.ensureTrackLocal(book.id, track)
+        val local = outcome.track ?: return null
         return singleQueueItem(book, local)
     }
 
