@@ -25,10 +25,16 @@ data class MusicPlaybackUi(
     val isPlaying: Boolean = false,
 )
 
+data class CycleCardState(
+    val isDownloaded: Boolean = false,
+    val progressFraction: Float? = null,
+)
+
 data class LibraryUiState(
     val sessionState: SessionState = SessionState.UNAUTHENTICATED,
     val isLoadingCatalog: Boolean = true,
     val cycles: List<Cycle> = emptyList(),
+    val cycleCardStateById: Map<String, CycleCardState> = emptyMap(),
     val books: List<Book> = emptyList(),
     val downloadedBookIds: Set<String> = emptySet(),
     val filter: LibraryFilterState = LibraryFilterState(),
@@ -37,4 +43,5 @@ data class LibraryUiState(
     val musicTrackList: List<MusicListTrack> = emptyList(),
     val musicPlayback: MusicPlaybackUi = MusicPlaybackUi(),
     val musicPlaybackErrorRes: Int? = null,
+    val cyclePlaybackErrorRes: Int? = null,
 )

@@ -1,33 +1,32 @@
 package com.tonezen.app.ui.player
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
+import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.domain.progress.TrackListenStatus
+import com.tonezen.app.domain.progress.resolveTrackListenState
 import com.tonezen.app.ui.components.DownloadConfirmSheet
-import com.tonezen.app.ui.components.OverflowGlyph
 import com.tonezen.app.ui.components.PlayingBars
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.components.TonezenTrackListRow
-import com.tonezen.app.ui.components.TrackActionsSheet
+import com.tonezen.app.ui.components.TrackDownloadedIndicator
+import com.tonezen.app.ui.components.TrackRowOverflowMenu
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.items
 import dev.chrisbanes.haze.HazeState
 
 @Composable
@@ -40,19 +39,16 @@ internal fun BookDetailScreen(
     onTrackClick: (Track) -> Unit,
     onConfirmDownload: () -> Unit,
     onDismissDownloadSheet: () -> Unit,
-    onShowTrackActions: (Track) -> Unit,
-    onDismissTrackActions: () -> Unit,
-    onMarkComplete: () -> Unit,
-    onPlayNext: () -> Unit,
-    onRemoveDownload: () -> Unit,
+    onMarkTrackListened: (Track) -> Unit,
+    onRemoveTrackDownload: (Track) -> Unit,
     bottomScrollPadding: Dp,
 ) {
     val tracks = uiState.tracks
     val activeTrackId = uiState.activeTrackId
+    val sortedTracks = tracks.sortedBy { it.sortOrder }
 
     BackHandler {
         when {
-            uiState.showTrackActions -> onDismissTrackActions()
             uiState.showDownloadSheet -> onDismissDownloadSheet()
             else -> onBack()
         }
@@ -64,15 +60,6 @@ internal fun BookDetailScreen(
         estimatedBytes = uiState.estimatedDownloadBytes,
         onDismiss = onDismissDownloadSheet,
         onConfirm = onConfirmDownload,
-    )
-    TrackActionsSheet(
-        visible = uiState.showTrackActions,
-        hazeState = hazeState,
-        track = uiState.actionTrack,
-        onDismiss = onDismissTrackActions,
-        onPlayNext = onPlayNext,
-        onMarkComplete = onMarkComplete,
-        onRemoveDownload = onRemoveDownload,
     )
 
     TonezenFixedHeaderScreen(
@@ -90,47 +77,82 @@ internal fun BookDetailScreen(
         },
     ) {
         items(tracks, key = { it.id }) { track ->
-            ChapterRow(
+            ChapterTrackRow(
                 track = track,
-                selected = track.id == activeTrackId,
+                sortedTracks = sortedTracks,
+                audiobookProgress = uiState.audiobookProgress,
+                isActive = track.id == activeTrackId,
+                livePositionMs = if (track.id == activeTrackId) uiState.playbackPositionMs else null,
                 onClick = { onTrackClick(track) },
-                onLongClick = { onShowTrackActions(track) },
+                onMarkListened = { onMarkTrackListened(track) },
+                onRemoveDownload = { onRemoveTrackDownload(track) },
             )
         }
     }
 }
 
 @Composable
-private fun ChapterRow(
+internal fun ChapterTrackRow(
     track: Track,
-    selected: Boolean,
+    sortedTracks: List<Track>,
+    audiobookProgress: AudiobookProgress?,
+    isActive: Boolean,
+    livePositionMs: Long?,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onMarkListened: () -> Unit,
+    onRemoveDownload: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    val listenState = resolveTrackListenState(
+        sortedTracks = sortedTracks,
+        bookProgress = audiobookProgress,
+        trackId = track.id,
+        livePositionMs = livePositionMs,
+    )
+    val isDownloaded = !track.localPath.isNullOrBlank()
+    val listenPercent = when (listenState.status) {
+        TrackListenStatus.COMPLETED -> 100
+        TrackListenStatus.IN_PROGRESS -> (listenState.fraction * 100).toInt().coerceIn(1, 99)
+        TrackListenStatus.NOT_STARTED -> null
+    }
     TonezenTrackListRow(
         title = track.title,
-        subtitle = track.localPath?.let { stringResource(R.string.offline) },
-        subtitleColor = TonezenTeal,
         durationMs = track.durationMs,
-        isActive = selected,
+        isActive = isActive,
+        listenProgress = listenState.barFraction,
         onClick = onClick,
+        modifier = modifier,
         leading = {
-            PlayingBars(active = selected)
+            when {
+                isActive -> PlayingBars(active = true)
+                listenPercent != null -> {
+                    Text(
+                        text = stringResource(R.string.cycle_listen_progress, listenPercent),
+                        color = TonezenTeal,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
             Text(
                 (track.sortOrder + 1).toString(),
-                color = if (selected) TonezenAmber else TonezenMuted,
+                color = when {
+                    isActive -> TonezenAmber
+                    listenPercent != null -> TonezenTeal
+                    else -> TonezenMuted
+                },
             )
         },
         trailing = {
-            Box(
-                modifier = Modifier.size(36.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                OverflowGlyph(
-                    modifier = Modifier.clickable(onClick = onLongClick),
-                    tint = TonezenMuted,
-                )
+            if (isDownloaded) {
+                TrackDownloadedIndicator()
             }
+            TrackRowOverflowMenu(
+                onDelete = onRemoveDownload,
+                deleteLabelRes = R.string.remove_download,
+                showDelete = isDownloaded,
+                onMarkListened = onMarkListened,
+            )
         },
     )
 }

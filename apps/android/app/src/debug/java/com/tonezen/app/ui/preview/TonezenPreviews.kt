@@ -14,6 +14,7 @@ import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.auth.AuthScreen
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.runtime.remember
+import com.tonezen.app.ui.library.CycleCardState
 import com.tonezen.app.ui.library.LibraryScreen
 import com.tonezen.app.ui.library.MusicPlaybackUi
 import com.tonezen.app.playback.MusicDownloadState
@@ -107,11 +108,18 @@ private fun LibraryScreenPreview() {
             books = previewBooks,
             allBooks = previewBooks,
             downloadedBookIds = setOf("midnight"),
+            cycleCardStateById = mapOf(
+                previewCycle.id to CycleCardState(
+                    isDownloaded = true,
+                    progressFraction = 0.42f,
+                ),
+            ),
             offlineBanner = false,
             isLoadingCatalog = false,
             filter = LibraryFilterState(),
             showFilterSheet = false,
             onCycleClick = {},
+            onCyclePlay = {},
             onBookClick = {},
             onSearchChange = {},
             onFilterClick = {},
@@ -143,8 +151,10 @@ private fun LibraryScreenPreview() {
             musicPlayback = MusicPlaybackUi(),
             musicDownload = MusicDownloadState(),
             musicPlaybackErrorRes = null,
+            cyclePlaybackErrorRes = null,
             onMusicTrackClick = {},
             onDownloadMusicTrack = {},
+            onDeleteMusicTrack = {},
             onDownloadAllMusic = {},
             onMusicTabSelected = {},
             showMiniPlayer = false,

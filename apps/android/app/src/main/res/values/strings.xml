@@ -40,6 +40,8 @@
     <string name="empty_library_offline_body">Нет подключения к серверу. Показаны только ранее загруженные книги.</string>
     <string name="cycle_books_section">Книги цикла</string>
     <string name="cycle_books_count">%1$d книг</string>
+    <string name="cycle_listen_progress">%1$d%%</string>
+    <string name="cycle_playback_error_empty">В цикле нет доступных глав для воспроизведения</string>
     <string name="library_loading">Загрузка библиотеки…</string>
     <string name="empty_player_title">Ничего не играет</string>
     <string name="empty_player_body">Выберите что-нибудь в библиотеке, чтобы начать слушать.</string>
@@ -155,4 +157,5 @@
     <string name="music_playback_error_download">Не удалось скачать трек</string>
     <string name="music_download_all">Скачать все</string>
     <string name="music_download_all_progress">%1$d из %2$d</string>
+    <string name="music_delete_track">Удалить трек</string>
 </resources>

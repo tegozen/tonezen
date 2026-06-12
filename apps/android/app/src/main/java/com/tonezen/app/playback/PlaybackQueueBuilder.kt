@@ -8,6 +8,11 @@ import com.tonezen.app.domain.music.MusicLibraryTrack
 import javax.inject.Inject
 import javax.inject.Singleton
 
+data class CycleQueueResult(
+    val items: List<QueuePlayItem>,
+    val startIndex: Int,
+)
+
 @Singleton
 class PlaybackQueueBuilder @Inject constructor(
     private val trackDownloadEnsurer: TrackDownloadEnsurer,
@@ -65,6 +70,32 @@ class PlaybackQueueBuilder @Inject constructor(
     suspend fun buildAudiobookQueue(book: Book, tracks: List<Track>): List<QueuePlayItem> {
         if (book.contentType != ContentType.AUDIOBOOK) return emptyList()
         return buildQueue(book, trackDownloadEnsurer.ensureTracksLocal(book, tracks))
+    }
+
+    suspend fun buildCycleQueue(
+        entries: List<Pair<Book, Track>>,
+        startTrack: Track,
+    ): CycleQueueResult? {
+        if (entries.isEmpty()) return null
+        val trackCountByBookId = entries.groupingBy { it.first.id }.eachCount()
+        val items = mutableListOf<QueuePlayItem>()
+        for ((book, track) in entries) {
+            if (book.contentType != ContentType.AUDIOBOOK) continue
+            val local = if (track.id == startTrack.id) {
+                startTrack
+            } else {
+                trackDownloadEnsurer.resolveLocalTrack(book.id, track)
+            } ?: continue
+            items += queueItem(
+                book = book,
+                track = local,
+                trackNumber = track.sortOrder + 1,
+                totalTracks = trackCountByBookId[book.id] ?: 1,
+            )
+        }
+        if (items.isEmpty()) return null
+        val startIndex = items.indexOfFirst { it.trackId == startTrack.id }.coerceAtLeast(0)
+        return CycleQueueResult(items = items, startIndex = startIndex)
     }
 
     private fun buildQueue(book: Book, localTracks: List<Track>): List<QueuePlayItem> {

@@ -45,7 +45,6 @@ import com.tonezen.app.R
 import com.tonezen.app.domain.library.LibraryContentFilter
 import com.tonezen.app.domain.library.LibraryFilterState
 import com.tonezen.app.domain.library.LibrarySortOrder
-import com.tonezen.app.domain.model.Track
 import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenError
@@ -316,57 +315,6 @@ private fun ToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean
             colors = SwitchDefaults.colors(checkedTrackColor = TonezenTeal),
         )
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun TrackActionsSheet(
-    visible: Boolean,
-    hazeState: HazeState,
-    track: Track?,
-    onDismiss: () -> Unit,
-    onPlayNext: () -> Unit,
-    onMarkComplete: () -> Unit,
-    onRemoveDownload: () -> Unit,
-) {
-    var sheetTrack by remember { mutableStateOf<Track?>(null) }
-    if (track != null) {
-        sheetTrack = track
-    }
-    if (sheetTrack == null && !visible) {
-        return
-    }
-
-    TonezenGlassModalBottomSheet(
-        visible = visible,
-        hazeState = hazeState,
-        onDismiss = onDismiss,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(sheetTrack?.title.orEmpty(), color = TonezenInk, fontWeight = FontWeight.SemiBold)
-            ActionRow(stringResource(R.string.play_next), onPlayNext)
-            ActionRow(stringResource(R.string.mark_complete), onMarkComplete)
-            ActionRow(stringResource(R.string.remove_download), onRemoveDownload, destructive = true)
-            ActionRow(stringResource(R.string.share), onDismiss)
-        }
-    }
-}
-
-@Composable
-private fun ActionRow(label: String, onClick: () -> Unit, destructive: Boolean = false) {
-    Text(
-        text = label,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        color = if (destructive) TonezenError else TonezenInk,
-    )
 }
 
 @Composable

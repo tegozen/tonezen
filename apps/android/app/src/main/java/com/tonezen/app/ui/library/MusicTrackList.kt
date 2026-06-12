@@ -27,6 +27,7 @@ import com.tonezen.app.playback.MusicDownloadState
 import com.tonezen.app.ui.components.TonezenTrackListRow
 import com.tonezen.app.ui.components.TrackDownloadButton
 import com.tonezen.app.ui.components.TrackDownloadedIndicator
+import com.tonezen.app.ui.components.TrackRowOverflowMenu
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
@@ -104,6 +105,7 @@ internal fun MusicTrackRow(
     downloadProgress: Float?,
     onClick: () -> Unit,
     onDownloadClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     TonezenTrackListRow(
@@ -131,6 +133,10 @@ internal fun MusicTrackRow(
                     )
                 }
             }
+            TrackRowOverflowMenu(
+                onDelete = onDeleteClick,
+                enabled = !isDownloading,
+            )
         },
     )
 }
