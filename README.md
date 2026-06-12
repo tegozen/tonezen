@@ -35,7 +35,7 @@ make fix-eol                      # CRLF → LF in working tree
 git add --renormalize .
 ```
 
-The repo enforces LF via `.gitattributes`, `.editorconfig`, `.vscode/settings.json`, and `make check-eol` (also in `make test` / CI). Cursor/VS Code pick up `files.eol: "\n"` automatically.
+The repo enforces LF via `.gitattributes`, `.editorconfig`, `.vscode/settings.json`, and `make check-eol` (also in `make test`). Cursor/VS Code pick up `files.eol: "\n"` automatically.
 
 ### Backend
 
@@ -65,7 +65,7 @@ Services:
 | Storage | http://localhost:8000/storage/v1 |
 | Realtime (WebSocket) | ws://localhost:8000/realtime/v1/websocket |
 
-Upload audio via **Studio → Storage → bucket `content`** — see [docs/content-layout.md](docs/content-layout.md).
+Upload audio via **Studio → Storage → bucket `content` → `cycles/` or `music/`** (created automatically on startup) — see [docs/content-layout.md](docs/content-layout.md).
 
 Runtime data lives in Docker volumes (not host bind mounts):
 
@@ -73,8 +73,6 @@ Runtime data lives in Docker volumes (not host bind mounts):
 |--------|----------|
 | `tonezen-postgres` | Postgres (catalog, auth, progress) |
 | `tonezen-storage` | Uploaded audio files |
-
-Upgrading from an older checkout with `./data/postgres`? Run once: `make postgres-migrate`.
 
 Studio (HTTP basic auth at http://localhost:8000):
 
@@ -143,9 +141,10 @@ tonezen/
 │   ├── api/               # REST API (catalog, signed URLs, progress)
 │   ├── indexer/           # storage bucket scanner
 │   └── supabase/migrations/
-├── docker/                # kong, postgres init
+├── docker/                # kong, postgres init, storage-bootstrap
+├── ci/                    # check-eol
 ├── docs/
-├── scripts/
+├── scripts/               # gen-env, postgres/storage import & export
 └── docker-compose.yml
 ```
 
@@ -153,7 +152,6 @@ tonezen/
 
 ```bash
 make test                 # indexer + api + desktop
-scripts/smoke-test.sh     # includes Android unit tests
 ```
 
 TDD is required for domain logic, indexer parsers, and API handlers. See AGENTS.md.

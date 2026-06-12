@@ -117,7 +117,7 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 1. **Red** — write failing test or update OpenAPI spec
 2. **Green** — minimal implementation
 3. **Refactor** — without behavior change
-4. CI must pass before merge
+4. `make test` and `make lint` must pass before merge
 
 PRs without tests for domain/sync/indexer/API changes are not merged.
 
@@ -135,7 +135,7 @@ PRs without tests for domain/sync/indexer/API changes are not merged.
 ## PR Checklist
 
 - [ ] Tests added/updated
-- [ ] CI green (lint → test → build)
+- [ ] `make lint` and `make test` green
 - [ ] OpenAPI updated (if API changed)
 - [ ] AGENTS.md rules followed
 

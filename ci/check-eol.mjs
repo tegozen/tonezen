@@ -3,8 +3,8 @@
  * Fail if repository text files contain CRLF (breaks Docker shell entrypoints on Linux).
  *
  * Usage:
- *   node scripts/check-eol.mjs         # check tracked files
- *   node scripts/check-eol.mjs --fix   # convert CRLF -> LF in working tree
+ *   node ci/check-eol.mjs         # check tracked files
+ *   node ci/check-eol.mjs --fix   # convert CRLF -> LF in working tree
  */
 
 import { execFileSync } from "node:child_process";
@@ -96,7 +96,7 @@ if (offenders.length > 0) {
   console.error("");
   console.error("One-time fix on this machine:");
   console.error("  git config core.autocrlf false");
-  console.error("  node scripts/check-eol.mjs --fix");
+  console.error("  node ci/check-eol.mjs --fix");
   console.error("  git add --renormalize .");
   process.exit(1);
 }

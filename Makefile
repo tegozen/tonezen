@@ -1,6 +1,6 @@
-.PHONY: test lint up down indexer-test api-test desktop-test android-test storage-export storage-import postgres-export postgres-import postgres-migrate gen-env scripts-test check-eol
+.PHONY: test lint up down indexer-test api-test desktop-test storage-export storage-import postgres-export postgres-import gen-env check-eol
 
-test: check-eol indexer-test api-test desktop-test scripts-test
+test: check-eol indexer-test api-test desktop-test
 	@echo "All unit tests passed"
 
 lint: check-eol
@@ -9,10 +9,10 @@ lint: check-eol
 	cd apps/desktop && npm run lint
 
 check-eol:
-	node scripts/check-eol.mjs
+	node ci/check-eol.mjs
 
 fix-eol:
-	node scripts/check-eol.mjs --fix
+	node ci/check-eol.mjs --fix
 
 up:
 	docker compose up -d
@@ -46,11 +46,5 @@ postgres-import:
 	@test -n "$(ARCHIVE)" || (echo "Usage: make postgres-import ARCHIVE=backups/file.tar.gz" && exit 1)
 	bash scripts/postgres-import.sh $(ARCHIVE)
 
-postgres-migrate:
-	bash scripts/postgres-migrate-bind-mount.sh
-
 gen-env:
 	node scripts/gen-env.mjs $(if $(FORCE),--force,)
-
-scripts-test:
-	node --test scripts/seed-admin.test.mjs

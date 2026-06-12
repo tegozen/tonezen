@@ -2,6 +2,8 @@
 
 Upload audio to **Supabase Storage** bucket `content` via Studio (http://localhost:8000 → Storage).
 
+On `docker compose up`, the `storage-bootstrap` service creates **`cycles/`** and **`music/`** inside the bucket (with `README.txt` hints). Upload only into those folders.
+
 Use this folder structure inside the bucket. The catalog indexer scans the storage file backend and upserts metadata into Postgres.
 
 ## Root structure
@@ -79,7 +81,7 @@ content/music/{album-slug}/
 
 ## Upload workflow
 
-1. Open Studio → **Storage** → bucket **content**
+1. Open Studio → **Storage** → bucket **content** → open **`cycles`** or **`music`**
 2. Upload folders/files following the layout above (or drag-and-drop a prepared tree)
 3. Indexer picks up new files on the next scan
 4. Clients download via Storage signed URLs from `POST /api/v1/downloads/sign`
