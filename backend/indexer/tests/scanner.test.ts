@@ -9,21 +9,20 @@ const FIXTURE_ROOT = path.join(import.meta.dirname, "fixtures", "content");
 describe("scanContentRoot", () => {
   beforeEach(async () => {
     await rm(FIXTURE_ROOT, { recursive: true, force: true });
-    await mkdir(path.join(FIXTURE_ROOT, "cycles", "test-cycle", "books", "book-one", "audio"), {
+    await mkdir(path.join(FIXTURE_ROOT, "cycles", "test-cycle", "book-one"), {
       recursive: true,
     });
     await writeFile(
-      path.join(FIXTURE_ROOT, "cycles", "test-cycle", "cycle.json"),
-      JSON.stringify({ title: "Test Cycle", book_order: ["book-one"] }),
+      path.join(FIXTURE_ROOT, "cycles", "test-cycle", "book-one", "001-intro.mp3"),
+      Buffer.alloc(0),
     );
+
+    await mkdir(path.join(FIXTURE_ROOT, "cycles", "test-cycle", "book-two"), {
+      recursive: true,
+    });
     await writeFile(
-      path.join(FIXTURE_ROOT, "cycles", "test-cycle", "books", "book-one", "book.json"),
-      JSON.stringify({
-        content_type: "audiobook",
-        title: "Book One",
-        author: "Author",
-        track_order: ["001-intro.mp3"],
-      }),
+      path.join(FIXTURE_ROOT, "cycles", "test-cycle", "book-two", "002-part.mp3"),
+      Buffer.alloc(0),
     );
 
     await mkdir(path.join(FIXTURE_ROOT, "music"), { recursive: true });
@@ -34,11 +33,15 @@ describe("scanContentRoot", () => {
     await rm(FIXTURE_ROOT, { recursive: true, force: true });
   });
 
-  it("discovers cycles and flat music library from fixture tree", async () => {
+  it("discovers cycles from directories and sorts books and tracks by name", async () => {
     const { cycles, musicAlbums } = await scanContentRoot(FIXTURE_ROOT);
     expect(cycles).toHaveLength(1);
     expect(cycles[0].slug).toBe("test-cycle");
-    expect(cycles[0].books[0].tracks).toHaveLength(1);
+    expect(cycles[0].title).toBe("test cycle");
+    expect(cycles[0].bookOrder).toEqual(["book-one", "book-two"]);
+    expect(cycles[0].books[0].title).toBe("book one");
+    expect(cycles[0].books[0].tracks[0].filename).toBe("001-intro.mp3");
+    expect(cycles[0].books[1].tracks[0].filename).toBe("002-part.mp3");
     expect(musicAlbums).toHaveLength(1);
     expect(musicAlbums[0].slug).toBe("music-library");
     expect(musicAlbums[0].contentType).toBe("music");

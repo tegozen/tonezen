@@ -1,11 +1,12 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import {
+  buildAudiobookTracks,
   buildMusicLibrary,
-  buildTracks,
   isAudioFilename,
-  parseBookMeta,
-  parseCycleMeta,
+  pickAudiobookAuthor,
+  titleFromSlug,
+  type AudiobookFileScan,
   type ParsedBook,
   type ParsedCycle,
 } from "./parsers.js";
@@ -41,54 +42,73 @@ async function scanCycles(cyclesDir: string): Promise<ParsedCycle[]> {
     if (!entry.isDirectory()) continue;
     const cycleSlug = entry.name;
     const cyclePath = path.join(cyclesDir, cycleSlug);
-    const cycleJsonPath = path.join(cyclePath, "cycle.json");
-    if (!(await fileExists(cycleJsonPath))) continue;
-
-    const raw = JSON.parse(await readFile(cycleJsonPath, "utf-8"));
-    const meta = parseCycleMeta(raw);
-    const booksDir = path.join(cyclePath, "books");
-    const books = (await fileExists(booksDir)) ? await scanBooksInCycle(booksDir, cycleSlug) : [];
+    const books = await scanBooksInCycle(cyclePath);
+    if (books.length === 0) continue;
 
     cycles.push({
       slug: cycleSlug,
-      title: meta.title,
-      description: meta.description ?? null,
-      bookOrder: meta.book_order,
+      title: titleFromSlug(cycleSlug),
+      description: null,
+      bookOrder: books.map((book) => book.slug),
       books,
     });
   }
 
-  return cycles;
+  return cycles.sort((a, b) => a.slug.localeCompare(b.slug));
 }
 
-async function scanBooksInCycle(booksDir: string, cycleSlug: string): Promise<ParsedBook[]> {
-  const entries = await readdir(booksDir, { withFileTypes: true });
+async function scanBooksInCycle(cyclePath: string): Promise<ParsedBook[]> {
+  const entries = await readdir(cyclePath, { withFileTypes: true });
   const books: ParsedBook[] = [];
 
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const bookSlug = entry.name;
-    const bookPath = path.join(booksDir, bookSlug);
-    const bookJsonPath = path.join(bookPath, "book.json");
-    if (!(await fileExists(bookJsonPath))) continue;
+  const bookDirs = entries
+    .filter((entry) => entry.isDirectory())
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-    const raw = JSON.parse(await readFile(bookJsonPath, "utf-8"));
-    const meta = parseBookMeta(raw, "audiobook");
-    const coverPath = (await fileExists(path.join(bookPath, "cover.jpg")))
-      ? `cycles/${cycleSlug}/books/${bookSlug}/cover.jpg`
-      : null;
+  for (const entry of bookDirs) {
+    const bookSlug = entry.name;
+    const bookPath = path.join(cyclePath, bookSlug);
+    const scannedFiles = await scanAudiobookFiles(bookPath);
+    if (scannedFiles.length === 0) continue;
 
     books.push({
       slug: bookSlug,
-      contentType: meta.content_type,
-      title: meta.title,
-      author: meta.author ?? null,
-      coverPath,
-      tracks: buildTracks(meta.track_order),
+      contentType: "audiobook",
+      title: titleFromSlug(bookSlug),
+      author: pickAudiobookAuthor(scannedFiles),
+      coverPath: null,
+      tracks: buildAudiobookTracks(scannedFiles),
     });
   }
 
   return books;
+}
+
+async function scanAudiobookFiles(bookPath: string): Promise<AudiobookFileScan[]> {
+  const entries = await readdir(bookPath, { withFileTypes: true });
+  const filenames = entries
+    .filter((entry) => entry.isFile() && isAudioFilename(entry.name))
+    .map((entry) => entry.name)
+    .sort((a, b) => a.localeCompare(b));
+
+  const files: AudiobookFileScan[] = [];
+  for (const filename of filenames) {
+    const objectPath = path.join(bookPath, filename);
+    const filePath = await resolveStorageObjectPath(objectPath);
+    if (!filePath) {
+      files.push({ filename, title: null, artist: null });
+      continue;
+    }
+
+    const tags = await probeAudioTags(filePath);
+    files.push({
+      filename,
+      title: tags?.title ?? null,
+      artist: tags?.artist ?? null,
+    });
+  }
+
+  return files;
 }
 
 async function scanMusic(musicDir: string): Promise<ParsedBook[]> {

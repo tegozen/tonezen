@@ -1,49 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildAudiobookTracks,
   buildMusicLibrary,
   buildTracks,
   isAudioFilename,
-  parseBookMeta,
-  parseCycleMeta,
+  pickAudiobookAuthor,
   slugify,
   storagePathForAudiobook,
   storagePathForMusic,
+  titleFromSlug,
   trackTitleFromFilename,
 } from "../src/parsers.js";
 import { parseTrackNumber } from "../src/mediaProbe.js";
 
-describe("parseCycleMeta", () => {
-  it("parses valid cycle.json", () => {
-    const meta = parseCycleMeta({
-      title: "Horus Heresy",
-      book_order: ["book-a", "book-b"],
-    });
-    expect(meta.title).toBe("Horus Heresy");
-    expect(meta.book_order).toEqual(["book-a", "book-b"]);
-  });
-
-  it("throws on missing title", () => {
-    expect(() => parseCycleMeta({ book_order: [] })).toThrow(/title/);
-  });
-});
-
-describe("parseBookMeta", () => {
-  it("parses audiobook metadata", () => {
-    const meta = parseBookMeta(
-      {
-        title: "Fallen Angels",
-        author: "Mike Lee",
-        track_order: ["001-intro.mp3"],
-      },
-      "audiobook",
-    );
-    expect(meta.content_type).toBe("audiobook");
-    expect(meta.author).toBe("Mike Lee");
-  });
-
-  it("defaults content type from path context", () => {
-    const meta = parseBookMeta({ title: "Album", track_order: ["a.mp3"] }, "music");
-    expect(meta.content_type).toBe("music");
+describe("titleFromSlug", () => {
+  it("turns slug into display title", () => {
+    expect(titleFromSlug("fallen-angels")).toBe("fallen angels");
+    expect(titleFromSlug("horus-heresy")).toBe("horus heresy");
   });
 });
 
@@ -61,10 +34,30 @@ describe("trackTitleFromFilename", () => {
   });
 });
 
+describe("buildAudiobookTracks", () => {
+  it("uses tag title when present and falls back to filename", () => {
+    const tracks = buildAudiobookTracks([
+      { filename: "001-intro.mp3", title: "Introduction", artist: "Mike Lee" },
+      { filename: "002-chapter.mp3", title: null, artist: null },
+    ]);
+    expect(tracks[0].title).toBe("Introduction");
+    expect(tracks[1].title).toBe("chapter");
+  });
+
+  it("picks author from scanned files", () => {
+    expect(
+      pickAudiobookAuthor([
+        { filename: "a.mp3", title: null, artist: null },
+        { filename: "b.mp3", title: null, artist: "Mike Lee" },
+      ]),
+    ).toBe("Mike Lee");
+  });
+});
+
 describe("storage paths", () => {
   it("builds audiobook path", () => {
     expect(storagePathForAudiobook("cycle", "book", "01.mp3")).toBe(
-      "cycles/cycle/books/book/audio/01.mp3",
+      "cycles/cycle/book/01.mp3",
     );
   });
 

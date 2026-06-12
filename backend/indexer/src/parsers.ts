@@ -1,16 +1,3 @@
-export interface CycleMeta {
-  title: string;
-  description?: string;
-  book_order: string[];
-}
-
-export interface BookMeta {
-  content_type: "audiobook" | "music";
-  title: string;
-  author?: string;
-  track_order: string[];
-}
-
 export interface ParsedTrack {
   filename: string;
   sortOrder: number;
@@ -66,45 +53,8 @@ export function filenameBase(filename: string): string {
   return dot >= 0 ? filename.slice(0, dot) : filename;
 }
 
-export function parseCycleMeta(raw: unknown): CycleMeta {
-  if (!raw || typeof raw !== "object") {
-    throw new Error("Invalid cycle.json: expected object");
-  }
-  const obj = raw as Record<string, unknown>;
-  if (typeof obj.title !== "string" || !obj.title.trim()) {
-    throw new Error("Invalid cycle.json: title required");
-  }
-  if (!Array.isArray(obj.book_order)) {
-    throw new Error("Invalid cycle.json: book_order must be array");
-  }
-  return {
-    title: obj.title.trim(),
-    description: typeof obj.description === "string" ? obj.description : undefined,
-    book_order: obj.book_order.map(String),
-  };
-}
-
-export function parseBookMeta(raw: unknown, defaultType: "audiobook" | "music"): BookMeta {
-  if (!raw || typeof raw !== "object") {
-    throw new Error("Invalid book.json: expected object");
-  }
-  const obj = raw as Record<string, unknown>;
-  if (typeof obj.title !== "string" || !obj.title.trim()) {
-    throw new Error("Invalid book.json: title required");
-  }
-  if (!Array.isArray(obj.track_order)) {
-    throw new Error("Invalid book.json: track_order must be array");
-  }
-  const contentType =
-    obj.content_type === "music" || obj.content_type === "audiobook"
-      ? obj.content_type
-      : defaultType;
-  return {
-    content_type: contentType,
-    title: obj.title.trim(),
-    author: typeof obj.author === "string" ? obj.author : undefined,
-    track_order: obj.track_order.map(String),
-  };
+export function titleFromSlug(slug: string): string {
+  return slug.replace(/-/g, " ").trim() || slug;
 }
 
 export function trackTitleFromFilename(filename: string): string {
@@ -112,12 +62,26 @@ export function trackTitleFromFilename(filename: string): string {
   return base.replace(/^\d+-/, "").replace(/-/g, " ").trim() || filename;
 }
 
+export interface AudiobookFileScan {
+  filename: string;
+  title: string | null;
+  artist: string | null;
+}
+
 export function buildTracks(trackOrder: string[]): ParsedTrack[] {
-  return trackOrder.map((filename, index) => ({
-    filename,
+  return buildAudiobookTracks(trackOrder.map((filename) => ({ filename, title: null, artist: null })));
+}
+
+export function buildAudiobookTracks(files: AudiobookFileScan[]): ParsedTrack[] {
+  return files.map((file, index) => ({
+    filename: file.filename,
     sortOrder: index,
-    title: trackTitleFromFilename(filename),
+    title: file.title?.trim() || trackTitleFromFilename(file.filename),
   }));
+}
+
+export function pickAudiobookAuthor(files: AudiobookFileScan[]): string | null {
+  return files.map((file) => file.artist?.trim() || null).find(Boolean) ?? null;
 }
 
 export function buildMusicLibrary(files: MusicFileScan[]): ParsedBook[] {
@@ -156,7 +120,7 @@ export function storagePathForAudiobook(
   bookSlug: string,
   filename: string,
 ): string {
-  return `cycles/${cycleSlug}/books/${bookSlug}/audio/${filename}`;
+  return `cycles/${cycleSlug}/${bookSlug}/${filename}`;
 }
 
 export function storagePathForMusic(filename: string): string {

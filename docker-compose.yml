@@ -124,7 +124,7 @@ services:
       CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
 
   studio:
-    image: supabase/studio:20241202-71e5240
+    image: supabase/studio:20250224-d10db0f
     restart: unless-stopped
     depends_on:
       db:
@@ -175,7 +175,7 @@ services:
       DISABLE_HEALTHCHECK_LOGGING: "true"
 
   storage:
-    image: supabase/storage-api:v1.11.13
+    image: supabase/storage-api:v1.29.0
     restart: unless-stopped
     depends_on:
       db:
@@ -193,8 +193,6 @@ services:
       STORAGE_PUBLIC_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       FILE_SIZE_LIMIT: 524288000
       REQUEST_ALLOW_X_FORWARDED_PATH: "true"
-      NODE_ENV: production
-      TUS_URL_PATH: upload/resumable
       STORAGE_BACKEND: file
       GLOBAL_S3_BUCKET: content
       TENANT_ID: tonezen

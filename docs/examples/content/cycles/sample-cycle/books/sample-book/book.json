@@ -1,6 +1,0 @@
-{
-  "content_type": "audiobook",
-  "title": "Sample Book",
-  "author": "Sample Author",
-  "track_order": ["001-intro.mp3", "002-chapter.mp3"]
-}
