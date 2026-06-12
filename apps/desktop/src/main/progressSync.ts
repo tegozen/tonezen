@@ -5,10 +5,11 @@ import { mergeProgressLww } from "../shared/progressMerge.js";
 import type { AudiobookProgress, StoredSession } from "../shared/types.js";
 import { LocalDatabase } from "./database.js";
 
+import { apiV1Url } from "../shared/serverPaths.js";
+
 export interface ProgressSyncConfig {
-  supabaseUrl: string;
+  baseUrl: string;
   anonKey: string;
-  apiBaseUrl: string;
 }
 
 type ProgressRow = {
@@ -39,7 +40,7 @@ export class ProgressSyncService {
   async start(session: StoredSession): Promise<void> {
     this.stop();
     this.userId = session.userId;
-    this.supabase = createClient(this.config.supabaseUrl, this.config.anonKey, {
+    this.supabase = createClient(this.config.baseUrl, this.config.anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     this.supabase.realtime.setAuth(session.accessToken);
@@ -97,7 +98,7 @@ export class ProgressSyncService {
     const token = this.getAccessToken();
     if (!token) return;
 
-    const res = await fetch(`${this.config.apiBaseUrl}/progress/audiobooks`, {
+    const res = await fetch(apiV1Url(this.config.baseUrl, "/progress/audiobooks"), {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return;
@@ -132,7 +133,7 @@ export class ProgressSyncService {
     const token = this.getAccessToken();
     if (!token) return;
 
-    const res = await fetch(`${this.config.apiBaseUrl}/progress/audiobooks/${progress.bookId}`, {
+    const res = await fetch(apiV1Url(this.config.baseUrl, `/progress/audiobooks/${progress.bookId}`), {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,

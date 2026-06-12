@@ -24,7 +24,7 @@ class ProgressSyncRepository @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val realtimeClient = RealtimeProgressClient(
-        supabaseUrl = BuildConfig.SUPABASE_URL,
+        supabaseUrl = BuildConfig.BASE_URL,
         anonKey = BuildConfig.SUPABASE_ANON_KEY,
         scope = scope,
         onProgressChange = { row -> applyRemoteEntity(row.toEntity()) },

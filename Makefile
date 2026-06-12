@@ -1,4 +1,4 @@
-.PHONY: test lint up down indexer-test api-test desktop-test android-test storage-export storage-import
+.PHONY: test lint up down indexer-test api-test desktop-test android-test storage-export storage-import gen-env
 
 test: indexer-test api-test desktop-test
 	@echo "All unit tests passed"
@@ -32,3 +32,6 @@ storage-export:
 storage-import:
 	@test -n "$(ARCHIVE)" || (echo "Usage: make storage-import ARCHIVE=backups/file.tar.gz" && exit 1)
 	bash scripts/storage-import.sh $(ARCHIVE)
+
+gen-env:
+	node scripts/gen-env.mjs $(if $(FORCE),--force,)

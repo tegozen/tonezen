@@ -75,7 +75,7 @@ content/music/{album-slug}/
 - Computes SHA-256 checksum and file size for each audio file
 - Extracts duration via ffprobe when available
 - Sets `deleted_at` on catalog entries removed from storage (soft delete)
-- Rescan interval configurable via `INDEXER_INTERVAL_SECONDS`
+- Rescan interval: 60 seconds (hardcoded in `docker-compose.yml`)
 
 ## Upload workflow
 

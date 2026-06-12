@@ -3,7 +3,7 @@ services:
     image: supabase/postgres:15.8.1.060
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: tonezen-postgres-internal
       POSTGRES_DB: ${POSTGRES_DB:-tonezen}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
@@ -25,10 +25,10 @@ services:
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
-      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
+      API_EXTERNAL_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}
-      GOTRUE_SITE_URL: ${GOTRUE_SITE_URL:-http://localhost:8000}
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
+      GOTRUE_SITE_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-}
       GOTRUE_DISABLE_SIGNUP: ${GOTRUE_DISABLE_SIGNUP:-false}
       GOTRUE_JWT_SECRET: ${JWT_SECRET}
@@ -48,7 +48,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}
+      PGRST_DB_URI: postgres://authenticator:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
       PGRST_DB_SCHEMAS: public,storage
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
@@ -66,7 +66,7 @@ services:
       PG_META_DB_PORT: 5432
       PG_META_DB_NAME: ${POSTGRES_DB:-tonezen}
       PG_META_DB_USER: supabase_admin
-      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      PG_META_DB_PASSWORD: tonezen-postgres-internal
       CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
 
   studio:
@@ -83,15 +83,15 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       POSTGRES_DB: ${POSTGRES_DB:-tonezen}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: tonezen-postgres-internal
       PG_META_CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
       SUPABASE_URL: http://kong:8000
-      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
+      SUPABASE_PUBLIC_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       AUTH_JWT_SECRET: ${JWT_SECRET}
-      DEFAULT_ORGANIZATION_NAME: ${STUDIO_DEFAULT_ORGANIZATION:-Tonezen}
-      DEFAULT_PROJECT_NAME: ${STUDIO_DEFAULT_PROJECT:-Tonezen}
+      DEFAULT_ORGANIZATION_NAME: ${STUDIO_NAME:-Tonezen}
+      DEFAULT_PROJECT_NAME: ${STUDIO_NAME:-Tonezen}
 
   realtime:
     container_name: realtime-dev.supabase-realtime
@@ -105,7 +105,7 @@ services:
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: supabase_admin
-      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_PASSWORD: tonezen-postgres-internal
       DB_NAME: ${POSTGRES_DB:-tonezen}
       DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
       DB_ENC_KEY: supabaserealtime
@@ -135,8 +135,8 @@ services:
       SERVICE_KEY: ${SERVICE_ROLE_KEY}
       POSTGREST_URL: http://rest:3000
       AUTH_JWT_SECRET: ${JWT_SECRET}
-      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}
-      STORAGE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
+      DATABASE_URL: postgres://supabase_storage_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
+      STORAGE_PUBLIC_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       FILE_SIZE_LIMIT: 524288000
       STORAGE_BACKEND: file
       GLOBAL_S3_BUCKET: content
@@ -168,7 +168,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}
+      DATABASE_URL: postgres://postgres:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
       JWT_SECRET: ${JWT_SECRET}
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       STORAGE_INTERNAL_URL: http://storage:5000
@@ -205,9 +205,9 @@ services:
       storage:
         condition: service_started
     environment:
-      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}
+      DATABASE_URL: postgres://postgres:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
       CONTENT_ROOT: /var/lib/storage/tonezen/content
-      INDEXER_INTERVAL_SECONDS: ${INDEXER_INTERVAL_SECONDS:-60}
+      INDEXER_INTERVAL_SECONDS: 60
     volumes:
       - tonezen-storage:/var/lib/storage:ro
 

@@ -1,12 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
+import { apiV1Url } from "../shared/serverPaths.js";
 import { LocalDatabase } from "./database.js";
 
 export class DownloadManager {
   constructor(
     private downloadsRoot: string,
-    private apiBaseUrl: string,
+    private baseUrl: string,
     private getAccessToken: () => string | null,
   ) {
     fs.mkdirSync(downloadsRoot, { recursive: true });
@@ -16,7 +17,7 @@ export class DownloadManager {
     const token = this.getAccessToken();
     if (!token) throw new Error("Authentication required for downloads");
 
-    const response = await fetch(`${this.apiBaseUrl}/downloads/sign`, {
+    const response = await fetch(apiV1Url(this.baseUrl, "/downloads/sign"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -30,8 +30,7 @@ See [AGENTS.md](AGENTS.md) for architecture rules, code style, and TDD workflow.
 ### Backend
 
 ```bash
-cp .env.example .env
-# Edit secrets in .env
+node scripts/gen-env.mjs   # or: make gen-env
 
 docker compose up -d --build
 make test
@@ -73,7 +72,7 @@ Or via Makefile: `make storage-export`, `make storage-import ARCHIVE=backups/fil
 One-time setup — use the **root** `.env` (same file as backend):
 
 ```bash
-cp .env.example .env   # from repo root, edit TONEZEN_* URLs once
+cp .env.example .env   # from repo root, edit TONEZEN_BASE_URL once
 cd apps/desktop
 npm install
 npm run dev
@@ -99,7 +98,7 @@ Same as local — copy repo to server, configure `.env`, then:
 docker compose up -d --build
 ```
 
-Indexer runs automatically as a container (rescans content every `INDEXER_INTERVAL_SECONDS`).
+Indexer runs automatically as a container (rescans storage every 60 seconds).
 
 ## Project structure
 
@@ -129,8 +128,8 @@ TDD is required for domain logic, indexer parsers, and API handlers. See AGENTS.
 
 ## Production deployment
 
-1. Copy `.env.example` to `.env` and set strong secrets (`JWT_SECRET`, `POSTGRES_PASSWORD`, `SERVICE_ROLE_KEY`).
-2. Set `API_EXTERNAL_URL`, `GOTRUE_SITE_URL`, `SUPABASE_PUBLIC_URL` to your public domain.
+1. Run `node scripts/gen-env.mjs` to create `.env` with random secrets.
+2. Set `TONEZEN_BASE_URL` to your public domain (e.g. `https://your.domain`).
 3. Run `docker compose up -d --build`.
 4. (Optional) Restore content from another server: `make storage-import ARCHIVE=backups/tonezen-storage.tar.gz`.
 5. Upload content via Studio (Storage → bucket `content`).
@@ -141,15 +140,16 @@ TDD is required for domain logic, indexer parsers, and API handlers. See AGENTS.
 
 **Desktop** — set once in root `.env`:
 
-- `TONEZEN_API_URL` — e.g. `https://your.domain/api/v1`
-- `TONEZEN_SUPABASE_URL` — e.g. `https://your.domain`
-- `TONEZEN_SUPABASE_ANON_KEY` — from `.env`
+- `TONEZEN_BASE_URL` — same as in root `.env` (e.g. `https://your.domain`)
+- `ANON_KEY` — read automatically from root `.env` when running desktop dev
+
+API paths (`/api/v1`, `/auth/v1`, …) are hardcoded in client apps.
 
 Then `cd apps/desktop && npm run dev` — no manual `set`/`export` needed.
 
 ### Security checklist
 
-- [ ] Change all default secrets in `.env`
+- [ ] Run `node scripts/gen-env.mjs --force` if rotating secrets (updates clients too)
 - [ ] Expose only Kong (`KONG_HTTP_PORT`) to the public internet
 - [ ] Use HTTPS reverse proxy in front of Kong (Caddy/Traefik)
 - [ ] Set `GOTRUE_DISABLE_SIGNUP=true` if you want invite-only registration

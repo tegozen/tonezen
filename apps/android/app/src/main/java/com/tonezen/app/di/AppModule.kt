@@ -42,7 +42,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideAuthRepository(): AuthRepository =
-        AuthRepository(BuildConfig.SUPABASE_URL, BuildConfig.SUPABASE_ANON_KEY)
+        AuthRepository(BuildConfig.BASE_URL, BuildConfig.SUPABASE_ANON_KEY)
 
     @Provides
     @Singleton
@@ -55,7 +55,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideApiClient(): ApiClient = ApiClient(BuildConfig.API_BASE_URL)
+    fun provideApiClient(): ApiClient = ApiClient(BuildConfig.BASE_URL)
 
     @Provides
     @Singleton

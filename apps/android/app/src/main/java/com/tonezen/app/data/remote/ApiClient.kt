@@ -17,11 +17,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class ApiClient(
-    private val baseUrl: String,
+    baseUrl: String,
     val httpClient: OkHttpClient = OkHttpClient(),
 ) {
+    private val apiRoot = "${baseUrl.trimEnd('/')}/api/v1"
     suspend fun fetchBooks(accessToken: String?): List<Book> = withContext(Dispatchers.IO) {
-        val cycles = getJson("$baseUrl/catalog/cycles", accessToken)
+        val cycles = getJson("$apiRoot/catalog/cycles", accessToken)
         val books = mutableListOf<Book>()
         val cyclesArray = cycles.optJSONArray("cycles") ?: JSONArray()
         for (i in 0 until cyclesArray.length()) {
@@ -32,7 +33,7 @@ class ApiClient(
                 books.add(parseBook(b))
             }
         }
-        val music = getJson("$baseUrl/catalog/music", accessToken)
+        val music = getJson("$apiRoot/catalog/music", accessToken)
         val albums = music.optJSONArray("albums") ?: JSONArray()
         for (i in 0 until albums.length()) {
             books.add(parseBook(albums.getJSONObject(i)))
@@ -42,7 +43,7 @@ class ApiClient(
 
     suspend fun fetchBookDetail(bookId: String, accessToken: String?): Pair<Book, List<Track>> =
         withContext(Dispatchers.IO) {
-            val json = getJson("$baseUrl/catalog/books/$bookId", accessToken)
+            val json = getJson("$apiRoot/catalog/books/$bookId", accessToken)
             val book = parseBook(json)
             val tracks = mutableListOf<Track>()
             val arr = json.optJSONArray("tracks") ?: JSONArray()
@@ -67,7 +68,7 @@ class ApiClient(
         withContext(Dispatchers.IO) {
             val body = JSONObject().put("track_ids", JSONArray(trackIds)).toString()
             val request = Request.Builder()
-                .url("$baseUrl/downloads/sign")
+                .url("$apiRoot/downloads/sign")
                 .post(body.toRequestBody("application/json".toMediaType()))
                 .header("Authorization", "Bearer $accessToken")
                 .build()
@@ -93,7 +94,7 @@ class ApiClient(
                 .put("updated_at", java.time.Instant.ofEpochMilli(progress.updatedAtEpochMs).toString())
                 .toString()
             val request = Request.Builder()
-                .url("$baseUrl/progress/audiobooks/$bookId")
+                .url("$apiRoot/progress/audiobooks/$bookId")
                 .put(body.toRequestBody("application/json".toMediaType()))
                 .header("Authorization", "Bearer $accessToken")
                 .build()
@@ -101,7 +102,7 @@ class ApiClient(
         }
 
     suspend fun fetchProgress(accessToken: String): List<RemoteProgress> = withContext(Dispatchers.IO) {
-        val json = getJson("$baseUrl/progress/audiobooks", accessToken)
+        val json = getJson("$apiRoot/progress/audiobooks", accessToken)
         val arr = json.optJSONArray("progress") ?: JSONArray()
         buildList {
             for (i in 0 until arr.length()) {

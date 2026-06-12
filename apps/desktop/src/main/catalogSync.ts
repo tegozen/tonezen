@@ -1,4 +1,5 @@
 import type { Book } from "../shared/types.js";
+import { apiV1Url } from "../shared/serverPaths.js";
 
 interface ApiBook {
   id: string;
@@ -20,29 +21,31 @@ function mapBook(raw: ApiBook): Book {
 
 export class CatalogSyncService {
   constructor(
-    private apiBaseUrl: string,
+    private baseUrl: string,
     private getAccessToken: () => string | null,
   ) {}
 
   async fetchBooks(): Promise<Book[]> {
     const headers = this.buildHeaders();
-    const cyclesRes = await fetch(`${this.apiBaseUrl}/catalog/cycles`, { headers });
+    const cyclesRes = await fetch(apiV1Url(this.baseUrl, "/catalog/cycles"), { headers });
     const cyclesJson = (await cyclesRes.json()) as { cycles: Array<{ books: ApiBook[] }> };
-    const musicRes = await fetch(`${this.apiBaseUrl}/catalog/music`, { headers });
+    const musicRes = await fetch(apiV1Url(this.baseUrl, "/catalog/music"), { headers });
     const musicJson = (await musicRes.json()) as { albums: ApiBook[] };
 
     const books: Book[] = [];
     for (const cycle of cyclesJson.cycles ?? []) {
-      books.push(...(cycle.books ?? []).map(mapBook));
+      for (const book of cycle.books ?? []) {
+        books.push(mapBook(book));
+      }
     }
-    books.push(...(musicJson.albums ?? []).map(mapBook));
+    for (const album of musicJson.albums ?? []) {
+      books.push(mapBook(album));
+    }
     return books;
   }
 
-  private buildHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {};
+  private buildHeaders(): HeadersInit {
     const token = this.getAccessToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
-    return headers;
+    return token ? { Authorization: `Bearer ${token}` } : {};
   }
 }

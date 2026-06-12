@@ -5,6 +5,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+const DEFAULT_BASE_URL = "http://localhost:8000";
+const DEFAULT_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
+
 /** Load .env from monorepo root and apps/desktop (first found wins per variable). */
 export function loadAppEnv(): void {
   const candidates = [
@@ -30,12 +34,13 @@ export function loadPackagedEnv(execPath: string): void {
   }
 }
 
+export function normalizeBaseUrl(url: string): string {
+  return url.replace(/\/$/, "");
+}
+
 export function getClientConfig() {
   return {
-    apiBaseUrl: process.env.TONEZEN_API_URL ?? "http://localhost:8000/api/v1",
-    supabaseUrl: process.env.TONEZEN_SUPABASE_URL ?? "http://localhost:8000",
-    supabaseAnonKey:
-      process.env.TONEZEN_SUPABASE_ANON_KEY ??
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0",
+    baseUrl: normalizeBaseUrl(process.env.TONEZEN_BASE_URL ?? DEFAULT_BASE_URL),
+    supabaseAnonKey: process.env.ANON_KEY ?? process.env.TONEZEN_SUPABASE_ANON_KEY ?? DEFAULT_ANON_KEY,
   };
 }

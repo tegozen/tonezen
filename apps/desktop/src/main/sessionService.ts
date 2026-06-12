@@ -8,7 +8,7 @@ import type { SessionState, StoredSession } from "../shared/types.js";
 const SESSION_FILE = "session.dat";
 
 export interface SessionConfig {
-  supabaseUrl: string;
+  baseUrl: string;
   anonKey: string;
 }
 

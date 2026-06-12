@@ -22,7 +22,7 @@ describe("SupabaseAuthClient", () => {
     );
 
     const client = new SupabaseAuthClient({
-      supabaseUrl: "http://localhost:8000",
+      baseUrl: "http://localhost:8000",
       anonKey: "anon-key",
     });
     const result = await client.signInWithPassword("a@b.c", "secret");

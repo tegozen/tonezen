@@ -7,7 +7,7 @@ export interface GoTrueSession {
 }
 
 export interface AuthConfig {
-  supabaseUrl: string;
+  baseUrl: string;
   anonKey: string;
 }
 
@@ -23,7 +23,7 @@ export class SupabaseAuthClient {
   }
 
   private async tokenRequest(body: Record<string, string>): Promise<GoTrueSession> {
-    const url = `${this.config.supabaseUrl.replace(/\/$/, "")}/auth/v1/token?grant_type=${body.grant_type}`;
+    const url = `${this.config.baseUrl.replace(/\/$/, "")}/auth/v1/token?grant_type=${body.grant_type}`;
     const response = await fetch(url, {
       method: "POST",
       headers: {

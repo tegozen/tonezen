@@ -7,6 +7,7 @@ import { CatalogSyncService } from "./catalogSync.js";
 import { DownloadManager } from "./downloadManager.js";
 import { ProgressSyncService } from "./progressSync.js";
 import { getClientConfig, loadAppEnv, loadPackagedEnv } from "./loadEnv.js";
+import { apiV1Url } from "../shared/serverPaths.js";
 
 loadAppEnv();
 
@@ -95,13 +96,13 @@ app.whenReady().then(() => {
   const userData = app.getPath("userData");
   LocalDatabase.init(userData);
   sessionService.init(userData, {
-    supabaseUrl: runtimeConfig.supabaseUrl,
+    baseUrl: runtimeConfig.baseUrl,
     anonKey: runtimeConfig.supabaseAnonKey,
   });
-  catalogSync = new CatalogSyncService(runtimeConfig.apiBaseUrl, () => sessionService.getAccessToken());
+  catalogSync = new CatalogSyncService(runtimeConfig.baseUrl, () => sessionService.getAccessToken());
   downloadManager = new DownloadManager(
     path.join(userData, "downloads"),
-    runtimeConfig.apiBaseUrl,
+    runtimeConfig.baseUrl,
     () => sessionService.getAccessToken(),
   );
   progressSync = new ProgressSyncService(
@@ -109,9 +110,8 @@ app.whenReady().then(() => {
     () => sessionService.getAccessToken(),
     () => sessionService.refreshIfNeeded(),
     {
-      supabaseUrl: runtimeConfig.supabaseUrl,
+      baseUrl: runtimeConfig.baseUrl,
       anonKey: runtimeConfig.supabaseAnonKey,
-      apiBaseUrl: runtimeConfig.apiBaseUrl,
     },
   );
   createTray();
@@ -163,7 +163,7 @@ function registerIpc(): void {
       const headers: Record<string, string> = {};
       const token = sessionService.getAccessToken();
       if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(`${getClientConfig().apiBaseUrl}/catalog/books/${book.id}`, { headers });
+      const res = await fetch(apiV1Url(getClientConfig().baseUrl, `/catalog/books/${book.id}`), { headers });
       const detail = (await res.json()) as {
         tracks: Array<{
           id: string;
