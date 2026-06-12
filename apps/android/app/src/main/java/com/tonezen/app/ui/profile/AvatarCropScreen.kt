@@ -51,7 +51,7 @@ import com.tonezen.app.domain.avatar.AvatarCropTransform
 import com.tonezen.app.domain.avatar.avatarCoverScale
 import com.tonezen.app.domain.avatar.avatarCropDiameterPx
 import com.tonezen.app.domain.avatar.clampAvatarCropTransform
-import com.tonezen.app.domain.avatar.cropAvatarToJpeg
+import com.tonezen.app.ui.profile.cropAvatarToJpeg
 import com.tonezen.app.domain.avatar.minAvatarCoverScale
 import com.tonezen.app.ui.components.BackNavButton
 import com.tonezen.app.ui.theme.TonezenAppBg
