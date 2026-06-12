@@ -91,6 +91,8 @@ The desktop app auto-loads `.env` from:
 
 **Android** — update `buildConfigField` in `apps/android/app/build.gradle.kts` for release.
 
+For UI work without full reinstalls, see [apps/android/DEV.md](apps/android/DEV.md) (Compose Preview + Live Edit).
+
 ## API
 
 OpenAPI spec: [docs/openapi.yaml](docs/openapi.yaml)

@@ -1,7 +1,7 @@
 package com.tonezen.app.ui.auth
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,32 +10,34 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
+import com.tonezen.app.ui.components.EyeGlyph
+import com.tonezen.app.ui.components.EyeOffGlyph
 import com.tonezen.app.ui.components.LockGlyph
 import com.tonezen.app.ui.components.MailGlyph
 import com.tonezen.app.ui.theme.TonezenAppBg
@@ -44,8 +46,8 @@ import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenSurface
-import com.tonezen.app.ui.theme.TonezenSurfaceMuted
 import com.tonezen.app.ui.theme.TonezenTeal
+import com.tonezen.app.ui.theme.TonezenTealStrong
 
 @Composable
 fun AuthScreen(
@@ -86,9 +88,6 @@ fun AuthScreen(
                     onSubmit = { onLogin(email.trim(), password) },
                 )
             }
-            item {
-                AuthFooterNote()
-            }
         }
     }
 }
@@ -105,66 +104,78 @@ private fun AuthSignInForm(
     onTogglePasswordVisible: () -> Unit,
     onSubmit: () -> Unit,
 ) {
-    Surface(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = TonezenSurface.copy(alpha = 0.72f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
+        verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
-        Column(
+        TonezenAuthField(
+            value = email,
+            onValueChange = onEmailChange,
+            label = stringResource(R.string.email),
+            keyboardType = KeyboardType.Email,
+            icon = AuthFieldIcon.Email,
+        )
+        TonezenAuthField(
+            value = password,
+            onValueChange = onPasswordChange,
+            label = stringResource(R.string.password),
+            keyboardType = KeyboardType.Password,
+            icon = AuthFieldIcon.Password,
+            hidden = !passwordVisible,
+            showPasswordToggle = true,
+            passwordVisible = passwordVisible,
+            onTogglePasswordVisible = onTogglePasswordVisible,
+        )
+        AuthSignInButton(
+            enabled = canSubmit,
+            onClick = onSubmit,
+        )
+        error?.let {
+            Text(
+                it,
+                color = TonezenError,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 2.dp),
+            )
+        }
+        Text(
+            stringResource(R.string.offline_playback_note),
+            color = TonezenMuted,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(13.dp),
-        ) {
-            Text(stringResource(R.string.auth_card_title), color = TonezenInk, fontWeight = FontWeight.SemiBold)
-            Text(stringResource(R.string.auth_card_body), color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
-            TonezenAuthField(
-                value = email,
-                onValueChange = onEmailChange,
-                label = stringResource(R.string.email),
-                keyboardType = KeyboardType.Email,
-                icon = AuthFieldIcon.Email,
-            )
-            TonezenAuthField(
-                value = password,
-                onValueChange = onPasswordChange,
-                label = stringResource(R.string.password),
-                keyboardType = KeyboardType.Password,
-                icon = AuthFieldIcon.Password,
-                hidden = !passwordVisible,
-                trailingLabel = if (passwordVisible) {
-                    stringResource(R.string.hide_password)
-                } else {
-                    stringResource(R.string.show_password)
-                },
-                onTrailingClick = onTogglePasswordVisible,
-            )
-            Button(
-                onClick = onSubmit,
-                enabled = canSubmit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(17.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = TonezenTeal,
-                    contentColor = TonezenAppBg,
-                    disabledContainerColor = TonezenSurfaceMuted,
-                    disabledContentColor = TonezenMuted,
-                ),
-            ) {
-                Text(stringResource(R.string.sign_in), fontWeight = FontWeight.SemiBold)
-            }
-            error?.let {
-                Text(
-                    it,
-                    color = TonezenError,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 2.dp),
-                )
-            }
-        }
+                .padding(top = 4.dp, start = 10.dp, end = 10.dp),
+        )
+    }
+}
+
+@Composable
+private fun AuthSignInButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val gradient = Brush.verticalGradient(
+        colors = if (enabled) {
+            listOf(TonezenTeal, TonezenTealStrong)
+        } else {
+            listOf(TonezenTeal.copy(alpha = 0.45f), TonezenTealStrong.copy(alpha = 0.45f))
+        },
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(54.dp)
+            .clip(RoundedCornerShape(17.dp))
+            .background(gradient)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            stringResource(R.string.sign_in),
+            color = TonezenAppBg.copy(alpha = if (enabled) 1f else 0.72f),
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 
@@ -181,20 +192,27 @@ private fun TonezenAuthField(
     keyboardType: KeyboardType,
     icon: AuthFieldIcon,
     hidden: Boolean = false,
-    trailingLabel: String? = null,
-    onTrailingClick: (() -> Unit)? = null,
+    showPasswordToggle: Boolean = false,
+    passwordVisible: Boolean = false,
+    onTogglePasswordVisible: (() -> Unit)? = null,
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         placeholder = { Text(label) },
         leadingIcon = { AuthFieldGlyph(icon) },
-        trailingIcon = trailingLabel?.let { text ->
+        trailingIcon = if (showPasswordToggle) {
             {
-                TextButton(onClick = { onTrailingClick?.invoke() }) {
-                    Text(text, color = TonezenMuted, style = MaterialTheme.typography.labelSmall)
+                IconButton(onClick = { onTogglePasswordVisible?.invoke() }) {
+                    if (passwordVisible) {
+                        EyeOffGlyph(tint = TonezenMuted, size = 19.dp)
+                    } else {
+                        EyeGlyph(tint = TonezenMuted, size = 19.dp)
+                    }
                 }
             }
+        } else {
+            null
         },
         modifier = Modifier
             .fillMaxWidth()

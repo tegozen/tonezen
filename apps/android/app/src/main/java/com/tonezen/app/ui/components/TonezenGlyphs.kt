@@ -35,6 +35,8 @@ private enum class TonezenSvgAsset(val fileName: String) {
     Warning("warning.svg"),
     Play("play.svg"),
     Pause("pause.svg"),
+    Eye("eye.svg"),
+    EyeOff("eye-off.svg"),
 }
 
 @Composable
@@ -152,4 +154,14 @@ internal fun PlayGlyph(modifier: Modifier = Modifier, tint: Color = TonezenInk, 
 @Composable
 internal fun PauseGlyph(modifier: Modifier = Modifier, tint: Color = TonezenInk, size: Dp = 20.dp) {
     TonezenSvgGlyph(TonezenSvgAsset.Pause, modifier, tint, size)
+}
+
+@Composable
+internal fun EyeGlyph(modifier: Modifier = Modifier, tint: Color = TonezenMuted, size: Dp = 20.dp) {
+    TonezenSvgGlyph(TonezenSvgAsset.Eye, modifier, tint, size)
+}
+
+@Composable
+internal fun EyeOffGlyph(modifier: Modifier = Modifier, tint: Color = TonezenMuted, size: Dp = 20.dp) {
+    TonezenSvgGlyph(TonezenSvgAsset.EyeOff, modifier, tint, size)
 }

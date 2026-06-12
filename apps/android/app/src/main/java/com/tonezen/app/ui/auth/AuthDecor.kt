@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,10 +32,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
-import com.tonezen.app.ui.components.PlayGlyph
+import com.tonezen.app.ui.components.DownloadGlyph
+import com.tonezen.app.ui.components.SyncGlyph
 import com.tonezen.app.ui.theme.TonezenAmber
-import com.tonezen.app.ui.theme.TonezenAppBg
-import com.tonezen.app.ui.theme.TonezenGreen
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
@@ -97,22 +95,37 @@ internal fun AuthIntroPanel() {
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AuthPill(stringResource(R.string.auth_offline_badge), TonezenTeal)
-            AuthPill(stringResource(R.string.auth_sync_badge), TonezenGreen)
+            AuthPill(
+                label = stringResource(R.string.auth_offline_badge),
+                tone = TonezenTeal,
+                icon = { DownloadGlyph(tint = TonezenTeal, size = 12.dp) },
+            )
+            AuthPill(
+                label = stringResource(R.string.auth_sync_badge),
+                tone = TonezenAmber,
+                icon = { SyncGlyph(tint = TonezenAmber, size = 12.dp) },
+            )
         }
         AuthMediaStack()
     }
 }
 
 @Composable
-private fun AuthPill(label: String, tone: Color) {
-    Box(
+private fun AuthPill(
+    label: String,
+    tone: Color,
+    icon: @Composable () -> Unit,
+) {
+    Row(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
             .background(tone.copy(alpha = 0.12f))
             .border(BorderStroke(1.dp, tone.copy(alpha = 0.24f)), RoundedCornerShape(999.dp))
             .padding(horizontal = 9.dp, vertical = 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        icon()
         Text(label, color = tone, style = MaterialTheme.typography.labelSmall, maxLines = 1)
     }
 }
@@ -126,9 +139,8 @@ private fun AuthMediaStack() {
             .padding(top = 2.dp),
     ) {
         AuthMiniCover(
-            title = stringResource(R.string.auth_cover_atomic),
-            brush = Brush.verticalGradient(listOf(Color(0xFFF5E8CE), Color(0xFFC9AA78))),
-            contentColor = Color(0xFF6D4C2F),
+            title = stringResource(R.string.auth_cover_midnight),
+            brush = Brush.verticalGradient(listOf(Color(0xFF06111D), Color(0xFF12314C), Color(0xFF06111D))),
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .offset(x = 18.dp, y = 4.dp)
@@ -136,8 +148,9 @@ private fun AuthMediaStack() {
                 .graphicsLayer(rotationZ = -7f),
         )
         AuthMiniCover(
-            title = stringResource(R.string.auth_cover_midnight),
-            brush = Brush.verticalGradient(listOf(Color(0xFF06111D), Color(0xFF12314C), Color(0xFF06111D))),
+            title = stringResource(R.string.auth_cover_atomic),
+            brush = Brush.verticalGradient(listOf(Color(0xFFF5E8CE), Color(0xFFC9AA78))),
+            contentColor = Color(0xFF6D4C2F),
             modifier = Modifier
                 .align(Alignment.Center)
                 .offset(y = (-4).dp)
@@ -153,17 +166,6 @@ private fun AuthMediaStack() {
                 .size(width = 112.dp, height = 150.dp)
                 .graphicsLayer(rotationZ = 7f),
         )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .offset(y = (-2).dp)
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFF5E9D6)),
-            contentAlignment = Alignment.Center,
-        ) {
-            PlayGlyph(tint = TonezenAppBg, size = 20.dp)
-        }
     }
 }
 
@@ -191,17 +193,4 @@ private fun AuthMiniCover(
             maxLines = 4,
         )
     }
-}
-
-@Composable
-internal fun AuthFooterNote() {
-    Text(
-        stringResource(R.string.offline_playback_note),
-        color = TonezenMuted,
-        style = MaterialTheme.typography.bodySmall,
-        textAlign = TextAlign.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp),
-    )
 }
