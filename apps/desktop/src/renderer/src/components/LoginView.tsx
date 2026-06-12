@@ -1,4 +1,10 @@
 import { useState } from "react";
+import {
+  DownloadsIcon,
+  LockIcon,
+  MailIcon,
+  SyncIcon,
+} from "./TonezenIcons";
 import { strings } from "../i18n/strings";
 
 interface LoginViewProps {
@@ -29,8 +35,14 @@ export function LoginView({
           <p className="mt-2 text-muted">{strings.authBody}</p>
         </div>
         <div className="flex gap-2">
-          <span className="chip-teal">{strings.authOfflineBadge}</span>
-          <span className="chip-green">{strings.authSyncBadge}</span>
+          <span className="chip-teal gap-1">
+            <DownloadsIcon className="h-3.5 w-3.5" />
+            {strings.authOfflineBadge}
+          </span>
+          <span className="chip-green gap-1">
+            <SyncIcon className="h-3.5 w-3.5" />
+            {strings.authSyncBadge}
+          </span>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {["Midnight", "Atomic", "Body"].map((label) => (
@@ -44,15 +56,19 @@ export function LoginView({
             <h3 className="font-semibold">{strings.authCardTitle}</h3>
             <p className="text-sm text-muted">{strings.authCardBody}</p>
           </div>
-          <input
-            className="input-field"
-            placeholder={strings.email}
-            value={email}
-            onChange={(e) => onEmailChange(e.target.value)}
-          />
           <div className="relative">
+            <MailIcon className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
             <input
-              className="input-field"
+              className="input-field pl-11"
+              placeholder={strings.email}
+              value={email}
+              onChange={(e) => onEmailChange(e.target.value)}
+            />
+          </div>
+          <div className="relative">
+            <LockIcon className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+            <input
+              className="input-field pl-11 pr-16"
               placeholder={strings.password}
               type={passwordVisible ? "text" : "password"}
               value={password}

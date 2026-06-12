@@ -1,4 +1,15 @@
+import type { ReactNode } from "react";
 import type { Book, Track } from "@shared/types";
+import {
+  CheckCircleIcon,
+  DownloadsIcon,
+  Forward15Icon,
+  HeartIcon,
+  PauseIcon,
+  PlayIcon,
+  QueueIcon,
+  Rewind15Icon,
+} from "../components/TonezenIcons";
 import { strings } from "../i18n/strings";
 
 function formatMs(ms: number): string {
@@ -53,7 +64,10 @@ export function PlayerPage({
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h1 className="section-title">{strings.nowPlaying}</h1>
-        <span className="chip-teal">{strings.offline}</span>
+        <span className="chip-teal gap-1">
+          <DownloadsIcon className="h-3.5 w-3.5" />
+          {strings.offline}
+        </span>
       </div>
       <div className="card space-y-3">
         <div>
@@ -68,22 +82,22 @@ export function PlayerPage({
           <span>-{formatMs(Math.max(durationMs - positionMs, 0))}</span>
         </div>
         <div className="flex items-center justify-center gap-4">
-          <button type="button" className="btn-secondary px-3 py-2" onClick={() => onSeekBy(-15000)}>
-            {strings.rewind15}
+          <button type="button" className="btn-secondary flex h-11 w-11 items-center justify-center p-0" onClick={() => onSeekBy(-15000)} aria-label={strings.rewind15}>
+            <Rewind15Icon className="h-6 w-6" />
           </button>
-          <button type="button" className="btn-play" onClick={onPlayPause}>
-            {isPlaying ? "❚❚" : "▶"}
+          <button type="button" className="btn-play text-[0]" onClick={onPlayPause} aria-label={isPlaying ? "Pause" : "Play"}>
+            {isPlaying ? <PauseIcon className="h-8 w-8 text-base" /> : <PlayIcon className="h-8 w-8 text-base" />}
           </button>
-          <button type="button" className="btn-secondary px-3 py-2" onClick={() => onSeekBy(15000)}>
-            {strings.forward15}
+          <button type="button" className="btn-secondary flex h-11 w-11 items-center justify-center p-0" onClick={() => onSeekBy(15000)} aria-label={strings.forward15}>
+            <Forward15Icon className="h-6 w-6" />
           </button>
         </div>
       </div>
       <div className="grid grid-cols-4 gap-2">
-        <Stat label={strings.queue} value={String(upNext.length + 1)} />
-        <Stat label={strings.favorites} value={String(favoritesCount)} />
-        <Stat label={strings.downloads} value={String(downloadsCount)} />
-        <Stat label={strings.synced} value="✓" />
+        <Stat icon={<QueueIcon className="h-5 w-5" />} label={strings.queue} value={String(upNext.length + 1)} />
+        <Stat icon={<HeartIcon className="h-5 w-5" />} label={strings.favorites} value={String(favoritesCount)} />
+        <Stat icon={<DownloadsIcon className="h-5 w-5" />} label={strings.downloads} value={String(downloadsCount)} />
+        <Stat icon={<CheckCircleIcon className="h-5 w-5 text-teal" />} label={strings.synced} value="" />
       </div>
       <div>
         <h2 className="section-title">{strings.upNext}</h2>
@@ -103,10 +117,11 @@ export function PlayerPage({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
     <div className="card px-3 py-2 text-center">
-      <div className="font-semibold">{value}</div>
+      <div className="flex justify-center text-ink">{icon}</div>
+      {value && <div className="mt-1 font-semibold">{value}</div>}
       <div className="text-xs text-muted">{label}</div>
     </div>
   );

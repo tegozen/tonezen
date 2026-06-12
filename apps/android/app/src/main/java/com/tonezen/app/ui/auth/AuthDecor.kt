@@ -33,7 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
-import com.tonezen.app.ui.components.PlayTriangle
+import com.tonezen.app.ui.components.PlayGlyph
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenGreen
@@ -162,7 +162,7 @@ private fun AuthMediaStack() {
                 .background(Color(0xFFF5E9D6)),
             contentAlignment = Alignment.Center,
         ) {
-            PlayTriangle(tint = TonezenAppBg, modifier = Modifier.size(20.dp))
+            PlayGlyph(tint = TonezenAppBg, size = 20.dp)
         }
     }
 }

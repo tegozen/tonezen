@@ -136,7 +136,7 @@ internal fun SearchRow(
                 .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(stringResource(R.string.filter), color = TonezenInk, style = MaterialTheme.typography.labelSmall)
+            FilterGlyph()
         }
     }
 }

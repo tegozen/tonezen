@@ -1,4 +1,4 @@
-package com.tonezen.app.ui.player
+﻿package com.tonezen.app.ui.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,9 +27,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.tonezen.app.R
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.ui.components.CheckCircleGlyph
 import com.tonezen.app.ui.components.PlayButton
 import com.tonezen.app.ui.components.ProgressBar
+import com.tonezen.app.ui.components.QueueGlyph
+import com.tonezen.app.ui.components.RoundIconControl
 import com.tonezen.app.ui.components.RoundControl
+import com.tonezen.app.ui.components.SkipNextGlyph
+import com.tonezen.app.ui.components.SkipPreviousGlyph
 import com.tonezen.app.ui.components.StatusChip
 import com.tonezen.app.ui.shell.AppShellUiState
 import com.tonezen.app.ui.theme.TonezenAppBg
@@ -114,9 +119,13 @@ internal fun NowPlayingScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     RoundControl(label = stringResource(R.string.rewind_15), outlined = true) { onSeekBy(-15_000L); viewModel.seekBy(-15_000L) }
-                    RoundControl(label = "<", outlined = true) { viewModel.skipPrevious() }
+                    RoundIconControl(outlined = true, onClick = viewModel::skipPrevious) {
+                        SkipPreviousGlyph()
+                    }
                     PlayButton(isPlaying = state.isPlaying, onClick = { onPlayPause(); viewModel.pauseOrResume() })
-                    RoundControl(label = ">", outlined = true) { viewModel.skipNext() }
+                    RoundIconControl(outlined = true, onClick = viewModel::skipNext) {
+                        SkipNextGlyph()
+                    }
                     RoundControl(label = stringResource(R.string.forward_15), outlined = true) { onSeekBy(15_000L); viewModel.seekBy(15_000L) }
                 }
             }
@@ -128,9 +137,14 @@ internal fun NowPlayingScreen(
                 StatTile(stringResource(R.string.downloads), downloadedBookIds.size.toString(), Modifier.weight(1f))
                 StatTile(
                     label = stringResource(R.string.synced),
-                    value = if (state.hasSyncedAudiobooks) "✓" else "—",
+                    value = if (state.hasSyncedAudiobooks) "" else "-",
                     modifier = Modifier.weight(1f),
                     tone = TonezenGreen,
+                    icon = if (state.hasSyncedAudiobooks) {
+                        { CheckCircleGlyph(tint = TonezenGreen) }
+                    } else {
+                        null
+                    },
                 )
             }
         }
@@ -151,6 +165,7 @@ private fun StatTile(
     value: String,
     modifier: Modifier = Modifier,
     tone: androidx.compose.ui.graphics.Color = TonezenInk,
+    icon: (@Composable () -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -158,7 +173,11 @@ private fun StatTile(
             .padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(value, color = tone, fontWeight = FontWeight.Bold)
+        if (icon != null) {
+            icon()
+        } else {
+            Text(value, color = tone, fontWeight = FontWeight.Bold)
+        }
         Text(label, color = TonezenMuted, style = MaterialTheme.typography.labelSmall)
     }
 }
@@ -178,10 +197,9 @@ private fun UpNextRow(track: Track, book: Book?, onOpenBook: (Book) -> Unit) {
         }
         Text(durationLabel(track.durationMs), color = TonezenMuted)
         book?.let { b ->
-            Text(
-                "≡",
-                color = TonezenMuted,
+            QueueGlyph(
                 modifier = Modifier.padding(start = 8.dp).clickable { onOpenBook(b) },
+                tint = TonezenMuted,
             )
         }
     }

@@ -22,10 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.Canvas
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenBorder
@@ -47,6 +45,20 @@ internal fun RoundControl(label: String, outlined: Boolean, onClick: () -> Unit)
 }
 
 @Composable
+internal fun RoundIconControl(outlined: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+            .border(BorderStroke(if (outlined) 1.4.dp else 0.dp, TonezenInk), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+    }
+}
+
+@Composable
 internal fun PlayButton(isPlaying: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
@@ -57,26 +69,10 @@ internal fun PlayButton(isPlaying: Boolean, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         if (isPlaying) {
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Box(Modifier.size(width = 6.dp, height = 26.dp).background(TonezenAppBg, RoundedCornerShape(2.dp)))
-                Box(Modifier.size(width = 6.dp, height = 26.dp).background(TonezenAppBg, RoundedCornerShape(2.dp)))
-            }
+            PauseGlyph(tint = TonezenAppBg, size = 30.dp)
         } else {
-            PlayTriangle(tint = TonezenAppBg, modifier = Modifier.size(30.dp))
+            PlayGlyph(tint = TonezenAppBg, size = 30.dp)
         }
-    }
-}
-
-@Composable
-internal fun PlayTriangle(tint: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val path = Path().apply {
-            moveTo(size.width * 0.28f, size.height * 0.18f)
-            lineTo(size.width * 0.28f, size.height * 0.82f)
-            lineTo(size.width * 0.82f, size.height * 0.50f)
-            close()
-        }
-        drawPath(path, tint)
     }
 }
 

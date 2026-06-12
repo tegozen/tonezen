@@ -350,6 +350,9 @@ private fun TrackRow(track: Track, selected: Boolean, onClick: () -> Unit, onLon
             }
         }
         Text(durationLabel(track.durationMs), color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
-        Text(":", color = TonezenMuted, modifier = Modifier.clickable(onClick = onLongClick))
+        OverflowGlyph(
+            modifier = Modifier.clickable(onClick = onLongClick),
+            tint = TonezenMuted,
+        )
     }
 }

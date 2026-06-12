@@ -186,7 +186,7 @@ private fun LibraryBookCard(book: Book, downloaded: Boolean, onClick: () -> Unit
                 Text(book.title, color = TonezenInk, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(book.author.orEmpty(), color = TonezenMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text(":", color = TonezenMuted, style = MaterialTheme.typography.titleMedium)
+            OverflowGlyph(tint = TonezenMuted)
         }
     }
 }

@@ -34,11 +34,11 @@ import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenTeal
 
-enum class BottomDestination(val labelRes: Int, val glyph: String) {
-    Library(R.string.nav_library, "L"),
-    Player(R.string.nav_player, "P"),
-    Downloads(R.string.nav_downloads, "D"),
-    Profile(R.string.nav_profile, "U"),
+enum class BottomDestination(val labelRes: Int) {
+    Library(R.string.nav_library),
+    Player(R.string.nav_player),
+    Downloads(R.string.nav_downloads),
+    Profile(R.string.nav_profile),
 }
 
 @Composable
@@ -85,7 +85,13 @@ private fun BottomNavItem(
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            Text(destination.glyph, color = if (active) TonezenAppBg else TonezenMuted, style = MaterialTheme.typography.labelSmall)
+            val tint = if (active) TonezenAppBg else TonezenMuted
+            when (destination) {
+                BottomDestination.Library -> LibraryGlyph(tint = tint)
+                BottomDestination.Player -> PlayerGlyph(tint = tint)
+                BottomDestination.Downloads -> DownloadGlyph(tint = tint)
+                BottomDestination.Profile -> ProfileGlyph(tint = tint)
+            }
         }
         Text(
             text = stringResource(destination.labelRes),
@@ -133,12 +139,9 @@ internal fun MiniPlayer(
                 contentAlignment = Alignment.Center,
             ) {
                 if (isPlaying) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Box(Modifier.size(width = 3.dp, height = 14.dp).background(TonezenInk, RoundedCornerShape(1.dp)))
-                        Box(Modifier.size(width = 3.dp, height = 14.dp).background(TonezenInk, RoundedCornerShape(1.dp)))
-                    }
+                    PauseGlyph(tint = TonezenInk, size = 22.dp)
                 } else {
-                    PlayTriangle(tint = TonezenInk, modifier = Modifier.size(22.dp))
+                    PlayGlyph(tint = TonezenInk, size = 22.dp)
                 }
             }
         }

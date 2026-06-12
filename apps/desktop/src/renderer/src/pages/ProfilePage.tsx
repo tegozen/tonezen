@@ -1,3 +1,14 @@
+import type { ReactNode } from "react";
+import {
+  CheckCircleIcon,
+  ChevronRightIcon,
+  LockIcon,
+  MoreVerticalIcon,
+  ProfileIcon,
+  StorageIcon,
+  SyncIcon,
+  WarningIcon,
+} from "../components/TonezenIcons";
 import { strings } from "../i18n/strings";
 
 interface ProfilePageProps {
@@ -48,8 +59,8 @@ export function ProfilePage({
             {online ? strings.online : strings.offline}
           </span>
           <div className="relative">
-            <button type="button" className="btn-secondary px-3 py-2" onClick={onToggleMenu}>
-              ⋮
+            <button type="button" className="icon-button h-10 w-10 text-[0]" onClick={onToggleMenu} aria-label="More options">
+              <MoreVerticalIcon className="h-5 w-5 text-base" />
             </button>
             {showMenu && (
               <div className="absolute right-0 top-11 z-30 min-w-36 rounded-xl border border-border bg-surface-raised p-2 shadow-lg">
@@ -70,7 +81,7 @@ export function ProfilePage({
       </div>
       <div className="flex items-center gap-3">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-raised text-teal">
-          {(userId ?? "U").slice(0, 1).toUpperCase()}
+          <ProfileIcon className="h-8 w-8" />
         </div>
         <div>
           <div className="font-semibold">{userId}</div>
@@ -78,7 +89,10 @@ export function ProfilePage({
         </div>
       </div>
       <div className="card space-y-3">
-        <div className="font-semibold">{strings.syncStatusAllSet}</div>
+        <div className="flex items-center gap-2 font-semibold">
+          <CheckCircleIcon className="h-5 w-5 text-teal" />
+          {strings.syncStatusAllSet}
+        </div>
         <div className="text-sm text-muted">{strings.lastSyncToday}</div>
         {pendingCount > 0 && <span className="chip-amber">{strings.pending}</span>}
         <button type="button" className="btn-secondary" disabled={syncing} onClick={onSyncNow}>
@@ -86,12 +100,15 @@ export function ProfilePage({
         </button>
       </div>
       <div className="space-y-2">
-        <SettingsRow title={strings.settingsAccount} subtitle={strings.email} />
-        <SettingsRow title={strings.settingsSync} subtitle={strings.syncNow} />
-        <SettingsRow title={strings.settingsStorage} subtitle={formatGb(storageUsedBytes)} />
-        <SettingsRow title={strings.settingsPrivacy} subtitle="" />
+        <SettingsRow icon={<ProfileIcon className="h-6 w-6" />} title={strings.settingsAccount} subtitle={strings.email} />
+        <SettingsRow icon={<SyncIcon className="h-6 w-6" />} title={strings.settingsSync} subtitle={strings.syncNow} />
+        <SettingsRow icon={<StorageIcon className="h-6 w-6" />} title={strings.settingsStorage} subtitle={formatGb(storageUsedBytes)} />
+        <SettingsRow icon={<LockIcon className="h-6 w-6" />} title={strings.settingsPrivacy} subtitle="" />
       </div>
-      <div className="card border-amber/30 text-sm text-muted">{strings.musicProgressLocalWarning}</div>
+      <div className="card flex gap-3 border-amber/30 text-sm text-muted">
+        <WarningIcon className="h-5 w-5 shrink-0 text-amber" />
+        <span>{strings.musicProgressLocalWarning}</span>
+      </div>
       {showSignOutConfirm && (
         <div className="sheet-overlay flex items-center justify-center p-5">
           <div className="modal-panel">
@@ -128,14 +145,17 @@ export function ProfilePage({
   );
 }
 
-function SettingsRow({ title, subtitle }: { title: string; subtitle: string }) {
+function SettingsRow({ icon, title, subtitle }: { icon: ReactNode; title: string; subtitle: string }) {
   return (
     <div className="card flex items-center justify-between px-4 py-3">
-      <div>
-        <div>{title}</div>
-        {subtitle && <div className="text-sm text-muted">{subtitle}</div>}
+      <div className="flex items-center gap-3">
+        <div className="text-ink">{icon}</div>
+        <div>
+          <div>{title}</div>
+          {subtitle && <div className="text-sm text-muted">{subtitle}</div>}
+        </div>
       </div>
-      <span className="text-muted">&gt;</span>
+      <ChevronRightIcon className="h-5 w-5 text-muted" />
     </div>
   );
 }

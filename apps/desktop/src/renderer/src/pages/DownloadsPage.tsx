@@ -1,3 +1,9 @@
+import {
+  DownloadsIcon,
+  PauseIcon,
+  StorageIcon,
+  TrashIcon,
+} from "../components/TonezenIcons";
 import { strings } from "../i18n/strings";
 
 interface DownloadSummary {
@@ -40,7 +46,10 @@ export function DownloadsPage({
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold">{strings.downloads}</h1>
+      <h1 className="flex items-center gap-2 text-2xl font-bold">
+        <DownloadsIcon className="h-6 w-6 text-teal" />
+        {strings.downloads}
+      </h1>
       <div className="flex border-b border-border">
         {[strings.tabAudiobooks, strings.tabMusic].map((label, index) => (
           <button
@@ -54,13 +63,18 @@ export function DownloadsPage({
         ))}
       </div>
       <div>
-        <div className="font-semibold">{formatGb(usedBytes)} saved offline</div>
+        <div className="flex items-center gap-2 font-semibold">
+          <StorageIcon className="h-5 w-5 text-teal" />
+          {formatGb(usedBytes)} saved offline
+        </div>
         <div className="text-sm text-muted">Manage storage from Profile</div>
       </div>
       <div className="space-y-3">
         {filtered.map((item) => (
           <div key={item.bookId} className="card flex items-center gap-3">
-            <div className="h-14 w-14 rounded-xl bg-surface-raised" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-surface-raised text-teal">
+              <DownloadsIcon className="h-6 w-6" />
+            </div>
             <div className="min-w-0 flex-1">
               <div className="font-semibold">{item.title}</div>
               <div className="text-sm text-muted">{item.author}</div>
@@ -73,10 +87,12 @@ export function DownloadsPage({
         ))}
       </div>
       <div className="flex gap-3">
-        <button type="button" className="btn-secondary flex-1" disabled>
+        <button type="button" className="btn-secondary flex flex-1 items-center justify-center gap-2" disabled>
+          <PauseIcon className="h-5 w-5" />
           {strings.pauseAll}
         </button>
-        <button type="button" className="btn-danger flex-1" onClick={() => onShowDeleteConfirm(true)}>
+        <button type="button" className="btn-danger flex flex-1 items-center justify-center gap-2" onClick={() => onShowDeleteConfirm(true)}>
+          <TrashIcon className="h-5 w-5" />
           {strings.deleteAll}
         </button>
       </div>
@@ -89,7 +105,8 @@ export function DownloadsPage({
               <button type="button" className="btn-secondary flex-1" onClick={() => onShowDeleteConfirm(false)}>
                 {strings.cancel}
               </button>
-              <button type="button" className="btn-danger flex-1" onClick={onDeleteAll}>
+              <button type="button" className="btn-danger flex flex-1 items-center justify-center gap-2" onClick={onDeleteAll}>
+                <TrashIcon className="h-5 w-5" />
                 {strings.deleteAll}
               </button>
             </div>

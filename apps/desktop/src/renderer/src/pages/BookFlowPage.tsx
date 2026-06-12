@@ -1,4 +1,15 @@
 import type { Book, Track } from "@shared/types";
+import {
+  ChevronLeftIcon,
+  CloseIcon,
+  DownloadsIcon,
+  Forward15Icon,
+  HeartIcon,
+  MoreVerticalIcon,
+  PauseIcon,
+  PlayIcon,
+  Rewind15Icon,
+} from "../components/TonezenIcons";
 import { strings } from "../i18n/strings";
 
 function formatMs(ms: number): string {
@@ -76,20 +87,24 @@ export function BookFlowPage({
           <h3 className="font-semibold">{strings.aboutThisBook}</h3>
           <p className="text-sm text-muted">{book.title}</p>
         </div>
-        <button type="button" className="btn-primary w-full" onClick={onDownloadRequest}>
+        <button type="button" className="btn-primary flex w-full items-center justify-center gap-2" onClick={onDownloadRequest}>
+          <DownloadsIcon className="h-5 w-5" />
           {strings.download}
         </button>
         <div className="flex gap-3">
-          <button type="button" className="btn-secondary flex-1" onClick={onToggleFavorite}>
+          <button type="button" className="btn-secondary flex flex-1 items-center justify-center gap-2" onClick={onToggleFavorite}>
+            <HeartIcon className="h-5 w-5" />
             {isFavorite ? strings.favorites : strings.favorite}
           </button>
-          <button type="button" className="btn-primary flex-1 bg-amber text-app" onClick={onStartListening}>
+          <button type="button" className="btn-primary flex flex-1 items-center justify-center gap-2 bg-amber text-app" onClick={onStartListening}>
+            <PlayIcon className="h-5 w-5" />
             {strings.startListening}
           </button>
         </div>
         {showDownloadSheet && (
           <Sheet title={strings.downloadConfirmTitle} onDismiss={onDownloadDismiss}>
-            <button type="button" className="btn-primary mt-4 w-full" onClick={onDownloadConfirm}>
+            <button type="button" className="btn-primary mt-4 flex w-full items-center justify-center gap-2" onClick={onDownloadConfirm}>
+              <DownloadsIcon className="h-5 w-5" />
               {strings.downloadOffline}
             </button>
           </Sheet>
@@ -107,18 +122,23 @@ export function BookFlowPage({
         <p className="text-muted">{book.author}</p>
       </div>
       <div className="flex justify-center gap-2">
-        {tracks.some((track) => track.localPath) && <span className="chip-teal">{strings.offline}</span>}
+        {tracks.some((track) => track.localPath) && (
+          <span className="chip-teal gap-1">
+            <DownloadsIcon className="h-3.5 w-3.5" />
+            {strings.offline}
+          </span>
+        )}
         {book.contentType === "audiobook" && <span className="chip-green">{strings.synced}</span>}
       </div>
       <div className="flex items-center justify-center gap-4">
-        <button type="button" className="btn-secondary px-3 py-2" onClick={() => onSeekBy(-15000)}>
-          {strings.rewind15}
+        <button type="button" className="btn-secondary flex h-11 w-11 items-center justify-center p-0" onClick={() => onSeekBy(-15000)} aria-label={strings.rewind15}>
+          <Rewind15Icon className="h-6 w-6" />
         </button>
-        <button type="button" className="btn-play" onClick={onPlayPause}>
-          {isPlaying ? "❚❚" : "▶"}
+        <button type="button" className="btn-play" onClick={onPlayPause} aria-label={isPlaying ? "Pause" : "Play"}>
+          {isPlaying ? <PauseIcon className="h-8 w-8" /> : <PlayIcon className="h-8 w-8" />}
         </button>
-        <button type="button" className="btn-secondary px-3 py-2" onClick={() => onSeekBy(15000)}>
-          {strings.forward15}
+        <button type="button" className="btn-secondary flex h-11 w-11 items-center justify-center p-0" onClick={() => onSeekBy(15000)} aria-label={strings.forward15}>
+          <Forward15Icon className="h-6 w-6" />
         </button>
       </div>
       <div className="progress-bar">
@@ -161,8 +181,8 @@ function Header({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <button type="button" className="btn-secondary px-3 py-2" onClick={onBack}>
-        {strings.back}
+      <button type="button" className="icon-button h-10 w-10" onClick={onBack} aria-label={strings.back}>
+        <ChevronLeftIcon className="h-5 w-5" />
       </button>
       <div className="flex rounded-xl border border-border bg-surface-raised p-1">
         <button
@@ -180,8 +200,8 @@ function Header({
           {strings.details}
         </button>
       </div>
-      <button type="button" className="btn-secondary px-3 py-2">
-        ⋮
+      <button type="button" className="icon-button h-10 w-10 text-[0]" aria-label="More options">
+        <MoreVerticalIcon className="h-5 w-5 text-base" />
       </button>
     </div>
   );
@@ -201,8 +221,8 @@ function Sheet({
       <div className="sheet-panel">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold">{title}</h3>
-          <button type="button" onClick={onDismiss}>
-            ✕
+          <button type="button" className="icon-button h-9 w-9 text-[0]" onClick={onDismiss} aria-label={strings.cancel}>
+            <CloseIcon className="h-5 w-5 text-base" />
           </button>
         </div>
         {children}

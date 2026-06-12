@@ -28,19 +28,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.Canvas
 import com.tonezen.app.R
+import com.tonezen.app.ui.components.LockGlyph
+import com.tonezen.app.ui.components.MailGlyph
 import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenError
 import com.tonezen.app.ui.theme.TonezenInk
@@ -222,62 +219,8 @@ private fun TonezenAuthField(
 
 @Composable
 private fun AuthFieldGlyph(icon: AuthFieldIcon) {
-    Canvas(modifier = Modifier.size(19.dp)) {
-        when (icon) {
-            AuthFieldIcon.Email -> {
-                drawRoundRect(
-                    color = TonezenMuted,
-                    topLeft = Offset(size.width * 0.08f, size.height * 0.20f),
-                    size = Size(size.width * 0.84f, size.height * 0.62f),
-                    cornerRadius = CornerRadius(size.width * 0.08f, size.width * 0.08f),
-                    style = Stroke(width = 2.0f),
-                )
-                drawLine(
-                    color = TonezenMuted,
-                    start = Offset(size.width * 0.12f, size.height * 0.28f),
-                    end = Offset(size.width * 0.50f, size.height * 0.55f),
-                    strokeWidth = 2.0f,
-                )
-                drawLine(
-                    color = TonezenMuted,
-                    start = Offset(size.width * 0.88f, size.height * 0.28f),
-                    end = Offset(size.width * 0.50f, size.height * 0.55f),
-                    strokeWidth = 2.0f,
-                )
-            }
-
-            AuthFieldIcon.Password -> {
-                drawRoundRect(
-                    color = TonezenMuted,
-                    topLeft = Offset(size.width * 0.20f, size.height * 0.43f),
-                    size = Size(size.width * 0.60f, size.height * 0.38f),
-                    cornerRadius = CornerRadius(size.width * 0.08f, size.width * 0.08f),
-                    style = Stroke(width = 2.0f),
-                )
-                drawLine(
-                    color = TonezenMuted,
-                    start = Offset(size.width * 0.34f, size.height * 0.43f),
-                    end = Offset(size.width * 0.34f, size.height * 0.31f),
-                    strokeWidth = 2.0f,
-                )
-                drawLine(
-                    color = TonezenMuted,
-                    start = Offset(size.width * 0.34f, size.height * 0.31f),
-                    end = Offset(size.width * 0.66f, size.height * 0.31f),
-                    strokeWidth = 2.0f,
-                )
-                drawLine(
-                    color = TonezenMuted,
-                    start = Offset(size.width * 0.66f, size.height * 0.31f),
-                    end = Offset(size.width * 0.66f, size.height * 0.43f),
-                    strokeWidth = 2.0f,
-                )
-                drawCircle(
-                    color = TonezenMuted,
-                    radius = size.minDimension * 0.055f,
-                    center = Offset(size.width * 0.50f, size.height * 0.61f),
-                )
-            }
-        }
+    when (icon) {
+        AuthFieldIcon.Email -> MailGlyph(tint = TonezenMuted, size = 19.dp)
+        AuthFieldIcon.Password -> LockGlyph(tint = TonezenMuted, size = 19.dp)
     }
 }

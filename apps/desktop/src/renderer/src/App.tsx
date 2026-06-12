@@ -65,16 +65,6 @@ export function App() {
     seekBy,
   } = usePlayback(selectedBook, tracks);
 
-  const downloadedIds = useMemo(
-    () =>
-      new Set(
-        books.filter((book) =>
-          tracks.some((track) => track.bookId === book.id && track.localPath),
-        ).map((book) => book.id),
-      ),
-    [books, tracks],
-  );
-
   const refreshBooks = useCallback(async () => {
     setBooks(await window.tonezen.db.getBooks());
     setFavoriteIds(await window.tonezen.favorites.list());

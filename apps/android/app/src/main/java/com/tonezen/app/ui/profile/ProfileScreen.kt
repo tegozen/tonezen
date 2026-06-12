@@ -33,11 +33,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.domain.model.SessionState
+import com.tonezen.app.ui.components.ChevronRightGlyph
 import com.tonezen.app.ui.components.IconCircle
+import com.tonezen.app.ui.components.LockGlyph
 import com.tonezen.app.ui.components.OfflineSyncDialog
 import com.tonezen.app.ui.components.OverflowGlyph
+import com.tonezen.app.ui.components.ProfileGlyph
 import com.tonezen.app.ui.components.SignOutConfirmDialog
 import com.tonezen.app.ui.components.StatusChip
+import com.tonezen.app.ui.components.StorageGlyph
+import com.tonezen.app.ui.components.SyncGlyph
+import com.tonezen.app.ui.components.WarningGlyph
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenBorder
@@ -115,7 +121,7 @@ internal fun ProfileScreen(
                     modifier = Modifier.size(56.dp).clip(CircleShape).background(TonezenSurfaceRaised),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text((state.email?.take(1) ?: "U").uppercase(), color = TonezenTeal, fontWeight = FontWeight.Bold)
+                    ProfileGlyph(tint = TonezenTeal, size = 30.dp)
                 }
                 Column {
                     Text(state.email.orEmpty(), color = TonezenInk, fontWeight = FontWeight.SemiBold)
@@ -144,23 +150,39 @@ internal fun ProfileScreen(
             }
         }
         item {
-            SettingsRow(stringResource(R.string.settings_account), stringResource(R.string.email))
-            SettingsRow(stringResource(R.string.settings_sync), stringResource(R.string.sync_now))
             SettingsRow(
-                stringResource(R.string.settings_storage),
-                formatGb(state.storageUsedBytes),
+                title = stringResource(R.string.settings_account),
+                subtitle = stringResource(R.string.email),
+                icon = { ProfileGlyph(tint = TonezenInk) },
             )
-            SettingsRow(stringResource(R.string.settings_privacy), "")
+            SettingsRow(
+                title = stringResource(R.string.settings_sync),
+                subtitle = stringResource(R.string.sync_now),
+                icon = { SyncGlyph(tint = TonezenInk) },
+            )
+            SettingsRow(
+                title = stringResource(R.string.settings_storage),
+                subtitle = formatGb(state.storageUsedBytes),
+                icon = { StorageGlyph(tint = TonezenInk) },
+            )
+            SettingsRow(
+                title = stringResource(R.string.settings_privacy),
+                subtitle = "",
+                icon = { LockGlyph(tint = TonezenInk) },
+            )
         }
         item {
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
                     .background(TonezenSurfaceRaised)
                     .border(1.dp, TonezenAmber.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
-                    .padding(16.dp),
+                .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                WarningGlyph(tint = TonezenAmber)
                 Text(stringResource(R.string.music_progress_local_warning), color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -168,7 +190,7 @@ internal fun ProfileScreen(
 }
 
 @Composable
-private fun SettingsRow(title: String, subtitle: String) {
+private fun SettingsRow(title: String, subtitle: String, icon: @Composable () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -178,13 +200,16 @@ private fun SettingsRow(title: String, subtitle: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column {
-            Text(title, color = TonezenInk, fontWeight = FontWeight.Medium)
-            if (subtitle.isNotBlank()) {
-                Text(subtitle, color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            icon()
+            Column {
+                Text(title, color = TonezenInk, fontWeight = FontWeight.Medium)
+                if (subtitle.isNotBlank()) {
+                    Text(subtitle, color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
-        Text(">", color = TonezenMuted)
+        ChevronRightGlyph()
     }
 }
 
