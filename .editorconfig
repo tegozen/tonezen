@@ -8,6 +8,15 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 2
 
+[*.{sh,yml,yaml,sql,mjs,cjs}]
+end_of_line = lf
+
+[docker-compose.yml]
+end_of_line = lf
+
+[Dockerfile*]
+end_of_line = lf
+
 [*.{kt,kts}]
 indent_size = 4
 
@@ -16,3 +25,6 @@ trim_trailing_whitespace = false
 
 [Makefile]
 indent_style = tab
+
+[*.{bat,cmd,ps1}]
+end_of_line = crlf

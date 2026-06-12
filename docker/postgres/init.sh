@@ -46,8 +46,16 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role, supabase_admin;
   GRANT ALL ON SCHEMA auth TO supabase_auth_admin;
 
+  CREATE SCHEMA IF NOT EXISTS _realtime AUTHORIZATION supabase_admin;
+  GRANT ALL ON SCHEMA _realtime TO supabase_admin;
+
   GRANT ALL ON DATABASE ${POSTGRES_DB} TO supabase_storage_admin;
   GRANT ALL ON DATABASE ${POSTGRES_DB} TO supabase_auth_admin;
+
+  -- storage-api impersonates JWT roles via authenticator (supabase/storage#369)
+  GRANT authenticator TO supabase_storage_admin;
+  REVOKE anon, authenticated, service_role FROM supabase_storage_admin;
+  ALTER ROLE supabase_storage_admin SET search_path TO storage, public;
 
   ALTER ROLE supabase_auth_admin SET search_path TO auth, public;
 EOSQL

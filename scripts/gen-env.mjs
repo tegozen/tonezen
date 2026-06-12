@@ -25,7 +25,7 @@ const SECRET_KEYS = [
   "PG_META_CRYPTO_KEY",
 ];
 
-const GENERATED_IF_EMPTY_KEYS = ["ADMIN_PASSWORD"];
+const GENERATED_IF_EMPTY_KEYS = ["ADMIN_PASSWORD", "DASHBOARD_PASSWORD"];
 
 const force = process.argv.includes("--force");
 
@@ -137,9 +137,13 @@ function main() {
 
   console.log(`Wrote ${ENV_PATH}`);
   console.log("Generated: " + SECRET_KEYS.join(", "));
+  if (values.get("DASHBOARD_PASSWORD")) {
+    console.log(`Studio login: ${values.get("DASHBOARD_USERNAME") ?? "admin"}`);
+    console.log(`Studio password: ${values.get("DASHBOARD_PASSWORD")}`);
+  }
   if (values.get("ADMIN_PASSWORD")) {
-    console.log(`Admin login: ${values.get("ADMIN_EMAIL") ?? "admin@tonezen.local"}`);
-    console.log(`Admin password: ${values.get("ADMIN_PASSWORD")}`);
+    console.log(`App admin: ${values.get("ADMIN_EMAIL") ?? "admin@tonezen.local"}`);
+    console.log(`App admin password: ${values.get("ADMIN_PASSWORD")}`);
   }
   console.log("");
   console.log("Next:");

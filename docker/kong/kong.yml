@@ -1,6 +1,14 @@
 _format_version: "2.1"
 _transform: true
 
+consumers:
+  - username: DASHBOARD
+
+basicauth_credentials:
+  - consumer: DASHBOARD
+    username: '$DASHBOARD_USERNAME'
+    password: '$DASHBOARD_PASSWORD'
+
 services:
   - name: auth-v1
     url: http://auth:9999/
@@ -59,6 +67,11 @@ services:
         regex_priority: 0
         paths:
           - /
+    plugins:
+      - name: cors
+      - name: basic-auth
+        config:
+          hide_credentials: true
 
 plugins:
   - name: cors

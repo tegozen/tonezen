@@ -4,8 +4,8 @@
 !**/.env.example
 *.local
 
-# Data volumes
-data/postgres/
+# Runtime data (Postgres + storage live in Docker volumes; see scripts/*-export.sh)
+data/
 backups/
 
 # Node
