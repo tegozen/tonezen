@@ -19,6 +19,7 @@ private val TonezenColorScheme = darkColorScheme(
     surfaceVariant = TonezenSurfaceRaised,
     onSurfaceVariant = TonezenMuted,
     error = TonezenError,
+    surfaceTint = Color.Transparent,
 )
 
 @Composable

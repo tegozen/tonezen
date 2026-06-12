@@ -41,7 +41,7 @@ import com.tonezen.app.ui.components.SearchRow
 import com.tonezen.app.ui.components.StatusChip
 import com.tonezen.app.ui.components.TonezenTabs
 import com.tonezen.app.ui.theme.TonezenInk
-import com.tonezen.app.ui.theme.TonezenScreenBrush
+import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenTeal
 import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 
@@ -105,7 +105,7 @@ internal fun LibraryScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding)
-            .background(TonezenScreenBrush),
+            .background(TonezenSurface),
         contentPadding = tonezenScreenContentPadding(top = 28.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {

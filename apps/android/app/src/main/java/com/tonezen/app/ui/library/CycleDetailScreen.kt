@@ -1,6 +1,5 @@
 package com.tonezen.app.ui.library
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,11 +7,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -26,16 +24,14 @@ import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Cycle
-import com.tonezen.app.ui.components.TonezenBackHeaderRow
 import com.tonezen.app.ui.components.BookCover
 import com.tonezen.app.ui.components.CycleCover
 import com.tonezen.app.ui.components.StatusChip
+import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.components.bookAuthorLabel
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
-import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenTeal
-import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 
 @Composable
 internal fun CycleDetailScreen(
@@ -45,29 +41,21 @@ internal fun CycleDetailScreen(
     onBack: () -> Unit,
     onBookClick: (Book) -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(TonezenScreenBrush)
-            .padding(padding),
-        contentPadding = tonezenScreenContentPadding(),
+    TonezenFixedHeaderScreen(
+        padding = padding,
+        onBack = onBack,
         verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        item {
-            TonezenBackHeaderRow(
-                onBack = onBack,
-                title = {
-                    Text(
-                        text = cycle.title,
-                        color = TonezenInk,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
+        title = {
+            Text(
+                text = cycle.title,
+                color = TonezenInk,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-        }
+        },
+    ) {
         item {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CycleCover(

@@ -59,7 +59,7 @@ import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenGreen
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
-import com.tonezen.app.ui.theme.TonezenScreenBrush
+import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
 
@@ -200,7 +200,7 @@ internal fun ProfileScreenContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(TonezenScreenBrush)
+            .background(TonezenSurface)
             .padding(padding),
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),

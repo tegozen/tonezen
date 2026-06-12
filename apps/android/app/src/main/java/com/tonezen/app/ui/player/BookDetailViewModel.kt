@@ -25,8 +25,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val PLAYBACK_SPEEDS = floatArrayOf(0.75f, 1f, 1.25f, 1.5f, 2f)
-
 @HiltViewModel
 class BookDetailViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
@@ -45,35 +43,17 @@ class BookDetailViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            progressSyncRepository.updates.collect { progress ->
-                val book = _uiState.value.book ?: return@collect
-                if (book.id != progress.bookId) return@collect
-                val track = catalogRepository.getTracksForBook(book.id)
-                    .find { it.id == progress.trackId }
-                _uiState.update { it.copy(progressTrackTitle = track?.title) }
-            }
-        }
-        viewModelScope.launch {
             playbackEvents.trackEnded.collect { onPlaybackEnded() }
         }
         viewModelScope.launch {
             playbackClient.activeTrackId.collect { trackId ->
-                val track = _uiState.value.tracks.find { it.id == trackId } ?: return@collect
+                val track = _uiState.value.tracks.find { it.id == trackId }
                 currentTrack = track
-                _uiState.update { it.copy(nowPlayingTitle = track.title) }
+                _uiState.update { it.copy(activeTrackId = trackId) }
             }
         }
         viewModelScope.launch {
             playbackClient.snapshot.collectLatest { snapshot ->
-                _uiState.update {
-                    it.copy(
-                        isPlaying = snapshot.isPlaying,
-                        nowPlayingTitle = snapshot.trackTitle ?: it.nowPlayingTitle,
-                        positionMs = snapshot.positionMs,
-                        durationMs = snapshot.durationMs,
-                        playbackSpeed = playbackClient.playbackSpeed(),
-                    )
-                }
                 if (snapshot.isPlaying) {
                     maybeSaveProgress(snapshot.positionMs)
                 }
@@ -85,41 +65,15 @@ class BookDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val tracks = catalogRepository.getTracksForBook(book.id)
             val progress = catalogRepository.getProgress(book.id)
-            val favorite = catalogRepository.isFavorite(book.id)
             val syncStatus = resolveSyncStatus(book, progress)
             _uiState.update {
                 it.copy(
                     book = book,
                     tracks = tracks,
-                    progressTrackTitle = progress?.let { p ->
-                        tracks.find { t -> t.id == p.trackId }?.title
-                    },
-                    isFavorite = favorite,
                     syncStatus = syncStatus,
                     estimatedDownloadBytes = estimateDownloadBytes(tracks.size),
                 )
             }
-        }
-    }
-
-    fun selectTab(tab: BookDetailTab) {
-        _uiState.update { it.copy(selectedTab = tab) }
-    }
-
-    fun playBook() {
-        val book = _uiState.value.book ?: return
-        viewModelScope.launch {
-            val tracks = catalogRepository.getTracksForBook(book.id)
-            val queue = playbackQueueBuilder.buildAudiobookQueue(book, tracks)
-            if (queue.isEmpty()) return@launch
-            val progress = catalogRepository.getProgress(book.id)
-            val startTrackId = progress?.trackId ?: queue.first().trackId
-            val startIndex = queue.indexOfFirst { it.trackId == startTrackId }.coerceAtLeast(0)
-            val startMs = if (queue[startIndex].trackId == progress?.trackId) progress.positionMs else 0L
-            currentTrack = tracks.find { it.id == startTrackId }
-            playbackClient.playQueue(queue, startIndex, startMs)
-            _uiState.update { it.copy(nowPlayingTitle = currentTrack?.title) }
-            loadBook(book)
         }
     }
 
@@ -128,9 +82,14 @@ class BookDetailViewModel @Inject constructor(
         viewModelScope.launch {
             when (book.contentType) {
                 ContentType.AUDIOBOOK -> {
-                    val item = playbackQueueBuilder.buildSingleAudiobookItem(book, track) ?: return@launch
+                    val tracks = catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
+                    val queue = playbackQueueBuilder.buildAudiobookQueue(book, tracks)
+                    if (queue.isEmpty()) return@launch
+                    val startIndex = queue.indexOfFirst { it.trackId == track.id }.coerceAtLeast(0)
+                    val progress = catalogRepository.getProgress(book.id)
+                    val startMs = if (progress?.trackId == track.id) progress.positionMs else 0L
                     currentTrack = track
-                    playbackClient.playQueue(listOf(item), startIndex = 0)
+                    playbackClient.playQueue(queue, startIndex, startMs)
                 }
                 ContentType.MUSIC -> {
                     val libraryTracks = withContext(Dispatchers.IO) {
@@ -154,34 +113,9 @@ class BookDetailViewModel @Inject constructor(
                     playbackClient.playQueue(queue, startIndex)
                 }
             }
-            _uiState.update { it.copy(nowPlayingTitle = track.title) }
+            _uiState.update { it.copy(activeTrackId = track.id) }
             loadBook(book)
         }
-    }
-
-    fun pausePlayback() {
-        playbackClient.pause()
-    }
-
-    fun resumePlayback() {
-        playbackClient.play()
-    }
-
-    fun seekTo(positionMs: Long) {
-        playbackClient.seekTo(positionMs)
-    }
-
-    fun seekBy(deltaMs: Long) {
-        playbackClient.seekBy(deltaMs)
-    }
-
-    fun cycleSpeed() {
-        val current = playbackClient.playbackSpeed()
-        val index = PLAYBACK_SPEEDS.indexOfFirst { kotlin.math.abs(it - current) < 0.01f }
-            .takeIf { it >= 0 } ?: 1
-        val next = PLAYBACK_SPEEDS[(index + 1) % PLAYBACK_SPEEDS.size]
-        playbackClient.setPlaybackSpeed(next)
-        _uiState.update { it.copy(playbackSpeed = next) }
     }
 
     fun requestDownload() {
@@ -241,14 +175,6 @@ class BookDetailViewModel @Inject constructor(
             catalogRepository.clearTrackLocalPath(book.id, track.id)
             loadBook(book)
             dismissTrackActions()
-        }
-    }
-
-    fun toggleFavorite() {
-        val book = _uiState.value.book ?: return
-        viewModelScope.launch {
-            catalogRepository.toggleFavorite(book.id)
-            _uiState.update { it.copy(isFavorite = catalogRepository.isFavorite(book.id)) }
         }
     }
 

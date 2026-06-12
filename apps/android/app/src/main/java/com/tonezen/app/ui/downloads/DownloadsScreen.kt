@@ -36,7 +36,7 @@ import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenError
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
-import com.tonezen.app.ui.theme.TonezenScreenBrush
+import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenTeal
 
 @Composable
@@ -74,7 +74,7 @@ internal fun DownloadsScreen(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(TonezenScreenBrush).padding(padding),
+        modifier = Modifier.fillMaxSize().background(TonezenSurface).padding(padding),
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {

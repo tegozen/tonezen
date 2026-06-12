@@ -22,13 +22,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
-import com.tonezen.app.ui.components.TonezenBackHeaderRow
+import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.components.ChevronRightGlyph
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
-import com.tonezen.app.ui.theme.TonezenScreenBrush
-import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 
 @Composable
 internal fun StorageSettingsScreen(
@@ -40,26 +38,17 @@ internal fun StorageSettingsScreen(
 ) {
     val usedPercent = totalBytes?.takeIf { it > 0L }?.let { usedBytes.toFloat() / it.toFloat() }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(TonezenScreenBrush)
-            .padding(padding),
-        contentPadding = tonezenScreenContentPadding(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            TonezenBackHeaderRow(
-                onBack = onBack,
-                title = {
-                    Text(
-                        stringResource(R.string.settings_storage_page_title),
-                        color = TonezenInk,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                },
+    TonezenFixedHeaderScreen(
+        padding = padding,
+        onBack = onBack,
+        title = {
+            Text(
+                stringResource(R.string.settings_storage_page_title),
+                color = TonezenInk,
+                fontWeight = FontWeight.SemiBold,
             )
-        }
+        },
+    ) {
         item {
             SettingsInfoSection(title = stringResource(R.string.settings_storage_downloads_section)) {
                 Text(

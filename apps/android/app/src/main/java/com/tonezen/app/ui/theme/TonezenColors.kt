@@ -10,6 +10,8 @@ internal val TonezenSheetBg = Color(0xFF162032)
 internal val TonezenSurface = Color(0xFF0F172A)
 internal val TonezenSurfaceRaised = Color(0xFF172033)
 internal val TonezenSurfaceMuted = Color(0xFF1E293B)
+internal val TonezenChromeBarBackground = TonezenSurface
+internal val TonezenChromeBarBorder = Color.White.copy(alpha = 0.06f)
 internal val TonezenBorder = Color(0xFF334155)
 internal val TonezenTeal = Color(0xFF5EEAD4)
 internal val TonezenTealStrong = Color(0xFF14B8A6)

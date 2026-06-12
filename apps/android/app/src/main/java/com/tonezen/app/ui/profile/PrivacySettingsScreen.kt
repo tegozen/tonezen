@@ -22,13 +22,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
-import com.tonezen.app.ui.components.TonezenBackHeaderRow
+import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenTeal
-import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 
 @Composable
 internal fun PrivacySettingsScreen(
@@ -36,26 +35,17 @@ internal fun PrivacySettingsScreen(
     onBack: () -> Unit,
     onOpenAppSettings: () -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(TonezenScreenBrush)
-            .padding(padding),
-        contentPadding = tonezenScreenContentPadding(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            TonezenBackHeaderRow(
-                onBack = onBack,
-                title = {
-                    Text(
-                        stringResource(R.string.settings_privacy_page_title),
-                        color = TonezenInk,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                },
+    TonezenFixedHeaderScreen(
+        padding = padding,
+        onBack = onBack,
+        title = {
+            Text(
+                stringResource(R.string.settings_privacy_page_title),
+                color = TonezenInk,
+                fontWeight = FontWeight.SemiBold,
             )
-        }
+        },
+    ) {
         item {
             SettingsInfoSection(title = stringResource(R.string.settings_privacy_data_section)) {
                 Text(

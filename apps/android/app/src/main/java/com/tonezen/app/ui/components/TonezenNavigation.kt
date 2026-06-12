@@ -29,9 +29,9 @@ import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenAppBg
+import com.tonezen.app.ui.theme.TonezenChromeBarBackground
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
-import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenTeal
 import com.tonezen.app.ui.theme.trackCoverBrush
 
@@ -49,8 +49,7 @@ internal fun TonezenBottomNavigation(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(TonezenSurface.copy(alpha = 0.96f))
-            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)))
+            .background(TonezenChromeBarBackground)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically,
@@ -120,8 +119,7 @@ internal fun MiniPlayer(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(TonezenSurface.copy(alpha = 0.98f))
-            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.06f))),
+            .background(TonezenChromeBarBackground),
     ) {
         Box(
             modifier = Modifier

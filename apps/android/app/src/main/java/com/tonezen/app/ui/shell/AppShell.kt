@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -27,7 +29,8 @@ import com.tonezen.app.ui.player.BookDetailViewModel
 import com.tonezen.app.ui.player.NowPlayingSheet
 import com.tonezen.app.ui.profile.ProfileScreen
 import com.tonezen.app.ui.profile.ProfileViewModel
-import com.tonezen.app.ui.theme.TonezenAppBg
+import com.tonezen.app.ui.theme.TonezenChromeBarBackground
+import com.tonezen.app.ui.theme.TonezenSurface
 
 @Composable
 fun AppShell(
@@ -40,72 +43,37 @@ fun AppShell(
     val shellState by shellViewModel.uiState.collectAsState()
     val selectedBook = shellState.selectedBook
     val selectedCycle = shellState.selectedCycle
-
-    if (selectedBook != null) {
-        val bookDetailViewModel: BookDetailViewModel = hiltViewModel(key = selectedBook.id)
-        val detailState by bookDetailViewModel.uiState.collectAsState()
-
-        LaunchedEffect(selectedBook.id) {
-            bookDetailViewModel.loadBook(selectedBook)
-        }
-
-        BookDetailScreen(
-            book = selectedBook,
-            uiState = detailState,
-            onPlay = bookDetailViewModel::playBook,
-            onPause = bookDetailViewModel::pausePlayback,
-            onResume = bookDetailViewModel::resumePlayback,
-            onDownload = bookDetailViewModel::requestDownload,
-            onConfirmDownload = bookDetailViewModel::downloadBook,
-            onDismissDownloadSheet = bookDetailViewModel::dismissDownloadSheet,
-            onDeleteLocal = bookDetailViewModel::deleteLocalDownloads,
-            onBack = shellViewModel::closeBook,
-            onToggleFavorite = bookDetailViewModel::toggleFavorite,
-            onSelectTab = bookDetailViewModel::selectTab,
-            onSeek = bookDetailViewModel::seekTo,
-            onSeekBy = bookDetailViewModel::seekBy,
-            onCycleSpeed = bookDetailViewModel::cycleSpeed,
-            onTrackClick = bookDetailViewModel::playTrack,
-            onShowTrackActions = bookDetailViewModel::showTrackActions,
-            onDismissTrackActions = bookDetailViewModel::dismissTrackActions,
-            onMarkComplete = bookDetailViewModel::markTrackComplete,
-            onPlayNext = bookDetailViewModel::playNextTrack,
-            onRemoveDownload = bookDetailViewModel::removeTrackDownload,
-        )
-        return
-    }
-
-    if (selectedCycle != null) {
-        CycleDetailScreen(
-            padding = PaddingValues(0.dp),
-            cycle = selectedCycle,
-            downloadedBookIds = libraryState.downloadedBookIds,
-            onBack = shellViewModel::closeCycle,
-            onBookClick = shellViewModel::openBook,
-        )
-        return
-    }
+    val inLibraryOverlay = selectedCycle != null || selectedBook != null
 
     Scaffold(
-        containerColor = TonezenAppBg,
+        containerColor = TonezenSurface,
         bottomBar = {
             if (!shellState.showExpandedPlayer) {
-                Column {
-                    MiniPlayer(
-                        title = shellState.nowPlayingTitle,
-                        subtitle = shellState.nowPlayingSubtitle,
-                        coverSeed = shellState.nowPlayingCoverSeed,
-                        enabled = shellState.showMiniPlayer,
-                        isPlaying = shellState.isPlaying,
-                        positionMs = shellState.positionMs,
-                        durationMs = shellState.durationMs,
-                        onBarClick = shellViewModel::onMiniPlayerClick,
-                        onPlayPauseClick = shellViewModel::onMiniPlayerPlayPause,
-                    )
-                    TonezenBottomNavigation(
-                        selected = shellState.currentTab,
-                        onSelect = shellViewModel::selectTab,
-                    )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = TonezenChromeBarBackground,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp,
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        MiniPlayer(
+                            title = shellState.nowPlayingTitle,
+                            subtitle = shellState.nowPlayingSubtitle,
+                            coverSeed = shellState.nowPlayingCoverSeed,
+                            enabled = shellState.showMiniPlayer,
+                            isPlaying = shellState.isPlaying,
+                            positionMs = shellState.positionMs,
+                            durationMs = shellState.durationMs,
+                            onBarClick = shellViewModel::onMiniPlayerClick,
+                            onPlayPauseClick = shellViewModel::onMiniPlayerPlayPause,
+                        )
+                        if (!inLibraryOverlay) {
+                            TonezenBottomNavigation(
+                                selected = shellState.currentTab,
+                                onSelect = shellViewModel::selectTab,
+                            )
+                        }
+                    }
                 }
             }
         },
@@ -113,10 +81,48 @@ fun AppShell(
         BackHandler(enabled = shellState.showExpandedPlayer) {
             shellViewModel.dismissExpandedPlayer()
         }
+        BackHandler(enabled = selectedBook != null && !shellState.showExpandedPlayer) {
+            shellViewModel.closeBook()
+        }
+        BackHandler(enabled = selectedBook == null && selectedCycle != null && !shellState.showExpandedPlayer) {
+            shellViewModel.closeCycle()
+        }
 
         Box(modifier = Modifier.fillMaxSize()) {
-            when (shellState.currentTab) {
-                BottomDestination.Library -> LibraryScreen(
+            when {
+                selectedBook != null -> {
+                    val bookDetailViewModel: BookDetailViewModel = hiltViewModel(key = selectedBook.id)
+                    val detailState by bookDetailViewModel.uiState.collectAsState()
+
+                    LaunchedEffect(selectedBook.id) {
+                        bookDetailViewModel.loadBook(selectedBook)
+                    }
+
+                    BookDetailScreen(
+                        padding = padding,
+                        book = selectedBook,
+                        uiState = detailState,
+                        onBack = shellViewModel::closeBook,
+                        onTrackClick = bookDetailViewModel::playTrack,
+                        onConfirmDownload = bookDetailViewModel::downloadBook,
+                        onDismissDownloadSheet = bookDetailViewModel::dismissDownloadSheet,
+                        onShowTrackActions = bookDetailViewModel::showTrackActions,
+                        onDismissTrackActions = bookDetailViewModel::dismissTrackActions,
+                        onMarkComplete = bookDetailViewModel::markTrackComplete,
+                        onPlayNext = bookDetailViewModel::playNextTrack,
+                        onRemoveDownload = bookDetailViewModel::removeTrackDownload,
+                    )
+                }
+
+                selectedCycle != null -> CycleDetailScreen(
+                    padding = PaddingValues(0.dp),
+                    cycle = selectedCycle,
+                    downloadedBookIds = libraryState.downloadedBookIds,
+                    onBack = shellViewModel::closeCycle,
+                    onBookClick = shellViewModel::openBook,
+                )
+
+                shellState.currentTab == BottomDestination.Library -> LibraryScreen(
                     padding = padding,
                     cycles = libraryViewModel.filteredCycles,
                     allCycles = libraryState.cycles,
@@ -146,12 +152,12 @@ fun AppShell(
                     onMusicTabSelected = libraryViewModel::onMusicTabSelected,
                 )
 
-                BottomDestination.Downloads -> DownloadsScreen(
+                shellState.currentTab == BottomDestination.Downloads -> DownloadsScreen(
                     padding = padding,
                     viewModel = downloadsViewModel,
                 )
 
-                BottomDestination.Profile -> ProfileScreen(
+                shellState.currentTab == BottomDestination.Profile -> ProfileScreen(
                     padding = padding,
                     viewModel = profileViewModel,
                     onOpenDownloads = { shellViewModel.selectTab(BottomDestination.Downloads) },

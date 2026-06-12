@@ -36,7 +36,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
-import com.tonezen.app.ui.components.TonezenBackHeaderRow
+import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.components.EyeGlyph
 import com.tonezen.app.ui.components.EyeOffGlyph
 import com.tonezen.app.ui.theme.TonezenAppBg
@@ -48,7 +48,6 @@ import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
-import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 
 @Composable
 internal fun AccountSettingsScreen(
@@ -70,26 +69,17 @@ internal fun AccountSettingsScreen(
     var passwordVisible by remember(passwordFormNonce) { mutableStateOf(false) }
     var confirmVisible by remember(passwordFormNonce) { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(TonezenScreenBrush)
-            .padding(padding),
-        contentPadding = tonezenScreenContentPadding(),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            TonezenBackHeaderRow(
-                onBack = onBack,
-                title = {
-                    Text(
-                        stringResource(R.string.settings_account_page_title),
-                        color = TonezenInk,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                },
+    TonezenFixedHeaderScreen(
+        padding = padding,
+        onBack = onBack,
+        title = {
+            Text(
+                stringResource(R.string.settings_account_page_title),
+                color = TonezenInk,
+                fontWeight = FontWeight.SemiBold,
             )
-        }
+        },
+    ) {
         item {
             AccountFormSection(title = stringResource(R.string.settings_account_profile_section)) {
                 AccountLabeledField(
