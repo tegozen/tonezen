@@ -99,6 +99,7 @@ fun AppShell(
                 downloadedBookIds = libraryState.downloadedBookIds,
                 favoriteBookIds = libraryState.favoriteBookIds,
                 offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
+                isRefreshing = libraryState.isRefreshing,
                 filter = libraryState.filter,
                 showFilterSheet = libraryState.showFilterSheet,
                 onBookClick = { book ->
@@ -111,6 +112,7 @@ fun AppShell(
                 onResetFilter = libraryViewModel::resetFilter,
                 onContentFilterChange = libraryViewModel::setContentFilter,
                 onSortOrderChange = libraryViewModel::setSortOrder,
+                onRefresh = libraryViewModel::refresh,
             )
 
             BottomDestination.Player -> NowPlayingScreen(

@@ -192,6 +192,9 @@ services:
       DATABASE_URL: postgres://supabase_storage_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
       STORAGE_PUBLIC_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       FILE_SIZE_LIMIT: 524288000
+      REQUEST_ALLOW_X_FORWARDED_PATH: "true"
+      NODE_ENV: production
+      TUS_URL_PATH: upload/resumable
       STORAGE_BACKEND: file
       GLOBAL_S3_BUCKET: content
       TENANT_ID: tonezen
@@ -264,7 +267,7 @@ services:
         condition: service_started
     environment:
       DATABASE_URL: postgres://supabase_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
-      CONTENT_ROOT: /var/lib/storage/tonezen/content
+      CONTENT_ROOT: /var/lib/storage/content/tonezen/content
       INDEXER_INTERVAL_SECONDS: 60
     volumes:
       - tonezen-storage:/var/lib/storage:ro

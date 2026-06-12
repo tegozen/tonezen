@@ -12,4 +12,5 @@ data class LibraryUiState(
     val filter: LibraryFilterState = LibraryFilterState(),
     val showFilterSheet: Boolean = false,
     val nowPlayingTitle: String? = null,
+    val isRefreshing: Boolean = false,
 )

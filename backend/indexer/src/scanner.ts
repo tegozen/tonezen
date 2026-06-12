@@ -9,7 +9,7 @@ import {
   type ParsedBook,
   type ParsedCycle,
 } from "./parsers.js";
-import { probeAudioTags } from "./mediaProbe.js";
+import { probeAudioTags, resolveStorageObjectPath } from "./mediaProbe.js";
 
 async function fileExists(filePath: string): Promise<boolean> {
   try {
@@ -96,9 +96,12 @@ async function scanMusic(musicDir: string): Promise<ParsedBook[]> {
   const files = [];
 
   for (const entry of entries) {
-    if (!entry.isFile() || !isAudioFilename(entry.name)) continue;
+    if (!isAudioFilename(entry.name)) continue;
 
-    const filePath = path.join(musicDir, entry.name);
+    const objectPath = path.join(musicDir, entry.name);
+    const filePath = await resolveStorageObjectPath(objectPath);
+    if (!filePath) continue;
+
     const tags = await probeAudioTags(filePath);
 
     files.push({

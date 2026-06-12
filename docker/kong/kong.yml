@@ -42,6 +42,18 @@ services:
         paths:
           - /storage/v1
 
+  # TUS resumable uploads: storage returns Location without /storage/v1 prefix
+  - name: storage-tus
+    url: http://storage:5000/
+    routes:
+      - name: storage-tus-all
+        strip_path: false
+        regex_priority: 10
+        paths:
+          - /upload/
+    plugins:
+      - name: cors
+
   - name: realtime-v1-ws
     url: http://realtime-dev.supabase-realtime:4000/socket
     protocol: ws
@@ -80,8 +92,10 @@ plugins:
         - "*"
       methods:
         - GET
+        - HEAD
         - POST
         - PUT
+        - PATCH
         - DELETE
         - OPTIONS
       headers:

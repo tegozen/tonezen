@@ -93,6 +93,7 @@ private fun LibraryScreenPreview() {
             downloadedBookIds = setOf("midnight"),
             favoriteBookIds = emptySet(),
             offlineBanner = false,
+            isRefreshing = false,
             filter = LibraryFilterState(),
             showFilterSheet = false,
             onBookClick = {},
@@ -103,6 +104,7 @@ private fun LibraryScreenPreview() {
             onResetFilter = {},
             onContentFilterChange = {},
             onSortOrderChange = {},
+            onRefresh = {},
         )
     }
 }

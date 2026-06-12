@@ -1,29 +1,10 @@
 /**
- * Register cycles/ and music/ layout in Storage via API (Studio reads storage.objects).
+ * Ensure cycles/ and music/ prefixes exist in Storage (Studio shows folders via placeholder objects).
  */
 
 export const LAYOUT_DIRS = ["cycles", "music"];
 export const DEFAULT_BUCKET = "content";
-
-const README = {
-  cycles: `Аудиокниги (cycles)
-
-Структура:
-  cycles/{cycle-slug}/cycle.json
-  cycles/{cycle-slug}/books/{book-slug}/book.json
-  cycles/{cycle-slug}/books/{book-slug}/audio/*.mp3
-
-См. docs/content-layout.md в репозитории Tonezen.
-`,
-  music: `Музыка (music)
-
-Загрузите аудиофайлы (.mp3, .flac, …) прямо в music/.
-Метаданные (название, исполнитель, альбом) читаются из тегов файла.
-Без тегов используется имя файла.
-
-См. docs/content-layout.md в репозитории Tonezen.
-`,
-};
+const PLACEHOLDER = ".gitkeep";
 
 function authHeaders(serviceKey) {
   return {
@@ -39,14 +20,13 @@ export async function uploadLayoutObject({
   serviceKey,
   bucket = DEFAULT_BUCKET,
   objectPath,
-  body,
   fetchFn = fetch,
 }) {
   const base = storageUrl.replace(/\/$/, "");
   const res = await fetchFn(`${base}/object/${bucket}/${objectPath}`, {
     method: "POST",
     headers: authHeaders(serviceKey),
-    body,
+    body: "",
   });
   if (!res.ok) {
     const text = await res.text();
@@ -64,13 +44,12 @@ export async function ensureContentLayout({
   const created = [];
 
   for (const dir of LAYOUT_DIRS) {
-    const objectPath = `${dir}/README.txt`;
+    const objectPath = `${dir}/${PLACEHOLDER}`;
     await uploadLayoutObject({
       storageUrl,
       serviceKey,
       bucket,
       objectPath,
-      body: README[dir],
       fetchFn,
     });
     created.push(objectPath);

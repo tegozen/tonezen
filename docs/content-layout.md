@@ -1,10 +1,6 @@
 # Content Storage Layout
 
-Upload audio to **Supabase Storage** bucket `content` via Studio (http://localhost:8000 → Storage).
-
-On `docker compose up`, the `storage-bootstrap` service creates **`cycles/`** and **`music/`** inside the bucket (with `README.txt` hints). Upload only into those folders.
-
-Use this folder structure inside the bucket. The catalog indexer scans the storage file backend and upserts metadata into Postgres.
+Upload audio to **Supabase Storage** bucket `content` via Studio (http://localhost:8000 → Storage). On `docker compose up`, `storage-bootstrap` ensures **`cycles/`** and **`music/`** exist (via empty `.gitkeep` placeholders).
 
 ## Root structure
 
@@ -64,7 +60,7 @@ The indexer reads tags from each file (title, artist, album, track number). Miss
 
 ## Indexer behavior
 
-- Scans `tonezen/content/` inside the `tonezen-storage` Docker volume
+- Scans `content/tonezen/content/` inside the `tonezen-storage` Docker volume (Supabase Storage file backend)
 - Computes SHA-256 checksum and file size for each audio file
 - Extracts duration and ID3/metadata tags via ffprobe when available
 - Sets `deleted_at` on catalog entries removed from storage (soft delete)

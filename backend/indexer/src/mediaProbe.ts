@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
@@ -40,6 +40,31 @@ export function parseTrackNumber(raw: string | null | undefined): number | null 
   if (!match) return null;
   const n = parseInt(match[1], 10);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+export async function resolveStorageObjectPath(objectPath: string): Promise<string | null> {
+  try {
+    const info = await stat(objectPath);
+    if (info.isFile()) return objectPath;
+    if (!info.isDirectory()) return null;
+  } catch {
+    return null;
+  }
+
+  const entries = await readdir(objectPath, { withFileTypes: true });
+  let best: { path: string; size: number } | null = null;
+
+  for (const entry of entries) {
+    if (!entry.isFile() || entry.name.endsWith(".json")) continue;
+    const filePath = path.join(objectPath, entry.name);
+    const fileInfo = await stat(filePath);
+    if (fileInfo.size === 0) continue;
+    if (!best || fileInfo.size > best.size) {
+      best = { path: filePath, size: fileInfo.size };
+    }
+  }
+
+  return best?.path ?? null;
 }
 
 export async function probeAudioTags(filePath: string): Promise<AudioTags | null> {
@@ -98,7 +123,9 @@ export async function analyzeAudioFile(
   contentRoot: string,
   storagePath: string,
 ): Promise<FileMetadata | null> {
-  const filePath = path.join(contentRoot, storagePath);
+  const filePath = await resolveStorageObjectPath(path.join(contentRoot, storagePath));
+  if (!filePath) return null;
+
   try {
     const info = await stat(filePath);
     const checksum = await sha256File(filePath);

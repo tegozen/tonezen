@@ -104,22 +104,31 @@ class LibraryViewModel @Inject constructor(
                 )
             }
         }
-        if (networkMonitor.isOnline() && refreshed != null) {
-            progressSyncRepository.start(refreshed)
-            syncCatalog(refreshed)
+        if (networkMonitor.isOnline()) {
+            refreshed?.let { progressSyncRepository.start(it) }
+            syncCatalog(refreshed?.accessToken)
         }
     }
 
-    private suspend fun syncCatalog(session: StoredSession) {
-        val refreshed = sessionRepository.refreshIfNeeded(session) ?: return
-        refreshed.accessToken.let { progressSyncRepository.updateAuth(it) }
-        val remoteBooks = catalogRepository.syncFromRemote(refreshed.accessToken)
+    private suspend fun syncCatalog(accessToken: String?) {
+        val remoteBooks = catalogRepository.syncFromRemote(accessToken)
         _uiState.update {
             it.copy(
                 books = remoteBooks,
                 downloadedBookIds = catalogRepository.downloadedBookIds(remoteBooks),
                 favoriteBookIds = catalogRepository.getFavoriteBookIds(),
             )
+        }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true) }
+            try {
+                loadLibrary(sessionRepository.loadSession())
+            } finally {
+                _uiState.update { it.copy(isRefreshing = false) }
+            }
         }
     }
 
