@@ -36,6 +36,7 @@ import javax.inject.Inject
 data class MainUiState(
     val sessionState: SessionState = SessionState.UNAUTHENTICATED,
     val books: List<Book> = emptyList(),
+    val downloadedBookIds: Set<String> = emptySet(),
     val selectedBook: Book? = null,
     val tracks: List<Track> = emptyList(),
     val progressLabel: String? = null,
@@ -208,6 +209,7 @@ class MainViewModel @Inject constructor(
                 }
                 _uiState.update { it.copy(downloadProgress = null) }
                 selectBook(book)
+                _uiState.update { it.copy(downloadedBookIds = it.downloadedBookIds + book.id) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message, downloadProgress = null) }
             }
@@ -223,6 +225,7 @@ class MainViewModel @Inject constructor(
                 downloadRepository.deleteLocalTrack(book.id, track.id)
             }
             selectBook(book)
+            _uiState.update { it.copy(downloadedBookIds = it.downloadedBookIds - book.id) }
         }
     }
 
@@ -262,7 +265,12 @@ class MainViewModel @Inject constructor(
             refreshSessionState()
             val local = catalogDao.getAllBooks().map { it.toDomain() }
             if (local.isNotEmpty()) {
-                _uiState.update { it.copy(books = local) }
+                _uiState.update {
+                    it.copy(
+                        books = local,
+                        downloadedBookIds = loadDownloadedBookIds(local),
+                    )
+                }
             }
             if (context.isNetworkAvailable() && session != null) {
                 session?.let { progressSyncRepository.start(it) }
@@ -289,8 +297,18 @@ class MainViewModel @Inject constructor(
                 },
             )
         }
-        _uiState.update { it.copy(books = remoteBooks) }
+        _uiState.update {
+            it.copy(
+                books = remoteBooks,
+                downloadedBookIds = loadDownloadedBookIds(remoteBooks),
+            )
+        }
     }
+
+    private suspend fun loadDownloadedBookIds(books: List<Book>): Set<String> = books
+        .filter { book -> catalogDao.getTracksForBook(book.id).any { it.localPath != null } }
+        .map { it.id }
+        .toSet()
 
     private fun BookEntity.toDomain() = Book(
         id = id,
