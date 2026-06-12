@@ -28,14 +28,17 @@ import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenTeal
+import dev.chrisbanes.haze.HazeState
 
 @Composable
 internal fun PrivacySettingsScreen(
     padding: PaddingValues,
+    hazeState: HazeState,
     onBack: () -> Unit,
     onOpenAppSettings: () -> Unit,
 ) {
     TonezenFixedHeaderScreen(
+        hazeState = hazeState,
         padding = padding,
         onBack = onBack,
         title = {

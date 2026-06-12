@@ -7,12 +7,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -42,17 +45,161 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
-import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenChromeBarBackground
 import com.tonezen.app.ui.theme.TonezenChromeBarBorder
-import com.tonezen.app.ui.theme.TonezenFixedHeaderVerticalPadding
+import com.tonezen.app.ui.theme.TonezenBackChromeScrollPadding
+import com.tonezen.app.ui.theme.TonezenChromeBarOuterVerticalMargin
+import com.tonezen.app.ui.theme.TonezenChromeBarVerticalPadding
+import com.tonezen.app.ui.theme.TonezenChromeHorizontalMargin
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenScreenHorizontalPadding
+import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
 import com.tonezen.app.ui.theme.tonezenScrollContentPadding
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
+
+private val TonezenChromeCornerRadius = 16.dp
+private val TonezenChromeBarShape = RoundedCornerShape(TonezenChromeCornerRadius)
+
+@OptIn(ExperimentalHazeMaterialsApi::class)
+@Composable
+internal fun Modifier.tonezenGlassSurface(
+    hazeState: HazeState,
+    shape: Shape = TonezenChromeBarShape,
+): Modifier =
+    clip(shape)
+        .hazeChild(
+            state = hazeState,
+            style = HazeMaterials.thin(
+                containerColor = TonezenChromeBarBackground.copy(alpha = 0.62f),
+            ),
+        ) {
+            blurRadius = 24.dp
+            noiseFactor = 0.08f
+        }
+        .border(BorderStroke(1.dp, TonezenChromeBarBorder), shape)
+
+@OptIn(ExperimentalHazeMaterialsApi::class)
+@Composable
+private fun Modifier.tonezenGlassChrome(hazeState: HazeState, shape: Shape = TonezenChromeBarShape): Modifier =
+    tonezenGlassSurface(hazeState, shape)
+
+@OptIn(ExperimentalHazeMaterialsApi::class)
+@Composable
+private fun TonezenChromeBarShell(
+    hazeState: HazeState,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = TonezenChromeHorizontalMargin,
+                    vertical = TonezenChromeBarOuterVerticalMargin,
+                )
+                .tonezenGlassChrome(hazeState),
+            content = content,
+        )
+    }
+}
+
+@Composable
+internal fun TonezenTopChromeBar(
+    hazeState: HazeState,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    TonezenChromeBarShell(hazeState = hazeState, modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = TonezenScreenHorizontalPadding,
+                    end = TonezenScreenHorizontalPadding,
+                    top = TonezenChromeBarVerticalPadding,
+                    bottom = TonezenChromeBarVerticalPadding,
+                ),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            content = content,
+        )
+        HorizontalDivider(
+            modifier = Modifier.fillMaxWidth(),
+            thickness = 1.dp,
+            color = TonezenChromeBarBorder,
+        )
+    }
+}
+
+@Composable
+internal fun TonezenBackChromeBar(
+    hazeState: HazeState,
+    onBack: () -> Unit,
+    title: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    TonezenChromeBarShell(hazeState = hazeState, modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = TonezenScreenHorizontalPadding,
+                    end = TonezenScreenHorizontalPadding,
+                    top = TonezenChromeBarVerticalPadding,
+                    bottom = TonezenChromeBarVerticalPadding,
+                ),
+        ) {
+            TonezenBackHeaderRow(
+                onBack = onBack,
+                title = title,
+                trailing = trailing,
+            )
+        }
+        HorizontalDivider(
+            modifier = Modifier.fillMaxWidth(),
+            thickness = 1.dp,
+            color = TonezenChromeBarBorder,
+        )
+    }
+}
+
+@Composable
+internal fun TonezenBottomChromeBar(
+    hazeState: HazeState,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding(),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = TonezenChromeHorizontalMargin)
+                .tonezenGlassChrome(hazeState),
+        ) {
+            HorizontalDivider(
+                modifier = Modifier.fillMaxWidth(),
+                thickness = 1.dp,
+                color = TonezenChromeBarBorder,
+            )
+            content()
+        }
+    }
+}
 
 @Composable
 internal fun BackNavButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -115,6 +262,7 @@ internal fun TonezenBackHeaderRow(
 
 @Composable
 internal fun TonezenFixedHeaderScreen(
+    hazeState: HazeState,
     padding: PaddingValues,
     onBack: () -> Unit,
     title: @Composable () -> Unit,
@@ -123,34 +271,28 @@ internal fun TonezenFixedHeaderScreen(
     verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(16.dp),
     content: LazyListScope.() -> Unit,
 ) {
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(TonezenSurface)
             .padding(padding),
     ) {
-        TonezenBackHeaderRow(
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .haze(state = hazeState),
+            contentPadding = tonezenScrollContentPadding(
+                top = TonezenBackChromeScrollPadding,
+            ),
+            verticalArrangement = verticalArrangement,
+            content = content,
+        )
+        TonezenBackChromeBar(
+            modifier = Modifier.align(Alignment.TopCenter),
+            hazeState = hazeState,
             onBack = onBack,
             title = title,
             trailing = trailing,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(TonezenChromeBarBackground)
-                .padding(
-                    horizontal = TonezenScreenHorizontalPadding,
-                    vertical = TonezenFixedHeaderVerticalPadding,
-                ),
-        )
-        HorizontalDivider(
-            modifier = Modifier.fillMaxWidth(),
-            thickness = 1.dp,
-            color = TonezenChromeBarBorder,
-        )
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = tonezenScrollContentPadding(),
-            verticalArrangement = verticalArrangement,
-            content = content,
         )
     }
 }

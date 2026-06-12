@@ -2,6 +2,7 @@ package com.tonezen.app.ui.downloads
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -31,7 +31,12 @@ import com.tonezen.app.R
 import com.tonezen.app.domain.downloads.DownloadedBookSummary
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.ui.components.BookCover
+import com.tonezen.app.ui.components.TonezenGlassAlertDialog
 import com.tonezen.app.ui.components.TonezenTabs
+import com.tonezen.app.ui.components.TonezenTopChromeBar
+import com.tonezen.app.ui.theme.TonezenBottomChromeScrollPadding
+import com.tonezen.app.ui.theme.TonezenDownloadsChromeScrollPadding
+import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenError
 import com.tonezen.app.ui.theme.TonezenInk
@@ -39,9 +44,13 @@ import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenTeal
 
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+
 @Composable
 internal fun DownloadsScreen(
     padding: PaddingValues,
+    hazeState: HazeState,
     viewModel: DownloadsViewModel,
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -55,53 +64,80 @@ internal fun DownloadsScreen(
         viewModel.showDeleteAllConfirm(false)
     }
 
-    if (state.showDeleteAllConfirm) {
-        AlertDialog(
-            onDismissRequest = { viewModel.showDeleteAllConfirm(false) },
-            title = { Text(stringResource(R.string.delete_all_confirm_title)) },
-            text = { Text(stringResource(R.string.delete_all_confirm_body)) },
-            confirmButton = {
-                TextButton(onClick = viewModel::deleteAll) {
-                    Text(stringResource(R.string.delete_all), color = TonezenError)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.showDeleteAllConfirm(false) }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-        )
-    }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().background(TonezenSurface).padding(padding),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            Text(stringResource(R.string.downloads), color = TonezenInk, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
-        item {
-            TonezenTabs(selectedTab = state.selectedTab, onSelect = viewModel::selectTab)
-        }
-        item {
-            StorageSummary(
-                usedBytes = state.storageStats.usedBytes,
-                percent = state.storageStats.usedPercent,
+    TonezenGlassAlertDialog(
+        visible = state.showDeleteAllConfirm,
+        hazeState = hazeState,
+        onDismissRequest = { viewModel.showDeleteAllConfirm(false) },
+        title = {
+            Text(
+                stringResource(R.string.delete_all_confirm_title),
+                color = TonezenInk,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
             )
-        }
-        items(tabSummaries) { summary ->
-            DownloadRow(summary = summary)
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = { }, enabled = false, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.pause_all), color = TonezenMuted)
-                }
-                OutlinedButton(onClick = { viewModel.showDeleteAllConfirm(true) }, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.delete_all), color = TonezenError)
+        },
+        text = {
+            Text(stringResource(R.string.delete_all_confirm_body), color = TonezenMuted)
+        },
+        confirmButton = {
+            TextButton(onClick = viewModel::deleteAll) {
+                Text(stringResource(R.string.delete_all), color = TonezenError)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { viewModel.showDeleteAllConfirm(false) }) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(TonezenSurface)
+            .padding(padding),
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .haze(state = hazeState),
+            contentPadding = tonezenScreenContentPadding(
+                top = TonezenDownloadsChromeScrollPadding,
+                bottom = TonezenBottomChromeScrollPadding,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item {
+                StorageSummary(
+                    usedBytes = state.storageStats.usedBytes,
+                    percent = state.storageStats.usedPercent,
+                )
+            }
+            items(tabSummaries) { summary ->
+                DownloadRow(summary = summary)
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(onClick = { }, enabled = false, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.pause_all), color = TonezenMuted)
+                    }
+                    OutlinedButton(onClick = { viewModel.showDeleteAllConfirm(true) }, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.delete_all), color = TonezenError)
+                    }
                 }
             }
+        }
+        TonezenTopChromeBar(
+            modifier = Modifier.align(Alignment.TopCenter),
+            hazeState = hazeState,
+        ) {
+            Text(
+                stringResource(R.string.downloads),
+                color = TonezenInk,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            TonezenTabs(selectedTab = state.selectedTab, onSelect = viewModel::selectTab)
         }
     }
 }

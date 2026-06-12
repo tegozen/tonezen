@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -34,16 +33,17 @@ import com.tonezen.app.ui.components.PlayingBars
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.components.TrackActionsSheet
 import com.tonezen.app.ui.theme.TonezenAmber
-import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
 import com.tonezen.app.ui.theme.durationLabel
+import dev.chrisbanes.haze.HazeState
 
 @Composable
 internal fun BookDetailScreen(
     padding: PaddingValues,
+    hazeState: HazeState,
     @Suppress("UNUSED_PARAMETER") book: Book,
     uiState: BookDetailUiState,
     onBack: () -> Unit,
@@ -67,47 +67,43 @@ internal fun BookDetailScreen(
         }
     }
 
-    if (uiState.showDownloadSheet) {
-        DownloadConfirmSheet(
-            estimatedBytes = uiState.estimatedDownloadBytes,
-            onDismiss = onDismissDownloadSheet,
-            onConfirm = onConfirmDownload,
-        )
-    }
-    uiState.actionTrack?.let { track ->
-        if (uiState.showTrackActions) {
-            TrackActionsSheet(
-                track = track,
-                onDismiss = onDismissTrackActions,
-                onPlayNext = onPlayNext,
-                onMarkComplete = onMarkComplete,
-                onRemoveDownload = onRemoveDownload,
-            )
-        }
-    }
+    DownloadConfirmSheet(
+        visible = uiState.showDownloadSheet,
+        hazeState = hazeState,
+        estimatedBytes = uiState.estimatedDownloadBytes,
+        onDismiss = onDismissDownloadSheet,
+        onConfirm = onConfirmDownload,
+    )
+    TrackActionsSheet(
+        visible = uiState.showTrackActions,
+        hazeState = hazeState,
+        track = uiState.actionTrack,
+        onDismiss = onDismissTrackActions,
+        onPlayNext = onPlayNext,
+        onMarkComplete = onMarkComplete,
+        onRemoveDownload = onRemoveDownload,
+    )
 
-    Scaffold(containerColor = TonezenSurface) { innerPadding ->
-        TonezenFixedHeaderScreen(
-            modifier = Modifier.padding(innerPadding),
-            padding = padding,
-            onBack = onBack,
-            title = {
-                Text(
-                    text = stringResource(R.string.chapters),
-                    color = TonezenInk,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            },
-        ) {
-            items(tracks, key = { it.id }) { track ->
-                ChapterRow(
-                    track = track,
-                    selected = track.id == activeTrackId,
-                    onClick = { onTrackClick(track) },
-                    onLongClick = { onShowTrackActions(track) },
-                )
-            }
+    TonezenFixedHeaderScreen(
+        hazeState = hazeState,
+        padding = padding,
+        onBack = onBack,
+        title = {
+            Text(
+                text = stringResource(R.string.chapters),
+                color = TonezenInk,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+    ) {
+        items(tracks, key = { it.id }) { track ->
+            ChapterRow(
+                track = track,
+                selected = track.id == activeTrackId,
+                onClick = { onTrackClick(track) },
+                onLongClick = { onShowTrackActions(track) },
+            )
         }
     }
 }

@@ -35,10 +35,12 @@ import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
+import dev.chrisbanes.haze.HazeState
 
 @Composable
 internal fun SyncSettingsScreen(
     padding: PaddingValues,
+    hazeState: HazeState,
     sessionState: SessionState,
     lastSyncTime: String?,
     pendingSyncCount: Int,
@@ -49,6 +51,7 @@ internal fun SyncSettingsScreen(
     val online = sessionState == SessionState.AUTHENTICATED_ONLINE
 
     TonezenFixedHeaderScreen(
+        hazeState = hazeState,
         padding = padding,
         onBack = onBack,
         title = {

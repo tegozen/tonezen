@@ -12,6 +12,8 @@ import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.auth.AuthScreen
+import dev.chrisbanes.haze.HazeState
+import androidx.compose.runtime.remember
 import com.tonezen.app.ui.library.LibraryScreen
 import com.tonezen.app.ui.library.MusicPlaybackUi
 import com.tonezen.app.ui.library.MusicTrackPreview
@@ -98,7 +100,7 @@ private fun AuthScreenErrorPreview() {
 private fun LibraryScreenPreview() {
     TonezenTheme {
         LibraryScreen(
-            padding = PaddingValues(0.dp),
+            hazeState = remember { HazeState() },
             cycles = listOf(previewCycle),
             allCycles = listOf(previewCycle),
             books = previewBooks,
@@ -156,6 +158,7 @@ private fun ProfileScreenPreview() {
     TonezenTheme {
         ProfileScreenContent(
             padding = PaddingValues(0.dp),
+            hazeState = remember { HazeState() },
             state = profilePreviewState,
             onOverflowClick = {},
             onDismissOverflow = {},

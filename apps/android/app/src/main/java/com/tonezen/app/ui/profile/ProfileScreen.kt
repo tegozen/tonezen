@@ -56,16 +56,23 @@ import com.tonezen.app.ui.components.StorageGlyph
 import com.tonezen.app.ui.components.SyncGlyph
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenBorder
+import com.tonezen.app.ui.components.TonezenTopChromeBar
+import com.tonezen.app.ui.theme.TonezenBottomChromeScrollPadding
+import com.tonezen.app.ui.theme.TonezenProfileChromeScrollPadding
+import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 import com.tonezen.app.ui.theme.TonezenGreen
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 
 @Composable
 internal fun ProfileScreen(
     padding: PaddingValues,
+    hazeState: HazeState,
     viewModel: ProfileViewModel,
     onOpenDownloads: () -> Unit,
 ) {
@@ -86,27 +93,28 @@ internal fun ProfileScreen(
         }
     }
 
-    if (state.showSignOutConfirm) {
-        SignOutConfirmDialog(
-            onDismiss = { viewModel.setSignOutConfirmVisible(false) },
-            onConfirm = {
-                viewModel.setSignOutConfirmVisible(false)
-                viewModel.logout()
-            },
-        )
-    }
-    if (state.showSyncDialog) {
-        OfflineSyncDialog(
-            onDismiss = { viewModel.setSyncDialogVisible(false) },
-            onRetry = {
-                viewModel.setSyncDialogVisible(false)
-                viewModel.syncNow()
-            },
-        )
-    }
+    SignOutConfirmDialog(
+        visible = state.showSignOutConfirm,
+        hazeState = hazeState,
+        onDismiss = { viewModel.setSignOutConfirmVisible(false) },
+        onConfirm = {
+            viewModel.setSignOutConfirmVisible(false)
+            viewModel.logout()
+        },
+    )
+    OfflineSyncDialog(
+        visible = state.showSyncDialog,
+        hazeState = hazeState,
+        onDismiss = { viewModel.setSyncDialogVisible(false) },
+        onRetry = {
+            viewModel.setSyncDialogVisible(false)
+            viewModel.syncNow()
+        },
+    )
     when (state.activeSettingsScreen) {
         ProfileSettingsAction.Account -> AccountSettingsScreen(
             padding = padding,
+            hazeState = hazeState,
             displayName = state.displayName.orEmpty(),
             email = state.email.orEmpty(),
             profileSaving = state.profileSaving,
@@ -120,6 +128,7 @@ internal fun ProfileScreen(
         )
         ProfileSettingsAction.Sync -> SyncSettingsScreen(
             padding = padding,
+            hazeState = hazeState,
             sessionState = state.sessionState,
             lastSyncTime = state.lastSyncTime,
             pendingSyncCount = state.pendingSyncCount,
@@ -129,6 +138,7 @@ internal fun ProfileScreen(
         )
         ProfileSettingsAction.Storage -> StorageSettingsScreen(
             padding = padding,
+            hazeState = hazeState,
             usedBytes = state.storageUsedBytes,
             totalBytes = state.storageTotalBytes,
             onBack = viewModel::closeSettingsScreen,
@@ -139,6 +149,7 @@ internal fun ProfileScreen(
         )
         ProfileSettingsAction.Privacy -> PrivacySettingsScreen(
             padding = padding,
+            hazeState = hazeState,
             onBack = viewModel::closeSettingsScreen,
             onOpenAppSettings = {
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -149,6 +160,7 @@ internal fun ProfileScreen(
         )
         null -> ProfileScreenContent(
             padding = padding,
+            hazeState = hazeState,
             state = state,
             onOverflowClick = { viewModel.setOverflowMenuVisible(true) },
             onDismissOverflow = { viewModel.setOverflowMenuVisible(false) },
@@ -162,6 +174,7 @@ internal fun ProfileScreen(
 @Composable
 internal fun ProfileScreenContent(
     padding: PaddingValues,
+    hazeState: HazeState,
     state: ProfileUiState,
     onOverflowClick: () -> Unit,
     onDismissOverflow: () -> Unit,
@@ -197,15 +210,55 @@ internal fun ProfileScreenContent(
         ),
     )
 
-    LazyColumn(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(TonezenSurface)
             .padding(padding),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .haze(state = hazeState),
+            contentPadding = tonezenScreenContentPadding(
+                top = TonezenProfileChromeScrollPadding,
+                bottom = TonezenBottomChromeScrollPadding,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item {
+                ProfileUserCard(
+                    displayName = state.displayName.orEmpty(),
+                    email = state.email,
+                    memberSinceLabel = state.memberSinceLabel,
+                    avatarUrl = state.avatarUrl,
+                )
+            }
+            item {
+                Column {
+                    ProfileSectionLabel(stringResource(R.string.profile_sync_status_section))
+                    SyncStatusCard(
+                        lastSyncTime = state.lastSyncTime,
+                        pendingSyncCount = state.pendingSyncCount,
+                        syncing = state.syncing,
+                        onSyncNow = onSyncNow,
+                    )
+                }
+            }
+            item {
+                Column {
+                    ProfileSectionLabel(stringResource(R.string.profile_settings_section))
+                    SettingsGroup(
+                        items = settingsItems,
+                        onItemClick = onSettingsClick,
+                    )
+                }
+            }
+        }
+        TonezenTopChromeBar(
+            modifier = Modifier.align(Alignment.TopCenter),
+            hazeState = hazeState,
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -218,8 +271,8 @@ internal fun ProfileScreenContent(
                     Text(
                         stringResource(R.string.profile_title),
                         color = TonezenInk,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                     )
                     StatusChip(
                         label = if (online) stringResource(R.string.online) else stringResource(R.string.offline),
@@ -240,34 +293,6 @@ internal fun ProfileScreenContent(
                         )
                     }
                 }
-            }
-        }
-        item {
-            ProfileUserCard(
-                displayName = state.displayName.orEmpty(),
-                email = state.email,
-                memberSinceLabel = state.memberSinceLabel,
-                avatarUrl = state.avatarUrl,
-            )
-        }
-        item {
-            Column {
-                ProfileSectionLabel(stringResource(R.string.profile_sync_status_section))
-                SyncStatusCard(
-                    lastSyncTime = state.lastSyncTime,
-                    pendingSyncCount = state.pendingSyncCount,
-                    syncing = state.syncing,
-                    onSyncNow = onSyncNow,
-                )
-            }
-        }
-        item {
-            Column {
-                ProfileSectionLabel(stringResource(R.string.profile_settings_section))
-                SettingsGroup(
-                    items = settingsItems,
-                    onItemClick = onSettingsClick,
-                )
             }
         }
     }

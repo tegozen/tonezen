@@ -27,10 +27,12 @@ import com.tonezen.app.ui.components.ChevronRightGlyph
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
+import dev.chrisbanes.haze.HazeState
 
 @Composable
 internal fun StorageSettingsScreen(
     padding: PaddingValues,
+    hazeState: HazeState,
     usedBytes: Long,
     totalBytes: Long?,
     onBack: () -> Unit,
@@ -39,6 +41,7 @@ internal fun StorageSettingsScreen(
     val usedPercent = totalBytes?.takeIf { it > 0L }?.let { usedBytes.toFloat() / it.toFloat() }
 
     TonezenFixedHeaderScreen(
+        hazeState = hazeState,
         padding = padding,
         onBack = onBack,
         title = {

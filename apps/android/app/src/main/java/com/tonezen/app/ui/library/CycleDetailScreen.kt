@@ -32,16 +32,19 @@ import com.tonezen.app.ui.components.bookAuthorLabel
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
+import dev.chrisbanes.haze.HazeState
 
 @Composable
 internal fun CycleDetailScreen(
     padding: PaddingValues,
+    hazeState: HazeState,
     cycle: Cycle,
     downloadedBookIds: Set<String>,
     onBack: () -> Unit,
     onBookClick: (Book) -> Unit,
 ) {
     TonezenFixedHeaderScreen(
+        hazeState = hazeState,
         padding = padding,
         onBack = onBack,
         verticalArrangement = Arrangement.spacedBy(20.dp),

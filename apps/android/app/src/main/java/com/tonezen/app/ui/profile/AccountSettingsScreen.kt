@@ -48,10 +48,12 @@ import com.tonezen.app.ui.theme.TonezenScreenBrush
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
+import dev.chrisbanes.haze.HazeState
 
 @Composable
 internal fun AccountSettingsScreen(
     padding: PaddingValues,
+    hazeState: HazeState,
     displayName: String,
     email: String,
     profileSaving: Boolean,
@@ -70,6 +72,7 @@ internal fun AccountSettingsScreen(
     var confirmVisible by remember(passwordFormNonce) { mutableStateOf(false) }
 
     TonezenFixedHeaderScreen(
+        hazeState = hazeState,
         padding = padding,
         onBack = onBack,
         title = {

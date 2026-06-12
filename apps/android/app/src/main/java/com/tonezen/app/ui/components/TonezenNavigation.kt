@@ -29,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenAppBg
-import com.tonezen.app.ui.theme.TonezenChromeBarBackground
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
@@ -49,8 +48,7 @@ internal fun TonezenBottomNavigation(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(TonezenChromeBarBackground)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -109,6 +107,7 @@ internal fun MiniPlayer(
     durationMs: Long = 0L,
     onBarClick: () -> Unit = {},
     onPlayPauseClick: () -> Unit = {},
+    modifier: Modifier = Modifier,
 ) {
     if (!enabled || title == null) return
     val progress = if (durationMs > 0L) {
@@ -117,23 +116,10 @@ internal fun MiniPlayer(
         0f
     }
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .background(TonezenChromeBarBackground),
+            .padding(bottom = 4.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(3.dp)
-                .background(Color.White.copy(alpha = 0.08f)),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(progress)
-                    .height(3.dp)
-                    .background(TonezenTeal),
-            )
-        }
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -183,6 +169,24 @@ internal fun MiniPlayer(
                 }
             }
         }
+        MiniPlayerProgressBar(progress = progress)
+    }
+}
+
+@Composable
+private fun MiniPlayerProgressBar(progress: Float) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(3.dp)
+            .background(Color.White.copy(alpha = 0.08f)),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(progress)
+                .height(3.dp)
+                .background(TonezenTeal),
+        )
     }
 }
 
