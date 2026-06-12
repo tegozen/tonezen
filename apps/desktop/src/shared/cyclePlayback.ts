@@ -1,4 +1,4 @@
-import type { Book, ContentType, Cycle, Track } from "./types.js";
+import type { Book, Cycle, Track } from "./types.js";
 
 export interface NextPlaybackTarget {
   track: Track | null;

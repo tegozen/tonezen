@@ -1,5 +1,6 @@
-import type { Book } from "../shared/types.js";
+import type { Book, Track } from "../shared/types.js";
 import { apiV1Url } from "../shared/serverPaths.js";
+import { LocalDatabase } from "./database.js";
 
 interface ApiBook {
   id: string;
@@ -9,6 +10,14 @@ interface ApiBook {
   author?: string | null;
 }
 
+interface ApiTrack {
+  id: string;
+  sort_order: number;
+  title: string;
+  filename: string;
+  duration_ms?: number;
+}
+
 function mapBook(raw: ApiBook): Book {
   return {
     id: raw.id,
@@ -16,6 +25,17 @@ function mapBook(raw: ApiBook): Book {
     contentType: raw.content_type === "music" ? "music" : "audiobook",
     title: raw.title,
     author: raw.author ?? undefined,
+  };
+}
+
+function mapTrack(raw: ApiTrack, bookId: string): Track {
+  return {
+    id: raw.id,
+    bookId,
+    sortOrder: raw.sort_order,
+    title: raw.title,
+    filename: raw.filename,
+    durationMs: raw.duration_ms,
   };
 }
 
@@ -42,6 +62,24 @@ export class CatalogSyncService {
       books.push(mapBook(album));
     }
     return books;
+  }
+
+  async fetchBookTracks(bookId: string): Promise<Track[]> {
+    const res = await fetch(apiV1Url(this.baseUrl, `/catalog/books/${bookId}`), {
+      headers: this.buildHeaders(),
+    });
+    const detail = (await res.json()) as { tracks?: ApiTrack[] };
+    return (detail.tracks ?? []).map((track) => mapTrack(track, bookId));
+  }
+
+  async syncCatalog(): Promise<Book[]> {
+    const books = await this.fetchBooks();
+    LocalDatabase.upsertBooks(books);
+    for (const book of books) {
+      const tracks = await this.fetchBookTracks(book.id);
+      LocalDatabase.upsertTracks(tracks);
+    }
+    return LocalDatabase.getBooks();
   }
 
   private buildHeaders(): HeadersInit {

@@ -1,14 +1,4 @@
-import type { AudiobookProgress, SessionState, StoredSession } from "./types.js";
-
-export function mergeProgressLww(
-  local: AudiobookProgress | null,
-  remote: AudiobookProgress | null,
-): AudiobookProgress | null {
-  if (!local && !remote) return null;
-  if (!local) return remote;
-  if (!remote) return local;
-  return new Date(local.updatedAt) >= new Date(remote.updatedAt) ? local : remote;
-}
+import type { SessionState, StoredSession } from "./types.js";
 
 export class SessionManager {
   private refreshInFlight = false;
