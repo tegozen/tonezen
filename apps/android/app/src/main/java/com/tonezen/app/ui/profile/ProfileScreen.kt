@@ -73,11 +73,9 @@ internal fun ProfileScreen(
         enabled = state.showSignOutConfirm ||
             state.showSyncDialog ||
             state.showDeleteAllConfirm ||
-            state.avatarCropUri != null ||
             state.activeSettingsScreen != null,
     ) {
         when {
-            state.avatarCropUri != null -> viewModel.dismissAvatarCrop()
             state.showDeleteAllConfirm -> viewModel.setDeleteAllConfirmVisible(false)
             state.showSignOutConfirm -> viewModel.setSignOutConfirmVisible(false)
             state.showSyncDialog -> viewModel.setSyncDialogVisible(false)
@@ -104,14 +102,6 @@ internal fun ProfileScreen(
         },
     )
     when {
-        state.avatarCropUri != null -> AvatarCropScreen(
-            padding = padding,
-            hazeState = hazeState,
-            imageUri = checkNotNull(state.avatarCropUri),
-            uploading = state.avatarUploading,
-            onBack = viewModel::dismissAvatarCrop,
-            onConfirm = viewModel::uploadAvatar,
-        )
         state.activeSettingsScreen == ProfileSettingsAction.Account -> AccountSettingsScreen(
             padding = padding,
             hazeState = hazeState,

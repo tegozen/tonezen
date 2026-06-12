@@ -12,6 +12,13 @@ data class AvatarCropTransform(
     val offsetY: Float = 0f,
 )
 
+internal fun avatarCoverScale(
+    bitmapWidth: Int,
+    bitmapHeight: Int,
+    containerWidth: Float,
+    containerHeight: Float,
+): Float = max(containerWidth / bitmapWidth, containerHeight / bitmapHeight)
+
 fun minAvatarCoverScale(
     bitmapWidth: Int,
     bitmapHeight: Int,
@@ -22,11 +29,11 @@ fun minAvatarCoverScale(
     if (bitmapWidth <= 0 || bitmapHeight <= 0 || containerWidth <= 0f || containerHeight <= 0f) {
         return 1f
     }
-    val fitScale = min(containerWidth / bitmapWidth, containerHeight / bitmapHeight)
-    val fitWidth = bitmapWidth * fitScale
-    val fitHeight = bitmapHeight * fitScale
-    val scaleToCoverWidth = cropDiameter / fitWidth
-    val scaleToCoverHeight = cropDiameter / fitHeight
+    val coverScale = avatarCoverScale(bitmapWidth, bitmapHeight, containerWidth, containerHeight)
+    val displayWidth = bitmapWidth * coverScale
+    val displayHeight = bitmapHeight * coverScale
+    val scaleToCoverWidth = cropDiameter / displayWidth
+    val scaleToCoverHeight = cropDiameter / displayHeight
     return max(scaleToCoverWidth, scaleToCoverHeight).coerceAtLeast(1f)
 }
 
@@ -41,9 +48,9 @@ fun clampAvatarCropTransform(
     maxScale: Float,
 ): AvatarCropTransform {
     val scale = transform.scale.coerceIn(minScale, maxScale)
-    val fitScale = min(containerWidth / bitmapWidth, containerHeight / bitmapHeight)
-    val displayWidth = bitmapWidth * fitScale * scale
-    val displayHeight = bitmapHeight * fitScale * scale
+    val coverScale = avatarCoverScale(bitmapWidth, bitmapHeight, containerWidth, containerHeight)
+    val displayWidth = bitmapWidth * coverScale * scale
+    val displayHeight = bitmapHeight * coverScale * scale
     val maxOffsetX = max(0f, (displayWidth - cropDiameter) / 2f)
     val maxOffsetY = max(0f, (displayHeight - cropDiameter) / 2f)
     return AvatarCropTransform(
@@ -65,9 +72,9 @@ fun cropAvatarToJpeg(
     require(containerWidth > 0f && containerHeight > 0f && cropDiameter > 0f) {
         "Invalid crop container"
     }
-    val fitScale = min(containerWidth / bitmap.width, containerHeight / bitmap.height)
-    val displayWidth = bitmap.width * fitScale * transform.scale
-    val displayHeight = bitmap.height * fitScale * transform.scale
+    val coverScale = avatarCoverScale(bitmap.width, bitmap.height, containerWidth, containerHeight)
+    val displayWidth = bitmap.width * coverScale * transform.scale
+    val displayHeight = bitmap.height * coverScale * transform.scale
     val imageLeft = (containerWidth - displayWidth) / 2f + transform.offsetX
     val imageTop = (containerHeight - displayHeight) / 2f + transform.offsetY
     val centerX = containerWidth / 2f
@@ -100,4 +107,9 @@ fun cropAvatarToJpeg(
         output.recycle()
         stream.toByteArray()
     }
+}
+
+fun avatarCropDiameterPx(containerWidth: Float, containerHeight: Float): Float {
+    if (containerWidth <= 0f || containerHeight <= 0f) return 0f
+    return min(containerWidth, containerHeight) * 0.78f
 }

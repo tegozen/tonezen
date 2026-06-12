@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
+import kotlin.math.max
 
 class AvatarCropMathTest {
     @Test
@@ -15,11 +16,11 @@ class AvatarCropMathTest {
             containerHeight = 500f,
             cropDiameter = 200f,
         )
-        val fitScale = minOf(400f / 800f, 500f / 600f)
-        val fitWidth = 800 * fitScale * scale
-        val fitHeight = 600 * fitScale * scale
-        assertTrue(fitWidth >= 200f)
-        assertTrue(fitHeight >= 200f)
+        val coverScale = max(400f / 800f, 500f / 600f)
+        val displayWidth = 800 * coverScale * scale
+        val displayHeight = 600 * coverScale * scale
+        assertTrue(displayWidth >= 200f)
+        assertTrue(displayHeight >= 200f)
     }
 
     @Test
@@ -35,9 +36,9 @@ class AvatarCropMathTest {
             maxScale = 4f,
         )
         assertEquals(2f, clamped.scale, 0.001f)
-        val fitScale = minOf(400f / 1000f, 400f / 1000f)
-        val displayWidth = 1000 * fitScale * clamped.scale
-        val displayHeight = 1000 * fitScale * clamped.scale
+        val coverScale = max(400f / 1000f, 400f / 1000f)
+        val displayWidth = 1000 * coverScale * clamped.scale
+        val displayHeight = 1000 * coverScale * clamped.scale
         val maxOffsetX = kotlin.math.max(0f, (displayWidth - 240f) / 2f)
         val maxOffsetY = kotlin.math.max(0f, (displayHeight - 240f) / 2f)
         assertTrue(abs(clamped.offsetX) <= maxOffsetX + 0.01f)

@@ -28,6 +28,7 @@ import com.tonezen.app.ui.player.BookDetailViewModel
 import com.tonezen.app.ui.player.NowPlayingSheet
 import com.tonezen.app.ui.profile.ProfileScreen
 import com.tonezen.app.ui.profile.ProfileViewModel
+import com.tonezen.app.ui.profile.AvatarCropScreen
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.withoutBottom
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
@@ -42,12 +43,14 @@ fun AppShell(
 ) {
     val libraryState by libraryViewModel.uiState.collectAsState()
     val shellState by shellViewModel.uiState.collectAsState()
+    val profileState by profileViewModel.uiState.collectAsState()
     val musicDownload by shellViewModel.musicDownloadState.collectAsState()
     val selectedBook = shellState.selectedBook
     val selectedCycle = shellState.selectedCycle
     val inLibraryOverlay = selectedCycle != null || selectedBook != null
+    val isAvatarCropping = profileState.avatarCropUri != null
     val miniPlayerVisible = shellState.showMiniPlayer && !shellState.nowPlayingTitle.isNullOrBlank()
-    val showBottomChrome = miniPlayerVisible || !inLibraryOverlay
+    val showBottomChrome = (miniPlayerVisible || !inLibraryOverlay) && !isAvatarCropping
     val overlayBottomScrollPadding = tonezenBottomChromeScrollPadding(
         showMiniPlayer = miniPlayerVisible,
         showBottomNav = false,
@@ -61,6 +64,9 @@ fun AppShell(
 
         BackHandler(enabled = shellState.showExpandedPlayer) {
             shellViewModel.dismissExpandedPlayer()
+        }
+        BackHandler(enabled = isAvatarCropping) {
+            profileViewModel.dismissAvatarCrop()
         }
         BackHandler(enabled = selectedBook != null && !shellState.showExpandedPlayer) {
             shellViewModel.closeBook()
@@ -211,6 +217,15 @@ fun AppShell(
                 musicDownload = musicDownload,
                 onDismiss = shellViewModel::dismissExpandedPlayer,
             )
+
+            if (isAvatarCropping) {
+                AvatarCropScreen(
+                    imageUri = checkNotNull(profileState.avatarCropUri),
+                    uploading = profileState.avatarUploading,
+                    onBack = profileViewModel::dismissAvatarCrop,
+                    onConfirm = profileViewModel::uploadAvatar,
+                )
+            }
         }
     }
 }

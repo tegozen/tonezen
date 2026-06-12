@@ -1,7 +1,6 @@
 package com.tonezen.app.ui.profile
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -9,10 +8,12 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -25,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,29 +42,30 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
 import com.tonezen.app.domain.avatar.AvatarCropTransform
+import com.tonezen.app.domain.avatar.avatarCoverScale
+import com.tonezen.app.domain.avatar.avatarCropDiameterPx
 import com.tonezen.app.domain.avatar.clampAvatarCropTransform
 import com.tonezen.app.domain.avatar.cropAvatarToJpeg
 import com.tonezen.app.domain.avatar.minAvatarCoverScale
-import com.tonezen.app.ui.components.TonezenBackChromeBar
+import com.tonezen.app.ui.components.BackNavButton
 import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
-import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenTeal
-import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
+private val AvatarCropBackground = Color(0xFF020617)
+
 @Composable
 internal fun AvatarCropScreen(
-    padding: PaddingValues,
-    hazeState: HazeState,
     imageUri: Uri,
     uploading: Boolean,
     onBack: () -> Unit,
@@ -74,9 +77,7 @@ internal fun AvatarCropScreen(
 
     LaunchedEffect(imageUri) {
         sourceBitmap = withContext(Dispatchers.IO) {
-            context.contentResolver.openInputStream(imageUri)?.use { stream ->
-                BitmapFactory.decodeStream(stream)
-            }
+            loadOrientedAvatarBitmap(context, imageUri)
         }
         loadError = sourceBitmap == null
     }
@@ -84,8 +85,7 @@ internal fun AvatarCropScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(TonezenSurface)
-            .padding(padding),
+            .background(AvatarCropBackground),
     ) {
         when {
             sourceBitmap == null && !loadError -> {
@@ -105,6 +105,7 @@ internal fun AvatarCropScreen(
                         stringResource(R.string.settings_account_avatar_load_error),
                         color = TonezenMuted,
                         style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
                     )
                 }
             }
@@ -116,17 +117,42 @@ internal fun AvatarCropScreen(
                 )
             }
         }
-        TonezenBackChromeBar(
-            modifier = Modifier.align(Alignment.TopCenter),
-            hazeState = hazeState,
-            onBack = onBack,
-            title = {
-                Text(
-                    stringResource(R.string.settings_account_avatar_crop_title),
-                    color = TonezenInk,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            },
+        AvatarCropTopBar(onBack = onBack)
+    }
+}
+
+@Composable
+private fun AvatarCropTopBar(onBack: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BackNavButton(onClick = onBack)
+            Text(
+                stringResource(R.string.settings_account_avatar_crop_title),
+                color = TonezenInk,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 48.dp),
+                textAlign = TextAlign.Center,
+            )
+        }
+        Text(
+            stringResource(R.string.settings_account_avatar_crop_hint),
+            color = TonezenMuted,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, start = 16.dp, end = 16.dp),
         )
     }
 }
@@ -140,12 +166,12 @@ private fun AvatarCropContent(
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var cropTransform by remember(bitmap) { mutableStateOf(AvatarCropTransform()) }
     var minScale by remember(bitmap) { mutableFloatStateOf(1f) }
+    val latestTransform = rememberUpdatedState(cropTransform)
     val cropDiameterPx = remember(containerSize) {
-        if (containerSize.width == 0 || containerSize.height == 0) {
-            0f
-        } else {
-            minOf(containerSize.width, containerSize.height) * 0.72f
-        }
+        avatarCropDiameterPx(
+            containerWidth = containerSize.width.toFloat(),
+            containerHeight = containerSize.height.toFloat(),
+        )
     }
 
     LaunchedEffect(bitmap, containerSize, cropDiameterPx) {
@@ -161,40 +187,31 @@ private fun AvatarCropContent(
         cropTransform = AvatarCropTransform(scale = coverScale)
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 88.dp, bottom = 24.dp, start = 20.dp, end = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-    ) {
-        Text(
-            stringResource(R.string.settings_account_avatar_crop_hint),
-            color = TonezenMuted,
-            style = MaterialTheme.typography.bodySmall,
-        )
+    Column(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .padding(top = 96.dp)
                 .onSizeChanged { containerSize = it }
-                .pointerInput(bitmap, cropDiameterPx, minScale, containerSize, cropTransform) {
+                .pointerInput(bitmap, minScale, cropDiameterPx, containerSize.width, containerSize.height) {
                     if (cropDiameterPx <= 0f) return@pointerInput
                     detectTransformGestures { _, pan, zoom, _ ->
-                        val next = clampAvatarCropTransform(
+                        val current = latestTransform.value
+                        cropTransform = clampAvatarCropTransform(
                             bitmapWidth = bitmap.width,
                             bitmapHeight = bitmap.height,
                             containerWidth = containerSize.width.toFloat(),
                             containerHeight = containerSize.height.toFloat(),
                             cropDiameter = cropDiameterPx,
                             transform = AvatarCropTransform(
-                                scale = cropTransform.scale * zoom,
-                                offsetX = cropTransform.offsetX + pan.x,
-                                offsetY = cropTransform.offsetY + pan.y,
+                                scale = current.scale * zoom,
+                                offsetX = current.offsetX + pan.x,
+                                offsetY = current.offsetY + pan.y,
                             ),
                             minScale = minScale,
                             maxScale = minScale * 4f,
                         )
-                        cropTransform = next
                     }
                 },
             contentAlignment = Alignment.Center,
@@ -222,7 +239,10 @@ private fun AvatarCropContent(
                 onConfirm(jpegBytes)
             },
             enabled = !uploading && containerSize.width > 0,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = TonezenTeal, contentColor = TonezenAppBg),
         ) {
@@ -248,9 +268,9 @@ private fun AvatarCropCanvas(
 ) {
     val imageBitmap = remember(bitmap) { bitmap.asImageBitmap() }
     Canvas(modifier = Modifier.fillMaxSize()) {
-        val fitScale = minOf(size.width / bitmap.width, size.height / bitmap.height)
-        val displayWidth = bitmap.width * fitScale * transform.scale
-        val displayHeight = bitmap.height * fitScale * transform.scale
+        val coverScale = avatarCoverScale(bitmap.width, bitmap.height, size.width, size.height)
+        val displayWidth = bitmap.width * coverScale * transform.scale
+        val displayHeight = bitmap.height * coverScale * transform.scale
         val left = (size.width - displayWidth) / 2f + transform.offsetX
         val top = (size.height - displayHeight) / 2f + transform.offsetY
         drawImage(
@@ -272,12 +292,12 @@ private fun AvatarCropCanvas(
             )
             fillType = PathFillType.EvenOdd
         }
-        drawPath(dimPath, Color.Black.copy(alpha = 0.58f))
+        drawPath(dimPath, Color.Black.copy(alpha = 0.68f))
         drawCircle(
-            color = Color.White.copy(alpha = 0.85f),
+            color = Color.White.copy(alpha = 0.92f),
             radius = radius,
             center = center,
-            style = Stroke(width = 2.dp.toPx()),
+            style = Stroke(width = 2.5.dp.toPx()),
         )
     }
 }
