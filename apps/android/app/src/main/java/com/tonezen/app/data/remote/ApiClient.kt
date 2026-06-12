@@ -1,8 +1,5 @@
 package com.tonezen.app.data.remote
 
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
@@ -141,11 +138,4 @@ class ApiClient(
         title = json.getString("title"),
         author = json.optString("author").takeIf { it.isNotBlank() },
     )
-}
-
-fun Context.isNetworkAvailable(): Boolean {
-    val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    val network = cm.activeNetwork ?: return false
-    val caps = cm.getNetworkCapabilities(network) ?: return false
-    return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
 }

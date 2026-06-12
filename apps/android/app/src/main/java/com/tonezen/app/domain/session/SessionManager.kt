@@ -1,16 +1,7 @@
 package com.tonezen.app.domain.session
 
-import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.domain.model.StoredSession
-
-object ProgressMerge {
-    fun mergeLww(local: AudiobookProgress?, remote: AudiobookProgress?): AudiobookProgress? {
-        if (local == null) return remote
-        if (remote == null) return local
-        return if (local.updatedAtEpochMs >= remote.updatedAtEpochMs) local else remote
-    }
-}
 
 class SessionManager(
     private val refreshLeadSeconds: Long = 300,

@@ -1,11 +1,12 @@
 package com.tonezen.app.domain.session
 
 import com.tonezen.app.domain.model.AudiobookProgress
+import com.tonezen.app.domain.model.StoredSession
+import com.tonezen.app.domain.progress.ProgressMerger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import com.tonezen.app.domain.model.StoredSession
 
 class SessionManagerTest {
     private val session = StoredSession(
@@ -48,6 +49,6 @@ class SessionManagerTest {
     fun mergeProgressPrefersNewerTimestamp() {
         val local = AudiobookProgress("b1", "t1", 100, 1000)
         val remote = AudiobookProgress("b1", "t2", 200, 2000)
-        assertEquals(remote, ProgressMerge.mergeLww(local, remote))
+        assertEquals(remote, ProgressMerger.merge(local, remote))
     }
 }

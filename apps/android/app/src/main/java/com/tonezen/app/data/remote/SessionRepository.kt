@@ -1,6 +1,7 @@
 package com.tonezen.app.data.remote
 
 import android.content.Context
+import com.tonezen.app.data.network.isNetworkAvailable
 import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.domain.session.SessionManager

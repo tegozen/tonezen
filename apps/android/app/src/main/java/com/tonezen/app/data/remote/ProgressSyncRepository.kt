@@ -3,10 +3,12 @@ package com.tonezen.app.data.remote
 import com.tonezen.app.BuildConfig
 import com.tonezen.app.data.local.AudiobookProgressEntity
 import com.tonezen.app.data.local.CatalogDao
+import com.tonezen.app.data.local.toDomain
+import com.tonezen.app.data.local.toEntity
+import com.tonezen.app.data.local.toProgressEntity
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.domain.progress.ProgressMerger
-import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -27,11 +29,11 @@ class ProgressSyncRepository @Inject constructor(
         supabaseUrl = BuildConfig.BASE_URL,
         anonKey = BuildConfig.SUPABASE_ANON_KEY,
         scope = scope,
-        onProgressChange = { row -> applyRemoteEntity(row.toEntity()) },
+        onProgressChange = { row -> applyRemoteEntity(row.toProgressEntity()) },
     )
 
-    private val _updates = MutableSharedFlow<AudiobookProgressEntity>(extraBufferCapacity = 8)
-    val updates: SharedFlow<AudiobookProgressEntity> = _updates.asSharedFlow()
+    private val _updates = MutableSharedFlow<AudiobookProgress>(extraBufferCapacity = 8)
+    val updates: SharedFlow<AudiobookProgress> = _updates.asSharedFlow()
 
     private var activeUserId: String? = null
 
@@ -58,11 +60,12 @@ class ProgressSyncRepository @Inject constructor(
 
     suspend fun pullAll(accessToken: String) {
         for (row in apiClient.fetchProgress(accessToken)) {
-            applyRemoteEntity(row.toEntity())
+            applyRemoteEntity(row.toProgressEntity())
         }
     }
 
-    suspend fun saveLocal(entity: AudiobookProgressEntity, accessToken: String?) {
+    suspend fun saveLocal(progress: AudiobookProgress, pendingSync: Boolean, accessToken: String?) {
+        val entity = progress.toEntity(pendingSync)
         catalogDao.upsertProgress(entity)
         if (accessToken != null) {
             pushProgress(accessToken, entity)
@@ -73,7 +76,7 @@ class ProgressSyncRepository @Inject constructor(
         apiClient.pushProgress(
             accessToken,
             entity.bookId,
-            AudiobookProgress(entity.bookId, entity.trackId, entity.positionMs, entity.updatedAtEpochMs),
+            entity.toDomain(),
         )
         catalogDao.upsertProgress(entity.copy(pendingSync = false))
     }
@@ -87,17 +90,9 @@ class ProgressSyncRepository @Inject constructor(
     private suspend fun applyRemoteEntity(remoteEntity: AudiobookProgressEntity) {
         val local = catalogDao.getProgress(remoteEntity.bookId)
         if (local?.pendingSync == true && local.updatedAtEpochMs > remoteEntity.updatedAtEpochMs) return
-        val merged = ProgressMerger.merge(local, remoteEntity) ?: return
-        val stored = merged.copy(pendingSync = false)
+        val merged = ProgressMerger.merge(local?.toDomain(), remoteEntity.toDomain()) ?: return
+        val stored = merged.toEntity(pendingSync = false)
         catalogDao.upsertProgress(stored)
-        _updates.emit(stored)
+        _updates.emit(merged)
     }
-
-    private fun ApiClient.RemoteProgress.toEntity() = AudiobookProgressEntity(
-        bookId = bookId,
-        trackId = trackId,
-        positionMs = positionMs,
-        updatedAtEpochMs = Instant.parse(updatedAt).toEpochMilli(),
-        pendingSync = false,
-    )
 }
