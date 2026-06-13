@@ -1,5 +1,7 @@
 import type { Book, Track } from "./types.js";
 
+export const MUSIC_LIBRARY_SLUG = "music-library";
+
 export interface MusicListTrack {
   trackId: string;
   trackTitle: string;
@@ -10,11 +12,38 @@ export interface MusicListTrack {
   isDownloaded: boolean;
 }
 
-export function buildMusicTrackList(books: Book[], tracks: Track[]): MusicListTrack[] {
-  const musicBooks = books.filter((b) => b.contentType === "music");
-  const bookById = new Map(musicBooks.map((b) => [b.id, b]));
+export function resolveMusicLibraryBooks(books: Book[]): Book[] {
+  const musicBooks = books.filter((book) => book.contentType === "music");
+  const libraryBooks = musicBooks.filter((book) => book.slug === MUSIC_LIBRARY_SLUG);
+  return libraryBooks.length > 0 ? libraryBooks : musicBooks;
+}
+
+export function resolveMusicLibraryTracks(books: Book[], tracks: Track[]): Track[] {
+  const sourceBooks = resolveMusicLibraryBooks(books);
+  const bookIds = new Set(sourceBooks.map((book) => book.id));
+  const seen = new Set<string>();
   return tracks
-    .filter((t) => bookById.has(t.bookId))
+    .filter((track) => bookIds.has(track.bookId))
+    .sort((left, right) => {
+      const sortOrder = left.sortOrder - right.sortOrder;
+      if (sortOrder !== 0) return sortOrder;
+      const filename = left.filename.localeCompare(right.filename, undefined, { sensitivity: "base" });
+      if (filename !== 0) return filename;
+      const title = left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
+      if (title !== 0) return title;
+      return left.id.localeCompare(right.id);
+    })
+    .filter((track) => {
+      if (seen.has(track.id)) return false;
+      seen.add(track.id);
+      return true;
+    });
+}
+
+export function buildMusicTrackList(books: Book[], tracks: Track[]): MusicListTrack[] {
+  const bookById = new Map(resolveMusicLibraryBooks(books).map((book) => [book.id, book]));
+  return resolveMusicLibraryTracks(books, tracks)
+    .filter((track) => bookById.has(track.bookId))
     .map((track) => {
       const book = bookById.get(track.bookId)!;
       return {
@@ -36,6 +65,36 @@ export function shuffleMusicTracks(tracks: MusicListTrack[]): MusicListTrack[] {
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
+}
+
+export function refreshMusicTrackListDownloadState(
+  list: MusicListTrack[],
+  books: Book[],
+  tracks: Track[],
+): MusicListTrack[] {
+  const freshById = new Map(
+    buildMusicTrackList(books, tracks).map((track) => [track.trackId, track]),
+  );
+  return list
+    .map((item) => {
+      const updated = freshById.get(item.trackId);
+      if (!updated) return null;
+      return { ...item, isDownloaded: updated.isDownloaded, durationMs: updated.durationMs };
+    })
+    .filter((item): item is MusicListTrack => item != null);
+}
+
+export function buildMusicTrackListForCatalogUpdate(
+  existing: MusicListTrack[],
+  books: Book[],
+  tracks: Track[],
+  musicStartedInSession: boolean,
+): MusicListTrack[] {
+  if (existing.length > 0) {
+    return refreshMusicTrackListDownloadState(existing, books, tracks);
+  }
+  const built = buildMusicTrackList(books, tracks);
+  return musicStartedInSession ? built : shuffleMusicTracks(built);
 }
 
 export function musicQueueFrom(

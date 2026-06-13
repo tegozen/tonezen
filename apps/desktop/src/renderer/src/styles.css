@@ -120,7 +120,8 @@
 
   .bottom-chrome-shell,
   .filter-sheet-glass,
-  .library-chrome-shell {
+  .library-chrome-shell,
+  .now-playing-sheet-glass {
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--color-surface-raised) 48%, transparent) 0%,
@@ -182,7 +183,20 @@
   }
 
   .mini-player-row {
-    @apply flex w-full items-center gap-3 px-4 py-2.5 text-left;
+    @apply flex w-full items-center gap-3 px-4 py-2.5;
+  }
+
+  .mini-player-main {
+    @apply flex min-w-0 flex-1 cursor-pointer items-center gap-3 border-0 bg-transparent p-0 text-left text-ink outline-none focus:outline-none;
+  }
+
+  .mini-player-play-btn {
+    @apply flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/[0.22] text-app outline-none focus:outline-none disabled:cursor-not-allowed disabled:opacity-50;
+    background: linear-gradient(135deg, #5eead4, #14b8a6, #0d9488);
+  }
+
+  .mini-player-play-btn-playing {
+    background: linear-gradient(135deg, #14b8a6, #0d9488, #0f766e);
   }
 
   .mini-player-progress {
@@ -420,6 +434,110 @@
     @apply pb-20;
   }
 
+  .book-cover {
+    @apply relative block shrink-0 overflow-hidden rounded-[14px] border border-white/[0.13] p-2;
+  }
+
+  .book-cover-text {
+    @apply absolute inset-0 flex flex-col items-center justify-center gap-1 px-1 text-center;
+  }
+
+  .book-cover-title {
+    @apply line-clamp-4 w-full text-sm font-bold leading-tight text-[#ffe7ba];
+  }
+
+  .book-cover-author {
+    @apply line-clamp-2 w-full text-[10px] leading-tight text-white/[0.78];
+  }
+
+  .cycle-book-list {
+    @apply flex flex-col gap-5;
+  }
+
+  .cycle-book-row {
+    @apply flex w-full cursor-pointer items-center gap-3.5 rounded-xl py-1 text-left transition hover:bg-surface-muted/50;
+  }
+
+  .status-chip {
+    @apply inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium;
+  }
+
+  .status-chip-teal {
+    @apply border-teal/30 bg-teal/15 text-teal;
+  }
+
+  .status-chip-dot {
+    @apply h-1.5 w-1.5 shrink-0 rounded-full bg-teal;
+  }
+
+  .chapter-track-list {
+    @apply flex flex-col gap-4;
+  }
+
+  .track-list-row {
+    @apply relative rounded-[10px] border border-border/35;
+  }
+
+  .track-list-row-menu-open {
+    @apply z-20;
+  }
+
+  .track-list-row-active {
+    @apply border-amber/20 bg-amber/[0.08];
+  }
+
+  .track-list-row-main {
+    @apply flex w-full cursor-pointer items-center gap-3 px-3 py-3 text-left outline-none focus:outline-none disabled:cursor-default disabled:opacity-60;
+  }
+
+  .track-list-row-leading {
+    @apply flex shrink-0 items-center;
+  }
+
+  .track-list-row-trailing {
+    @apply flex shrink-0 items-center gap-3;
+  }
+
+  .track-list-row-progress {
+    @apply h-[3px] w-full overflow-hidden rounded-b-[10px] bg-border/25;
+  }
+
+  .track-list-row-progress-fill {
+    @apply h-full bg-teal;
+  }
+
+  .overlay-chrome-wrap {
+    @apply sticky top-0 z-10 -mx-5 mb-5 px-2;
+  }
+
+  .overlay-chrome-header {
+    @apply grid min-h-10 grid-cols-[1fr_auto_1fr] items-center gap-2 px-5 py-2;
+  }
+
+  .overlay-back-btn {
+    @apply flex cursor-pointer items-center gap-1 justify-self-start py-2 text-sm text-ink outline-none focus:outline-none;
+  }
+
+  .overlay-chrome-title {
+    @apply truncate text-center text-base font-semibold;
+  }
+
+  .overlay-chrome-trailing {
+    @apply flex justify-self-end;
+  }
+
+  .overlay-chrome-spacer {
+    @apply inline-block h-9 w-9;
+  }
+
+  .icon-circle-btn {
+    @apply flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-muted outline-none focus:outline-none;
+  }
+
+  .overflow-menu-popover {
+    @apply absolute right-0 top-11 z-50 min-w-48 rounded-xl border border-border bg-surface-raised p-2 shadow-lg;
+  }
+
   .overlay-page {
     @apply -mx-5 px-5;
   }
@@ -434,6 +552,42 @@
 
   .cycle-card-cover {
     @apply block w-full cursor-pointer overflow-hidden rounded-2xl;
+  }
+
+  .music-library-stack {
+    @apply flex flex-col gap-4;
+  }
+
+  .music-download-all-card {
+    @apply flex w-full cursor-pointer flex-col gap-2 rounded-xl border border-border/50 bg-white/[0.04] px-3.5 py-3 text-left outline-none focus:outline-none disabled:cursor-default disabled:opacity-60;
+  }
+
+  .music-download-all-header {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .music-download-all-progress-track {
+    @apply h-1 w-full overflow-hidden rounded-full bg-white/12;
+  }
+
+  .music-download-all-progress-fill {
+    @apply h-full rounded-full bg-teal transition-[width] duration-200;
+  }
+
+  .music-track-list {
+    @apply flex flex-col gap-4;
+  }
+
+  .track-download-btn {
+    @apply flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full outline-none focus:outline-none disabled:cursor-default;
+  }
+
+  .track-download-btn-progress {
+    @apply text-[10px] font-bold text-teal;
+  }
+
+  .track-downloaded-indicator {
+    @apply flex h-9 w-9 shrink-0 items-center justify-center;
   }
 
   .compact-play-btn {
@@ -456,8 +610,102 @@
     @apply mx-auto mb-2 h-1 w-10 rounded-full bg-border;
   }
 
-  .now-playing-sheet {
-    @apply max-h-[85vh] overflow-y-auto pb-8;
+  .now-playing-sheet-overlay {
+    @apply fixed inset-0 z-40 bg-black/35 opacity-0 transition-opacity duration-300 ease-out;
+  }
+
+  .now-playing-sheet-overlay-open {
+    @apply opacity-100;
+  }
+
+  .now-playing-sheet-panel {
+    @apply fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] opacity-0 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)];
+    transform: translate(-50%, 100%);
+  }
+
+  .now-playing-sheet-panel-open {
+    @apply opacity-100;
+    transform: translate(-50%, 0);
+  }
+
+  .now-playing-sheet-glass {
+    @apply max-h-[85vh] overflow-y-auto overflow-x-hidden rounded-t-2xl border border-white/12;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.1),
+      0 -12px 40px rgb(0 0 0 / 0.45);
+  }
+
+  .now-playing-sheet-handle {
+    @apply mx-auto mb-1 mt-3 h-1 w-10 rounded-full bg-muted/65;
+  }
+
+  .now-playing-sheet-content {
+    @apply flex flex-col items-center gap-6 px-6 pb-8 pt-2;
+  }
+
+  .now-playing-sheet-hero {
+    @apply flex w-full flex-col items-center gap-5;
+  }
+
+  .now-playing-sheet-meta {
+    @apply flex w-full flex-col items-center gap-1.5 text-center;
+  }
+
+  .now-playing-sheet-meta h2 {
+    @apply text-xl font-bold text-ink;
+  }
+
+  .now-playing-sheet-meta p {
+    @apply text-sm text-teal;
+  }
+
+  .now-playing-sheet-progress-block {
+    @apply w-full space-y-2;
+  }
+
+  .now-playing-progress {
+    @apply relative h-1 w-full cursor-pointer overflow-hidden rounded-full bg-white/15;
+  }
+
+  .now-playing-progress-fill {
+    @apply absolute left-0 top-0 h-full min-w-0 rounded-full bg-teal transition-[width] duration-150 ease-linear;
+  }
+
+  .now-playing-sheet-controls {
+    @apply flex w-full items-center justify-evenly;
+  }
+
+  .now-playing-round-control {
+    @apply flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border border-white/16 bg-white/[0.08] text-ink outline-none focus:outline-none disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .now-playing-round-control-sm {
+    @apply h-10 w-10 text-xs font-semibold;
+  }
+
+  .now-playing-play-btn {
+    @apply flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-white/[0.22] text-app outline-none focus:outline-none disabled:cursor-not-allowed disabled:opacity-50;
+    background: linear-gradient(135deg, #5eead4, #14b8a6, #0d9488);
+  }
+
+  .now-playing-play-btn-playing {
+    background: linear-gradient(135deg, #14b8a6, #0d9488, #0f766e);
+  }
+
+  .track-cover-art-idle {
+    @apply border border-white/12;
+  }
+
+  .track-cover-art-playing {
+    @apply border-2 border-teal/55;
+  }
+
+  .track-cover-art-initial {
+    @apply absolute inset-0 flex items-center justify-center text-5xl font-bold text-white/[0.88];
+  }
+
+  .track-cover-art-initial-playing {
+    @apply text-white/45;
   }
 
   .seek-slider {

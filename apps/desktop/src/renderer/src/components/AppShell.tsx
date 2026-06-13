@@ -8,11 +8,13 @@ interface AppShellProps {
   onTabSelect: (tab: BottomTab) => void;
   miniTitle: string | null;
   miniSubtitle: string | null;
+  coverSeed?: string;
   isPlaying: boolean;
   positionMs: number;
   durationMs: number;
   showMiniPlayer: boolean;
   showBottomNav: boolean;
+  miniDownloadProgress?: number | null;
   onMiniBarClick: () => void;
   onMiniPlayPause: () => void;
   children: ReactNode;
@@ -23,11 +25,13 @@ export function AppShell({
   onTabSelect,
   miniTitle,
   miniSubtitle,
+  coverSeed,
   isPlaying,
   positionMs,
   durationMs,
   showMiniPlayer,
   showBottomNav,
+  miniDownloadProgress = null,
   onMiniBarClick,
   onMiniPlayPause,
   children,
@@ -49,8 +53,10 @@ export function AppShell({
               <MiniPlayerBar
                 title={miniTitle}
                 subtitle={miniSubtitle}
+                coverSeed={coverSeed}
                 isPlaying={isPlaying}
                 progress={progress}
+                downloadProgress={miniDownloadProgress}
                 onBarClick={onMiniBarClick}
                 onPlayPause={onMiniPlayPause}
               />

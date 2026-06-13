@@ -111,7 +111,8 @@ internal class LibraryMusicHandler(
             val isPlaying = uiState.value.musicPlayback.trackId == track.trackId
             if (isPlaying) {
                 playJob?.cancel()
-                clearMusicPrefetchState()
+                musicPrefetchJob?.cancel()
+                musicPrefetchJob = null
                 playbackClient.stopAndRelease()
                 musicDownloadNotifier.clear()
             }
@@ -119,12 +120,10 @@ internal class LibraryMusicHandler(
                 downloadRepository.deleteLocalTrack(track.bookId, track.trackId)
                 catalogRepository.clearTrackLocalPath(track.bookId, track.trackId)
             }
-            session.musicCandidates = session.musicCandidates.filterNot { it.second.id == track.trackId }
-            session.musicLibraryTracks = session.musicLibraryTracks.filterNot { it.track.id == track.trackId }
-            session.musicBookIdByTrackId = session.musicBookIdByTrackId - track.trackId
+            val updatedList = refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
             uiState.update { state ->
                 state.copy(
-                    musicTrackList = state.musicTrackList.filterNot { it.trackId == track.trackId },
+                    musicTrackList = updatedList,
                     musicPlayback = if (isPlaying) MusicPlaybackUi() else state.musicPlayback,
                     musicPlaybackErrorRes = null,
                 )

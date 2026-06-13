@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronLeftIcon } from "../../components/TonezenIcons";
-import { strings } from "../../i18n/strings";
+import { OverlayTopChrome } from "../../components/OverlayTopChrome";
 
 interface SettingsPageLayoutProps {
   title: string;
@@ -10,13 +9,8 @@ interface SettingsPageLayoutProps {
 
 export function SettingsPageLayout({ title, onBack, children }: SettingsPageLayoutProps) {
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <button type="button" className="icon-button h-10 w-10" onClick={onBack} aria-label={strings.back}>
-          <ChevronLeftIcon className="h-5 w-5" />
-        </button>
-        <h1 className="text-2xl font-bold">{title}</h1>
-      </div>
+    <div className="overlay-page space-y-5">
+      <OverlayTopChrome title={title} onBack={onBack} />
       {children}
     </div>
   );

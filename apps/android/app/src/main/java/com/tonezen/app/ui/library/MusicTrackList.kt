@@ -137,6 +137,7 @@ internal fun MusicTrackRow(
                 onDelete = onDeleteClick,
                 enabled = !isDownloading,
                 showDelete = track.isDownloaded,
+                deleteLabelRes = R.string.remove_download,
             )
         },
     )

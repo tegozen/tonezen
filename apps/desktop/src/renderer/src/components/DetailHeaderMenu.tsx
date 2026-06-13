@@ -35,14 +35,14 @@ export function DetailHeaderMenu({
     <div className="relative" ref={ref}>
       <button
         type="button"
-        className="icon-button h-10 w-10 text-[0]"
+        className="icon-circle-btn text-[0]"
         onClick={() => setOpen((v) => !v)}
         aria-label={strings.moreOptions}
       >
         <MoreVerticalIcon className="h-5 w-5 text-base" />
       </button>
       {open && (
-        <div className="absolute right-0 top-11 z-30 min-w-48 rounded-xl border border-border bg-surface-raised p-2 shadow-lg">
+        <div className="overflow-menu-popover">
           {showDownload && (
             <MenuItem
               label={strings.download}
@@ -78,7 +78,7 @@ function MenuItem({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
-      className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-surface-muted"
+      className="block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm hover:bg-surface-muted"
       onClick={onClick}
     >
       {label}

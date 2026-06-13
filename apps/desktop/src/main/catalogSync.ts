@@ -1,5 +1,5 @@
-import type { AudiobookProgress, Book, Cycle, Track } from "../shared/types.js";
-import { booksForCycleOrder, normalizeCycleBookOrder } from "../shared/cycleBooks.js";
+import type { Book, Cycle, Track } from "../shared/types.js";
+import { normalizeCycleBookOrder } from "../shared/cycleBooks.js";
 import { apiV1Url } from "../shared/serverPaths.js";
 import { LocalDatabase } from "./database.js";
 
@@ -60,7 +60,10 @@ export class CatalogSyncService {
     const cyclesJson = (await cyclesRes.json()) as { cycles: ApiCycle[] };
     return (cyclesJson.cycles ?? []).map((cycle) => {
       const books = (cycle.books ?? []).map(mapBook);
-      const bookOrder = normalizeCycleBookOrder(cycle.book_order ?? [], books);
+      const bookOrder =
+        books.length > 0
+          ? books.map((book) => book.slug)
+          : normalizeCycleBookOrder(cycle.book_order ?? [], books);
       return {
         id: cycle.id,
         slug: cycle.slug,

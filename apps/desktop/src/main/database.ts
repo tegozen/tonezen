@@ -41,9 +41,28 @@ export const LocalDatabase = {
         id TEXT PRIMARY KEY,
         slug TEXT NOT NULL,
         title TEXT NOT NULL,
-        book_order TEXT NOT NULL
+        book_order TEXT NOT NULL,
+        books_json TEXT NOT NULL DEFAULT '[]'
       );
     `);
+    LocalDatabase.ensureCycleBooksColumn();
+  },
+
+  ensureCycleBooksColumn(): void {
+    const columns = db!
+      .prepare("PRAGMA table_info(cycles)")
+      .all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "books_json")) {
+      db!.exec(`ALTER TABLE cycles ADD COLUMN books_json TEXT NOT NULL DEFAULT '[]'`);
+    }
+  },
+
+  hydrateCycleBooks(storedBooks: Book[], catalog: Book[]): Book[] {
+    const bookById = new Map(catalog.map((book) => [book.id, book]));
+    const bookBySlug = new Map(catalog.map((book) => [book.slug, book]));
+    return storedBooks
+      .map((book) => bookById.get(book.id) ?? bookBySlug.get(book.slug) ?? book)
+      .filter((book): book is Book => book != null);
   },
 
   upsertBooks(books: Book[]): void {
@@ -92,20 +111,24 @@ export const LocalDatabase = {
 
   upsertCycles(cycles: Cycle[]): void {
     const stmt = db!.prepare(`
-      INSERT INTO cycles (id, slug, title, book_order)
-      VALUES (@id, @slug, @title, @bookOrder)
+      INSERT INTO cycles (id, slug, title, book_order, books_json)
+      VALUES (@id, @slug, @title, @bookOrder, @booksJson)
       ON CONFLICT(id) DO UPDATE SET
         slug = excluded.slug,
         title = excluded.title,
-        book_order = excluded.book_order
+        book_order = excluded.book_order,
+        books_json = excluded.books_json
     `);
     const tx = db!.transaction((items: Cycle[]) => {
       for (const cycle of items) {
+        const bookOrder =
+          cycle.books.length > 0 ? cycle.books.map((book) => book.slug) : cycle.bookOrder;
         stmt.run({
           id: cycle.id,
           slug: cycle.slug,
           title: cycle.title,
-          bookOrder: JSON.stringify(cycle.bookOrder),
+          bookOrder: JSON.stringify(bookOrder),
+          booksJson: JSON.stringify(cycle.books),
         });
       }
     });
@@ -115,17 +138,22 @@ export const LocalDatabase = {
   getCycles(): Cycle[] {
     const allBooks = this.getBooks();
     const rows = db!
-      .prepare(`SELECT id, slug, title, book_order FROM cycles ORDER BY title`)
+      .prepare(`SELECT id, slug, title, book_order, books_json FROM cycles ORDER BY title`)
       .all() as Array<{
       id: string;
       slug: string;
       title: string;
       book_order: string;
+      books_json: string;
     }>;
 
     return rows.map((r) => {
       const bookOrder = JSON.parse(r.book_order) as string[];
-      const books = booksForCycleOrder(bookOrder, allBooks);
+      const storedBooks = JSON.parse(r.books_json || "[]") as Book[];
+      const booksFromStored =
+        storedBooks.length > 0 ? this.hydrateCycleBooks(storedBooks, allBooks) : [];
+      const books =
+        booksFromStored.length > 0 ? booksFromStored : booksForCycleOrder(bookOrder, allBooks);
       return {
         id: r.id,
         slug: r.slug,

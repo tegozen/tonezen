@@ -1,5 +1,6 @@
 import { app } from "electron";
 import path from "node:path";
+import { registerLocalAudioScheme, setupLocalAudioProtocol } from "./mediaProtocol.js";
 import { WindowLifecycleManager } from "./windowLifecycle.js";
 import { SessionService } from "./sessionService.js";
 import { LocalDatabase } from "./database.js";
@@ -14,6 +15,7 @@ import { PlaybackPowerBlocker } from "./playbackPowerBlocker.js";
 import { registerIpcHandlers } from "./ipcHandlers.js";
 
 loadAppEnv();
+registerLocalAudioScheme();
 app.setAppUserModelId("com.tonezen.desktop");
 
 const lifecycle = new WindowLifecycleManager();
@@ -25,6 +27,7 @@ let downloadManager: DownloadManager;
 let progressSync: ProgressSyncService;
 
 app.whenReady().then(() => {
+  setupLocalAudioProtocol();
   const splashWindow = createSplashWindow();
   if (app.isPackaged) {
     loadPackagedEnv(process.execPath);
