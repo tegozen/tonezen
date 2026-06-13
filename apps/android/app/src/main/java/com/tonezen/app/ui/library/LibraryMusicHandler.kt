@@ -5,8 +5,11 @@ import com.tonezen.app.data.local.EnsureTrackOutcome
 import com.tonezen.app.data.local.LocalLibraryNotifier
 import com.tonezen.app.data.local.TrackDownloadEnsurer
 import com.tonezen.app.data.remote.DownloadRepository
+import com.tonezen.app.domain.music.MusicDownloadInteractionRules
+import com.tonezen.app.domain.music.MusicDownloadInteractionState
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
+import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.music.MusicLibraryTrack
 import com.tonezen.app.domain.music.MusicShuffleQueue
 import com.tonezen.app.playback.MusicDownloadNotifier
@@ -42,6 +45,17 @@ internal class LibraryMusicHandler(
     var downloadTrackJob: Job? = null
     var downloadAllJob: Job? = null
     var musicPrefetchJob: Job? = null
+    private var prefetchTargetIndex: Int = -1
+
+    private fun downloadInteractionState(): MusicDownloadInteractionState =
+        MusicDownloadInteractionState(
+            isTrackDownloading = musicDownloadNotifier.state.value.isTrackDownloading,
+            isBulkDownloading = musicDownloadNotifier.state.value.isBulkDownloading,
+            activeTrackId = musicDownloadNotifier.state.value.activeTrackId,
+        )
+
+    private fun isBlockingUndownloadedTap(): Boolean =
+        MusicDownloadInteractionRules.blocksUndownloadedTap(downloadInteractionState())
 
     fun onMusicTabSelected() {
         scope.launch {
@@ -69,14 +83,13 @@ internal class LibraryMusicHandler(
     }
 
     fun onMusicTrackClick(track: MusicListTrack) {
-        if (musicDownloadNotifier.state.value.isActive) return
+        if (isBlockingUndownloadedTap() && !track.isDownloaded) return
         val playback = uiState.value.musicPlayback
         if (playback.trackId == track.trackId && playback.isActive) {
             if (playback.isPlaying) {
                 playbackClient.pause()
             } else if (!track.isDownloaded) {
                 playJob?.cancel()
-                musicDownloadNotifier.beginTrack(track.trackId)
                 uiState.update { it.copy(musicPlaybackErrorRes = null) }
                 playJob = scope.launch {
                     playMusicTrack(track, showDownloadProgress = true)
@@ -87,9 +100,6 @@ internal class LibraryMusicHandler(
             return
         }
         playJob?.cancel()
-        if (!track.isDownloaded) {
-            musicDownloadNotifier.beginTrack(track.trackId)
-        }
         uiState.update { it.copy(musicPlaybackErrorRes = null) }
         playJob = scope.launch {
             playMusicTrack(track, showDownloadProgress = !track.isDownloaded)
@@ -97,7 +107,7 @@ internal class LibraryMusicHandler(
     }
 
     fun downloadMusicTrack(track: MusicListTrack) {
-        if (track.isDownloaded || musicDownloadNotifier.state.value.isActive) return
+        if (track.isDownloaded || isBlockingUndownloadedTap()) return
         downloadTrackJob?.cancel()
         downloadTrackJob = scope.launch {
             downloadTrackOnly(track)
@@ -105,15 +115,16 @@ internal class LibraryMusicHandler(
     }
 
     fun deleteMusicTrack(track: MusicListTrack) {
-        if (musicDownloadNotifier.state.value.isActive) return
+        if (MusicDownloadInteractionRules.blocksDeletingTrack(downloadInteractionState(), track.trackId)) return
         scope.launch {
             val isPlaying = uiState.value.musicPlayback.trackId == track.trackId
             if (isPlaying) {
                 playJob?.cancel()
                 musicPrefetchJob?.cancel()
                 musicPrefetchJob = null
+                prefetchTargetIndex = -1
                 playbackClient.stopAndRelease()
-                musicDownloadNotifier.clear()
+                finishTrackDownloadUi(track.trackId)
             }
             withContext(Dispatchers.IO) {
                 downloadRepository.deleteLocalTrack(track.bookId, track.trackId)
@@ -136,39 +147,55 @@ internal class LibraryMusicHandler(
     }
 
     fun downloadAllMusic() {
-        if (musicDownloadNotifier.state.value.isActive) return
+        if (musicDownloadNotifier.state.value.isTrackDownloading) return
+        if (musicDownloadNotifier.state.value.isBulkDownloading) return
         val pending = uiState.value.musicTrackList.filter { !it.isDownloaded }
         if (pending.isEmpty()) return
         downloadAllJob?.cancel()
+        musicPrefetchJob?.cancel()
+        musicPrefetchJob = null
+        prefetchTargetIndex = -1
         downloadAllJob = scope.launch {
             val total = uiState.value.musicTrackList.size
             var completed = uiState.value.musicTrackList.count { it.isDownloaded }
-            musicDownloadNotifier.beginBulk(completed, total)
-            for (item in pending) {
-                val track = withContext(Dispatchers.IO) {
-                    catalogRepository.getTracksForBook(item.bookId).find { it.id == item.trackId }
-                } ?: continue
-                val outcome = withContext(Dispatchers.IO) {
-                    trackDownloadEnsurer.ensureTrackLocal(item.bookId, track) { trackProgress ->
-                        scope.launch(Dispatchers.Main.immediate) {
-                            musicDownloadNotifier.updateBulk(completed, total, item.trackId, trackProgress)
+            try {
+                musicDownloadNotifier.beginBulk(completed, total)
+                for (item in pending) {
+                    val track = withContext(Dispatchers.IO) {
+                        catalogRepository.getTracksForBook(item.bookId).find { it.id == item.trackId }
+                    } ?: continue
+                    val outcome = withContext(Dispatchers.IO) {
+                        trackDownloadEnsurer.ensureTrackLocal(item.bookId, track) { trackProgress ->
+                            scope.launch(Dispatchers.Main.immediate) {
+                                musicDownloadNotifier.updateBulk(completed, total, item.trackId, trackProgress)
+                            }
                         }
                     }
-                }
-                if (outcome.track != null) {
-                    completed++
-                    uiState.update { state ->
-                        state.copy(
-                            musicTrackList = state.musicTrackList.map { row ->
-                                if (row.trackId == item.trackId) row.copy(isDownloaded = true) else row
-                            },
-                        )
+                    if (outcome.track != null) {
+                        completed++
+                        uiState.update { state ->
+                            state.copy(
+                                musicTrackList = state.musicTrackList.map { row ->
+                                    if (row.trackId == item.trackId) row.copy(isDownloaded = true) else row
+                                },
+                            )
+                        }
+                        musicDownloadNotifier.incrementBulkDownloaded(completed, total)
+                        appendPrefetchedQueueItem(item.trackId, outcome.track)
                     }
-                    musicDownloadNotifier.incrementBulkDownloaded(completed, total)
+                }
+            } finally {
+                musicDownloadNotifier.clear()
+                refreshDownloadedBooks()
+                val snapshot = playbackClient.snapshot.value
+                val playingTrackId = snapshot.trackId
+                if (playingTrackId != null && isMusicSnapshot(snapshot) && session.musicLibraryTracks.isNotEmpty()) {
+                    val playingIndex = session.musicLibraryTracks.indexOfFirst { it.track.id == playingTrackId }
+                    if (playingIndex >= 0) {
+                        scheduleMusicPrefetch(playingIndex + 1)
+                    }
                 }
             }
-            musicDownloadNotifier.clear()
-            refreshDownloadedBooks()
         }
     }
 
@@ -218,7 +245,9 @@ internal class LibraryMusicHandler(
             playJob?.cancel()
             clearMusicPrefetchState()
             playbackClient.stopAndRelease()
-            musicDownloadNotifier.clear()
+            if (musicDownloadNotifier.state.value.isTrackDownloading) {
+                musicDownloadNotifier.finishTrack()
+            }
             uiState.update {
                 it.copy(
                     musicPlayback = MusicPlaybackUi(),
@@ -229,7 +258,7 @@ internal class LibraryMusicHandler(
     }
 
     fun handleMusicTrackEnded() {
-        if (musicDownloadNotifier.state.value.isActive) return
+        if (MusicDownloadInteractionRules.blocksTrackEndedDuringSingleTrackDownload(downloadInteractionState())) return
         val snapshot = playbackClient.snapshot.value
         val trackId = snapshot.trackId ?: return
         val isMusic = snapshot.contentType == ContentType.MUSIC || trackId in session.musicBookIdByTrackId
@@ -334,6 +363,7 @@ internal class LibraryMusicHandler(
     private fun clearMusicPrefetchState() {
         musicPrefetchJob?.cancel()
         musicPrefetchJob = null
+        prefetchTargetIndex = -1
         session.musicLibraryTracks = emptyList()
         session.lastPrefetchSourceTrackId = null
         musicPlaybackQueue.clear()
@@ -341,10 +371,17 @@ internal class LibraryMusicHandler(
 
     private fun scheduleMusicPrefetch(fromIndex: Int) {
         if (fromIndex !in session.musicLibraryTracks.indices) return
-        if (musicDownloadNotifier.state.value.isBulkDownloading) return
+        if (prefetchTargetIndex == fromIndex && musicPrefetchJob?.isActive == true) return
+        prefetchTargetIndex = fromIndex
         musicPrefetchJob?.cancel()
         musicPrefetchJob = scope.launch {
-            prefetchMusicTrack(fromIndex)
+            try {
+                prefetchMusicTrack(fromIndex)
+            } finally {
+                if (prefetchTargetIndex == fromIndex) {
+                    prefetchTargetIndex = -1
+                }
+            }
         }
     }
 
@@ -364,7 +401,7 @@ internal class LibraryMusicHandler(
         val needsDownload = withContext(Dispatchers.IO) {
             !trackDownloadEnsurer.isTrackLocal(bookId, trackId)
         }
-        val progressReporter = if (needsDownload && !musicDownloadNotifier.state.value.isActive) {
+        val progressReporter = if (needsDownload && !musicDownloadNotifier.state.value.isTrackDownloading) {
             withContext(Dispatchers.Main.immediate) {
                 musicDownloadNotifier.beginTrack(trackId)
             }
@@ -388,12 +425,6 @@ internal class LibraryMusicHandler(
             }
         }
 
-        val queueItem = playbackQueueBuilder.itemForMusicLibraryTrack(
-            entry = entry,
-            localTrack = localTrack,
-            indexInLibrary = index,
-            librarySize = session.musicLibraryTracks.size,
-        )
         withContext(Dispatchers.Main) {
             uiState.update { state ->
                 state.copy(
@@ -402,9 +433,28 @@ internal class LibraryMusicHandler(
                     },
                 )
             }
-            playbackClient.appendQueueItems(listOf(queueItem))
+            appendPrefetchedQueueItem(trackId, localTrack)
         }
         refreshDownloadedBooks()
+    }
+
+    private suspend fun appendPrefetchedQueueItem(trackId: String, localTrack: Track) {
+        val index = session.musicLibraryTracks.indexOfFirst { it.track.id == trackId }
+        if (index < 0) return
+        val entry = session.musicLibraryTracks[index]
+        val alreadyQueued = withContext(Dispatchers.Main.immediate) {
+            trackId in playbackClient.queuedTrackIds()
+        }
+        if (alreadyQueued) return
+        val queueItem = playbackQueueBuilder.itemForMusicLibraryTrack(
+            entry = entry,
+            localTrack = localTrack,
+            indexInLibrary = index,
+            librarySize = session.musicLibraryTracks.size,
+        )
+        withContext(Dispatchers.Main) {
+            playbackClient.appendQueueItems(listOf(queueItem))
+        }
     }
 
     private suspend fun buildMusicLibraryTracksFromList(): List<MusicLibraryTrack> {
@@ -427,68 +477,74 @@ internal class LibraryMusicHandler(
     }
 
     private suspend fun playMusicTrack(track: MusicListTrack, showDownloadProgress: Boolean) {
-        val book = uiState.value.books.find { it.id == track.bookId } ?: return
-        val libraryTracks = buildMusicLibraryTracksFromList()
-        val targetEntry = libraryTracks.find { it.track.id == track.trackId } ?: return
-        val resolvedTrack = withContext(Dispatchers.IO) {
-            catalogRepository.getTracksForBook(targetEntry.book.id).find { it.id == track.trackId }
-        } ?: targetEntry.track
-        val needsDownload = withContext(Dispatchers.IO) {
-            resolvedTrack.localPath == null &&
+        try {
+            if (uiState.value.books.none { it.id == track.bookId }) return
+            val libraryTracks = buildMusicLibraryTracksFromList()
+            val targetEntry = libraryTracks.find { it.track.id == track.trackId } ?: return
+            val resolvedTrack = withContext(Dispatchers.IO) {
+                catalogRepository.getTracksForBook(targetEntry.book.id).find { it.id == track.trackId }
+            } ?: targetEntry.track
+            val needsDownload = withContext(Dispatchers.IO) {
                 !trackDownloadEnsurer.isTrackLocal(targetEntry.book.id, resolvedTrack.id)
-        }
-        if (showDownloadProgress && !needsDownload) {
-            musicDownloadNotifier.finishTrack()
-        } else if (showDownloadProgress && needsDownload) {
-            musicDownloadNotifier.beginTrack(track.trackId)
-            yield()
-        }
-        val progressReporter = if (showDownloadProgress && needsDownload) {
-            createTrackProgressReporter(track.trackId)
-        } else {
-            null
-        }
-        val outcome = withContext(Dispatchers.IO) {
-            trackDownloadEnsurer.ensureTrackLocal(targetEntry.book.id, resolvedTrack, progressReporter)
-        }
-        val localTrack = outcome.track ?: run {
-            musicDownloadNotifier.finishTrack()
-            uiState.update {
-                it.copy(musicPlaybackErrorRes = playbackErrorRes(outcome.failure))
             }
-            return
-        }
-        val queue = withContext(Dispatchers.IO) {
-            val tracksByBookId = catalogRepository.getTracksByBookIds(
-                libraryTracks.map { it.book.id }.distinct(),
-            )
-            playbackQueueBuilder.buildLocalMusicLibraryQueue(libraryTracks) { entry ->
-                tracksByBookId[entry.book.id]
-                    ?.find { it.id == entry.track.id }
-                    ?.takeIf { !it.localPath.isNullOrBlank() }
+            if (showDownloadProgress && !needsDownload) {
+                finishTrackDownloadUi(track.trackId)
+            } else if (showDownloadProgress && needsDownload) {
+                musicDownloadNotifier.beginTrack(track.trackId)
+                yield()
             }
+            val progressReporter = if (showDownloadProgress && needsDownload) {
+                createTrackProgressReporter(track.trackId)
+            } else {
+                null
+            }
+            val outcome = withContext(Dispatchers.IO) {
+                trackDownloadEnsurer.ensureTrackLocal(targetEntry.book.id, resolvedTrack, progressReporter)
+            }
+            val localTrack = outcome.track ?: run {
+                uiState.update {
+                    it.copy(musicPlaybackErrorRes = playbackErrorRes(outcome.failure))
+                }
+                return
+            }
+            val queue = withContext(Dispatchers.IO) {
+                playbackQueueBuilder.buildLocalMusicLibraryQueue(libraryTracks) { entry ->
+                    if (entry.track.id == localTrack.id) {
+                        localTrack
+                    } else {
+                        trackDownloadEnsurer.resolveLocalTrack(entry.book.id, entry.track)
+                    }
+                }
+            }
+            if (queue.isEmpty()) {
+                uiState.update {
+                    it.copy(musicPlaybackErrorRes = playbackErrorRes(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
+                }
+                return
+            }
+            session.musicStartedInSession = true
+            val startIndex = queue.indexOfFirst { it.trackId == localTrack.id }.coerceAtLeast(0)
+            finishTrackDownloadUi(track.trackId)
+            uiState.update { state ->
+                state.copy(
+                    musicPlaybackErrorRes = null,
+                    musicTrackList = state.musicTrackList.map { row ->
+                        if (row.trackId == track.trackId) row.copy(isDownloaded = true) else row
+                    },
+                    nowPlayingTitle = resolvedTrack.title,
+                )
+            }
+            session.musicBookIdByTrackId = session.musicBookIdByTrackId + (resolvedTrack.id to targetEntry.book.id)
+            session.musicLibraryTracks = libraryTracks
+            musicPlaybackQueue.set(libraryTracks)
+            val libraryStartIndex = libraryTracks.indexOfFirst { it.track.id == localTrack.id }.coerceAtLeast(0)
+            session.lastPrefetchSourceTrackId = localTrack.id
+            playbackClient.playQueue(queue, startIndex)
+            scheduleMusicPrefetch(libraryStartIndex + 1)
+            refreshDownloadedBooks()
+        } finally {
+            finishTrackDownloadUi(track.trackId)
         }
-        if (queue.isEmpty()) return
-        session.musicStartedInSession = true
-        val startIndex = queue.indexOfFirst { it.trackId == localTrack.id }.coerceAtLeast(0)
-        musicDownloadNotifier.finishTrack()
-        uiState.update { state ->
-            state.copy(
-                musicPlaybackErrorRes = null,
-                musicTrackList = state.musicTrackList.map { row ->
-                    if (row.trackId == track.trackId) row.copy(isDownloaded = true) else row
-                },
-                nowPlayingTitle = resolvedTrack.title,
-            )
-        }
-        session.musicBookIdByTrackId = session.musicBookIdByTrackId + (resolvedTrack.id to targetEntry.book.id)
-        session.musicLibraryTracks = libraryTracks
-        musicPlaybackQueue.set(libraryTracks)
-        val libraryStartIndex = libraryTracks.indexOfFirst { it.track.id == localTrack.id }.coerceAtLeast(0)
-        session.lastPrefetchSourceTrackId = localTrack.id
-        playbackClient.playQueue(queue, startIndex)
-        scheduleMusicPrefetch(libraryStartIndex + 1)
-        refreshDownloadedBooks()
     }
 
     private suspend fun downloadTrackOnly(track: MusicListTrack) {
@@ -522,6 +578,12 @@ internal class LibraryMusicHandler(
             uiState.update {
                 it.copy(musicPlaybackErrorRes = playbackErrorRes(outcome.failure))
             }
+        }
+    }
+
+    private fun finishTrackDownloadUi(trackId: String) {
+        if (MusicDownloadInteractionRules.shouldFinishTrackDownloadUi(downloadInteractionState(), trackId)) {
+            musicDownloadNotifier.finishTrack()
         }
     }
 

@@ -153,19 +153,31 @@ class BookDetailViewModel @Inject constructor(
                     }
                     musicPlaybackQueue.set(libraryTracks)
                     val target = libraryTracks.find { it.track.id == track.id } ?: return@launch
-                    withContext(Dispatchers.IO) {
-                        playbackQueueBuilder.buildSingleMusicItem(target.book, track)
-                    } ?: return@launch
+                    val localTrack = withContext(Dispatchers.IO) {
+                        trackDownloadEnsurer.ensureTrackLocal(target.book.id, track).track
+                    } ?: run {
+                        _uiState.update {
+                            it.copy(playbackErrorRes = R.string.music_playback_error_download)
+                        }
+                        return@launch
+                    }
                     val queue = withContext(Dispatchers.IO) {
                         playbackQueueBuilder.buildLocalMusicLibraryQueue(libraryTracks) { entry ->
-                            catalogRepository.getTracksForBook(entry.book.id)
-                                .find { it.id == entry.track.id }
-                                ?.takeIf { !it.localPath.isNullOrBlank() }
+                            if (entry.track.id == localTrack.id) {
+                                localTrack
+                            } else {
+                                trackDownloadEnsurer.resolveLocalTrack(entry.book.id, entry.track)
+                            }
                         }
                     }
-                    if (queue.isEmpty()) return@launch
-                    val startIndex = queue.indexOfFirst { it.trackId == track.id }.coerceAtLeast(0)
-                    currentTrack = track
+                    if (queue.isEmpty()) {
+                        _uiState.update {
+                            it.copy(playbackErrorRes = R.string.music_playback_error_download)
+                        }
+                        return@launch
+                    }
+                    val startIndex = queue.indexOfFirst { it.trackId == localTrack.id }.coerceAtLeast(0)
+                    currentTrack = localTrack
                     playbackClient.playQueue(queue, startIndex)
                 }
             }

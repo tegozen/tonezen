@@ -170,10 +170,11 @@ class CatalogRepository @Inject constructor(
         )
     }
 
-    suspend fun markTrackDownloaded(bookId: String, trackId: String, localPath: String) {
-        val safePath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, localPath) ?: return
-        val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId } ?: return
+    suspend fun markTrackDownloaded(bookId: String, trackId: String, localPath: String): Boolean {
+        val safePath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, localPath) ?: return false
+        val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId } ?: return false
         catalogDao.upsertTracks(listOf(track.copy(localPath = safePath)))
+        return true
     }
 
     suspend fun resolveLocalTrackPath(bookId: String, trackId: String): String? {
