@@ -1,5 +1,5 @@
+import fs from "node:fs";
 import { BrowserWindow } from "electron";
-import { pathToFileURL } from "node:url";
 import { appIconPath, splashImagePath } from "./assets.js";
 
 export function createSplashWindow(): BrowserWindow {
@@ -16,12 +16,12 @@ export function createSplashWindow(): BrowserWindow {
     },
   });
 
-  const splashImageUrl = pathToFileURL(splashImagePath).toString();
+  const splashDataUrl = `data:image/png;base64,${fs.readFileSync(splashImagePath).toString("base64")}`;
   const html = `<!doctype html>
 <html lang="ru">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src file:; style-src 'unsafe-inline';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline';" />
     <style>
       html,
       body {
@@ -47,7 +47,7 @@ export function createSplashWindow(): BrowserWindow {
     </style>
   </head>
   <body>
-    <img src="${splashImageUrl}" alt="Tonezen" />
+    <img src="${splashDataUrl}" alt="" />
   </body>
 </html>`;
 
