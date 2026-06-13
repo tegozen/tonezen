@@ -12,6 +12,7 @@ import {
 } from "../shared/supabaseAuth.js";
 import type { SessionState, StoredSession } from "../shared/types.js";
 import { upsertUserProfileMirror, type UserProfileMirrorRow } from "../shared/userProfileMirror.js";
+import { normalizeAvatarUrl } from "../shared/avatarUpload.js";
 
 const SESSION_FILE = "session.dat";
 
@@ -41,7 +42,9 @@ export class SessionService {
     const serverUpdatedAt = row.updated_at ?? null;
     if (serverUpdatedAt && serverUpdatedAt === this.session.profileUpdatedAt) return false;
 
-    const nextAvatarBase = stripAvatarQuery(row.avatar_url);
+    const nextAvatarBase = stripAvatarQuery(
+      normalizeAvatarUrl(row.avatar_url, this.sessionConfig?.baseUrl ?? ""),
+    );
     const avatarUrl = resolveSyncedAvatarUrl({
       prevAvatarUrl: this.session.avatarUrl,
       prevProfileUpdatedAt: this.session.profileUpdatedAt,
@@ -93,9 +96,9 @@ export class SessionService {
     if (!this.authClient) throw new Error("SessionService not initialized");
     const result = await this.authClient.signInWithPassword(email, password);
     const session = sessionFromGoTrue(result, email);
-    this.session = session;
-    this.persist(session);
-    return session;
+    this.session = this.withClientAvatarUrl(session);
+    this.persist(this.session);
+    return this.session;
   }
 
   logout(): void {
@@ -159,7 +162,9 @@ export class SessionService {
       const avatarUrl = resolveSyncedAvatarUrl({
         prevAvatarUrl: this.session.avatarUrl,
         prevProfileUpdatedAt: this.session.profileUpdatedAt,
-        nextAvatarBase: stripAvatarQuery(merged.avatarUrl ?? null),
+        nextAvatarBase: stripAvatarQuery(
+          normalizeAvatarUrl(merged.avatarUrl, this.sessionConfig?.baseUrl ?? ""),
+        ),
         serverUpdatedAt: user.updated_at ?? null,
         bust: avatarUrlWithCacheBust,
       });
@@ -191,7 +196,7 @@ export class SessionService {
         return "Unauthenticated";
       }
       const result = await this.authClient.refreshSession(this.session.refreshToken);
-      this.session = sessionFromGoTrue(result, this.session.email);
+      this.session = this.withClientAvatarUrl(sessionFromGoTrue(result, this.session.email));
       this.persist(this.session);
       return "AuthenticatedOnline";
     } catch {
@@ -216,6 +221,13 @@ export class SessionService {
     }
   }
 
+  private withClientAvatarUrl(session: StoredSession): StoredSession {
+    if (!session.avatarUrl || !this.sessionConfig) return session;
+    const avatarUrl = normalizeAvatarUrl(session.avatarUrl, this.sessionConfig.baseUrl);
+    if (avatarUrl === session.avatarUrl) return session;
+    return { ...session, avatarUrl };
+  }
+
   private persist(session: StoredSession): void {
     const json = JSON.stringify(session);
     if (safeStorage.isEncryptionAvailable()) {
@@ -238,11 +250,11 @@ export class SessionService {
       const displayName =
         parsed.displayName ||
         displayNameFromUser({ id: parsed.userId, email }, email);
-      return {
+      return this.withClientAvatarUrl({
         ...parsed,
         email,
         displayName,
-      };
+      });
     } catch {
       return null;
     }
