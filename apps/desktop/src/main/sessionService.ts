@@ -199,12 +199,20 @@ export class SessionService {
       this.session = this.withClientAvatarUrl(sessionFromGoTrue(result, this.session.email));
       this.persist(this.session);
       return "AuthenticatedOnline";
-    } catch {
-      this.logout();
-      return "Unauthenticated";
+    } catch (error) {
+      if (this.isAuthFailure(error)) {
+        this.logout();
+        return "Unauthenticated";
+      }
+      return this.manager.resolveState(this.session, this.online);
     } finally {
       this.manager.endRefresh();
     }
+  }
+
+  private isAuthFailure(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return /\((401|403)\)/.test(message);
   }
 
   private async mirrorProfileToRealtime(updatedAt: string): Promise<void> {

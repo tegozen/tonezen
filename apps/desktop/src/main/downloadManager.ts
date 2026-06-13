@@ -1,6 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
+import {
+  assertAllowedDownloadUrl,
+  resolveTrackDownloadPath,
+  sanitizeLocalAudioPath,
+} from "../shared/safeLocalPaths.js";
 import { apiV1Url } from "../shared/serverPaths.js";
 import { LocalDatabase } from "./database.js";
 
@@ -30,10 +35,11 @@ export class DownloadManager {
     const signed = json.urls.find((u) => u.track_id === trackId);
     if (!signed) throw new Error("No signed URL returned");
 
-    const bookDir = path.join(this.downloadsRoot, bookId);
-    fs.mkdirSync(bookDir, { recursive: true });
-    const targetPath = path.join(bookDir, `${trackId}.mp3`);
+    const targetPath = resolveTrackDownloadPath(this.downloadsRoot, bookId, trackId);
+    if (!targetPath) throw new Error("Invalid download path");
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
 
+    assertAllowedDownloadUrl(signed.url, this.baseUrl);
     const fileRes = await fetch(signed.url);
     if (!fileRes.ok || !fileRes.body) throw new Error(`Download failed: ${fileRes.status}`);
     await pipeline(fileRes.body as unknown as NodeJS.ReadableStream, fs.createWriteStream(targetPath));
@@ -43,7 +49,8 @@ export class DownloadManager {
   }
 
   deleteLocalTrack(bookId: string, trackId: string): void {
-    const filePath = path.join(this.downloadsRoot, bookId, `${trackId}.mp3`);
+    const filePath = resolveTrackDownloadPath(this.downloadsRoot, bookId, trackId);
+    if (!filePath) throw new Error("Invalid download path");
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     LocalDatabase.setTrackLocalPath(trackId, null);
   }
@@ -87,8 +94,11 @@ export class DownloadManager {
         const downloaded = tracks.filter((t) => t.localPath);
         if (downloaded.length === 0) return null;
         const sizeBytes = downloaded.reduce((sum, track) => {
-          if (!track.localPath || !fs.existsSync(track.localPath)) return sum;
-          return sum + fs.statSync(track.localPath).size;
+          const safePath = track.localPath
+            ? sanitizeLocalAudioPath(track.localPath, [this.downloadsRoot])
+            : null;
+          if (!safePath || !fs.existsSync(safePath)) return sum;
+          return sum + fs.statSync(safePath).size;
         }, 0);
         return {
           bookId: book.id,

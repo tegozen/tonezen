@@ -1,6 +1,10 @@
 import { net, protocol } from "electron";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { LOCAL_AUDIO_SCHEME, localAudioPathFromUrl } from "../shared/localAudioUrl.js";
+import { sanitizeLocalAudioPath } from "../shared/safeLocalPaths.js";
+
+let allowedAudioRoots: string[] = [];
 
 export function registerLocalAudioScheme(): void {
   protocol.registerSchemesAsPrivileged([
@@ -18,11 +22,16 @@ export function registerLocalAudioScheme(): void {
   ]);
 }
 
-export function setupLocalAudioProtocol(): void {
+export function setupLocalAudioProtocol(allowedRoots: readonly string[]): void {
+  allowedAudioRoots = allowedRoots.map((root) => path.resolve(root));
   protocol.handle(LOCAL_AUDIO_SCHEME, (request) => {
-    const filePath = localAudioPathFromUrl(request.url);
-    if (!filePath) {
+    const rawPath = localAudioPathFromUrl(request.url);
+    if (!rawPath) {
       return new Response("Bad Request", { status: 400 });
+    }
+    const filePath = sanitizeLocalAudioPath(rawPath, allowedAudioRoots);
+    if (!filePath) {
+      return new Response("Forbidden", { status: 403 });
     }
     return net.fetch(pathToFileURL(filePath).href);
   });

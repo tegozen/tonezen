@@ -29,13 +29,14 @@ let profileSync: ProfileSyncService;
 let progressSync: ProgressSyncService;
 
 app.whenReady().then(() => {
-  setupLocalAudioProtocol();
   const splashWindow = createSplashWindow();
   if (app.isPackaged) {
     loadPackagedEnv(process.execPath);
   }
   const runtimeConfig = getClientConfig();
   const userData = app.getPath("userData");
+  const downloadsRoot = path.join(userData, "downloads");
+  setupLocalAudioProtocol([downloadsRoot]);
   LocalDatabase.init(userData);
   sessionService.init(userData, {
     baseUrl: runtimeConfig.baseUrl,
@@ -43,7 +44,7 @@ app.whenReady().then(() => {
   });
   catalogSync = new CatalogSyncService(runtimeConfig.baseUrl, () => sessionService.getAccessToken());
   downloadManager = new DownloadManager(
-    path.join(userData, "downloads"),
+    downloadsRoot,
     runtimeConfig.baseUrl,
     () => sessionService.getAccessToken(),
   );

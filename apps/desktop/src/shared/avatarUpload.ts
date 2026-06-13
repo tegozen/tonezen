@@ -1,5 +1,6 @@
 import type { AuthConfig } from "./supabaseAuth.js";
 import { coerceAvatarJpegBytes } from "./avatarBytes.js";
+import { isSafeStorageId } from "./safeLocalPaths.js";
 
 export const AVATAR_FILE_NAME = "avatar.jpg";
 
@@ -29,6 +30,9 @@ export async function uploadAvatarToStorage(
   userId: string,
   jpegBytes: Uint8Array | number[] | ArrayBuffer,
 ): Promise<string> {
+  if (!isSafeStorageId(userId)) {
+    throw new Error("Invalid user id");
+  }
   const bytes = coerceAvatarJpegBytes(jpegBytes);
   const objectPath = `${userId}/${AVATAR_FILE_NAME}`;
   const url = `${config.baseUrl.replace(/\/$/, "")}/storage/v1/object/avatars/${objectPath}`;
