@@ -9,7 +9,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 
-internal class DownloadsRemoteApi(
+class DownloadsRemoteApi(
     private val apiRoot: String,
     private val httpClient: OkHttpClient,
 ) {

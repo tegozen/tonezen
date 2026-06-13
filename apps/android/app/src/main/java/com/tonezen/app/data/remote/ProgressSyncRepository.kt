@@ -6,6 +6,7 @@ import com.tonezen.app.data.local.ProgressRepository
 import com.tonezen.app.data.local.toDomain
 import com.tonezen.app.data.local.toEntity
 import com.tonezen.app.data.local.toProgressEntity
+import com.tonezen.app.data.remote.progress.ProgressRemoteApi
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.domain.progress.ProgressMerger
@@ -24,7 +25,7 @@ import kotlinx.coroutines.launch
 
 @Singleton
 class ProgressSyncRepository @Inject constructor(
-    private val apiClient: ApiClient,
+    private val progressRemoteApi: ProgressRemoteApi,
     private val progressRepository: ProgressRepository,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -66,7 +67,7 @@ class ProgressSyncRepository @Inject constructor(
     }
 
     suspend fun pullAll(accessToken: String) {
-        for (row in apiClient.fetchProgress(accessToken)) {
+        for (row in progressRemoteApi.fetchProgress(accessToken)) {
             applyRemoteEntity(row.toProgressEntity())
         }
         markSynced()
@@ -81,7 +82,7 @@ class ProgressSyncRepository @Inject constructor(
     }
 
     suspend fun pushProgress(accessToken: String, entity: AudiobookProgressEntity) {
-        apiClient.pushProgress(
+        progressRemoteApi.pushProgress(
             accessToken,
             entity.bookId,
             entity.toDomain(),

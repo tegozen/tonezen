@@ -6,10 +6,8 @@ import com.tonezen.app.BuildConfig
 import com.tonezen.app.data.local.CatalogDao
 import com.tonezen.app.data.local.SecureSessionStore
 import com.tonezen.app.data.local.TonezenDatabase
-import com.tonezen.app.data.remote.ApiClient
 import com.tonezen.app.data.remote.AuthRepository
 import com.tonezen.app.data.remote.AvatarRepository
-import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.data.remote.UserProfileMirrorRepository
 import com.tonezen.app.domain.session.SessionManager
@@ -68,15 +66,4 @@ object AppModule {
             .writeTimeout(30, TimeUnit.SECONDS)
             .callTimeout(60, TimeUnit.SECONDS)
             .build()
-
-    @Provides
-    @Singleton
-    fun provideApiClient(httpClient: OkHttpClient): ApiClient = ApiClient(BuildConfig.BASE_URL, httpClient)
-
-    @Provides
-    @Singleton
-    fun provideDownloadRepository(
-        @ApplicationContext context: Context,
-        apiClient: ApiClient,
-    ): DownloadRepository = DownloadRepository(context, apiClient)
 }

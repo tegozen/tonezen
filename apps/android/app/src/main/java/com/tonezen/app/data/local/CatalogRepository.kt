@@ -2,7 +2,7 @@ package com.tonezen.app.data.local
 
 import android.content.Context
 import android.os.StatFs
-import com.tonezen.app.data.remote.ApiClient
+import com.tonezen.app.data.remote.catalog.CatalogRemoteApi
 import com.tonezen.app.domain.downloads.DownloadedBookSummary
 import com.tonezen.app.domain.downloads.StorageStats
 import com.tonezen.app.domain.model.AudiobookProgress
@@ -31,7 +31,7 @@ import org.json.JSONArray
 class CatalogRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val catalogDao: CatalogDao,
-    private val apiClient: ApiClient,
+    private val catalogRemoteApi: CatalogRemoteApi,
     private val progressRepository: ProgressRepository,
 ) {
     suspend fun getAllBooks(): List<Book> =
@@ -99,8 +99,8 @@ class CatalogRepository @Inject constructor(
     }
 
     suspend fun syncFromRemote(accessToken: String?): List<Book> = withContext(Dispatchers.IO) {
-        val remoteCycles = apiClient.fetchCycles(accessToken)
-        val remoteBooks = apiClient.fetchBooks(accessToken)
+        val remoteCycles = catalogRemoteApi.fetchCycles(accessToken)
+        val remoteBooks = catalogRemoteApi.fetchBooks(accessToken)
         catalogDao.upsertBooks(
             remoteBooks.map { book ->
                 BookEntity(
@@ -148,7 +148,7 @@ class CatalogRepository @Inject constructor(
 
     private suspend fun syncBookTracks(book: Book, accessToken: String?) {
         val existingById = catalogDao.getTracksForBook(book.id).associateBy { it.id }
-        val (_, tracks) = apiClient.fetchBookDetail(book.id, accessToken)
+        val (_, tracks) = catalogRemoteApi.fetchBookDetail(book.id, accessToken)
         catalogDao.upsertTracks(
             tracks.map { track ->
                 val existing = existingById[track.id]
@@ -201,7 +201,7 @@ class CatalogRepository @Inject constructor(
     }
 
     suspend fun isProgressPendingSync(bookId: String): Boolean =
-        catalogDao.getProgress(bookId)?.pendingSync == true
+        progressRepository.isProgressPendingSync(bookId)
 
     suspend fun clearTrackLocalPath(bookId: String, trackId: String) {
         val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId } ?: return
@@ -243,7 +243,7 @@ class CatalogRepository @Inject constructor(
     }
 
     suspend fun getPendingSyncCount(): Int =
-        catalogDao.getPendingProgress().size
+        progressRepository.getPendingSyncCount()
 
     suspend fun deleteAllDownloads() {
         val books = catalogDao.getAllBooks()

@@ -34,4 +34,10 @@ class ProgressRepository @Inject constructor(
         return catalogDao.getProgressForBooks(bookIds.distinct())
             .associate { it.bookId to it.toDomain() }
     }
+
+    suspend fun isProgressPendingSync(bookId: String): Boolean =
+        catalogDao.getProgress(bookId)?.pendingSync == true
+
+    suspend fun getPendingSyncCount(): Int =
+        catalogDao.getPendingProgress().size
 }

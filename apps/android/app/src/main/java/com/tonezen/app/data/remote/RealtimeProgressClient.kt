@@ -1,5 +1,6 @@
 package com.tonezen.app.data.remote
 
+import com.tonezen.app.data.remote.progress.ProgressRemoteApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,7 +24,7 @@ class RealtimeProgressClient(
     private val anonKey: String,
     private val httpClient: OkHttpClient = OkHttpClient(),
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-    private val onProgressChange: suspend (ApiClient.RemoteProgress) -> Unit,
+    private val onProgressChange: suspend (ProgressRemoteApi.RemoteProgress) -> Unit,
 ) {
     private var webSocket: WebSocket? = null
     private var heartbeatJob: Job? = null
@@ -98,7 +99,7 @@ class RealtimeProgressClient(
         val payload = message.optJSONObject(4) ?: return
         val data = payload.optJSONObject("data") ?: payload
         val record = data.optJSONObject("record") ?: return
-        val progress = ApiClient.RemoteProgress(
+        val progress = ProgressRemoteApi.RemoteProgress(
             bookId = record.getString("book_id"),
             trackId = record.getString("track_id"),
             positionMs = record.getLong("position_ms"),

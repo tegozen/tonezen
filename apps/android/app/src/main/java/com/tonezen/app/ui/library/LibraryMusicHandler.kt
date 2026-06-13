@@ -7,7 +7,6 @@ import com.tonezen.app.data.local.TrackDownloadEnsurer
 import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
-import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.music.MusicLibraryTrack
 import com.tonezen.app.domain.music.MusicShuffleQueue
 import com.tonezen.app.playback.MusicDownloadNotifier
@@ -120,7 +119,10 @@ internal class LibraryMusicHandler(
                 downloadRepository.deleteLocalTrack(track.bookId, track.trackId)
                 catalogRepository.clearTrackLocalPath(track.bookId, track.trackId)
             }
-            val updatedList = refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
+            val updatedList = refreshMusicTrackListDownloadState(
+                uiState.value.musicTrackList,
+                withContext(Dispatchers.IO) { catalogRepository.getDownloadedTrackIds() },
+            )
             uiState.update { state ->
                 state.copy(
                     musicTrackList = updatedList,
@@ -280,8 +282,12 @@ internal class LibraryMusicHandler(
             buildMusicTrackList(shuffle = true)
     }
 
-    suspend fun refreshMusicTrackListForDownloads(): List<MusicListTrack> =
-        refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
+    suspend fun refreshMusicTrackListForDownloads(): List<MusicListTrack> {
+        val downloadedTrackIds = withContext(Dispatchers.IO) {
+            catalogRepository.getDownloadedTrackIds()
+        }
+        return refreshMusicTrackListDownloadState(uiState.value.musicTrackList, downloadedTrackIds)
+    }
 
     fun cancelPlayJob() {
         playJob?.cancel()
@@ -289,11 +295,10 @@ internal class LibraryMusicHandler(
 
     private suspend fun buildMusicTrackList(shuffle: Boolean): List<MusicListTrack> {
         if (session.musicCandidates.isEmpty()) return emptyList()
-        val ordered = if (shuffle) session.musicCandidates.shuffled() else session.musicCandidates
         val downloadedTrackIds = withContext(Dispatchers.IO) {
             catalogRepository.getDownloadedTrackIds()
         }
-        return ordered.map { (book, track) -> toListTrack(book, track, downloadedTrackIds) }
+        return buildMusicTrackListFromCandidates(session.musicCandidates, shuffle, downloadedTrackIds)
     }
 
     private suspend fun refreshMusicTrackListDownloadState(
@@ -302,24 +307,8 @@ internal class LibraryMusicHandler(
         val downloadedTrackIds = withContext(Dispatchers.IO) {
             catalogRepository.getDownloadedTrackIds()
         }
-        return list.map { item ->
-            item.copy(isDownloaded = item.trackId in downloadedTrackIds)
-        }
+        return refreshMusicTrackListDownloadState(list, downloadedTrackIds)
     }
-
-    private fun toListTrack(
-        book: Book,
-        track: Track,
-        downloadedTrackIds: Set<String>,
-    ): MusicListTrack = MusicListTrack(
-        trackId = track.id,
-        trackTitle = track.title,
-        artist = book.author ?: book.title,
-        albumTitle = book.title,
-        bookId = book.id,
-        durationMs = track.durationMs,
-        isDownloaded = track.id in downloadedTrackIds,
-    )
 
     private suspend fun resolvePlaybackTrack(playback: MusicPlaybackUi): MusicListTrack? {
         val trackId = playback.trackId ?: return null

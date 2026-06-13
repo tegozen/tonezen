@@ -1,6 +1,6 @@
 package com.tonezen.app.data.local
 
-import com.tonezen.app.data.remote.ApiClient
+import com.tonezen.app.data.remote.progress.ProgressRemoteApi
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
@@ -43,7 +43,7 @@ fun AudiobookProgress.toEntity(pendingSync: Boolean = false) = AudiobookProgress
     pendingSync = pendingSync,
 )
 
-fun ApiClient.RemoteProgress.toProgressEntity() = AudiobookProgressEntity(
+fun ProgressRemoteApi.RemoteProgress.toProgressEntity() = AudiobookProgressEntity(
     bookId = bookId,
     trackId = trackId,
     positionMs = positionMs,

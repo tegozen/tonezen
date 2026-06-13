@@ -2,19 +2,26 @@ package com.tonezen.app.data.remote
 
 import android.content.Context
 import android.net.Uri
-import com.tonezen.app.data.local.SafeLocalStorage
 import com.tonezen.app.BuildConfig
+import com.tonezen.app.data.local.SafeLocalStorage
+import com.tonezen.app.data.remote.downloads.DownloadsRemoteApi
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 
-class DownloadRepository(
-    private val context: Context,
-    private val apiClient: ApiClient,
+@Singleton
+class DownloadRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val downloadsRemoteApi: DownloadsRemoteApi,
+    private val httpClient: OkHttpClient,
 ) {
     suspend fun signedUrlForTrack(accessToken: String, trackId: String): String =
-        apiClient.signDownloadUrls(accessToken, listOf(trackId))
+        downloadsRemoteApi.signDownloadUrls(accessToken, listOf(trackId))
             .firstOrNull()
             ?.url
             ?: throw IllegalStateException("No signed URL")
@@ -31,7 +38,7 @@ class DownloadRepository(
             ?: throw IllegalArgumentException("Invalid download target")
         target.parentFile?.mkdirs()
         val request = Request.Builder().url(url).build()
-        apiClient.httpClient.newCall(request).execute().use { response ->
+        httpClient.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IllegalStateException("Download failed: ${response.code}")
             val body = response.body ?: throw IllegalStateException("Empty body")
             val total = body.contentLength().coerceAtLeast(1L)

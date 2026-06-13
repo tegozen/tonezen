@@ -12,7 +12,7 @@ import okhttp3.OkHttpClient
 import org.json.JSONArray
 import org.json.JSONObject
 
-internal class CatalogRemoteApi(
+class CatalogRemoteApi(
     private val apiRoot: String,
     private val httpClient: OkHttpClient,
 ) {
