@@ -1,5 +1,6 @@
 package com.tonezen.app.data.remote.downloads
 
+import com.tonezen.app.data.remote.RemoteHttpException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -22,6 +23,9 @@ class DownloadsRemoteApi(
                 .header("Authorization", "Bearer $accessToken")
                 .build()
             httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw RemoteHttpException(response.code, "Download sign failed (${response.code})")
+                }
                 val json = JSONObject(response.body?.string().orEmpty())
                 val arr = json.optJSONArray("urls") ?: JSONArray()
                 buildList {

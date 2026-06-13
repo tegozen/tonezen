@@ -49,6 +49,7 @@ private data class PendingQueuePlay(
 @Singleton
 class PlaybackClient @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val playbackMediaFactory: PlaybackMediaFactory,
 ) {
     private val _snapshot = MutableStateFlow(PlaybackSnapshot())
     val snapshot: StateFlow<PlaybackSnapshot> = _snapshot.asStateFlow()
@@ -166,7 +167,7 @@ class PlaybackClient @Inject constructor(
         val existingIds = queuedTrackIds()
         val newItems = items.filter { it.trackId !in existingIds }
         if (newItems.isEmpty()) return
-        mediaController.addMediaItems(newItems.map(PlaybackMediaFactory::toMediaItem))
+        mediaController.addMediaItems(newItems.map(playbackMediaFactory::toMediaItem))
         refreshSnapshot(mediaController)
     }
 
@@ -200,7 +201,7 @@ class PlaybackClient @Inject constructor(
     ) {
         val startItem = items.getOrNull(startIndex)
         startItem?.metadata?.contentType?.let { lastContentType = it }
-        val mediaItems = items.map(PlaybackMediaFactory::toMediaItem)
+        val mediaItems = items.map(playbackMediaFactory::toMediaItem)
         mediaController.setMediaItems(mediaItems, startIndex, startPositionMs)
         mediaController.prepare()
         mediaController.play()

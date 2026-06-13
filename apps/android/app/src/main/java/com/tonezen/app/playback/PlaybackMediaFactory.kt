@@ -1,11 +1,21 @@
 package com.tonezen.app.playback
 
+import android.content.Context
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import com.tonezen.app.data.local.SafeLocalStorage
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import javax.inject.Inject
+import javax.inject.Singleton
 
-object PlaybackMediaFactory {
+@Singleton
+class PlaybackMediaFactory @Inject constructor(
+    @ApplicationContext context: Context,
+) {
+    private val filesRoot = context.filesDir
+
     fun toMediaItem(item: QueuePlayItem): MediaItem {
         val meta = item.metadata
         val subtitle = buildString {
@@ -43,7 +53,8 @@ object PlaybackMediaFactory {
         if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
             return Uri.parse(pathOrUrl)
         }
-        require(!pathOrUrl.contains("..")) { "Invalid local media path" }
-        return Uri.fromFile(File(pathOrUrl))
+        val safePath = SafeLocalStorage.sanitizeExistingLocalPath(filesRoot, pathOrUrl)
+            ?: error("Invalid local media path")
+        return Uri.fromFile(File(safePath))
     }
 }

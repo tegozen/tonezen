@@ -1,5 +1,6 @@
 package com.tonezen.app.data.remote
 
+import com.tonezen.app.data.local.SafeLocalStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -17,6 +18,7 @@ class AvatarRepository(
         userId: String,
         jpegBytes: ByteArray,
     ): String = withContext(Dispatchers.IO) {
+        require(SafeLocalStorage.isSafeId(userId)) { "Invalid avatar user id" }
         val objectPath = "$userId/$AVATAR_FILE_NAME"
         val url = "${supabaseUrl.trimEnd('/')}/storage/v1/object/avatars/$objectPath"
         val request = Request.Builder()
@@ -34,8 +36,10 @@ class AvatarRepository(
         publicAvatarUrl(userId)
     }
 
-    fun publicAvatarUrl(userId: String): String =
-        "${supabaseUrl.trimEnd('/')}/storage/v1/object/public/avatars/$userId/$AVATAR_FILE_NAME"
+    fun publicAvatarUrl(userId: String): String {
+        require(SafeLocalStorage.isSafeId(userId)) { "Invalid avatar user id" }
+        return "${supabaseUrl.trimEnd('/')}/storage/v1/object/public/avatars/$userId/$AVATAR_FILE_NAME"
+    }
 
     companion object {
         private const val AVATAR_FILE_NAME = "avatar.jpg"

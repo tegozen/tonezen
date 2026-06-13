@@ -52,13 +52,13 @@ class CatalogRepository @Inject constructor(
 
     suspend fun getAllTracksByBookId(): Map<String, List<Track>> =
         catalogDao.getAllTracks()
-            .map { it.toDomain() }
+            .map { it.toDomainTrack() }
             .groupBy { it.bookId }
 
     suspend fun getTracksByBookIds(bookIds: Collection<String>): Map<String, List<Track>> {
         if (bookIds.isEmpty()) return emptyMap()
         return catalogDao.getTracksForBooks(bookIds.distinct())
-            .map { it.toDomain() }
+            .map { it.toDomainTrack() }
             .groupBy { it.bookId }
     }
 
@@ -79,7 +79,7 @@ class CatalogRepository @Inject constructor(
     }
 
     suspend fun getTracksForBook(bookId: String): List<Track> =
-        catalogDao.getTracksForBook(bookId).map { it.toDomain() }
+        catalogDao.getTracksForBook(bookId).map { it.toDomainTrack() }
 
     suspend fun getProgress(bookId: String): AudiobookProgress? =
         progressRepository.getProgress(bookId)
@@ -174,8 +174,9 @@ class CatalogRepository @Inject constructor(
     }
 
     suspend fun markTrackDownloaded(bookId: String, trackId: String, localPath: String) {
+        val safePath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, localPath) ?: return
         val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId } ?: return
-        catalogDao.upsertTracks(listOf(track.copy(localPath = localPath)))
+        catalogDao.upsertTracks(listOf(track.copy(localPath = safePath)))
     }
 
     suspend fun resolveLocalTrackPath(bookId: String, trackId: String): String? {
@@ -214,20 +215,22 @@ class CatalogRepository @Inject constructor(
         return books.mapNotNull { entity ->
             val book = entity.toDomain()
             val tracks = tracksByBookId[book.id].orEmpty()
-            val downloaded = tracks.filter { it.localPath != null }
-            if (downloaded.isEmpty()) return@mapNotNull null
-            val sizeBytes = downloaded.sumOf { track ->
-                track.localPath?.let { File(it).length() } ?: 0L
+            val safeDownloaded = tracks.count { entity ->
+                SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, entity.localPath) != null
             }
+            if (safeDownloaded == 0) return@mapNotNull null
+            val sizeBytes = tracks.mapNotNull { entity ->
+                SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, entity.localPath)
+            }.sumOf { path -> File(path).length() }
             DownloadedBookSummary(
                 bookId = book.id,
                 title = book.title,
                 author = book.author,
                 contentType = book.contentType.name.lowercase(),
-                downloadedTracks = downloaded.size,
+                downloadedTracks = safeDownloaded,
                 totalTracks = tracks.size,
                 sizeBytes = sizeBytes,
-                downloadProgress = if (downloaded.size == tracks.size) 1f else downloaded.size.toFloat() / tracks.size,
+                downloadProgress = if (safeDownloaded == tracks.size) 1f else safeDownloaded.toFloat() / tracks.size,
             )
         }.sortedBy { it.title.lowercase() }
     }
@@ -250,7 +253,9 @@ class CatalogRepository @Inject constructor(
         books.forEach { book ->
             clearLocalDownloads(book.id)
             catalogDao.getTracksForBook(book.id).forEach { track ->
-                track.localPath?.let { File(it).delete() }
+                track.localPath
+                    ?.takeIf { SafeLocalStorage.isUnderAppFilesRoot(context.filesDir, it) }
+                    ?.let { File(it).delete() }
             }
         }
         File(context.filesDir, "downloads").deleteRecursively()
@@ -258,5 +263,18 @@ class CatalogRepository @Inject constructor(
 
     fun observeLibraryRefresh(): Flow<Unit> = flow {
         emit(Unit)
+    }
+
+    private fun TrackEntity.toDomainTrack(): Track {
+        val safePath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, localPath)
+        return Track(
+            id = id,
+            bookId = bookId,
+            sortOrder = sortOrder,
+            title = title,
+            filename = filename,
+            durationMs = durationMs,
+            localPath = safePath,
+        )
     }
 }

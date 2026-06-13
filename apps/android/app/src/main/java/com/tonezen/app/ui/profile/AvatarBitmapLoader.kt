@@ -8,6 +8,7 @@ import android.graphics.Matrix
 import android.net.Uri
 import android.os.Build
 import androidx.exifinterface.media.ExifInterface
+import com.tonezen.app.data.local.SafeLocalStorage
 import java.io.File
 import java.io.FileInputStream
 import kotlin.math.max
@@ -55,7 +56,7 @@ private fun decodeBitmap(context: Context, uri: Uri, maxSidePx: Int): Bitmap? {
 
 private fun decodeWithImageDecoder(context: Context, uri: Uri, maxSidePx: Int): Bitmap? {
     return try {
-        val source = if (isLocalFileUri(uri)) {
+        val source = if (isSafeLocalFileUri(context, uri)) {
             ImageDecoder.createSource(File(requireNotNull(uri.path)))
         } else {
             ImageDecoder.createSource(context.contentResolver, uri)
@@ -95,7 +96,7 @@ private fun decodeWithBitmapFactory(context: Context, uri: Uri, maxSidePx: Int):
         inPreferredConfig = Bitmap.Config.ARGB_8888
     }
     return when {
-        isLocalFileUri(uri) -> BitmapFactory.decodeFile(uri.path, decodeOptions)
+        isSafeLocalFileUri(context, uri) -> BitmapFactory.decodeFile(uri.path, decodeOptions)
         else -> context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
             BitmapFactory.decodeFileDescriptor(pfd.fileDescriptor, null, decodeOptions)
         } ?: context.contentResolver.openInputStream(uri)?.use { stream ->
@@ -105,7 +106,7 @@ private fun decodeWithBitmapFactory(context: Context, uri: Uri, maxSidePx: Int):
 }
 
 private fun decodeBounds(context: Context, uri: Uri, options: BitmapFactory.Options): Boolean {
-    if (isLocalFileUri(uri)) {
+    if (isSafeLocalFileUri(context, uri)) {
         BitmapFactory.decodeFile(uri.path, options)
         return options.outWidth > 0 && options.outHeight > 0
     }
@@ -123,7 +124,7 @@ private fun decodeBounds(context: Context, uri: Uri, options: BitmapFactory.Opti
 private fun readExifOrientation(context: Context, uri: Uri): Int {
     return try {
         when {
-            isLocalFileUri(uri) -> ExifInterface(requireNotNull(uri.path)).getAttributeInt(
+            isSafeLocalFileUri(context, uri) -> ExifInterface(requireNotNull(uri.path)).getAttributeInt(
                 ExifInterface.TAG_ORIENTATION,
                 ExifInterface.ORIENTATION_NORMAL,
             )
@@ -158,8 +159,12 @@ private fun copyUriToFile(context: Context, uri: Uri, dest: File): Boolean {
     return false
 }
 
-private fun isLocalFileUri(uri: Uri): Boolean =
-    uri.scheme.equals("file", ignoreCase = true) && !uri.path.isNullOrBlank()
+private fun isSafeLocalFileUri(context: Context, uri: Uri): Boolean {
+    if (!uri.scheme.equals("file", ignoreCase = true) || uri.path.isNullOrBlank()) return false
+    val path = requireNotNull(uri.path)
+    return SafeLocalStorage.isUnderAppFilesRoot(context.filesDir, path) ||
+        SafeLocalStorage.isUnderAppFilesRoot(context.cacheDir, path)
+}
 
 private fun calculateInSampleSize(width: Int, height: Int, maxSidePx: Int): Int {
     var sampleSize = 1

@@ -24,4 +24,12 @@ object SafeLocalStorage {
             file.path == root.path || file.path.startsWith(root.path + File.separator)
         }.getOrDefault(false)
     }
+
+    fun sanitizeExistingLocalPath(rootDir: File, path: String?): String? {
+        if (path.isNullOrBlank()) return null
+        if (!isUnderAppFilesRoot(rootDir, path)) return null
+        val file = File(path).canonicalFile
+        if (!file.isFile || file.length() <= 0L) return null
+        return file.path
+    }
 }
