@@ -45,7 +45,7 @@ Stack-specific checks for [SKILL.md](SKILL.md). Read sections matching audit sco
 ## Supabase / SQL checklist
 
 ```
-- [ ] RLS enabled on user tables (audiobook_progress, favorites, profiles, avatars)
+- [ ] RLS enabled on user tables (audiobook_progress, profiles, avatars)
 - [ ] Policies use auth.uid() for row ownership — not true for all rows
 - [ ] No policy granting anon INSERT/UPDATE/DELETE on user data
 - [ ] Storage buckets: public read only where intended; avatars/content policies explicit

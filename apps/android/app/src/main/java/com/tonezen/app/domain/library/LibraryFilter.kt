@@ -25,6 +25,7 @@ fun filterAndSortBooks(
     books: List<Book>,
     downloadedBookIds: Set<String>,
     filter: LibraryFilterState,
+    progressUpdatedAtByBookId: Map<String, Long> = emptyMap(),
 ): List<Book> {
     val normalizedQuery = filter.query.trim().lowercase()
     val filtered = books.filter { book ->
@@ -40,7 +41,9 @@ fun filterAndSortBooks(
     return when (filter.sortOrder) {
         LibrarySortOrder.TITLE -> filtered.sortedBy { it.title.lowercase() }
         LibrarySortOrder.AUTHOR -> filtered.sortedBy { it.author.orEmpty().lowercase() }
-        LibrarySortOrder.RECENTLY_PLAYED -> filtered
+        LibrarySortOrder.RECENTLY_PLAYED -> filtered.sortedByDescending { book ->
+            progressUpdatedAtByBookId[book.id] ?: 0L
+        }
     }
 }
 
@@ -48,6 +51,7 @@ fun filterCycles(
     cycles: List<Cycle>,
     downloadedBookIds: Set<String>,
     filter: LibraryFilterState,
+    progressUpdatedAtByBookId: Map<String, Long> = emptyMap(),
 ): List<Cycle> {
     val normalizedQuery = filter.query.trim().lowercase()
     val filtered = cycles.filter { cycle ->
@@ -69,6 +73,8 @@ fun filterCycles(
         LibrarySortOrder.AUTHOR -> filtered.sortedBy {
             it.books.firstOrNull()?.author.orEmpty().lowercase()
         }
-        LibrarySortOrder.RECENTLY_PLAYED -> filtered
+        LibrarySortOrder.RECENTLY_PLAYED -> filtered.sortedByDescending { cycle ->
+            cycle.books.maxOfOrNull { book -> progressUpdatedAtByBookId[book.id] ?: 0L } ?: 0L
+        }
     }
 }

@@ -21,7 +21,7 @@ export class DownloadManager {
 
   async downloadTrack(bookId: string, trackId: string): Promise<string> {
     const token = this.getAccessToken();
-    if (!token) throw new Error("Authentication required for downloads");
+    if (!token) throw new Error("__download_auth_required__");
 
     const response = await fetch(apiV1Url(this.baseUrl, "/downloads/sign"), {
       method: "POST",
@@ -31,18 +31,18 @@ export class DownloadManager {
       },
       body: JSON.stringify({ track_ids: [trackId] }),
     });
-    if (!response.ok) throw new Error(`Sign failed: ${response.status}`);
+    if (!response.ok) throw new Error("__download_sign_failed__");
     const json = (await response.json()) as { urls: Array<{ track_id: string; url: string }> };
     const signed = json.urls.find((u) => u.track_id === trackId);
-    if (!signed) throw new Error("No signed URL returned");
+    if (!signed) throw new Error("__download_no_signed_url__");
 
     const targetPath = resolveTrackDownloadPath(this.downloadsRoot, bookId, trackId);
-    if (!targetPath) throw new Error("Invalid download path");
+    if (!targetPath) throw new Error("__download_invalid_path__");
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
 
     assertAllowedDownloadUrl(signed.url, this.baseUrl);
     const fileRes = await fetch(signed.url);
-    if (!fileRes.ok || !fileRes.body) throw new Error(`Download failed: ${fileRes.status}`);
+    if (!fileRes.ok || !fileRes.body) throw new Error("__download_transfer_failed__");
     await pipeline(fileRes.body as unknown as NodeJS.ReadableStream, fs.createWriteStream(targetPath));
 
     LocalDatabase.setTrackLocalPath(trackId, targetPath);
@@ -51,7 +51,7 @@ export class DownloadManager {
 
   deleteLocalTrack(bookId: string, trackId: string): void {
     const filePath = resolveTrackDownloadPath(this.downloadsRoot, bookId, trackId);
-    if (!filePath) throw new Error("Invalid download path");
+    if (!filePath) throw new Error("__download_invalid_path__");
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     LocalDatabase.setTrackLocalPath(trackId, null);
   }

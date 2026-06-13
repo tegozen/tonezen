@@ -83,7 +83,7 @@ Full rules: [`.cursor/rules/kotlin-android.mdc`](../../rules/kotlin-android.mdc)
 ### Data & repositories
 
 ```
-- [ ] One repository per OpenAPI domain (catalog, progress, downloads, favorites, auth)
+- [ ] One repository per OpenAPI domain (catalog, progress, downloads, auth)
 - [ ] CatalogDao used only inside data/local/ repositories
 - [ ] Room: separate entity, DAO, Database files
 - [ ] ApiClient split by domain (not one 150+ line god client)

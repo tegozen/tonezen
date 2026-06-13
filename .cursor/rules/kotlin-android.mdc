@@ -24,7 +24,7 @@ com.tonezen.app/
   di/           # Hilt modules only
 ```
 
-Repositories align with OpenAPI domains: `catalog`, `downloads`, `favorites`, `progress`, `auth` — same split as `backend/api` and desktop.
+Repositories align with OpenAPI domains: `catalog`, `downloads`, `progress`, `auth` — same split as `backend/api` and desktop.
 
 ## Layer rules
 

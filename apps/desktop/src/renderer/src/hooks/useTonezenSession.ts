@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { resolveLoginError } from "../lib/errorMessages";
 
 export function useTonezenSession() {
   const [sessionState, setSessionState] = useState("Unauthenticated");
@@ -59,7 +60,7 @@ export function useTonezenSession() {
       await refreshSession();
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Login failed");
+      setError(resolveLoginError(e instanceof Error ? e.message : ""));
       return false;
     }
   }, [email, password, refreshSession]);

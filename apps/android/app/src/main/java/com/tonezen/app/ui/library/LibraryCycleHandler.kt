@@ -11,6 +11,8 @@ import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Cycle
+import com.tonezen.app.domain.playback.PlaybackCoordinator
+import com.tonezen.app.domain.progress.CycleResumeTarget
 import com.tonezen.app.domain.progress.isCycleFullyListened
 import com.tonezen.app.domain.progress.orderedCycleEntriesFromResume
 import com.tonezen.app.domain.progress.resolveCycleListenFraction
@@ -42,6 +44,7 @@ internal class LibraryCycleHandler(
     private val cancelPlayJob: () -> Unit,
     private val playbackErrorRes: (EnsureTrackOutcome.Failure?) -> Int,
 ) {
+    private val playbackCoordinator = PlaybackCoordinator()
     var cycleDownloadJob: Job? = null
 
     fun toggleCyclePlay(cycle: Cycle, playJobSetter: (Job?) -> Unit) {
@@ -174,11 +177,11 @@ internal class LibraryCycleHandler(
     }
 
     suspend fun refreshCycleCardStates(cycles: List<Cycle>, downloadedBookIds: Set<String>) {
-        val states = withContext(Dispatchers.IO) {
+        val (states, progressTimestamps) = withContext(Dispatchers.IO) {
             val bookIds = cycles.flatMap { cycle -> cycle.books.map { it.id } }.toSet()
             val tracksByBookId = catalogRepository.getTracksByBookIds(bookIds)
             val progressByBookId = catalogRepository.getProgressByBookIds(bookIds)
-            cycles.associate { cycle ->
+            val cardStates = cycles.associate { cycle ->
                 val cycleTracks = cycle.books.associate { book ->
                     book.id to tracksByBookId[book.id].orEmpty()
                 }
@@ -197,8 +200,14 @@ internal class LibraryCycleHandler(
                     isListened = isCycleFullyListened(cycle, cycleTracks, cycleProgress),
                 )
             }
+            cardStates to progressByBookId.mapValues { entry -> entry.value?.updatedAtEpochMs ?: 0L }
         }
-        uiState.update { it.copy(cycleCardStateById = states) }
+        uiState.update {
+            it.copy(
+                cycleCardStateById = states,
+                progressUpdatedAtByBookId = it.progressUpdatedAtByBookId + progressTimestamps,
+            )
+        }
     }
 
     fun resolveCyclePlaybackUi(snapshot: PlaybackSnapshot): CyclePlaybackUi {
@@ -243,11 +252,92 @@ internal class LibraryCycleHandler(
         val bookId = session.activeAudiobookBookId ?: return
         val trackId = session.activeAudiobookTrackId ?: return
         scope.launch {
+            val book = uiState.value.books.find { it.id == bookId } ?: return@launch
             val track = withContext(Dispatchers.IO) {
                 catalogRepository.getTracksForBook(bookId).find { it.id == trackId }
             } ?: return@launch
             persistAudiobookProgress(bookId, trackId, track.durationMs ?: 0L)
             refreshCycleCardStates(cyclesContaining(bookId), uiState.value.downloadedBookIds)
+
+            val cycle = uiState.value.cycles.find { item ->
+                item.books.any { it.id == bookId }
+            }
+            val tracksByBookId = withContext(Dispatchers.IO) {
+                if (cycle != null) {
+                    catalogRepository.getTracksByBookIds(cycle.books.map { it.id })
+                } else {
+                    mapOf(bookId to catalogRepository.getTracksForBook(bookId))
+                }
+            }
+            val booksBySlug = cycle?.books?.associateBy { it.slug } ?: emptyMap()
+            val nextTarget = playbackCoordinator.resolveAutoAdvance(
+                currentBook = book,
+                currentTrack = track,
+                cycle = cycle,
+                booksBySlug = booksBySlug,
+                tracksByBookId = tracksByBookId,
+            )
+            val nextBook = nextTarget.book ?: return@launch
+            val nextTrack = nextTarget.track ?: return@launch
+
+            val outcome = withContext(Dispatchers.IO) {
+                trackDownloadEnsurer.ensureTrackLocal(nextBook.id, nextTrack)
+            }
+            val localTrack = outcome.track
+            if (localTrack == null) {
+                uiState.update {
+                    it.copy(cyclePlaybackErrorRes = playbackErrorRes(outcome.failure))
+                }
+                return@launch
+            }
+
+            if (nextTarget.isNextBookInCycle && cycle != null) {
+                val progressByBookId = withContext(Dispatchers.IO) {
+                    catalogRepository.getProgressByBookIds(cycle.books.map { it.id })
+                }
+                val resume = resolveCycleResumeTarget(cycle, tracksByBookId, progressByBookId)
+                    ?.takeIf { it.book.id == nextBook.id && it.track.id == nextTrack.id }
+                    ?: CycleResumeTarget(
+                        book = nextBook,
+                        track = localTrack,
+                        startPositionMs = 0L,
+                    )
+                val entries = orderedCycleEntriesFromResume(cycle, tracksByBookId, resume)
+                val queueResult = withContext(Dispatchers.IO) {
+                    playbackQueueBuilder.buildCycleQueue(entries, localTrack)
+                } ?: return@launch
+                session.activeAudiobookBookId = nextBook.id
+                session.activeAudiobookTrackId = localTrack.id
+                uiState.update {
+                    it.copy(
+                        nowPlayingTitle = localTrack.title,
+                        cyclePlaybackErrorRes = null,
+                        cyclePlayback = CyclePlaybackUi(cycleId = cycle.id, isPlaying = true),
+                    )
+                }
+                playbackClient.playQueue(queueResult.items, queueResult.startIndex, resume.startPositionMs)
+            } else {
+                val refreshedTracks = withContext(Dispatchers.IO) {
+                    catalogRepository.getTracksForBook(nextBook.id).sortedBy { it.sortOrder }
+                }
+                val queue = playbackQueueBuilder.buildQueueFromLocalTracks(nextBook, refreshedTracks)
+                if (queue.isEmpty()) return@launch
+                val startIndex = queue.indexOfFirst { it.trackId == localTrack.id }.coerceAtLeast(0)
+                session.activeAudiobookBookId = nextBook.id
+                session.activeAudiobookTrackId = localTrack.id
+                uiState.update {
+                    it.copy(
+                        nowPlayingTitle = localTrack.title,
+                        cyclePlaybackErrorRes = null,
+                    )
+                }
+                playbackClient.playQueue(queue, startIndex)
+            }
+            localLibraryNotifier.notifyLocalLibraryChanged()
+            refreshDownloadedBooks()
+            if (cycle != null) {
+                refreshCycleCardStates(listOf(cycle), uiState.value.downloadedBookIds)
+            }
         }
     }
 

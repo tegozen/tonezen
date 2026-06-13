@@ -5,7 +5,7 @@ import type { WindowLifecycleManager } from "./windowLifecycle.js";
 function buildTrayMenu(mainWindow: BrowserWindow, lifecycle: WindowLifecycleManager): Menu {
   return Menu.buildFromTemplate([
     {
-      label: "Open",
+      label: "Открыть",
       click: () => {
         mainWindow.show();
         if (process.platform === "darwin") app.dock?.show();
@@ -13,7 +13,7 @@ function buildTrayMenu(mainWindow: BrowserWindow, lifecycle: WindowLifecycleMana
     },
     { type: "separator" },
     {
-      label: "Exit",
+      label: "Выход",
       click: () => {
         lifecycle.setQuitting(true);
         app.quit();

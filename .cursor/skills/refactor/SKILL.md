@@ -153,7 +153,7 @@ Do not commit unless the user explicitly asks (see [git-commit](../git-commit/SK
 
 **User:** `/refactor backend/api/src/db.ts`
 
-→ Split into `db/catalog.ts`, `db/downloads.ts`, `db/favorites.ts`, `db/progress.ts`; inject domain repos via `RouteDeps`; keep LWW and other rules in `lib/`; run `npm test` in `backend/api`.
+→ Split into `db/catalog.ts`, `db/downloads.ts`, `db/progress.ts`; inject domain repos via `RouteDeps`; keep LWW and other rules in `lib/`; run `npm test` in `backend/api`.
 
 **User:** `/refactor apps/android`
 

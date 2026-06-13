@@ -16,12 +16,7 @@ import { usePlayback } from "./hooks/usePlayback";
 import { useTonezenSession } from "./hooks/useTonezenSession";
 import type { BottomTab, LibraryFilter } from "./i18n/strings";
 import { strings } from "./i18n/strings";
-import {
-  computeCycleCardState,
-  buildTracksByBookId,
-  filterAndSortCycles,
-  isBookFullyDownloaded,
-} from "./lib/cycleUtils";
+import { resolveDownloadError } from "./lib/errorMessages";
 import { BookDetailPage } from "./pages/BookDetailPage";
 import { CycleDetailPage } from "./pages/CycleDetailPage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -128,10 +123,10 @@ export function App() {
     playTrack,
     stopPlayback,
     onTimeUpdate,
-    onTrackEnded,
     pauseOrResume,
     seekBy,
     seekTo,
+    resumeProgress,
   } = usePlayback(selectedBook, tracks, skipTracks, skipHandlers);
 
   const music = useMusicPlayback({
@@ -305,7 +300,7 @@ export function App() {
         setTracks(updated as Track[]);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : strings.downloadFailed);
+      setError(resolveDownloadError(e instanceof Error ? e.message : ""));
     }
   };
 
@@ -352,7 +347,37 @@ export function App() {
 
   const handleTrackEnded = () => {
     if (music.handleTrackEnded()) return;
-    onTrackEnded();
+    if (!currentTrack || !selectedBook) return;
+
+    const nextInBook = cycleResolver.nextInBook(currentTrack, tracks);
+    if (nextInBook) {
+      void playBookTrack(nextInBook);
+      return;
+    }
+
+    const cycle =
+      selectedCycle ?? cycles.find((item) => item.books.some((book) => book.id === selectedBook.id));
+    if (!cycle) return;
+
+    const booksBySlug = new Map(cycle.books.map((book) => [book.slug, book]));
+    const result = cycleResolver.nextInCycle(
+      selectedBook,
+      currentTrack,
+      cycle,
+      booksBySlug,
+      tracksByBookId,
+    );
+    if (!result.book || !result.track) return;
+
+    void (async () => {
+      setSelectedBook(result.book as Book);
+      const bookTracks = await window.tonezen.db.getTracks(result.book!.id);
+      setTracks(bookTracks as Track[]);
+      if (!selectedCycle && result.isNextBookInCycle) {
+        setSelectedCycle(cycle);
+      }
+      void playBookTrack(result.track as Track);
+    })();
   };
 
   const markTrackListened = async (book: Book, track: Track, listened: boolean) => {
@@ -468,6 +493,7 @@ export function App() {
           onRemoveBookDownloads={() => void removeBookDownloads(selectedBook)}
           onMarkTrackListened={(track, listened) => void markTrackListened(selectedBook, track, listened)}
           onRemoveTrackDownload={(track) => void removeTrackDownload(selectedBook, track)}
+          onContinue={() => void resumeProgress()}
           savedTrackId={savedBookProgress?.trackId ?? null}
           savedPositionMs={savedBookProgress?.positionMs ?? 0}
           isBookListened={

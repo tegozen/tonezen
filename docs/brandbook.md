@@ -21,7 +21,7 @@ Desktop and marketing should map to the same tokens. Do not invent palette or la
 ## Product Principles
 
 - Offline first: downloaded content and local playback feel first-class.
-- Sync is visible, not noisy: audiobook progress, favorites, and catalog state use small chips and status rows.
+- Sync is visible, not noisy: audiobook progress and catalog state use small chips and status rows.
 - Music stays local: the UI must not imply server progress sync for music playback.
 - Dense but calm: screens support real playback workflows without becoming a dashboard.
 - Android first: layouts follow Material 3 / Compose patterns, with touch targets of at least 48 dp.

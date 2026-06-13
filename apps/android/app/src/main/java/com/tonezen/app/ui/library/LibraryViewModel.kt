@@ -157,6 +157,7 @@ class LibraryViewModel @Inject constructor(
                 cycles = state.cycles,
                 downloadedBookIds = state.downloadedBookIds,
                 filter = state.filter,
+                progressUpdatedAtByBookId = state.progressUpdatedAtByBookId,
             )
         }
 
@@ -167,6 +168,7 @@ class LibraryViewModel @Inject constructor(
                 books = state.books,
                 downloadedBookIds = state.downloadedBookIds,
                 filter = state.filter,
+                progressUpdatedAtByBookId = state.progressUpdatedAtByBookId,
             )
         }
 

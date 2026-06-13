@@ -21,4 +21,5 @@ data class BookDetailUiState(
     val showDownloadSheet: Boolean = false,
     val estimatedDownloadBytes: Long = 0L,
     val error: String? = null,
+    val playbackErrorRes: Int? = null,
 )

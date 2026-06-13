@@ -106,6 +106,9 @@ fun AppShell(
                             onDownloadBook = bookDetailViewModel::requestDownload,
                             onToggleBookListened = bookDetailViewModel::toggleBookListened,
                             onRemoveBookDownloads = bookDetailViewModel::deleteLocalDownloads,
+                            onContinueListening = bookDetailViewModel::continueListening,
+                            onDismissPlaybackError = bookDetailViewModel::clearPlaybackError,
+                            onDismissDownloadError = bookDetailViewModel::clearDownloadError,
                             bottomScrollPadding = overlayBottomScrollPadding,
                         )
                     }

@@ -70,12 +70,12 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 
 - Indexer and API: pure functions + thin IO layer
 - Do not mix audiobook progress sync with music local state
-- **Domain modules:** split IO by API domain (`catalog`, `downloads`, `favorites`, `progress`, …) — one repository module per domain under `db/`, aligned with `routes/` and OpenAPI; avoid monolithic `ApiRepository` god objects
+- **Domain modules:** split IO by API domain (`catalog`, `downloads`, `progress`, …) — one repository module per domain under `db/`, aligned with `routes/` and OpenAPI; avoid monolithic `ApiRepository` god objects
 - Repositories: SQL/IO only; conflict resolution and other rules live in pure `lib/` helpers
 
 ### Sync (audiobooks)
 
-- **Push:** Supabase Realtime `postgres_changes` on `audiobook_progress`, `favorites`, catalog tables
+- **Push:** Supabase Realtime `postgres_changes` on `audiobook_progress`, catalog tables
 - **Pull:** REST on login / reconnect (`GET /progress/audiobooks`, catalog endpoints)
 - **Conflict resolution:** last-write-wins by `updated_at`
 - Local write always; server push when authenticated and online

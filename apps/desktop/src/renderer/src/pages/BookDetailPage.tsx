@@ -22,6 +22,7 @@ interface BookDetailPageProps {
   onRemoveBookDownloads: () => void;
   onMarkTrackListened: (track: Track, listened: boolean) => void;
   onRemoveTrackDownload: (track: Track) => void;
+  onContinue: () => void;
   savedTrackId: string | null;
   savedPositionMs: number;
   isBookListened: boolean;
@@ -43,6 +44,7 @@ export function BookDetailPage({
   onRemoveBookDownloads,
   onMarkTrackListened,
   onRemoveTrackDownload,
+  onContinue,
   savedTrackId,
   savedPositionMs,
   isBookListened,
@@ -57,10 +59,29 @@ export function BookDetailPage({
     currentTrackId,
     playbackPositionMs,
   );
+  const continueTrack = savedTrackId
+    ? sortedTracks.find((track) => track.id === savedTrackId)
+    : null;
+  const showContinue =
+    continueTrack != null &&
+    !isBookListened &&
+    (() => {
+      const progress = progressByTrack.get(continueTrack.id);
+      return progress != null && progress > 0 && progress < 0.95;
+    })();
 
   return (
     <div className="overlay-page">
       <div className="scroll-under-chrome" style={{ paddingTop: OVERLAY_BACK_TOP_SCROLL_PX }}>
+      {showContinue && continueTrack && (
+        <button
+          type="button"
+          className="btn-primary mx-4 mb-3 w-[calc(100%-2rem)]"
+          onClick={onContinue}
+        >
+          {strings.continueListening(continueTrack.title)}
+        </button>
+      )}
       <div className="chapter-track-list">
         {sortedTracks.map((track) => {
           const isActive = track.id === currentTrackId;

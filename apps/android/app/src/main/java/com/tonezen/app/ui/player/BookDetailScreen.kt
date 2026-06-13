@@ -2,8 +2,12 @@ package com.tonezen.app.ui.player
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -15,6 +19,7 @@ import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.TrackListenStatus
 import com.tonezen.app.domain.progress.isBookFullyListened
+import com.tonezen.app.domain.progress.resolveAudiobookPlaybackStartMs
 import com.tonezen.app.domain.progress.resolveTrackListenState
 import com.tonezen.app.ui.components.DetailHeaderOverflowMenu
 import com.tonezen.app.ui.components.DownloadConfirmSheet
@@ -27,8 +32,14 @@ import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.ui.Alignment
 import dev.chrisbanes.haze.HazeState
 
 @Composable
@@ -47,6 +58,9 @@ internal fun BookDetailScreen(
     onDownloadBook: () -> Unit,
     onToggleBookListened: () -> Unit,
     onRemoveBookDownloads: () -> Unit,
+    onContinueListening: () -> Unit,
+    onDismissPlaybackError: () -> Unit,
+    onDismissDownloadError: () -> Unit,
     bottomScrollPadding: Dp,
 ) {
     val tracks = uiState.tracks
@@ -55,6 +69,35 @@ internal fun BookDetailScreen(
     val showDownload = tracks.any { it.localPath.isNullOrBlank() }
     val showRemoveDownload = tracks.any { !it.localPath.isNullOrBlank() }
     val isBookListened = isBookFullyListened(sortedTracks, uiState.audiobookProgress)
+    val snackbarHostState = remember { SnackbarHostState() }
+    val continueTrack = uiState.audiobookProgress?.let { progress ->
+        sortedTracks.find { it.id == progress.trackId }?.takeIf { track ->
+            val startMs = resolveAudiobookPlaybackStartMs(progress, track)
+            val durationMs = track.durationMs ?: 0L
+            startMs > 0L && (durationMs <= 0L || startMs < durationMs * 0.95)
+        }
+    }
+    val showContinue = continueTrack != null && !isBookListened
+    val playbackErrorMessage = uiState.playbackErrorRes?.let { stringResource(it) }
+    val downloadErrorMessage = if (uiState.error == BookDetailViewModel.DOWNLOAD_FAILED_ERROR) {
+        stringResource(R.string.music_playback_error_download)
+    } else {
+        null
+    }
+
+    LaunchedEffect(playbackErrorMessage) {
+        playbackErrorMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            onDismissPlaybackError()
+        }
+    }
+
+    LaunchedEffect(downloadErrorMessage) {
+        downloadErrorMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            onDismissDownloadError()
+        }
+    }
 
     BackHandler {
         when {
@@ -71,6 +114,7 @@ internal fun BookDetailScreen(
         onConfirm = onConfirmDownload,
     )
 
+    Box(modifier = Modifier.fillMaxSize()) {
     TonezenFixedHeaderScreen(
         hazeState = hazeState,
         padding = padding,
@@ -95,6 +139,20 @@ internal fun BookDetailScreen(
             )
         },
     ) {
+        if (showContinue) {
+            item(key = "continue-listening") {
+                Button(
+                    onClick = onContinueListening,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.continue_listening, continueTrack!!.title),
+                    )
+                }
+            }
+        }
         items(tracks, key = { it.id }) { track ->
             ChapterTrackRow(
                 track = track,
@@ -108,6 +166,13 @@ internal fun BookDetailScreen(
                 onRemoveDownload = { onRemoveTrackDownload(track) },
             )
         }
+    }
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .padding(bottom = bottomScrollPadding),
+    )
     }
 }
 
