@@ -9,14 +9,24 @@ export interface CycleCardState {
   isListened: boolean;
 }
 
+export function buildTracksByBookId(allTracks: Track[]): Map<string, Track[]> {
+  const map = new Map<string, Track[]>();
+  for (const track of allTracks) {
+    const list = map.get(track.bookId);
+    if (list) list.push(track);
+    else map.set(track.bookId, [track]);
+  }
+  return map;
+}
+
 export function computeCycleCardState(
   cycle: Cycle,
   downloadedBookIds: Set<string>,
-  allTracks: Track[],
+  tracksByBookId: Map<string, Track[]>,
   progressByBook: Map<string, AudiobookProgress>,
 ): CycleCardState {
   const bookIds = cycle.books.map((b) => b.id);
-  const cycleTracks = bookIds.flatMap((bookId) => allTracks.filter((t) => t.bookId === bookId));
+  const cycleTracks = bookIds.flatMap((bookId) => tracksByBookId.get(bookId) ?? []);
   const isDownloaded =
     cycleTracks.length > 0 && cycleTracks.every((track) => Boolean(track.localPath));
   const showDownload = !isDownloaded && cycleTracks.some((track) => !track.localPath);
@@ -25,14 +35,16 @@ export function computeCycleCardState(
   let totalTracks = 0;
   let completedTracks = 0;
   for (const bookId of bookIds) {
-    const bookTracks = allTracks.filter((t) => t.bookId === bookId);
+    const bookTracks = tracksByBookId.get(bookId) ?? [];
     totalTracks += bookTracks.length;
     const progress = progressByBook.get(bookId);
     if (!progress) continue;
+    const progressTrack = bookTracks.find((t) => t.id === progress.trackId);
+    const progressSortOrder = progressTrack?.sortOrder ?? Infinity;
     for (const track of bookTracks) {
       if (track.id === progress.trackId && progress.positionMs >= (track.durationMs ?? 0) * 0.95) {
         completedTracks += 1;
-      } else if (track.sortOrder < (bookTracks.find((t) => t.id === progress.trackId)?.sortOrder ?? Infinity)) {
+      } else if (track.sortOrder < progressSortOrder) {
         completedTracks += 1;
       }
     }
@@ -81,8 +93,8 @@ export function filterAndSortCycles(
   return result;
 }
 
-export function isBookFullyDownloaded(bookId: string, tracks: Track[]): boolean {
-  const bookTracks = tracks.filter((t) => t.bookId === bookId);
+export function isBookFullyDownloaded(bookId: string, tracksByBookId: Map<string, Track[]>): boolean {
+  const bookTracks = tracksByBookId.get(bookId) ?? [];
   return bookTracks.length > 0 && bookTracks.every((t) => Boolean(t.localPath));
 }
 

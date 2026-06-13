@@ -82,8 +82,20 @@ export const CatalogDb = {
     tx(cycles);
   },
 
-  getCycles(): Cycle[] {
-    const allBooks = this.getBooks();
+  getCycles(allBooks?: Book[]): Cycle[] {
+    return this.buildCycles(allBooks ?? this.getBooks());
+  },
+
+  getLibrarySnapshot(): { books: Book[]; cycles: Cycle[]; tracks: Track[] } {
+    const books = this.getBooks();
+    return {
+      books,
+      cycles: this.buildCycles(books),
+      tracks: this.getAllTracks(),
+    };
+  },
+
+  buildCycles(allBooks: Book[]): Cycle[] {
     const rows = getDb()
       .prepare(`SELECT id, slug, title, book_order, books_json FROM cycles ORDER BY title`)
       .all() as Array<{

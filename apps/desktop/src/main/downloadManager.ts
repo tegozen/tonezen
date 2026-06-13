@@ -7,6 +7,7 @@ import {
   sanitizeLocalAudioPath,
 } from "../shared/safeLocalPaths.js";
 import { apiV1Url } from "../shared/serverPaths.js";
+import type { Track } from "../shared/types.js";
 import { LocalDatabase } from "./database.js";
 
 export class DownloadManager {
@@ -88,9 +89,16 @@ export class DownloadManager {
     downloadProgress: number;
   }> {
     const books = LocalDatabase.getBooks();
+    const tracksByBookId = new Map<string, Track[]>();
+    for (const track of LocalDatabase.getAllTracks()) {
+      const list = tracksByBookId.get(track.bookId);
+      if (list) list.push(track);
+      else tracksByBookId.set(track.bookId, [track]);
+    }
+
     return books
       .map((book) => {
-        const tracks = LocalDatabase.getTracks(book.id);
+        const tracks = tracksByBookId.get(book.id) ?? [];
         const downloaded = tracks.filter((t) => t.localPath);
         if (downloaded.length === 0) return null;
         const sizeBytes = downloaded.reduce((sum, track) => {

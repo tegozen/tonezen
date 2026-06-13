@@ -53,6 +53,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   ipcMain.handle("catalog:sync", () => catalogSync.syncCatalog());
   ipcMain.handle("db:getBooks", () => LocalDatabase.getBooks());
   ipcMain.handle("db:getCycles", () => LocalDatabase.getCycles());
+  ipcMain.handle("db:getLibrarySnapshot", () => LocalDatabase.getLibrarySnapshot());
   ipcMain.handle("db:getAllTracks", () => LocalDatabase.getAllTracks());
   ipcMain.handle("db:getAllProgress", () => LocalDatabase.getAllProgress());
   ipcMain.handle("db:getTracks", (_e, bookId: string) => LocalDatabase.getTracks(bookId));

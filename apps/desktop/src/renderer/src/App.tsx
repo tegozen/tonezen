@@ -18,6 +18,7 @@ import type { BottomTab, LibraryFilter } from "./i18n/strings";
 import { strings } from "./i18n/strings";
 import {
   computeCycleCardState,
+  buildTracksByBookId,
   filterAndSortCycles,
   isBookFullyDownloaded,
 } from "./lib/cycleUtils";
@@ -77,18 +78,15 @@ export function App() {
   const refreshLibraryRef = useRef<() => Promise<void>>(async () => {});
 
   const refreshLibrary = useCallback(async () => {
-    const [loadedCycles, loadedBooks, loadedTracks, downloads, stats, sync, progress] = await Promise.all([
-      window.tonezen.db.getCycles(),
-      window.tonezen.db.getBooks(),
-      window.tonezen.db.getAllTracks(),
-      window.tonezen.download.list(),
+    const [library, stats, sync, progress] = await Promise.all([
+      window.tonezen.db.getLibrarySnapshot(),
       window.tonezen.download.storageStats(),
       window.tonezen.sync.status(),
       window.tonezen.db.getAllProgress(),
     ]);
-    setCycles(loadedCycles as Cycle[]);
-    setBooks(loadedBooks as Book[]);
-    setAllTracks(loadedTracks as Track[]);
+    setCycles(library.cycles as Cycle[]);
+    setBooks(library.books as Book[]);
+    setAllTracks(library.tracks as Track[]);
     setStorageUsed(stats.usedBytes);
     setPendingCount(sync.pendingCount);
     setLastSyncAtEpochMs(sync.lastSyncAtEpochMs);
@@ -96,12 +94,11 @@ export function App() {
     setMusicTracks((current) =>
       buildMusicTrackListForCatalogUpdate(
         current,
-        loadedBooks as Book[],
-        loadedTracks as Track[],
+        library.books as Book[],
+        library.tracks as Track[],
         musicStartedInSessionRef.current,
       ),
     );
-    void downloads;
     setIsLoading(false);
   }, []);
 
@@ -162,13 +159,15 @@ export function App() {
   };
   musicStartedInSessionRef.current = music.musicStartedInSessionRef.current;
 
+  const tracksByBookId = useMemo(() => buildTracksByBookId(allTracks), [allTracks]);
+
   const downloadedBookIds = useMemo(() => {
     const ids = new Set<string>();
     for (const book of books) {
-      if (isBookFullyDownloaded(book.id, allTracks)) ids.add(book.id);
+      if (isBookFullyDownloaded(book.id, tracksByBookId)) ids.add(book.id);
     }
     return ids;
-  }, [books, allTracks]);
+  }, [books, tracksByBookId]);
 
   const progressByBook = useMemo(
     () => new Map(progressList.map((p) => [p.bookId, p])),
@@ -178,10 +177,10 @@ export function App() {
   const cycleCardStateById = useMemo(() => {
     const map: Record<string, ReturnType<typeof computeCycleCardState>> = {};
     for (const cycle of cycles) {
-      map[cycle.id] = computeCycleCardState(cycle, downloadedBookIds, allTracks, progressByBook);
+      map[cycle.id] = computeCycleCardState(cycle, downloadedBookIds, tracksByBookId, progressByBook);
     }
     return map;
-  }, [cycles, downloadedBookIds, allTracks, progressByBook]);
+  }, [cycles, downloadedBookIds, tracksByBookId, progressByBook]);
 
   const filteredCycles = useMemo(
     () => filterAndSortCycles(cycles, query, filter, downloadedBookIds, progressByBook),
@@ -483,12 +482,12 @@ export function App() {
             })
           }
           hasDownloads={tracks.some((t) => t.localPath)}
-          allDownloaded={isBookFullyDownloaded(selectedBook.id, allTracks)}
+          allDownloaded={isBookFullyDownloaded(selectedBook.id, tracksByBookId)}
         />
       ) : selectedCycle ? (
         <CycleDetailPage
           cycle={selectedCycle}
-          cardState={cycleCardStateById[selectedCycle.id] ?? computeCycleCardState(selectedCycle, downloadedBookIds, allTracks, progressByBook)}
+          cardState={cycleCardStateById[selectedCycle.id] ?? computeCycleCardState(selectedCycle, downloadedBookIds, tracksByBookId, progressByBook)}
           downloadedBookIds={downloadedBookIds}
           onBack={() => setSelectedCycle(null)}
           onBookClick={(book) => void openBook(book, selectedCycle)}

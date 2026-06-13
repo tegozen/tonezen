@@ -11,6 +11,7 @@ export function getDb(): Database.Database {
 export function initDatabase(userDataPath: string): void {
   const dbPath = path.join(userDataPath, "tonezen.db");
   db = new Database(dbPath);
+  db.pragma("journal_mode = WAL");
   db.exec(`
     CREATE TABLE IF NOT EXISTS books (
       id TEXT PRIMARY KEY,
@@ -28,6 +29,7 @@ export function initDatabase(userDataPath: string): void {
       duration_ms INTEGER,
       local_path TEXT
     );
+    CREATE INDEX IF NOT EXISTS idx_tracks_book_id ON tracks (book_id);
     CREATE TABLE IF NOT EXISTS audiobook_progress (
       book_id TEXT PRIMARY KEY,
       track_id TEXT NOT NULL,
