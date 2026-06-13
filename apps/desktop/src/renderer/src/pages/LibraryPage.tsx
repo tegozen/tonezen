@@ -5,6 +5,7 @@ import {
   progressForTrack,
   type MusicDownloadState,
 } from "@shared/musicDownloadState";
+import { libraryScrollPaddingTop } from "../lib/layoutChrome";
 import { LibraryCycleCard } from "../components/LibraryCycleCard";
 import { LibraryTopChrome } from "../components/LibraryTopChrome";
 import { MusicDownloadAllButton } from "../components/MusicDownloadAllButton";
@@ -63,17 +64,11 @@ export function LibraryPage({
   const downloadActive = isMusicDownloadActive(musicDownload);
 
   return (
-    <div>
-      <LibraryTopChrome
-        selectedTab={selectedTab}
-        query={query}
-        offlineBanner={offlineBanner}
-        showSearch={isAudiobooks}
-        onTabChange={onTabChange}
-        onQueryChange={onQueryChange}
-        onFilterClick={onFilterClick}
-      />
-      <div className="library-content">
+    <div className="library-page">
+      <div
+        className="scroll-under-chrome space-y-5"
+        style={{ paddingTop: libraryScrollPaddingTop(isAudiobooks, offlineBanner) }}
+      >
       {isAudiobooks ? (
         isLoading ? (
           <p className="text-center text-muted">{strings.libraryLoading}</p>
@@ -133,6 +128,15 @@ export function LibraryPage({
         </div>
       )}
       </div>
+      <LibraryTopChrome
+        selectedTab={selectedTab}
+        query={query}
+        offlineBanner={offlineBanner}
+        showSearch={isAudiobooks}
+        onTabChange={onTabChange}
+        onQueryChange={onQueryChange}
+        onFilterClick={onFilterClick}
+      />
     </div>
   );
 }

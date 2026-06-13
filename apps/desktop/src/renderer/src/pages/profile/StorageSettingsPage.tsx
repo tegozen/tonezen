@@ -28,12 +28,6 @@ export function StorageSettingsPage({
           {strings.deleteAll}
         </button>
       </SettingsSection>
-      <SettingsSection title={strings.settingsStorageCacheSection}>
-        <SettingsInfoRow title={strings.settingsStorageCacheSection} subtitle={strings.settingsStorageCacheDesc} />
-      </SettingsSection>
-      <SettingsSection title={strings.settingsStorageDeviceSection}>
-        <SettingsInfoRow title={strings.settingsStorageDeviceSection} subtitle={strings.settingsStorageDeviceDesc} />
-      </SettingsSection>
       {showDeleteConfirm && (
         <div className="sheet-overlay flex items-center justify-center p-5">
           <div className="modal-panel glass-panel">

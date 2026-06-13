@@ -240,20 +240,6 @@ export function usePlayback(
     if (next?.localPath) playTrackRef.current(next);
   }, []);
 
-  const setInitialTrackState = useCallback(
-    (book: Book, bookTracks: Track[], saved: { trackId: string } | null) => {
-      if (saved && book.contentType === "audiobook") {
-        const resumeTrack = bookTracks.find((t) => t.id === saved.trackId) ?? bookTracks[0];
-        setCurrentTrack(resumeTrack ?? null);
-        setProgressLabel(resumeTrack ? `Continue: ${resumeTrack.title}` : null);
-      } else {
-        setCurrentTrack(bookTracks[0] ?? null);
-        setProgressLabel(null);
-      }
-    },
-    [],
-  );
-
   const pauseOrResume = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -344,7 +330,6 @@ export function usePlayback(
     onTimeUpdate,
     onTrackEnded,
     resumeProgress,
-    setInitialTrackState,
     pauseOrResume,
     seekBy,
     seekTo,

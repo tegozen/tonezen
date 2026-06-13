@@ -8,6 +8,30 @@ contextBridge.exposeInMainWorld("tonezen", {
     logout: () => ipcRenderer.invoke("session:logout"),
     updateProfile: (displayName: string) => ipcRenderer.invoke("session:updateProfile", displayName),
     changePassword: (newPassword: string) => ipcRenderer.invoke("session:changePassword", newPassword),
+    uploadAvatar: (jpegBytes: Uint8Array) =>
+      ipcRenderer.invoke("session:uploadAvatar", Array.from(jpegBytes)),
+    onProfileUpdated: (
+      callback: (snap: {
+        state: string;
+        email: string | null;
+        displayName: string | null;
+        avatarUrl: string | null;
+        memberSinceEpochMs: number | null;
+      }) => void,
+    ) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        snap: {
+          state: string;
+          email: string | null;
+          displayName: string | null;
+          avatarUrl: string | null;
+          memberSinceEpochMs: number | null;
+        },
+      ) => callback(snap);
+      ipcRenderer.on("session:profileUpdated", listener);
+      return () => ipcRenderer.removeListener("session:profileUpdated", listener);
+    },
   },
   catalog: {
     sync: () => ipcRenderer.invoke("catalog:sync"),

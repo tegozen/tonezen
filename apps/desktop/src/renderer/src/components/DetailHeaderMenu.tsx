@@ -36,7 +36,10 @@ export function DetailHeaderMenu({
       <button
         type="button"
         className="icon-circle-btn text-[0]"
-        onClick={() => setOpen((v) => !v)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
         aria-label={strings.moreOptions}
       >
         <MoreVerticalIcon className="h-5 w-5 text-base" />

@@ -46,6 +46,7 @@ export class ProgressSyncService {
 
     await this.pullAll();
     await this.flushPending();
+    this.recordLastSyncAt();
 
     this.channel = this.supabase
       .channel(`audiobook-progress:${session.userId}`)
@@ -127,13 +128,17 @@ export class ProgressSyncService {
     }
   }
 
-  getSyncStatus(): { pendingCount: number } {
-    return { pendingCount: LocalDatabase.getPendingSyncCount() };
+  getSyncStatus(): { pendingCount: number; lastSyncAtEpochMs: number | null } {
+    return {
+      pendingCount: LocalDatabase.getPendingSyncCount(),
+      lastSyncAtEpochMs: LocalDatabase.getLastSyncAtEpochMs(),
+    };
   }
 
   async triggerSync(): Promise<void> {
     await this.pullAll();
     await this.flushPending();
+    this.recordLastSyncAt();
   }
 
   private async pushProgress(progress: AudiobookProgress): Promise<void> {
@@ -177,5 +182,9 @@ export class ProgressSyncService {
 
     LocalDatabase.upsertProgress(merged, false);
     this.mainWindow?.webContents.send("progress:updated", merged);
+  }
+
+  private recordLastSyncAt(): void {
+    LocalDatabase.setLastSyncAtEpochMs(Date.now());
   }
 }

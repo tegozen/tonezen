@@ -35,6 +35,8 @@ export function App() {
     sessionState,
     userEmail,
     displayName,
+    avatarUrl,
+    memberSinceEpochMs,
     email,
     setEmail,
     password,
@@ -62,6 +64,7 @@ export function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [storageUsed, setStorageUsed] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
+  const [lastSyncAtEpochMs, setLastSyncAtEpochMs] = useState<number | null>(null);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showSyncDialog, setShowSyncDialog] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -88,6 +91,7 @@ export function App() {
     setAllTracks(loadedTracks as Track[]);
     setStorageUsed(stats.usedBytes);
     setPendingCount(sync.pendingCount);
+    setLastSyncAtEpochMs(sync.lastSyncAtEpochMs);
     setProgressList(progress);
     setMusicTracks((current) =>
       buildMusicTrackListForCatalogUpdate(
@@ -128,7 +132,6 @@ export function App() {
     stopPlayback,
     onTimeUpdate,
     onTrackEnded,
-    setInitialTrackState,
     pauseOrResume,
     seekBy,
     seekTo,
@@ -247,8 +250,6 @@ export function App() {
     music.setMusicMode(false);
     const bookTracks = await window.tonezen.db.getTracks(book.id);
     setTracks(bookTracks as Track[]);
-    const saved = await window.tonezen.progress.get(book.id);
-    setInitialTrackState(book, bookTracks as Track[], saved);
     if (fromCycle) setSelectedCycle(fromCycle);
   };
 
@@ -385,7 +386,21 @@ export function App() {
   const miniDownloadProgress = currentTrack
     ? progressForTrack(musicDownload.state, currentTrack.id)
     : null;
-  const showMiniPlayer = Boolean(currentTrack);
+  const currentTrackInSelectedBook =
+    selectedBook != null &&
+    currentTrack != null &&
+    tracks.some((track) => track.id === currentTrack.id);
+  const showMiniPlayer =
+    Boolean(currentTrack) &&
+    (music.musicMode || currentTrackInSelectedBook || (!selectedBook && !selectedCycle));
+  const handleTabSelect = useCallback(
+    (tab: BottomTab) => {
+      setActiveTab(tab);
+      if (tab === "profile") void refreshSession();
+    },
+    [refreshSession],
+  );
+
   const showBottomNav = !selectedBook && !selectedCycle;
   const coverSeed = currentTrack?.id ?? selectedBook?.id ?? "";
 
@@ -408,7 +423,7 @@ export function App() {
   const shell = (
     <AppShell
       activeTab={activeTab}
-      onTabSelect={setActiveTab}
+      onTabSelect={handleTabSelect}
       miniTitle={miniTitle}
       miniSubtitle={miniSubtitle}
       coverSeed={coverSeed}
@@ -427,7 +442,11 @@ export function App() {
         <BookDetailPage
           book={selectedBook}
           tracks={tracks}
-          currentTrackId={!music.musicMode ? currentTrack?.id ?? null : null}
+          currentTrackId={
+            !music.musicMode && currentTrack && tracks.some((track) => track.id === currentTrack.id)
+              ? currentTrack.id
+              : null
+          }
           playbackPositionMs={positionMs}
           showDownloadSheet={showDownloadSheet}
           onBack={() => {
@@ -485,7 +504,7 @@ export function App() {
           }
         />
       ) : activeTab === "library" ? (
-        <>
+        <div className="library-route">
           <LibraryPage
             cycles={filteredCycles}
             cycleCardStateById={cycleCardStateById}
@@ -521,13 +540,16 @@ export function App() {
             onContentFilterChange={(contentFilter) => setFilter((f) => ({ ...f, contentFilter }))}
             onSortOrderChange={(sortOrder) => setFilter((f) => ({ ...f, sortOrder }))}
           />
-        </>
+        </div>
       ) : (
         <ProfilePage
           displayName={displayName}
           email={userEmail}
+          avatarUrl={avatarUrl}
+          memberSinceEpochMs={memberSinceEpochMs}
           online={sessionState === "AuthenticatedOnline"}
           pendingCount={pendingCount}
+          lastSyncAtEpochMs={lastSyncAtEpochMs}
           storageUsedBytes={storageUsed}
           showSignOutConfirm={showSignOutConfirm}
           showSyncDialog={showSyncDialog}

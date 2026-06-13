@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import { BottomNav } from "./BottomNav";
 import { MiniPlayerBar } from "./MiniPlayerBar";
 import type { BottomTab } from "../i18n/strings";
+import { scrollPadBottomCss } from "../lib/layoutChrome";
 
 interface AppShellProps {
   activeTab: BottomTab;
@@ -38,11 +39,15 @@ export function AppShell({
 }: AppShellProps) {
   const progress = durationMs > 0 ? positionMs / durationMs : 0;
   const showBottomChrome = showMiniPlayer || showBottomNav;
+  const contentStyle = {
+    "--scroll-pad-bottom": scrollPadBottomCss(showMiniPlayer, showBottomNav),
+  } as CSSProperties;
 
   return (
     <div className="app-frame">
       <main
-        className={`app-content ${showBottomChrome ? (showMiniPlayer ? "app-content-with-mini" : "app-content-with-nav") : ""} ${!showBottomNav ? "app-content-overlay" : ""}`}
+        className={`app-content ${!showBottomNav ? "app-content-overlay" : ""}`}
+        style={contentStyle}
       >
         {children}
       </main>

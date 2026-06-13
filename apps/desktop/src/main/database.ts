@@ -44,6 +44,10 @@ export const LocalDatabase = {
         book_order TEXT NOT NULL,
         books_json TEXT NOT NULL DEFAULT '[]'
       );
+      CREATE TABLE IF NOT EXISTS app_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
     `);
     LocalDatabase.ensureCycleBooksColumn();
   },
@@ -324,6 +328,24 @@ export const LocalDatabase = {
       .prepare(`SELECT COUNT(*) as count FROM audiobook_progress WHERE pending_sync = 1`)
       .get() as { count: number };
     return progress.count;
+  },
+
+  getLastSyncAtEpochMs(): number | null {
+    const row = db!
+      .prepare(`SELECT value FROM app_meta WHERE key = 'last_sync_at_epoch_ms'`)
+      .get() as { value: string } | undefined;
+    if (!row?.value) return null;
+    const parsed = Number(row.value);
+    return Number.isFinite(parsed) ? parsed : null;
+  },
+
+  setLastSyncAtEpochMs(epochMs: number): void {
+    db!
+      .prepare(
+        `INSERT INTO app_meta (key, value) VALUES ('last_sync_at_epoch_ms', @value)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      )
+      .run({ value: String(epochMs) });
   },
 
   clearAllLocalPaths(): void {

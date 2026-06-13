@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+  --app-shell-width: 430px;
   --color-app: #020617;
   --color-surface: #0f172a;
   --color-surface-raised: #172033;
@@ -17,8 +18,14 @@
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    @apply m-0 h-full overflow-hidden;
+  }
+
   body {
-    @apply m-0 bg-[#00142B] font-sans text-ink antialiased;
+    @apply bg-[#00142B] font-sans text-ink antialiased;
   }
 
   button,
@@ -50,12 +57,33 @@
 }
 
 @layer components {
+  /* Scrollable areas: wheel/touch only, no visible scrollbar. */
+  .tz-scroll,
+  .scroll-under-chrome,
+  .auth-content,
+  .now-playing-sheet-glass {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .tz-scroll::-webkit-scrollbar,
+  .scroll-under-chrome::-webkit-scrollbar,
+  .auth-content::-webkit-scrollbar,
+  .now-playing-sheet-glass::-webkit-scrollbar {
+    display: none;
+  }
+
   .app-frame {
-    @apply mx-auto flex min-h-screen max-w-[430px] flex-col bg-[#00142B];
+    @apply mx-auto flex h-dvh max-h-dvh w-full max-w-[var(--app-shell-width)] flex-col overflow-hidden bg-[#00142B];
   }
 
   .app-content {
-    @apply flex-1 overflow-y-auto px-5 pb-24 pt-2;
+    @apply relative flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-2;
+  }
+
+  .scroll-under-chrome {
+    @apply absolute inset-0 overflow-y-auto overscroll-y-contain;
+    padding-bottom: var(--scroll-pad-bottom, calc(5.5rem + 1rem));
   }
 
   .banner {
@@ -131,16 +159,8 @@
     -webkit-backdrop-filter: blur(24px) saturate(1.15);
   }
 
-  .app-content-with-nav {
-    @apply pb-[5.5rem];
-  }
-
-  .app-content-with-mini {
-    @apply pb-[10.5rem];
-  }
-
   .bottom-chrome-wrap {
-    @apply pointer-events-none fixed bottom-0 left-1/2 z-20 w-full max-w-[430px] -translate-x-1/2 px-2 pb-2;
+    @apply pointer-events-none fixed bottom-0 left-1/2 z-20 w-full max-w-[var(--app-shell-width)] -translate-x-1/2 px-2 pb-2;
   }
 
   .bottom-chrome-shell {
@@ -228,7 +248,7 @@
   }
 
   .filter-sheet-panel {
-    @apply fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] opacity-0 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)];
+    @apply fixed bottom-0 left-1/2 z-50 w-full max-w-[var(--app-shell-width)] opacity-0 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)];
     transform: translate(-50%, 100%);
   }
 
@@ -281,7 +301,7 @@
   }
 
   .sheet-panel {
-    @apply fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 rounded-t-3xl border border-border bg-surface-raised p-5;
+    @apply fixed bottom-0 left-1/2 z-50 w-full max-w-[var(--app-shell-width)] -translate-x-1/2 rounded-t-3xl border border-border bg-surface-raised p-5;
   }
 
   .modal-panel {
@@ -304,21 +324,190 @@
     @apply -mx-5 -mt-7 mb-2 border-b border-border/60 bg-surface/80 px-5 py-4 backdrop-blur-xl;
   }
 
-  .library-chrome-wrap {
-    @apply sticky top-0 z-10 -mx-5 mb-5 px-2;
+  .library-chrome-wrap,
+  .overlay-chrome-wrap {
+    @apply pointer-events-none absolute inset-x-0 top-0 z-20 -mx-5 px-2;
+  }
+
+  /* overlay-page already cancels app-content px-5 — avoid double -mx-5 clipping the shell */
+  .overlay-page > .library-chrome-wrap,
+  .overlay-page > .overlay-chrome-wrap {
+    @apply mx-0;
   }
 
   .library-chrome-shell {
-    @apply overflow-hidden rounded-2xl border border-white/12;
+    @apply pointer-events-auto overflow-hidden rounded-2xl border border-white/12;
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1);
+  }
+
+  .library-route,
+  .profile-page,
+  .overlay-page {
+    @apply relative min-h-0 flex-1;
+  }
+
+  .library-page {
+    @apply absolute inset-0;
+  }
+
+  .title-chrome-row {
+    @apply flex min-h-10 items-center gap-2.5 px-5 py-2;
+  }
+
+  .title-chrome-heading {
+    @apply text-base font-semibold;
+  }
+
+  .profile-section-label {
+    @apply mb-2 pl-1 text-xs font-semibold uppercase tracking-wide text-muted;
+  }
+
+  .profile-user-card {
+    @apply flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border border-border bg-surface-raised p-4 text-left outline-none transition hover:border-teal/40 focus:outline-none;
+  }
+
+  .profile-avatar-ring {
+    @apply rounded-full border-2 border-white/[0.16] p-0.5;
+  }
+
+  .profile-avatar-inner {
+    @apply flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-surface-raised;
+  }
+
+  .profile-user-meta {
+    @apply min-w-0 flex-1 space-y-0.5;
+  }
+
+  .profile-user-email {
+    @apply text-sm text-muted;
+  }
+
+  .profile-user-member-since {
+    @apply text-xs text-white/35;
+  }
+
+  .profile-sync-card {
+    @apply flex w-full items-start gap-3 rounded-2xl border border-border bg-surface-raised px-4 py-3.5;
+  }
+
+  .profile-settings-group {
+    @apply w-full overflow-hidden rounded-2xl border border-border bg-surface-raised;
+  }
+
+  .profile-settings-row {
+    @apply flex w-full cursor-pointer items-center justify-between px-4 py-3.5 text-left outline-none transition hover:bg-surface-muted/50 focus:outline-none;
+  }
+
+  .profile-sign-out-card {
+    @apply w-full cursor-pointer rounded-2xl border border-border bg-surface-raised px-4 py-3.5 text-center font-medium text-error outline-none transition hover:border-error/40 focus:outline-none;
+  }
+
+  .account-form-section {
+    @apply rounded-2xl border border-border bg-surface-raised p-4;
+  }
+
+  .account-form-section-title {
+    @apply font-semibold text-ink;
+  }
+
+  .account-form-section-body {
+    @apply mt-3.5 space-y-3.5;
+  }
+
+  .account-avatar-block {
+    @apply flex flex-col items-center gap-2.5;
+  }
+
+  .account-avatar-picker {
+    @apply relative inline-flex cursor-pointer outline-none focus:outline-none disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .account-avatar-uploading {
+    @apply absolute inset-0 flex items-center justify-center rounded-full bg-black/45;
+  }
+
+  .account-avatar-add {
+    @apply absolute -bottom-0.5 -right-0.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface-raised bg-teal-strong text-base font-bold leading-none text-app;
+  }
+
+  .account-avatar-change-link {
+    @apply cursor-pointer border-none bg-transparent text-sm text-teal outline-none focus:outline-none disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .avatar-crop-screen {
+    @apply fixed inset-0 z-50 mx-auto flex max-w-[var(--app-shell-width)] flex-col bg-[#020617];
+  }
+
+  .avatar-crop-top {
+    @apply shrink-0 px-2 pb-2 pt-2;
+  }
+
+  .avatar-crop-title {
+    @apply px-10 text-center text-base font-semibold text-ink;
+  }
+
+  .avatar-crop-hint {
+    @apply mt-1 px-4 text-center text-sm text-muted;
+  }
+
+  .avatar-crop-area {
+    @apply relative min-h-0 flex-1 touch-none cursor-grab active:cursor-grabbing;
+  }
+
+  .avatar-crop-canvas {
+    @apply block h-full w-full;
+  }
+
+  .avatar-crop-loading {
+    @apply flex flex-1 items-center justify-center px-6;
+  }
+
+  .avatar-crop-error {
+    @apply px-5 py-2 text-center text-sm text-error;
+  }
+
+  .avatar-crop-save {
+    @apply mx-5 mb-5 shrink-0;
+  }
+
+  .avatar-crop-spinner {
+    @apply inline-block h-5 w-5 animate-spin rounded-full border-2 border-teal border-t-transparent;
+  }
+
+  .avatar-crop-spinner-inline {
+    @apply mr-2 align-middle;
+  }
+
+  .account-field {
+    @apply relative block;
+  }
+
+  .account-field-label {
+    @apply pointer-events-none absolute left-3 top-0 z-[1] -translate-y-1/2 bg-surface-raised px-1 text-xs text-muted;
+  }
+
+  .account-field-control {
+    @apply relative;
+  }
+
+  .account-field-input {
+    @apply h-[58px] w-full rounded-2xl border border-white/[0.18] bg-surface/60 px-3.5 text-sm text-ink outline-none placeholder:text-muted focus:border-teal disabled:cursor-default disabled:text-muted;
+  }
+
+  .account-field-toggle {
+    @apply absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent outline-none;
+  }
+
+  .account-field-input:disabled {
+    @apply bg-surface/40 text-muted;
+  }
+
+  .account-primary-btn {
+    @apply w-full cursor-pointer rounded-2xl bg-teal-strong py-2.5 font-medium text-app outline-none hover:opacity-90 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .library-chrome-inner {
     @apply flex flex-col gap-5 px-5 py-2;
-  }
-
-  .library-chrome-divider {
-    @apply h-px w-full bg-white/10;
   }
 
   .library-offline-banner {
@@ -363,10 +552,6 @@
 
   .library-filter-btn {
     @apply flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-surface-raised/90 outline-none focus:outline-none;
-  }
-
-  .library-content {
-    @apply space-y-5;
   }
 
   .library-cycle-grid {
@@ -431,7 +616,7 @@
   }
 
   .app-content-overlay {
-    @apply pb-20;
+    @apply flex min-h-0 flex-1 flex-col overflow-hidden;
   }
 
   .book-cover {
@@ -506,10 +691,6 @@
     @apply h-full bg-teal;
   }
 
-  .overlay-chrome-wrap {
-    @apply sticky top-0 z-10 -mx-5 mb-5 px-2;
-  }
-
   .overlay-chrome-header {
     @apply grid min-h-10 grid-cols-[1fr_auto_1fr] items-center gap-2 px-5 py-2;
   }
@@ -523,7 +704,7 @@
   }
 
   .overlay-chrome-trailing {
-    @apply flex justify-self-end;
+    @apply relative flex justify-self-end overflow-visible;
   }
 
   .overlay-chrome-spacer {
@@ -535,11 +716,11 @@
   }
 
   .overflow-menu-popover {
-    @apply absolute right-0 top-11 z-50 min-w-48 rounded-xl border border-border bg-surface-raised p-2 shadow-lg;
+    @apply absolute right-0 top-11 z-[100] min-w-48 rounded-xl border border-border bg-surface-raised p-2 shadow-lg;
   }
 
   .overlay-page {
-    @apply -mx-5 px-5;
+    @apply relative -mx-5 min-h-0 flex-1 px-5;
   }
 
   .filter-chip {
@@ -619,7 +800,7 @@
   }
 
   .now-playing-sheet-panel {
-    @apply fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] opacity-0 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)];
+    @apply fixed bottom-0 left-1/2 z-50 w-full max-w-[var(--app-shell-width)] opacity-0 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)];
     transform: translate(-50%, 100%);
   }
 

@@ -2,6 +2,7 @@ import type { Book, Cycle } from "@shared/types";
 import { CycleBookRow } from "../components/CycleBookRow";
 import { DetailHeaderMenu } from "../components/DetailHeaderMenu";
 import { OverlayTopChrome } from "../components/OverlayTopChrome";
+import { OVERLAY_BACK_TOP_SCROLL_PX } from "../lib/layoutChrome";
 import type { CycleCardState } from "../lib/cycleUtils";
 import { strings } from "../i18n/strings";
 
@@ -27,7 +28,19 @@ export function CycleDetailPage({
   onRemoveCycleDownloads,
 }: CycleDetailPageProps) {
   return (
-    <div className="overlay-page space-y-5">
+    <div className="overlay-page">
+      <div className="scroll-under-chrome" style={{ paddingTop: OVERLAY_BACK_TOP_SCROLL_PX }}>
+        <div className="cycle-book-list">
+          {cycle.books.map((book) => (
+            <CycleBookRow
+              key={book.id}
+              book={book}
+              downloaded={downloadedBookIds.has(book.id)}
+              onClick={() => onBookClick(book)}
+            />
+          ))}
+        </div>
+      </div>
       <OverlayTopChrome
         title={strings.cycleBooksSection}
         onBack={onBack}
@@ -42,16 +55,6 @@ export function CycleDetailPage({
           />
         }
       />
-      <div className="cycle-book-list">
-        {cycle.books.map((book) => (
-          <CycleBookRow
-            key={book.id}
-            book={book}
-            downloaded={downloadedBookIds.has(book.id)}
-            onClick={() => onBookClick(book)}
-          />
-        ))}
-      </div>
     </div>
   );
 }

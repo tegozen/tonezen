@@ -9,6 +9,7 @@ import com.tonezen.app.data.local.LocalLibraryNotifier
 import com.tonezen.app.data.local.TrackDownloadEnsurer
 import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.data.remote.DownloadRepository
+import com.tonezen.app.data.remote.ProfileSyncRepository
 import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.domain.library.LibraryContentFilter
@@ -42,6 +43,7 @@ class LibraryViewModel @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val sessionRepository: SessionRepository,
     private val progressSyncRepository: ProgressSyncRepository,
+    private val profileSyncRepository: ProfileSyncRepository,
     private val networkMonitor: NetworkMonitor,
     private val playbackClient: PlaybackClient,
     private val playbackQueueBuilder: PlaybackQueueBuilder,
@@ -262,7 +264,10 @@ class LibraryViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoadingCatalog = false) }
                 }
             }
-            refreshed?.let { progressSyncRepository.start(it) }
+            refreshed?.let {
+                progressSyncRepository.start(it)
+                profileSyncRepository.start(it)
+            }
             if (networkMonitor.isOnline()) {
                 refreshCatalogFromRemote(refreshed?.accessToken)
             } else {

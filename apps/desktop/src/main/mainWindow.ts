@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
+import { APP_SHELL_WIDTH_PX, mainWindowContentSize } from "../shared/appShell.js";
 import { appIconPath } from "./assets.js";
 import type { WindowLifecycleManager } from "./windowLifecycle.js";
 
@@ -7,9 +8,14 @@ export function createMainWindow(
   lifecycle: WindowLifecycleManager,
   onReadyToShow?: () => void,
 ): BrowserWindow {
+  const { width, height } = mainWindowContentSize();
   const mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 720,
+    width,
+    height,
+    useContentSize: true,
+    minWidth: APP_SHELL_WIDTH_PX,
+    maxWidth: APP_SHELL_WIDTH_PX,
+    minHeight: 640,
     show: false,
     backgroundColor: "#00142B",
     icon: appIconPath,

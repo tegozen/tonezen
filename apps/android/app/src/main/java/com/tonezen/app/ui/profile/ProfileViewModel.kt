@@ -8,6 +8,7 @@ import com.tonezen.app.data.local.LocalLibraryNotifier
 import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.data.remote.AuthRepository
 import com.tonezen.app.data.remote.AvatarRepository
+import com.tonezen.app.data.remote.ProfileSyncRepository
 import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.playback.PlaybackClient
@@ -29,6 +30,7 @@ class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val avatarRepository: AvatarRepository,
     private val progressSyncRepository: ProgressSyncRepository,
+    private val profileSyncRepository: ProfileSyncRepository,
     private val catalogRepository: CatalogRepository,
     private val networkMonitor: NetworkMonitor,
     private val playbackClient: PlaybackClient,
@@ -139,6 +141,7 @@ class ProfileViewModel @Inject constructor(
                         avatarUrl = session.avatarUrl ?: updated.avatarUrl,
                     ),
                 )
+                profileSyncRepository.mirrorSession(sessionRepository.loadSession() ?: session)
             } catch (_: Exception) {
                 _uiState.update { it.copy(profileError = PROFILE_UPDATE_FAILED_ERROR) }
             } finally {
@@ -210,7 +213,9 @@ class ProfileViewModel @Inject constructor(
                     accessToken = session.accessToken,
                     avatarUrl = avatarUrl,
                 )
-                sessionRepository.saveSession(session.copy(avatarUrl = avatarUrl))
+                val updatedSession = session.copy(avatarUrl = avatarUrl)
+                sessionRepository.saveSession(updatedSession)
+                profileSyncRepository.mirrorSession(updatedSession)
                 _uiState.value.avatarCropUri?.let(::deleteCachedAvatarUri)
                 _uiState.update {
                     it.copy(
@@ -255,6 +260,7 @@ class ProfileViewModel @Inject constructor(
 
     fun logout() {
         progressSyncRepository.stop()
+        profileSyncRepository.stop()
         playbackClient.stopAndRelease()
         sessionRepository.clearSession()
     }

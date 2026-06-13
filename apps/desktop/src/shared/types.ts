@@ -11,6 +11,9 @@ export interface StoredSession {
   accessToken: string;
   refreshToken: string;
   expiresAtEpochSeconds: number;
+  memberSinceEpochMs?: number | null;
+  avatarUrl?: string | null;
+  profileUpdatedAt?: string | null;
 }
 
 export interface AudiobookProgress {

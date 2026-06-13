@@ -1,18 +1,60 @@
 export interface TonezenApi {
   session: {
-    get: () => Promise<{ state: string; email: string | null; displayName: string | null }>;
+    get: () => Promise<{
+      state: string;
+      email: string | null;
+      displayName: string | null;
+      avatarUrl: string | null;
+      memberSinceEpochMs: number | null;
+    }>;
     setOnline: (online: boolean) => Promise<void>;
     login: (
       email: string,
       password: string,
-    ) => Promise<{ state: string; email: string | null; displayName: string | null }>;
+    ) => Promise<{
+      state: string;
+      email: string | null;
+      displayName: string | null;
+      avatarUrl: string | null;
+      memberSinceEpochMs: number | null;
+    }>;
     logout: () => Promise<void>;
     updateProfile: (
       displayName: string,
-    ) => Promise<{ state: string; email: string | null; displayName: string | null }>;
+    ) => Promise<{
+      state: string;
+      email: string | null;
+      displayName: string | null;
+      avatarUrl: string | null;
+      memberSinceEpochMs: number | null;
+    }>;
     changePassword: (
       newPassword: string,
-    ) => Promise<{ state: string; email: string | null; displayName: string | null }>;
+    ) => Promise<{
+      state: string;
+      email: string | null;
+      displayName: string | null;
+      avatarUrl: string | null;
+      memberSinceEpochMs: number | null;
+    }>;
+    uploadAvatar: (
+      jpegBytes: Uint8Array,
+    ) => Promise<{
+      state: string;
+      email: string | null;
+      displayName: string | null;
+      avatarUrl: string | null;
+      memberSinceEpochMs: number | null;
+    }>;
+    onProfileUpdated: (
+      callback: (snap: {
+        state: string;
+        email: string | null;
+        displayName: string | null;
+        avatarUrl: string | null;
+        memberSinceEpochMs: number | null;
+      }) => void,
+    ) => () => void;
   };
   catalog: {
     sync: () => Promise<Array<{ id: string; title: string; contentType: string; author?: string }>>;
@@ -75,7 +117,7 @@ export interface TonezenApi {
     deleteAll: () => Promise<void>;
   };
   sync: {
-    status: () => Promise<{ pendingCount: number }>;
+    status: () => Promise<{ pendingCount: number; lastSyncAtEpochMs: number | null }>;
     trigger: () => Promise<void>;
   };
   progress: {

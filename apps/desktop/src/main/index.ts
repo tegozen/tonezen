@@ -6,6 +6,7 @@ import { SessionService } from "./sessionService.js";
 import { LocalDatabase } from "./database.js";
 import { CatalogSyncService } from "./catalogSync.js";
 import { DownloadManager } from "./downloadManager.js";
+import { ProfileSyncService } from "./profileSync.js";
 import { ProgressSyncService } from "./progressSync.js";
 import { getClientConfig, loadAppEnv, loadPackagedEnv } from "./loadEnv.js";
 import { createMainWindow } from "./mainWindow.js";
@@ -24,6 +25,7 @@ const powerBlocker = new PlaybackPowerBlocker();
 
 let catalogSync: CatalogSyncService;
 let downloadManager: DownloadManager;
+let profileSync: ProfileSyncService;
 let progressSync: ProgressSyncService;
 
 app.whenReady().then(() => {
@@ -45,6 +47,10 @@ app.whenReady().then(() => {
     runtimeConfig.baseUrl,
     () => sessionService.getAccessToken(),
   );
+  profileSync = new ProfileSyncService(sessionService, {
+    baseUrl: runtimeConfig.baseUrl,
+    anonKey: runtimeConfig.supabaseAnonKey,
+  });
   progressSync = new ProgressSyncService(
     () => sessionService.getSession(),
     () => sessionService.getAccessToken(),
@@ -57,22 +63,24 @@ app.whenReady().then(() => {
 
   const mainWindow = createMainWindow(lifecycle, () => closeSplashWindow(splashWindow));
   createAppTray(mainWindow, lifecycle);
+  profileSync.setMainWindow(mainWindow);
   progressSync.setMainWindow(mainWindow);
-  void startProgressSyncIfNeeded();
+  void startRealtimeSyncIfNeeded();
   registerIpcHandlers({
     sessionService,
     catalogSync,
     downloadManager,
+    profileSync,
     progressSync,
     powerBlocker,
   });
 });
 
-async function startProgressSyncIfNeeded(): Promise<void> {
+async function startRealtimeSyncIfNeeded(): Promise<void> {
   await sessionService.refreshIfNeeded();
   const session = sessionService.getSession();
   if (session) {
-    await progressSync.start(session);
+    await Promise.all([profileSync.start(session), progressSync.start(session)]);
   }
 }
 

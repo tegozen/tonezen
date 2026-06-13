@@ -11,6 +11,7 @@ import com.tonezen.app.data.remote.AuthRepository
 import com.tonezen.app.data.remote.AvatarRepository
 import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.data.remote.SessionRepository
+import com.tonezen.app.data.remote.UserProfileMirrorRepository
 import com.tonezen.app.domain.session.SessionManager
 import dagger.Module
 import dagger.Provides
@@ -52,6 +53,11 @@ object AppModule {
     @Singleton
     fun provideAvatarRepository(httpClient: OkHttpClient): AvatarRepository =
         AvatarRepository(BuildConfig.BASE_URL, BuildConfig.SUPABASE_ANON_KEY, httpClient)
+
+    @Provides
+    @Singleton
+    fun provideUserProfileMirrorRepository(httpClient: OkHttpClient): UserProfileMirrorRepository =
+        UserProfileMirrorRepository(BuildConfig.BASE_URL, BuildConfig.SUPABASE_ANON_KEY, httpClient)
 
     @Provides
     @Singleton

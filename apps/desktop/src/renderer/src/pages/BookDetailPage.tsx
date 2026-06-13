@@ -2,6 +2,7 @@ import type { Book, Track } from "@shared/types";
 import { ChapterTrackRow } from "../components/ChapterTrackRow";
 import { DetailHeaderMenu } from "../components/DetailHeaderMenu";
 import { OverlayTopChrome } from "../components/OverlayTopChrome";
+import { OVERLAY_BACK_TOP_SCROLL_PX } from "../lib/layoutChrome";
 import { buildBookTrackProgress, resolveChapterTrackState } from "../lib/bookTrackUtils";
 import { strings } from "../i18n/strings";
 import { CloseIcon, DownloadsIcon } from "../components/TonezenIcons";
@@ -58,21 +59,8 @@ export function BookDetailPage({
   );
 
   return (
-    <div className="overlay-page space-y-5">
-      <OverlayTopChrome
-        title={strings.chapters}
-        onBack={onBack}
-        trailing={
-          <DetailHeaderMenu
-            showDownload={!allDownloaded}
-            showRemoveDownload={hasDownloads}
-            isListened={isBookListened}
-            onDownload={onDownloadRequest}
-            onToggleListened={onToggleBookListened}
-            onRemoveDownloads={onRemoveBookDownloads}
-          />
-        }
-      />
+    <div className="overlay-page">
+      <div className="scroll-under-chrome" style={{ paddingTop: OVERLAY_BACK_TOP_SCROLL_PX }}>
       <div className="chapter-track-list">
         {sortedTracks.map((track) => {
           const isActive = track.id === currentTrackId;
@@ -96,6 +84,21 @@ export function BookDetailPage({
           );
         })}
       </div>
+      </div>
+      <OverlayTopChrome
+        title={strings.chapters}
+        onBack={onBack}
+        trailing={
+          <DetailHeaderMenu
+            showDownload={!allDownloaded}
+            showRemoveDownload={hasDownloads}
+            isListened={isBookListened}
+            onDownload={onDownloadRequest}
+            onToggleListened={onToggleBookListened}
+            onRemoveDownloads={onRemoveBookDownloads}
+          />
+        }
+      />
       {showDownloadSheet && (
         <div className="sheet-overlay">
           <div className="sheet-panel glass-panel">

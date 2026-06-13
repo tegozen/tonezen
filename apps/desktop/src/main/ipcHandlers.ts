@@ -3,6 +3,7 @@ import type { CatalogSyncService } from "./catalogSync.js";
 import type { DownloadManager } from "./downloadManager.js";
 import { LocalDatabase } from "./database.js";
 import type { PlaybackPowerBlocker } from "./playbackPowerBlocker.js";
+import type { ProfileSyncService } from "./profileSync.js";
 import type { ProgressSyncService } from "./progressSync.js";
 import type { SessionService } from "./sessionService.js";
 
@@ -10,16 +11,18 @@ export interface IpcHandlerDeps {
   sessionService: SessionService;
   catalogSync: CatalogSyncService;
   downloadManager: DownloadManager;
+  profileSync: ProfileSyncService;
   progressSync: ProgressSyncService;
   powerBlocker: PlaybackPowerBlocker;
 }
 
 export function registerIpcHandlers(deps: IpcHandlerDeps): void {
-  const { sessionService, catalogSync, downloadManager, progressSync, powerBlocker } = deps;
+  const { sessionService, catalogSync, downloadManager, profileSync, progressSync, powerBlocker } = deps;
 
   ipcMain.handle("session:get", async () => {
     await sessionService.refreshIfNeeded();
-    await progressSync.updateAuth();
+    await sessionService.syncProfileFromServer();
+    await Promise.all([profileSync.updateAuth(), progressSync.updateAuth()]);
     return sessionService.getSnapshot();
   });
   ipcMain.handle("session:setOnline", (_e, online: boolean) => {
@@ -27,10 +30,11 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   });
   ipcMain.handle("session:login", async (_e, email: string, password: string) => {
     const session = await sessionService.login(email, password);
-    await progressSync.start(session);
+    await Promise.all([profileSync.start(session), progressSync.start(session)]);
     return sessionService.getSnapshot();
   });
   ipcMain.handle("session:logout", () => {
+    profileSync.stop();
     progressSync.stop();
     sessionService.logout();
   });
@@ -40,6 +44,10 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   });
   ipcMain.handle("session:changePassword", async (_e, newPassword: string) => {
     await sessionService.changePassword(newPassword);
+    return sessionService.getSnapshot();
+  });
+  ipcMain.handle("session:uploadAvatar", async (_e, jpegBytes: Uint8Array | number[]) => {
+    await sessionService.uploadAvatar(jpegBytes);
     return sessionService.getSnapshot();
   });
   ipcMain.handle("catalog:sync", () => catalogSync.syncCatalog());

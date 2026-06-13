@@ -2,8 +2,16 @@ import { safeStorage } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { SessionManager } from "../shared/session.js";
-import { SupabaseAuthClient, displayNameFromUser, sessionFromGoTrue } from "../shared/supabaseAuth.js";
+import { avatarUrlWithCacheBust } from "../shared/avatarBytes.js";
+import { resolveSyncedAvatarUrl, stripAvatarQuery } from "../shared/profileSync.js";
+import {
+  SupabaseAuthClient,
+  applyUserProfile,
+  displayNameFromUser,
+  sessionFromGoTrue,
+} from "../shared/supabaseAuth.js";
 import type { SessionState, StoredSession } from "../shared/types.js";
+import { upsertUserProfileMirror, type UserProfileMirrorRow } from "../shared/userProfileMirror.js";
 
 const SESSION_FILE = "session.dat";
 
@@ -17,12 +25,39 @@ export class SessionService {
   private readonly manager = new SessionManager();
   private sessionPath = "";
   private authClient: SupabaseAuthClient | null = null;
+  private sessionConfig: SessionConfig | null = null;
   private online = true;
 
   init(userDataPath: string, config: SessionConfig): void {
     this.sessionPath = path.join(userDataPath, SESSION_FILE);
+    this.sessionConfig = config;
     this.authClient = new SupabaseAuthClient(config);
     this.session = this.load();
+  }
+
+  applyRemoteUserProfile(row: UserProfileMirrorRow): boolean {
+    if (!this.session || row.user_id !== this.session.userId) return false;
+
+    const serverUpdatedAt = row.updated_at ?? null;
+    if (serverUpdatedAt && serverUpdatedAt === this.session.profileUpdatedAt) return false;
+
+    const nextAvatarBase = stripAvatarQuery(row.avatar_url);
+    const avatarUrl = resolveSyncedAvatarUrl({
+      prevAvatarUrl: this.session.avatarUrl,
+      prevProfileUpdatedAt: this.session.profileUpdatedAt,
+      nextAvatarBase,
+      serverUpdatedAt,
+      bust: avatarUrlWithCacheBust,
+    });
+
+    this.session = {
+      ...this.session,
+      displayName: row.display_name?.trim() || this.session.displayName,
+      avatarUrl,
+      profileUpdatedAt: serverUpdatedAt,
+    };
+    this.persist(this.session);
+    return true;
   }
 
   setOnline(online: boolean): void {
@@ -37,12 +72,20 @@ export class SessionService {
     return this.session;
   }
 
-  getSnapshot(): { state: SessionState; email: string | null; displayName: string | null } {
+  getSnapshot(): {
+    state: SessionState;
+    email: string | null;
+    displayName: string | null;
+    avatarUrl: string | null;
+    memberSinceEpochMs: number | null;
+  } {
     const state = this.manager.resolveState(this.session, this.online);
     return {
       state,
       email: this.session?.email || null,
       displayName: this.session?.displayName || null,
+      avatarUrl: this.session?.avatarUrl ?? null,
+      memberSinceEpochMs: this.session?.memberSinceEpochMs ?? null,
     };
   }
 
@@ -69,11 +112,9 @@ export class SessionService {
       return { displayName: this.session.displayName };
     }
     const user = await this.authClient.updateUser(this.session.accessToken, { displayName: trimmed });
-    this.session = {
-      ...this.session,
-      displayName: displayNameFromUser(user, this.session.email),
-    };
+    this.session = applyUserProfile(this.session, user);
     this.persist(this.session);
+    await this.mirrorProfileToRealtime(user.updated_at ?? new Date().toISOString());
     return { displayName: this.session.displayName };
   }
 
@@ -82,6 +123,56 @@ export class SessionService {
     await this.refreshIfNeeded();
     if (!this.session || !this.authClient) throw new Error("__not_signed_in__");
     await this.authClient.updateUser(this.session.accessToken, { password: newPassword });
+  }
+
+  async uploadAvatar(jpegBytes: Uint8Array | number[] | ArrayBuffer): Promise<{ avatarUrl: string }> {
+    if (!this.online) throw new Error("__account_offline__");
+    await this.refreshIfNeeded();
+    if (!this.session || !this.authClient) throw new Error("__not_signed_in__");
+    const avatarUrl = await this.authClient.uploadAvatar(
+      this.session.accessToken,
+      this.session.userId,
+      jpegBytes,
+    );
+    const user = await this.authClient.updateUser(this.session.accessToken, {
+      avatarUrl: avatarUrl.split("?")[0] ?? avatarUrl,
+    });
+    this.session = {
+      ...applyUserProfile(this.session, user),
+      avatarUrl,
+      profileUpdatedAt: user.updated_at ?? this.session.profileUpdatedAt ?? null,
+    };
+    this.persist(this.session);
+    await this.mirrorProfileToRealtime(this.session.profileUpdatedAt ?? new Date().toISOString());
+    return { avatarUrl: this.session.avatarUrl ?? avatarUrl };
+  }
+
+  async syncProfileFromServer(): Promise<void> {
+    if (!this.session || !this.online || !this.authClient) return;
+
+    try {
+      await this.refreshIfNeeded();
+      if (!this.session) return;
+
+      const user = await this.authClient.getUser(this.session.accessToken);
+      const merged = applyUserProfile(this.session, user);
+      const avatarUrl = resolveSyncedAvatarUrl({
+        prevAvatarUrl: this.session.avatarUrl,
+        prevProfileUpdatedAt: this.session.profileUpdatedAt,
+        nextAvatarBase: stripAvatarQuery(merged.avatarUrl ?? null),
+        serverUpdatedAt: user.updated_at ?? null,
+        bust: avatarUrlWithCacheBust,
+      });
+
+      this.session = {
+        ...merged,
+        avatarUrl,
+        profileUpdatedAt: user.updated_at ?? null,
+      };
+      this.persist(this.session);
+    } catch {
+      await this.refreshIfNeeded();
+    }
   }
 
   async refreshIfNeeded(): Promise<SessionState> {
@@ -108,6 +199,20 @@ export class SessionService {
       return "Unauthenticated";
     } finally {
       this.manager.endRefresh();
+    }
+  }
+
+  private async mirrorProfileToRealtime(updatedAt: string): Promise<void> {
+    if (!this.session || !this.sessionConfig || !this.online) return;
+    try {
+      await upsertUserProfileMirror(this.sessionConfig, this.session.accessToken, {
+        user_id: this.session.userId,
+        display_name: this.session.displayName,
+        avatar_url: stripAvatarQuery(this.session.avatarUrl),
+        updated_at: updatedAt,
+      });
+    } catch {
+      // Realtime mirror is best-effort; local session is already persisted.
     }
   }
 

@@ -44,4 +44,24 @@ describe("SupabaseAuthClient", () => {
   it("falls back to email local part when display name is missing", () => {
     expect(displayNameFromUser({ id: "u1", email: "admin@tonezen.local" })).toBe("Admin");
   });
+
+  it("maps avatar and member since from GoTrue user", () => {
+    const session = sessionFromGoTrue({
+      access_token: "at",
+      refresh_token: "rt",
+      expires_in: 3600,
+      token_type: "bearer",
+      user: {
+        id: "user-1",
+        email: "admin@tonezen.local",
+        created_at: "2026-06-12T00:00:00.000Z",
+        user_metadata: {
+          full_name: "Admin",
+          avatar_url: "https://example.com/avatar.jpg",
+        },
+      },
+    });
+    expect(session.avatarUrl).toBe("https://example.com/avatar.jpg");
+    expect(session.memberSinceEpochMs).toBe(Date.parse("2026-06-12T00:00:00.000Z"));
+  });
 });

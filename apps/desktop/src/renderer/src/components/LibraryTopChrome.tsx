@@ -65,7 +65,6 @@ export function LibraryTopChrome({
             </div>
           )}
         </div>
-        <div className="library-chrome-divider" />
       </div>
     </div>
   );

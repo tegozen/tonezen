@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { OVERLAY_BACK_TOP_SCROLL_PX } from "../../lib/layoutChrome";
 import { OverlayTopChrome } from "../../components/OverlayTopChrome";
 
 interface SettingsPageLayoutProps {
@@ -9,9 +10,11 @@ interface SettingsPageLayoutProps {
 
 export function SettingsPageLayout({ title, onBack, children }: SettingsPageLayoutProps) {
   return (
-    <div className="overlay-page space-y-5">
+    <div className="profile-page">
+      <div className="scroll-under-chrome space-y-4" style={{ paddingTop: OVERLAY_BACK_TOP_SCROLL_PX }}>
+        {children}
+      </div>
       <OverlayTopChrome title={title} onBack={onBack} />
-      {children}
     </div>
   );
 }

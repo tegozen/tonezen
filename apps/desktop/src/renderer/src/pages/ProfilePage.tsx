@@ -1,12 +1,13 @@
 import { useState } from "react";
+import { PAGE_TITLE_TOP_SCROLL_PX } from "../lib/layoutChrome";
+import { formatMemberSinceDate, formatLastSyncLabel } from "../lib/profileUtils";
+import { ProfileAvatar } from "../components/ProfileAvatar";
+import { TitleTopChrome } from "../components/TitleTopChrome";
 import {
   CheckCircleIcon,
   ChevronRightIcon,
-  ProfileIcon,
   StorageIcon,
-  WarningIcon,
 } from "../components/TonezenIcons";
-import { formatGb } from "../lib/formatTime";
 import { strings } from "../i18n/strings";
 import { AccountSettingsPage } from "./profile/AccountSettingsPage";
 import { StorageSettingsPage } from "./profile/StorageSettingsPage";
@@ -16,8 +17,11 @@ type ProfileSettingsPage = "account" | "storage";
 interface ProfilePageProps {
   displayName: string | null;
   email: string | null;
+  avatarUrl: string | null;
+  memberSinceEpochMs: number | null;
   online: boolean;
   pendingCount: number;
+  lastSyncAtEpochMs: number | null;
   storageUsedBytes: number;
   showSignOutConfirm: boolean;
   showSyncDialog: boolean;
@@ -34,12 +38,14 @@ interface ProfilePageProps {
 export function ProfilePage({
   displayName,
   email,
+  avatarUrl,
+  memberSinceEpochMs,
   online,
   pendingCount,
+  lastSyncAtEpochMs,
   storageUsedBytes,
   showSignOutConfirm,
   showSyncDialog,
-  syncing,
   onRequestSignOut,
   onConfirmSignOut,
   onCancelSignOut,
@@ -56,6 +62,7 @@ export function ProfilePage({
       <AccountSettingsPage
         displayName={displayName ?? ""}
         email={email ?? ""}
+        avatarUrl={avatarUrl}
         onBack={() => setActivePage(null)}
         onProfileUpdated={onProfileUpdated}
       />
@@ -76,66 +83,67 @@ export function ProfilePage({
     );
   }
 
+  const memberSinceLabel = formatMemberSinceDate(memberSinceEpochMs);
+  const lastSyncLabel = formatLastSyncLabel(lastSyncAtEpochMs, {
+    todayAt: strings.lastSyncTodayAt,
+    never: strings.lastSyncNever,
+  });
+
   return (
-    <div className="space-y-5">
-      <div className="chrome-bar flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{strings.profileTitle}</h1>
-        <span className={online ? "chip-green" : "chip-amber"}>
-          {online ? strings.online : strings.offline}
-        </span>
-      </div>
-      <button
-        type="button"
-        className="card-hover flex w-full items-center gap-3 px-4 py-4 text-left"
-        onClick={() => setActivePage("account")}
-      >
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-surface-raised text-teal">
-          <ProfileIcon className="h-8 w-8" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="font-semibold">{displayName}</div>
-          {email && <div className="text-sm text-muted">{email}</div>}
-        </div>
-        <ChevronRightIcon className="h-5 w-5 shrink-0 text-muted" />
-      </button>
-      <div className="card space-y-3">
-        <div className="text-sm font-semibold text-muted">{strings.profileSyncStatusSection}</div>
-        <div className="flex items-center gap-2 font-semibold">
-          <CheckCircleIcon className="h-5 w-5 text-teal" />
-          {strings.syncStatusAllSet}
-        </div>
-        <div className="text-sm text-muted">{strings.lastSyncToday}</div>
-        {pendingCount > 0 && <span className="chip-amber">{strings.pending}</span>}
-        <button type="button" className="btn-secondary" disabled={syncing} onClick={onSyncNow}>
-          {strings.syncNow}
-        </button>
-      </div>
-      <div className="space-y-2">
-        <div className="text-sm font-semibold text-muted">{strings.profileSettingsSection}</div>
-        <button
-          type="button"
-          className="card-hover flex w-full items-center justify-between px-4 py-3 text-left"
-          onClick={() => setActivePage("storage")}
-        >
-          <div className="flex items-center gap-3">
-            <StorageIcon className="h-6 w-6" />
-            <div>
-              <div>{strings.settingsStorage}</div>
-              <div className="text-sm text-muted">
-                {formatGb(storageUsedBytes)} · {strings.settingsStorageSubtitle}
+    <div className="profile-page">
+      <div className="scroll-under-chrome space-y-4" style={{ paddingTop: PAGE_TITLE_TOP_SCROLL_PX }}>
+        <button type="button" className="profile-user-card" onClick={() => setActivePage("account")}>
+          <ProfileAvatar avatarUrl={avatarUrl} />
+          <div className="profile-user-meta">
+            <div className="font-semibold">{displayName}</div>
+            {email && <div className="profile-user-email">{email}</div>}
+            {memberSinceLabel && (
+              <div className="profile-user-member-since">
+                {strings.profileMemberSince.replace("{date}", memberSinceLabel)}
               </div>
+            )}
+          </div>
+        </button>
+
+        <div>
+          <div className="profile-section-label">{strings.profileSyncStatusSection}</div>
+          <div className="profile-sync-card">
+            <CheckCircleIcon className="mt-0.5 h-[22px] w-[22px] shrink-0 text-teal" />
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="font-semibold">{strings.syncStatusAllSet}</div>
+              <div className="text-sm text-muted">{lastSyncLabel}</div>
+              {pendingCount > 0 && <span className="chip-amber">{strings.pending}</span>}
             </div>
           </div>
-          <ChevronRightIcon className="h-5 w-5 text-muted" />
-        </button>
+        </div>
+
+        <div className="space-y-3">
+          <div className="profile-section-label">{strings.profileSettingsSection}</div>
+          <div className="profile-settings-group">
+            <button type="button" className="profile-settings-row" onClick={() => setActivePage("storage")}>
+              <div className="flex min-w-0 items-center gap-3">
+                <StorageIcon className="h-6 w-6 shrink-0" />
+                <div className="min-w-0">
+                  <div className="font-medium">{strings.settingsStorage}</div>
+                  <div className="text-sm text-muted">{strings.settingsStorageSubtitle}</div>
+                </div>
+              </div>
+              <ChevronRightIcon className="h-5 w-5 shrink-0 text-muted" />
+            </button>
+          </div>
+          <button type="button" className="profile-sign-out-card" onClick={onRequestSignOut}>
+            {strings.signOut}
+          </button>
+        </div>
       </div>
-      <button type="button" className="btn-danger w-full" onClick={onRequestSignOut}>
-        {strings.signOut}
-      </button>
-      <div className="card flex gap-3 border-amber/30 text-sm text-muted">
-        <WarningIcon className="h-5 w-5 shrink-0 text-amber" />
-        <span>{strings.musicProgressLocalWarning}</span>
-      </div>
+      <TitleTopChrome
+        title={strings.profileTitle}
+        trailing={
+          <span className={online ? "chip-green" : "chip-amber"}>
+            {online ? strings.online : strings.offline}
+          </span>
+        }
+      />
       {showSignOutConfirm && (
         <div className="sheet-overlay flex items-center justify-center p-5">
           <div className="modal-panel glass-panel">
