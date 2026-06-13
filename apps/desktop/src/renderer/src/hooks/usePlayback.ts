@@ -10,7 +10,11 @@ import {
 
 const cycleResolver = new CyclePlaybackResolver();
 
-export function usePlayback(selectedBook: Book | null, tracks: Track[]) {
+export function usePlayback(
+  selectedBook: Book | null,
+  tracks: Track[],
+  skipTracks: Track[] = tracks,
+) {
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [progressLabel, setProgressLabel] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -22,11 +26,13 @@ export function usePlayback(selectedBook: Book | null, tracks: Track[]) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const selectedBookRef = useRef(selectedBook);
   const tracksRef = useRef(tracks);
+  const skipTracksRef = useRef(skipTracks);
   const currentTrackRef = useRef(currentTrack);
   const playTrackRef = useRef<(track: Track, startMs?: number) => void>(() => {});
 
   selectedBookRef.current = selectedBook;
   tracksRef.current = tracks;
+  skipTracksRef.current = skipTracks;
   currentTrackRef.current = currentTrack;
 
   useEffect(() => {
@@ -65,14 +71,14 @@ export function usePlayback(selectedBook: Book | null, tracks: Track[]) {
           },
           nextTrack: () => {
             const current = currentTrackRef.current;
-            const list = tracksRef.current;
+            const list = skipTracksRef.current;
             if (!current) return;
             const next = cycleResolver.nextInBook(current, list);
             if (next?.localPath) playTrackRef.current(next);
           },
           previousTrack: () => {
             const current = currentTrackRef.current;
-            const list = tracksRef.current;
+            const list = skipTracksRef.current;
             if (!current) return;
             const prev = cycleResolver.previousInBook(current, list);
             if (prev?.localPath) playTrackRef.current(prev);
@@ -164,11 +170,21 @@ export function usePlayback(selectedBook: Book | null, tracks: Track[]) {
     if (track?.localPath) playTrack(track, saved.positionMs);
   }, [selectedBook, tracks, playTrack]);
 
+  const seekTo = useCallback(
+    (fraction: number) => {
+      const audio = audioRef.current;
+      if (!audio || !Number.isFinite(audio.duration)) return;
+      audio.currentTime = Math.max(0, Math.min(audio.duration, audio.duration * fraction));
+      syncPositionState();
+    },
+    [syncPositionState],
+  );
+
   const onTrackEnded = useCallback(() => {
-    if (!selectedBook || !currentTrack) return;
-    const next = cycleResolver.nextInBook(currentTrack, tracks);
-    if (next?.localPath) playTrack(next);
-  }, [selectedBook, currentTrack, tracks, playTrack]);
+    if (!selectedBookRef.current || !currentTrackRef.current) return;
+    const next = cycleResolver.nextInBook(currentTrackRef.current, tracksRef.current);
+    if (next?.localPath) playTrackRef.current(next);
+  }, []);
 
   const setInitialTrackState = useCallback(
     (book: Book, bookTracks: Track[], saved: { trackId: string } | null) => {
@@ -254,6 +270,7 @@ export function usePlayback(selectedBook: Book | null, tracks: Track[]) {
     setInitialTrackState,
     pauseOrResume,
     seekBy,
+    seekTo,
     cycleSpeed,
   };
 }

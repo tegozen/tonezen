@@ -1,11 +1,6 @@
 import type { BottomTab } from "../i18n/strings";
 import { strings } from "../i18n/strings";
-import {
-  DownloadsIcon,
-  LibraryIcon,
-  PlayerIcon,
-  ProfileIcon,
-} from "./TonezenIcons";
+import { LibraryIcon, ProfileIcon } from "./TonezenIcons";
 
 interface BottomNavProps {
   active: BottomTab;
@@ -18,8 +13,6 @@ const tabs: Array<{
   Icon: typeof LibraryIcon;
 }> = [
   { id: "library", label: strings.navLibrary, Icon: LibraryIcon },
-  { id: "player", label: strings.navPlayer, Icon: PlayerIcon },
-  { id: "downloads", label: strings.navDownloads, Icon: DownloadsIcon },
   { id: "profile", label: strings.navProfile, Icon: ProfileIcon },
 ];
 

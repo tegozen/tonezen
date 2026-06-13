@@ -1,10 +1,6 @@
 import { useState } from "react";
-import {
-  DownloadsIcon,
-  LockIcon,
-  MailIcon,
-  SyncIcon,
-} from "./TonezenIcons";
+import { EyeIcon, EyeOffIcon, LockIcon, MailIcon } from "./TonezenIcons";
+import { AuthIntroPanel, AuthStarField } from "./AuthDecor";
 import { strings } from "../i18n/strings";
 
 interface LoginViewProps {
@@ -25,69 +21,58 @@ export function LoginView({
   onLogin,
 }: LoginViewProps) {
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const canSubmit = email.trim().length > 0 && password.length > 0;
 
   return (
-    <div className="app-frame">
-      <main className="app-content space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">{strings.appName}</h1>
-          <h2 className="mt-4 text-2xl font-bold">{strings.authHeadline}</h2>
-          <p className="mt-2 text-muted">{strings.authBody}</p>
-        </div>
-        <div className="flex gap-2">
-          <span className="chip-teal gap-1">
-            <DownloadsIcon className="h-3.5 w-3.5" />
-            {strings.authOfflineBadge}
-          </span>
-          <span className="chip-green gap-1">
-            <SyncIcon className="h-3.5 w-3.5" />
-            {strings.authSyncBadge}
-          </span>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          {["Midnight", "Atomic", "Body"].map((label) => (
-            <div key={label} className="aspect-[0.78] rounded-2xl bg-surface-raised p-2 text-center text-xs">
-              {label}
-            </div>
-          ))}
-        </div>
-        <div className="card space-y-3">
-          <div>
-            <h3 className="font-semibold">{strings.authCardTitle}</h3>
-            <p className="text-sm text-muted">{strings.authCardBody}</p>
-          </div>
-          <div className="relative">
-            <MailIcon className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+    <div className="app-frame auth-screen">
+      <AuthStarField />
+      <main className="auth-content">
+        <AuthIntroPanel />
+        <form
+          className="auth-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (canSubmit) onLogin();
+          }}
+        >
+          <label className="auth-field">
+            <MailIcon className="auth-field-icon" />
             <input
-              className="input-field pl-11"
+              type="email"
               placeholder={strings.email}
               value={email}
               onChange={(e) => onEmailChange(e.target.value)}
+              autoComplete="email"
             />
-          </div>
-          <div className="relative">
-            <LockIcon className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+          </label>
+          <label className="auth-field">
+            <LockIcon className="auth-field-icon" />
             <input
-              className="input-field pl-11 pr-16"
-              placeholder={strings.password}
               type={passwordVisible ? "text" : "password"}
+              placeholder={strings.password}
               value={password}
               onChange={(e) => onPasswordChange(e.target.value)}
+              autoComplete="current-password"
             />
             <button
               type="button"
-              className="absolute right-3 top-3 text-sm text-muted"
+              className="auth-field-toggle"
               onClick={() => setPasswordVisible((value) => !value)}
+              aria-label={passwordVisible ? strings.hidePassword : strings.showPassword}
             >
-              {passwordVisible ? strings.hidePassword : strings.showPassword}
+              {passwordVisible ? (
+                <EyeOffIcon className="h-[19px] w-[19px] text-muted" />
+              ) : (
+                <EyeIcon className="h-[19px] w-[19px] text-muted" />
+              )}
             </button>
-          </div>
-          <button className="btn-primary w-full" type="button" onClick={onLogin}>
+          </label>
+          <button type="submit" className="auth-sign-in-btn" disabled={!canSubmit}>
             {strings.signIn}
           </button>
-          {error && <p className="error-text">{error}</p>}
-        </div>
-        <p className="text-center text-sm text-muted">{strings.offlinePlaybackNote}</p>
+          {error && <p className="error-text px-0.5 text-sm">{error}</p>}
+          <p className="auth-footer-note">{strings.offlinePlaybackNote}</p>
+        </form>
       </main>
     </div>
   );

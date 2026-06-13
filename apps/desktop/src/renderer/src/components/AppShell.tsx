@@ -9,6 +9,10 @@ interface AppShellProps {
   miniTitle: string | null;
   miniSubtitle: string | null;
   isPlaying: boolean;
+  positionMs: number;
+  durationMs: number;
+  showMiniPlayer: boolean;
+  showBottomNav: boolean;
   onMiniBarClick: () => void;
   onMiniPlayPause: () => void;
   children: ReactNode;
@@ -20,21 +24,42 @@ export function AppShell({
   miniTitle,
   miniSubtitle,
   isPlaying,
+  positionMs,
+  durationMs,
+  showMiniPlayer,
+  showBottomNav,
   onMiniBarClick,
   onMiniPlayPause,
   children,
 }: AppShellProps) {
+  const progress = durationMs > 0 ? positionMs / durationMs : 0;
+  const showBottomChrome = showMiniPlayer || showBottomNav;
+
   return (
     <div className="app-frame">
-      <main className="app-content">{children}</main>
-      <MiniPlayerBar
-        title={miniTitle}
-        subtitle={miniSubtitle}
-        isPlaying={isPlaying}
-        onBarClick={onMiniBarClick}
-        onPlayPause={onMiniPlayPause}
-      />
-      <BottomNav active={activeTab} onSelect={onTabSelect} />
+      <main
+        className={`app-content ${showBottomChrome ? (showMiniPlayer ? "app-content-with-mini" : "app-content-with-nav") : ""} ${!showBottomNav ? "app-content-overlay" : ""}`}
+      >
+        {children}
+      </main>
+      {showBottomChrome && (
+        <div className="bottom-chrome-wrap">
+          <div className="bottom-chrome-shell">
+            {showMiniPlayer && (
+              <MiniPlayerBar
+                title={miniTitle}
+                subtitle={miniSubtitle}
+                isPlaying={isPlaying}
+                progress={progress}
+                onBarClick={onMiniBarClick}
+                onPlayPause={onMiniPlayPause}
+              />
+            )}
+            {showMiniPlayer && showBottomNav && <div className="bottom-chrome-divider" />}
+            {showBottomNav && <BottomNav active={activeTab} onSelect={onTabSelect} />}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

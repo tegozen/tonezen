@@ -3,12 +3,15 @@ import path from "node:path";
 import { appIconPath } from "./assets.js";
 import type { WindowLifecycleManager } from "./windowLifecycle.js";
 
-export function createMainWindow(lifecycle: WindowLifecycleManager, onReadyToShow?: () => void): BrowserWindow {
+export function createMainWindow(
+  lifecycle: WindowLifecycleManager,
+  onReadyToShow?: () => void,
+): BrowserWindow {
   const mainWindow = new BrowserWindow({
     width: 1100,
     height: 720,
     show: false,
-    backgroundColor: "#020617",
+    backgroundColor: "#00142B",
     icon: appIconPath,
     title: "Tonezen",
     webPreferences: {

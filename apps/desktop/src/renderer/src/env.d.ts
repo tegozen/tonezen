@@ -21,6 +21,29 @@ export interface TonezenApi {
     getBooks: () => Promise<
       Array<{ id: string; slug: string; contentType: string; title: string; author?: string }>
     >;
+    getCycles: () => Promise<
+      Array<{
+        id: string;
+        slug: string;
+        title: string;
+        bookOrder: string[];
+        books: Array<{ id: string; slug: string; contentType: string; title: string; author?: string }>;
+      }>
+    >;
+    getAllTracks: () => Promise<
+      Array<{
+        id: string;
+        bookId: string;
+        sortOrder: number;
+        title: string;
+        filename: string;
+        durationMs?: number;
+        localPath?: string;
+      }>
+    >;
+    getAllProgress: () => Promise<
+      Array<{ bookId: string; trackId: string; positionMs: number; updatedAt: string }>
+    >;
     getTracks: (bookId: string) => Promise<
       Array<{
         id: string;

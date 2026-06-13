@@ -1,18 +1,22 @@
-import { ChevronRightIcon } from "../../components/TonezenIcons";
 import { strings } from "../../i18n/strings";
+import { formatGb } from "../../lib/formatTime";
 import { SettingsPageLayout, SettingsInfoRow, SettingsSection } from "./SettingsPageLayout";
 
 interface StorageSettingsPageProps {
   usedBytes: number;
+  showDeleteConfirm: boolean;
   onBack: () => void;
-  onOpenDownloads: () => void;
+  onShowDeleteConfirm: (show: boolean) => void;
+  onDeleteAll: () => void;
 }
 
-function formatGb(bytes: number): string {
-  return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
-}
-
-export function StorageSettingsPage({ usedBytes, onBack, onOpenDownloads }: StorageSettingsPageProps) {
+export function StorageSettingsPage({
+  usedBytes,
+  showDeleteConfirm,
+  onBack,
+  onShowDeleteConfirm,
+  onDeleteAll,
+}: StorageSettingsPageProps) {
   return (
     <SettingsPageLayout title={strings.settingsStoragePageTitle} onBack={onBack}>
       <SettingsSection title={strings.settingsStorageDownloadsSection}>
@@ -20,9 +24,8 @@ export function StorageSettingsPage({ usedBytes, onBack, onOpenDownloads }: Stor
           {formatGb(usedBytes)} {strings.storageSavedOffline}
         </div>
         <SettingsInfoRow title={strings.settingsStorageDownloadsSection} subtitle={strings.settingsStorageDownloadsDesc} />
-        <button type="button" className="card-hover flex w-full items-center justify-between px-4 py-3" onClick={onOpenDownloads}>
-          <span className="font-medium">{strings.settingsStorageManageDownloads}</span>
-          <ChevronRightIcon className="h-5 w-5 text-muted" />
+        <button type="button" className="btn-danger w-full" onClick={() => onShowDeleteConfirm(true)}>
+          {strings.deleteAll}
         </button>
       </SettingsSection>
       <SettingsSection title={strings.settingsStorageCacheSection}>
@@ -31,6 +34,22 @@ export function StorageSettingsPage({ usedBytes, onBack, onOpenDownloads }: Stor
       <SettingsSection title={strings.settingsStorageDeviceSection}>
         <SettingsInfoRow title={strings.settingsStorageDeviceSection} subtitle={strings.settingsStorageDeviceDesc} />
       </SettingsSection>
+      {showDeleteConfirm && (
+        <div className="sheet-overlay flex items-center justify-center p-5">
+          <div className="modal-panel glass-panel">
+            <h2 className="text-lg font-semibold">{strings.deleteAllConfirmTitle}</h2>
+            <p className="mt-2 text-sm text-muted">{strings.deleteAllConfirmBody}</p>
+            <div className="mt-4 flex gap-3">
+              <button type="button" className="btn-secondary flex-1" onClick={() => onShowDeleteConfirm(false)}>
+                {strings.cancel}
+              </button>
+              <button type="button" className="btn-danger flex-1" onClick={onDeleteAll}>
+                {strings.deleteAll}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </SettingsPageLayout>
   );
 }

@@ -1,110 +1,187 @@
-import type { Book } from "@shared/types";
+import type { Cycle } from "@shared/types";
+import type { MusicListTrack } from "@shared/musicList";
 import {
-  DownloadsIcon,
-  FilterIcon,
-  MoreVerticalIcon,
-  SearchIcon,
+  PauseIcon,
+  PlayIcon,
+  TrashIcon,
 } from "../components/TonezenIcons";
+import { CoverArt } from "../components/CoverArt";
+import { LibraryCycleCard } from "../components/LibraryCycleCard";
+import { LibraryTopChrome } from "../components/LibraryTopChrome";
+import type { CycleCardState } from "../lib/cycleUtils";
+import { formatMs } from "../lib/formatTime";
 import { strings } from "../i18n/strings";
 
 interface LibraryPageProps {
-  books: Book[];
-  downloadedIds: Set<string>;
+  cycles: Cycle[];
+  cycleCardStateById: Record<string, CycleCardState>;
+  musicTracks: MusicListTrack[];
   query: string;
   selectedTab: number;
   offlineBanner: boolean;
+  isLoading: boolean;
+  musicDownloadProgress: { done: number; total: number } | null;
+  musicDownloadingTrackId: string | null;
+  activeMusicTrackId: string | null;
+  isMusicPlaying: boolean;
+  musicError: string | null;
+  cyclePlayingId: string | null;
+  cycleIsPlaying: boolean;
   onQueryChange: (value: string) => void;
   onTabChange: (tab: number) => void;
-  onBookClick: (book: Book) => void;
+  onCycleClick: (cycle: Cycle) => void;
+  onCyclePlay: (cycle: Cycle) => void;
   onFilterClick: () => void;
+  onMusicTrackClick: (track: MusicListTrack) => void;
+  onMusicTrackDelete: (track: MusicListTrack) => void;
+  onDownloadAllMusic: () => void;
 }
 
 export function LibraryPage({
-  books,
-  downloadedIds,
+  cycles,
+  cycleCardStateById,
+  musicTracks,
   query,
   selectedTab,
   offlineBanner,
+  isLoading,
+  musicDownloadProgress,
+  musicDownloadingTrackId,
+  activeMusicTrackId,
+  isMusicPlaying,
+  musicError,
+  cyclePlayingId,
+  cycleIsPlaying,
   onQueryChange,
   onTabChange,
-  onBookClick,
+  onCycleClick,
+  onCyclePlay,
   onFilterClick,
+  onMusicTrackClick,
+  onMusicTrackDelete,
+  onDownloadAllMusic,
 }: LibraryPageProps) {
-  const filtered = books.filter((book) => {
-    const q = query.trim().toLowerCase();
-    const matches =
-      !q ||
-      book.title.toLowerCase().includes(q) ||
-      (book.author ?? "").toLowerCase().includes(q);
-    const tabMatch =
-      selectedTab === 0 ? book.contentType === "audiobook" : book.contentType === "music";
-    return matches && tabMatch;
-  });
+  const isAudiobooks = selectedTab === 0;
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{strings.appName}</h1>
-        <button type="button" className="icon-button h-10 w-10 text-[0]" aria-label={strings.moreOptions}>
-          <MoreVerticalIcon className="h-5 w-5 text-base" />
-        </button>
-      </div>
-      {offlineBanner && <div className="banner">{strings.noNetworkSyncPaused}</div>}
-      <div className="flex border-b border-border">
-        {[strings.tabAudiobooks, strings.tabMusic].map((label, index) => (
-          <button
-            key={label}
-            type="button"
-            className={`flex-1 pb-3 ${selectedTab === index ? "border-b-2 border-teal text-teal" : "text-muted"}`}
-            onClick={() => onTabChange(index)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
-          <input
-            className="input-field mb-0 pl-11"
-            placeholder={strings.searchLibrary}
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-          />
-        </div>
-        <button type="button" className="icon-button h-12 w-12" onClick={onFilterClick} aria-label={strings.filter}>
-          <FilterIcon className="h-5 w-5" />
-        </button>
-      </div>
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="section-title">
-            {selectedTab === 0 ? strings.tabAudiobooks : strings.tabMusic}
-          </h2>
-          <span className="text-sm text-teal">{strings.seeAll}</span>
-        </div>
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {filtered.map((book) => (
+    <div>
+      <LibraryTopChrome
+        selectedTab={selectedTab}
+        query={query}
+        offlineBanner={offlineBanner}
+        showSearch={isAudiobooks}
+        onTabChange={onTabChange}
+        onQueryChange={onQueryChange}
+        onFilterClick={onFilterClick}
+      />
+      <div className="library-content">
+      {isAudiobooks ? (
+        isLoading ? (
+          <p className="text-center text-muted">{strings.libraryLoading}</p>
+        ) : cycles.length === 0 ? (
+          <EmptyLibrary offline={offlineBanner} />
+        ) : (
+          <div className="library-cycle-grid">
+            {cycles.map((cycle) => {
+              const state = cycleCardStateById[cycle.id] ?? {
+                isDownloaded: false,
+                progressFraction: null,
+                showDownload: true,
+                showRemoveDownload: false,
+                isListened: false,
+              };
+              const isPlayingThis = cyclePlayingId === cycle.id && cycleIsPlaying;
+              return (
+                <LibraryCycleCard
+                  key={cycle.id}
+                  cycle={cycle}
+                  state={state}
+                  isPlaying={isPlayingThis}
+                  onClick={() => onCycleClick(cycle)}
+                  onPlayClick={() => onCyclePlay(cycle)}
+                />
+              );
+            })}
+          </div>
+        )
+      ) : musicTracks.length === 0 && !isLoading ? (
+        <EmptyLibrary offline={offlineBanner} />
+      ) : (
+        <div className="space-y-3">
+          {musicTracks.some((t) => !t.isDownloaded) && (
             <button
-              key={book.id}
               type="button"
-              className="w-36 shrink-0 text-left"
-              onClick={() => onBookClick(book)}
+              className="btn-secondary w-full"
+              disabled={musicDownloadProgress != null}
+              onClick={onDownloadAllMusic}
             >
-              <div className="relative mb-2 aspect-[0.78] rounded-2xl bg-surface-raised">
-                {downloadedIds.has(book.id) && (
-                  <span className="chip-teal absolute bottom-2 left-2 gap-1">
-                    <DownloadsIcon className="h-3.5 w-3.5" />
-                    {strings.offline}
-                  </span>
-                )}
-              </div>
-              <div className="font-semibold">{book.title}</div>
-              <div className="text-sm text-muted">{book.author}</div>
+              {musicDownloadProgress
+                ? strings.musicDownloadAllProgress(musicDownloadProgress.done, musicDownloadProgress.total)
+                : strings.musicDownloadAll}
             </button>
-          ))}
+          )}
+          {musicError && <p className="text-sm text-error">{musicError}</p>}
+          <div className="space-y-1">
+            {musicTracks.map((track) => {
+              const isActive = activeMusicTrackId === track.trackId;
+              const isDownloading = musicDownloadingTrackId === track.trackId;
+              return (
+                <div key={track.trackId} className={`track-row ${isActive ? "track-row-active" : ""}`}>
+                  <CoverArt seed={track.trackId} audiobook={false} className="h-12 w-12 shrink-0 rounded-xl" />
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 cursor-pointer text-left"
+                    onClick={() => onMusicTrackClick(track)}
+                    disabled={isDownloading}
+                  >
+                    <div className="truncate font-medium">{track.trackTitle}</div>
+                    <div className="truncate text-sm text-muted">{track.artist}</div>
+                  </button>
+                  <span className="shrink-0 text-sm text-muted">{formatMs(track.durationMs ?? 0)}</span>
+                  {track.isDownloaded ? (
+                    <button
+                      type="button"
+                      className="icon-button h-9 w-9 shrink-0 text-error"
+                      onClick={() => onMusicTrackDelete(track)}
+                      aria-label={strings.musicDeleteTrack}
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="compact-play-btn shrink-0"
+                      onClick={() => onMusicTrackClick(track)}
+                      disabled={isDownloading}
+                      aria-label={isActive && isMusicPlaying ? strings.pause : strings.play}
+                    >
+                      {isDownloading ? (
+                        <span className="text-xs">{strings.downloading}</span>
+                      ) : isActive && isMusicPlaying ? (
+                        <PauseIcon className="h-4 w-4" />
+                      ) : (
+                        <PlayIcon className="h-4 w-4" />
+                      )}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
+      )}
       </div>
+    </div>
+  );
+}
+
+function EmptyLibrary({ offline }: { offline: boolean }) {
+  return (
+    <div className="py-12 text-center">
+      <h2 className="text-lg font-semibold">{strings.emptyLibraryTitle}</h2>
+      <p className="mt-2 text-sm text-muted">
+        {offline ? strings.emptyLibraryOfflineBody : strings.emptyLibraryBody}
+      </p>
     </div>
   );
 }

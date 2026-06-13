@@ -21,7 +21,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -225,17 +224,20 @@ internal fun LibraryFilterSheet(
                 selected = filter.sortOrder == LibrarySortOrder.TITLE,
                 onClick = { onSortOrderChange(LibrarySortOrder.TITLE) },
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = onReset, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.reset))
-                }
-                Button(
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                TonezenSheetSecondaryButton(
+                    label = stringResource(R.string.reset),
+                    onClick = onReset,
+                    modifier = Modifier.weight(1f),
+                )
+                TonezenSheetPrimaryButton(
+                    label = stringResource(R.string.apply),
                     onClick = { onApply(filter) },
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = TonezenTeal, contentColor = TonezenAppBg),
-                ) {
-                    Text(stringResource(R.string.apply))
-                }
+                )
             }
         }
     }

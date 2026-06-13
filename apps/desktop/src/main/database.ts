@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import path from "node:path";
-import type { AudiobookProgress, Book, Track } from "../shared/types.js";
+import { booksForCycleOrder } from "../shared/cycleBooks.js";
+import type { AudiobookProgress, Book, Cycle, Track } from "../shared/types.js";
 
 interface StoredProgress extends AudiobookProgress {
   pendingSync: boolean;
@@ -35,6 +36,12 @@ export const LocalDatabase = {
         position_ms INTEGER NOT NULL,
         updated_at TEXT NOT NULL,
         pending_sync INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS cycles (
+        id TEXT PRIMARY KEY,
+        slug TEXT NOT NULL,
+        title TEXT NOT NULL,
+        book_order TEXT NOT NULL
       );
     `);
   },
@@ -81,6 +88,95 @@ export const LocalDatabase = {
 
   setTrackLocalPath(trackId: string, localPath: string | null): void {
     db!.prepare(`UPDATE tracks SET local_path = ? WHERE id = ?`).run(localPath, trackId);
+  },
+
+  upsertCycles(cycles: Cycle[]): void {
+    const stmt = db!.prepare(`
+      INSERT INTO cycles (id, slug, title, book_order)
+      VALUES (@id, @slug, @title, @bookOrder)
+      ON CONFLICT(id) DO UPDATE SET
+        slug = excluded.slug,
+        title = excluded.title,
+        book_order = excluded.book_order
+    `);
+    const tx = db!.transaction((items: Cycle[]) => {
+      for (const cycle of items) {
+        stmt.run({
+          id: cycle.id,
+          slug: cycle.slug,
+          title: cycle.title,
+          bookOrder: JSON.stringify(cycle.bookOrder),
+        });
+      }
+    });
+    tx(cycles);
+  },
+
+  getCycles(): Cycle[] {
+    const allBooks = this.getBooks();
+    const rows = db!
+      .prepare(`SELECT id, slug, title, book_order FROM cycles ORDER BY title`)
+      .all() as Array<{
+      id: string;
+      slug: string;
+      title: string;
+      book_order: string;
+    }>;
+
+    return rows.map((r) => {
+      const bookOrder = JSON.parse(r.book_order) as string[];
+      const books = booksForCycleOrder(bookOrder, allBooks);
+      return {
+        id: r.id,
+        slug: r.slug,
+        title: r.title,
+        bookOrder,
+        books,
+      };
+    });
+  },
+
+  getAllTracks(): Track[] {
+    const rows = db!
+      .prepare(
+        `SELECT id, book_id, sort_order, title, filename, duration_ms, local_path
+         FROM tracks ORDER BY book_id, sort_order`,
+      )
+      .all() as Array<{
+      id: string;
+      book_id: string;
+      sort_order: number;
+      title: string;
+      filename: string;
+      duration_ms: number | null;
+      local_path: string | null;
+    }>;
+    return rows.map((r) => ({
+      id: r.id,
+      bookId: r.book_id,
+      sortOrder: r.sort_order,
+      title: r.title,
+      filename: r.filename,
+      durationMs: r.duration_ms ?? undefined,
+      localPath: r.local_path ?? undefined,
+    }));
+  },
+
+  getAllProgress(): AudiobookProgress[] {
+    const rows = db!
+      .prepare(`SELECT book_id, track_id, position_ms, updated_at FROM audiobook_progress`)
+      .all() as Array<{
+      book_id: string;
+      track_id: string;
+      position_ms: number;
+      updated_at: string;
+    }>;
+    return rows.map((r) => ({
+      bookId: r.book_id,
+      trackId: r.track_id,
+      positionMs: r.position_ms,
+      updatedAt: r.updated_at,
+    }));
   },
 
   getBooks(): Book[] {

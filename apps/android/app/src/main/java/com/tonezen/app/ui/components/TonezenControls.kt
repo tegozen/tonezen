@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -22,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -32,6 +35,7 @@ import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
+import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
 
 @Composable
@@ -225,6 +229,58 @@ internal fun PlayingBars(active: Boolean) {
                     .background(if (active) TonezenAmber else TonezenMuted, RoundedCornerShape(2.dp)),
             )
         }
+    }
+}
+
+private val TonezenSheetActionButtonShape = RoundedCornerShape(16.dp)
+private val TonezenSheetActionButtonHeight = 52.dp
+
+@Composable
+internal fun TonezenSheetSecondaryButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.height(TonezenSheetActionButtonHeight),
+        shape = TonezenSheetActionButtonShape,
+        border = BorderStroke(1.dp, TonezenBorder),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = TonezenSurfaceRaised,
+            contentColor = TonezenInk,
+        ),
+        contentPadding = PaddingValues(horizontal = 24.dp),
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+@Composable
+internal fun TonezenSheetPrimaryButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(TonezenSheetActionButtonHeight),
+        shape = TonezenSheetActionButtonShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = TonezenTeal,
+            contentColor = TonezenAppBg,
+        ),
+        contentPadding = PaddingValues(horizontal = 24.dp),
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
 

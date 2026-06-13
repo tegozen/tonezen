@@ -1,9 +1,10 @@
-import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@supabase/supabase-js";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowserWindow } from "electron";
 import { mergeProgressLww } from "../shared/progressMerge.js";
 import type { AudiobookProgress, StoredSession } from "../shared/types.js";
 import { LocalDatabase } from "./database.js";
+import { createSupabaseClient } from "./supabaseClient.js";
 
 import { apiV1Url } from "../shared/serverPaths.js";
 
@@ -40,9 +41,7 @@ export class ProgressSyncService {
   async start(session: StoredSession): Promise<void> {
     this.stop();
     this.userId = session.userId;
-    this.supabase = createClient(this.config.baseUrl, this.config.anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    this.supabase = createSupabaseClient(this.config.baseUrl, this.config.anonKey);
     this.supabase.realtime.setAuth(session.accessToken);
 
     await this.pullAll();

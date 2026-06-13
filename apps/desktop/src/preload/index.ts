@@ -14,6 +14,9 @@ contextBridge.exposeInMainWorld("tonezen", {
   },
   db: {
     getBooks: () => ipcRenderer.invoke("db:getBooks"),
+    getCycles: () => ipcRenderer.invoke("db:getCycles"),
+    getAllTracks: () => ipcRenderer.invoke("db:getAllTracks"),
+    getAllProgress: () => ipcRenderer.invoke("db:getAllProgress"),
     getTracks: (bookId: string) => ipcRenderer.invoke("db:getTracks", bookId),
   },
   download: {
