@@ -99,6 +99,7 @@ export const strings = {
   syncPausedTitle: "Синхронизация приостановлена",
   syncPausedBody: "Вы офлайн. Прогресс аудиокниг синхронизируется, когда появится сеть.",
   keepListening: "Продолжить слушать",
+  continueListening: (title: string) => `Продолжить: ${title}`,
   retry: "Повторить",
   noNetworkSyncPaused: "Нет сети — синхронизация приостановлена",
   back: "Назад",

@@ -1,0 +1,144 @@
+import { booksForCycleOrder } from "../../shared/cycleBooks.js";
+import type { Book, Cycle, Track } from "../../shared/types.js";
+import { getDb } from "./connection.js";
+import { mapBookRow, mapTrackRow, type BookRow, type TrackRow } from "./mappers.js";
+
+export const CatalogDb = {
+  hydrateCycleBooks(storedBooks: Book[], catalog: Book[]): Book[] {
+    const bookById = new Map(catalog.map((book) => [book.id, book]));
+    const bookBySlug = new Map(catalog.map((book) => [book.slug, book]));
+    return storedBooks
+      .map((book) => bookById.get(book.id) ?? bookBySlug.get(book.slug) ?? book)
+      .filter((book): book is Book => book != null);
+  },
+
+  upsertBooks(books: Book[]): void {
+    const stmt = getDb().prepare(`
+      INSERT INTO books (id, slug, content_type, title, author)
+      VALUES (@id, @slug, @contentType, @title, @author)
+      ON CONFLICT(id) DO UPDATE SET
+        slug = excluded.slug,
+        content_type = excluded.content_type,
+        title = excluded.title,
+        author = excluded.author
+    `);
+    const tx = getDb().transaction((items: Book[]) => {
+      for (const book of items) stmt.run(book);
+    });
+    tx(books);
+  },
+
+  upsertTracks(tracks: Track[]): void {
+    const stmt = getDb().prepare(`
+      INSERT INTO tracks (id, book_id, sort_order, title, filename, duration_ms, local_path)
+      VALUES (@id, @bookId, @sortOrder, @title, @filename, @durationMs, @localPath)
+      ON CONFLICT(id) DO UPDATE SET
+        book_id = excluded.book_id,
+        sort_order = excluded.sort_order,
+        title = excluded.title,
+        filename = excluded.filename,
+        duration_ms = excluded.duration_ms,
+        local_path = COALESCE(excluded.local_path, tracks.local_path)
+    `);
+    const tx = getDb().transaction((items: Track[]) => {
+      for (const track of items) {
+        stmt.run({
+          ...track,
+          durationMs: track.durationMs ?? null,
+          localPath: track.localPath ?? null,
+        });
+      }
+    });
+    tx(tracks);
+  },
+
+  setTrackLocalPath(trackId: string, localPath: string | null): void {
+    getDb().prepare(`UPDATE tracks SET local_path = ? WHERE id = ?`).run(localPath, trackId);
+  },
+
+  upsertCycles(cycles: Cycle[]): void {
+    const stmt = getDb().prepare(`
+      INSERT INTO cycles (id, slug, title, book_order, books_json)
+      VALUES (@id, @slug, @title, @bookOrder, @booksJson)
+      ON CONFLICT(id) DO UPDATE SET
+        slug = excluded.slug,
+        title = excluded.title,
+        book_order = excluded.book_order,
+        books_json = excluded.books_json
+    `);
+    const tx = getDb().transaction((items: Cycle[]) => {
+      for (const cycle of items) {
+        const bookOrder =
+          cycle.books.length > 0 ? cycle.books.map((book) => book.slug) : cycle.bookOrder;
+        stmt.run({
+          id: cycle.id,
+          slug: cycle.slug,
+          title: cycle.title,
+          bookOrder: JSON.stringify(bookOrder),
+          booksJson: JSON.stringify(cycle.books),
+        });
+      }
+    });
+    tx(cycles);
+  },
+
+  getCycles(): Cycle[] {
+    const allBooks = this.getBooks();
+    const rows = getDb()
+      .prepare(`SELECT id, slug, title, book_order, books_json FROM cycles ORDER BY title`)
+      .all() as Array<{
+      id: string;
+      slug: string;
+      title: string;
+      book_order: string;
+      books_json: string;
+    }>;
+
+    return rows.map((row) => {
+      const bookOrder = JSON.parse(row.book_order) as string[];
+      const storedBooks = JSON.parse(row.books_json || "[]") as Book[];
+      const booksFromStored =
+        storedBooks.length > 0 ? this.hydrateCycleBooks(storedBooks, allBooks) : [];
+      const books =
+        booksFromStored.length > 0 ? booksFromStored : booksForCycleOrder(bookOrder, allBooks);
+      return {
+        id: row.id,
+        slug: row.slug,
+        title: row.title,
+        bookOrder,
+        books,
+      };
+    });
+  },
+
+  getAllTracks(): Track[] {
+    const rows = getDb()
+      .prepare(
+        `SELECT id, book_id, sort_order, title, filename, duration_ms, local_path
+         FROM tracks ORDER BY book_id, sort_order`,
+      )
+      .all() as TrackRow[];
+    return rows.map(mapTrackRow);
+  },
+
+  getBooks(): Book[] {
+    const rows = getDb()
+      .prepare(`SELECT id, slug, content_type, title, author FROM books ORDER BY title`)
+      .all() as BookRow[];
+    return rows.map(mapBookRow);
+  },
+
+  getTracks(bookId: string): Track[] {
+    const rows = getDb()
+      .prepare(
+        `SELECT id, book_id, sort_order, title, filename, duration_ms, local_path
+         FROM tracks WHERE book_id = ? ORDER BY sort_order`,
+      )
+      .all(bookId) as TrackRow[];
+    return rows.map(mapTrackRow);
+  },
+
+  clearAllLocalPaths(): void {
+    getDb().prepare(`UPDATE tracks SET local_path = NULL`).run();
+  },
+};

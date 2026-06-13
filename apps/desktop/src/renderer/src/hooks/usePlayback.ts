@@ -3,6 +3,7 @@ import { effectiveDurationMs } from "@shared/playbackDuration";
 import type { Book, Track } from "@shared/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toAudioFileUrl } from "../lib/audioFileUrl";
+import { strings } from "../i18n/strings";
 import {
   clearMediaSession,
   setMediaPlaybackState,
@@ -65,7 +66,7 @@ export function usePlayback(
     return window.tonezen.progress.onUpdated((progress) => {
       if (selectedBook?.id === progress.bookId) {
         const track = tracks.find((t) => t.id === progress.trackId);
-        setProgressLabel(track ? `Continue: ${track.title}` : null);
+        setProgressLabel(track ? strings.continueListening(track.title) : null);
       }
     });
   }, [selectedBook, tracks]);

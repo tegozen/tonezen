@@ -1,0 +1,60 @@
+import Database from "better-sqlite3";
+import path from "node:path";
+
+let db: Database.Database | null = null;
+
+export function getDb(): Database.Database {
+  if (!db) throw new Error("Database not initialized");
+  return db;
+}
+
+export function initDatabase(userDataPath: string): void {
+  const dbPath = path.join(userDataPath, "tonezen.db");
+  db = new Database(dbPath);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS books (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL,
+      content_type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      author TEXT
+    );
+    CREATE TABLE IF NOT EXISTS tracks (
+      id TEXT PRIMARY KEY,
+      book_id TEXT NOT NULL,
+      sort_order INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      duration_ms INTEGER,
+      local_path TEXT
+    );
+    CREATE TABLE IF NOT EXISTS audiobook_progress (
+      book_id TEXT PRIMARY KEY,
+      track_id TEXT NOT NULL,
+      position_ms INTEGER NOT NULL,
+      updated_at TEXT NOT NULL,
+      pending_sync INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS cycles (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL,
+      title TEXT NOT NULL,
+      book_order TEXT NOT NULL,
+      books_json TEXT NOT NULL DEFAULT '[]'
+    );
+    CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+  ensureCycleBooksColumn();
+}
+
+function ensureCycleBooksColumn(): void {
+  const columns = getDb()
+    .prepare("PRAGMA table_info(cycles)")
+    .all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "books_json")) {
+    getDb().exec(`ALTER TABLE cycles ADD COLUMN books_json TEXT NOT NULL DEFAULT '[]'`);
+  }
+}
