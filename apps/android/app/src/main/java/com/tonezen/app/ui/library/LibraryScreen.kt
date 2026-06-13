@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,8 +34,11 @@ import com.tonezen.app.domain.library.LibraryFilterState
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Cycle
+import com.tonezen.app.domain.progress.BookContinueState
 import com.tonezen.app.ui.components.CheckCircleGlyph
 import com.tonezen.app.ui.components.CompactMediaPlayButton
+import com.tonezen.app.ui.components.ContinueResumeMeta
+import com.tonezen.app.ui.components.ContinueResumeVariant
 import com.tonezen.app.ui.components.CycleCover
 import com.tonezen.app.ui.components.EmptyLibrary
 import com.tonezen.app.ui.components.LibraryLoading
@@ -167,6 +171,7 @@ internal fun LibraryScreen(
                                 cycle = cycle,
                                 isDownloaded = cardState.isDownloaded,
                                 progressFraction = cardState.progressFraction,
+                                continueState = cardState.continueState,
                                 isPlaying = isThisCycle && cyclePlayback.isPlaying,
                                 downloadProgress = if (isThisCycle && cyclePlayback.isPreparing) {
                                     cyclePlayback.downloadProgress
@@ -251,6 +256,7 @@ private fun LibraryCycleCard(
     cycle: Cycle,
     isDownloaded: Boolean,
     progressFraction: Float?,
+    continueState: BookContinueState?,
     isPlaying: Boolean,
     downloadProgress: Float?,
     onClick: () -> Unit,
@@ -258,6 +264,7 @@ private fun LibraryCycleCard(
     modifier: Modifier = Modifier,
 ) {
     val overlayInset = 10.dp
+    val showProgress = cycle.books.isNotEmpty()
     Box(modifier = modifier) {
         CycleCover(
             cycle = cycle,
@@ -276,17 +283,36 @@ private fun LibraryCycleCard(
                     .zIndex(1f),
             )
         }
-        progressFraction?.let { progress ->
-            Text(
-                text = stringResource(R.string.cycle_listen_progress, (progress * 100).toInt()),
-                color = Color.White.copy(alpha = 0.92f),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
+        if (continueState != null || showProgress) {
+            Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(overlayInset)
+                    .padding(start = overlayInset, end = 48.dp, bottom = overlayInset)
                     .zIndex(1f),
-            )
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                continueState?.let { state ->
+                    ContinueResumeMeta(
+                        state = state,
+                        variant = ContinueResumeVariant.Overlay,
+                    )
+                }
+                if (showProgress) {
+                    progressFraction?.let { progress ->
+                        Text(
+                            text = stringResource(R.string.cycle_listen_progress, (progress * 100).toInt()),
+                            color = Color.White.copy(alpha = 0.92f),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    } ?: Text(
+                        text = stringResource(R.string.cycle_listen_progress, 0),
+                        color = Color.White.copy(alpha = 0.92f),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
         }
         CompactMediaPlayButton(
             isPlaying = isPlaying,

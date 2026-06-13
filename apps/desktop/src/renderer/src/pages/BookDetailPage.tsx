@@ -1,9 +1,10 @@
 import type { Book, Track } from "@shared/types";
 import { ChapterTrackRow } from "../components/ChapterTrackRow";
+import { ContinueResumeMeta } from "../components/ContinueResumeMeta";
 import { DetailHeaderMenu } from "../components/DetailHeaderMenu";
 import { OverlayTopChrome } from "../components/OverlayTopChrome";
 import { OVERLAY_BACK_TOP_SCROLL_PX } from "../lib/layoutChrome";
-import { buildBookTrackProgress, resolveChapterTrackState } from "../lib/bookTrackUtils";
+import { buildBookTrackProgress, canContinueBookListening, resolveChapterTrackState } from "../lib/bookTrackUtils";
 import { strings } from "../i18n/strings";
 import { CloseIcon, DownloadsIcon } from "../components/TonezenIcons";
 
@@ -59,27 +60,23 @@ export function BookDetailPage({
     currentTrackId,
     playbackPositionMs,
   );
-  const continueTrack = savedTrackId
-    ? sortedTracks.find((track) => track.id === savedTrackId)
-    : null;
-  const showContinue =
-    continueTrack != null &&
-    !isBookListened &&
-    (() => {
-      const progress = progressByTrack.get(continueTrack.id);
-      return progress != null && progress > 0 && progress < 0.95;
-    })();
+  const continueState = canContinueBookListening(
+    selectedBook.id,
+    tracks,
+    savedTrackId ? { bookId: selectedBook.id, trackId: savedTrackId, positionMs: savedPositionMs } : null,
+  );
+  const showContinue = continueState != null;
 
   return (
     <div className="overlay-page">
       <div className="scroll-under-chrome" style={{ paddingTop: OVERLAY_BACK_TOP_SCROLL_PX }}>
-      {showContinue && continueTrack && (
+      {showContinue && continueState && (
         <button
           type="button"
-          className="btn-primary mx-4 mb-3 w-[calc(100%-2rem)]"
+          className="btn-primary mx-4 mb-3 flex w-[calc(100%-2rem)] justify-center"
           onClick={onContinue}
         >
-          {strings.continueListening(continueTrack.title)}
+          <ContinueResumeMeta state={continueState} variant="button" />
         </button>
       )}
       <div className="chapter-track-list">

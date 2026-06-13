@@ -1,8 +1,25 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
-import { APP_SHELL_WIDTH_PX, mainWindowContentSize } from "../shared/appShell.js";
+import {
+  APP_SHELL_MIN_HEIGHT_PX,
+  APP_SHELL_WIDTH_PX,
+  mainWindowContentSize,
+  needsMainWindowWidthEnforcement,
+  normalizeMainWindowContentSize,
+} from "../shared/appShell.js";
 import { appIconPath } from "./assets.js";
 import type { WindowLifecycleManager } from "./windowLifecycle.js";
+
+function enforceMainWindowShellSize(mainWindow: BrowserWindow): void {
+  mainWindow.setMinimumSize(APP_SHELL_WIDTH_PX, APP_SHELL_MIN_HEIGHT_PX);
+  mainWindow.setMaximumSize(APP_SHELL_WIDTH_PX, 100_000);
+
+  const [contentWidth, contentHeight] = mainWindow.getContentSize();
+  if (!needsMainWindowWidthEnforcement(contentWidth)) return;
+
+  const next = normalizeMainWindowContentSize(contentHeight);
+  mainWindow.setContentSize(next.width, next.height);
+}
 
 export function createMainWindow(
   lifecycle: WindowLifecycleManager,
@@ -15,7 +32,7 @@ export function createMainWindow(
     useContentSize: true,
     minWidth: APP_SHELL_WIDTH_PX,
     maxWidth: APP_SHELL_WIDTH_PX,
-    minHeight: 640,
+    minHeight: APP_SHELL_MIN_HEIGHT_PX,
     show: false,
     backgroundColor: "#00142B",
     icon: appIconPath,
@@ -39,6 +56,10 @@ export function createMainWindow(
     if (lifecycle.shouldHideOnMinimize()) {
       mainWindow.hide();
     }
+  });
+
+  mainWindow.on("show", () => {
+    enforceMainWindowShellSize(mainWindow);
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {

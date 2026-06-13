@@ -1,8 +1,10 @@
 import { CyclePlaybackResolver } from "@shared/cyclePlayback";
 import { effectiveDurationMs } from "@shared/playbackDuration";
-import type { Book, Track } from "@shared/types";
+import { needsMetadataBeforeSeek, startSecondsFromMs } from "@shared/playbackStart";
+import type { AudiobookProgress, Book, Track } from "@shared/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toAudioFileUrl } from "../lib/audioFileUrl";
+import { formatMs } from "../lib/formatTime";
 import { loadPlaybackVolume, savePlaybackVolume } from "../lib/playbackVolume";
 import { strings } from "../i18n/strings";
 import {
@@ -37,11 +39,13 @@ export function usePlayback(
   const audioEventsCleanupRef = useRef<(() => void) | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const selectedBookRef = useRef(selectedBook);
+  const playbackBookRef = useRef<Book | null>(null);
   const tracksRef = useRef(tracks);
   const skipTracksRef = useRef(skipTracks);
   const currentTrackRef = useRef(currentTrack);
   const skipHandlersRef = useRef(skipHandlers);
   const playTrackRef = useRef<(track: Track, startMs?: number, book?: Book | null) => void>(() => {});
+  const playGenerationRef = useRef(0);
   const volumeRef = useRef(volume);
 
   volumeRef.current = volume;
@@ -87,9 +91,12 @@ export function usePlayback(
 
   useEffect(() => {
     return window.tonezen.progress.onUpdated((progress) => {
-      if (selectedBook?.id === progress.bookId) {
-        const track = tracks.find((t) => t.id === progress.trackId);
-        setProgressLabel(track ? strings.continueListening(track.title) : null);
+      const saved = progress as AudiobookProgress;
+      if (selectedBook?.id === saved.bookId) {
+        const track = tracks.find((t) => t.id === saved.trackId);
+        setProgressLabel(
+          track ? strings.continueListening(track.title, formatMs(saved.positionMs)) : null,
+        );
       }
     });
   }, [selectedBook, tracks]);
@@ -174,12 +181,21 @@ export function usePlayback(
     [syncPositionState, syncPlayingState, durationSecondsForSeek],
   );
 
+  const saveAudiobookProgress = useCallback((positionMs: number) => {
+    const book = playbackBookRef.current;
+    const track = currentTrackRef.current;
+    if (!book || book.contentType !== "audiobook" || !track || track.bookId !== book.id) return;
+    lastProgressSaveRef.current = Date.now();
+    void window.tonezen.progress.save(book.id, track.id, positionMs);
+  }, []);
+
   const playTrack = useCallback(
     (track: Track, startMs = 0, bookOverride?: Book | null) => {
       if (!track.localPath) return;
       const book = bookOverride ?? selectedBookRef.current;
       if (!book) return;
-      selectedBookRef.current = book;
+      const generation = ++playGenerationRef.current;
+      playbackBookRef.current = book;
       setCurrentTrack(track);
       setPositionMs(startMs);
       setDurationMs(track.durationMs ?? 0);
@@ -189,17 +205,31 @@ export function usePlayback(
       if (!audio) return;
       audio.volume = volumeRef.current;
       audio.src = toAudioFileUrl(track.localPath);
-      if (startMs > 0) audio.currentTime = startMs / 1000;
-      void audio.play().then(
-        () => {
-          syncPlayingState(audio);
-          syncDurationState(audio, track);
-        },
-        (error: unknown) => {
-          console.error("Playback failed", error, track.localPath);
-          setIsPlaying(false);
-        },
-      );
+
+      const startPlayback = () => {
+        if (generation !== playGenerationRef.current) return;
+        if (startMs > 0) {
+          audio.currentTime = startSecondsFromMs(startMs);
+        }
+        void audio.play().then(
+          () => {
+            if (generation !== playGenerationRef.current) return;
+            syncPlayingState(audio);
+            syncDurationState(audio, track);
+          },
+          (error: unknown) => {
+            if (generation !== playGenerationRef.current) return;
+            console.error("Playback failed", error, track.localPath);
+            setIsPlaying(false);
+          },
+        );
+      };
+
+      if (needsMetadataBeforeSeek(startMs, audio.readyState)) {
+        audio.addEventListener("loadedmetadata", startPlayback, { once: true });
+      } else {
+        startPlayback();
+      }
     },
     [syncDurationState, syncMediaSessionForTrack, syncPlayingState],
   );
@@ -218,6 +248,7 @@ export function usePlayback(
     releaseAudioSource();
     clearMediaSession();
     window.tonezen.playback.setActive(false);
+    playbackBookRef.current = null;
     setIsPlaying(false);
     setCurrentTrack(null);
     setPositionMs(0);
@@ -225,7 +256,7 @@ export function usePlayback(
   }, [releaseAudioSource]);
 
   const onTimeUpdate = useCallback(() => {
-    const book = selectedBookRef.current;
+    const book = playbackBookRef.current;
     const track = currentTrackRef.current;
     const audio = audioRef.current;
     if (!audio) return;
@@ -243,9 +274,8 @@ export function usePlayback(
     }
 
     if (now - lastProgressSaveRef.current < 15000) return;
-    lastProgressSaveRef.current = now;
-    void window.tonezen.progress.save(book.id, track.id, Math.floor(audio.currentTime * 1000));
-  }, [syncDurationState, syncPlayingState, syncPositionState]);
+    saveAudiobookProgress(Math.floor(audio.currentTime * 1000));
+  }, [saveAudiobookProgress, syncDurationState, syncPlayingState, syncPositionState]);
 
   const resumeProgress = useCallback(async () => {
     if (!selectedBook) return;
@@ -270,7 +300,7 @@ export function usePlayback(
   );
 
   const onTrackEnded = useCallback(() => {
-    if (!selectedBookRef.current || !currentTrackRef.current) return;
+    if (!playbackBookRef.current || !currentTrackRef.current) return;
     const next = cycleResolver.nextInBook(currentTrackRef.current, tracksRef.current);
     if (next?.localPath) playTrackRef.current(next);
   }, []);
@@ -287,8 +317,9 @@ export function usePlayback(
       audio.pause();
       setIsPlaying(false);
       setMediaPlaybackState("paused");
+      saveAudiobookProgress(Math.floor(audio.currentTime * 1000));
     }
-  }, [syncPlayingState]);
+  }, [saveAudiobookProgress, syncPlayingState]);
 
   const seekBy = useCallback(
     (deltaMs: number) => {
@@ -352,6 +383,16 @@ export function usePlayback(
   );
 
   useEffect(() => () => audioEventsCleanupRef.current?.(), []);
+
+  useEffect(() => {
+    const flushProgress = () => {
+      const audio = audioRef.current;
+      if (!audio || audio.paused) return;
+      saveAudiobookProgress(Math.floor(audio.currentTime * 1000));
+    };
+    window.addEventListener("pagehide", flushProgress);
+    return () => window.removeEventListener("pagehide", flushProgress);
+  }, [saveAudiobookProgress]);
 
   return {
     currentTrack,

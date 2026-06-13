@@ -1,4 +1,42 @@
-import type { Track } from "@shared/types";
+import type { AudiobookProgress, Track } from "@shared/types";
+
+export interface BookContinueState {
+  trackTitle: string;
+  positionMs: number;
+}
+
+export function canContinueBookListening(
+  bookId: string,
+  tracks: Track[],
+  progress: Pick<AudiobookProgress, "bookId" | "trackId" | "positionMs"> | null | undefined,
+): BookContinueState | null {
+  if (!bookId || !progress || progress.bookId !== bookId || tracks.length === 0) return null;
+
+  const sortedTracks = [...tracks].sort((a, b) => a.sortOrder - b.sortOrder);
+  const savedTrack = sortedTracks.find(
+    (track) => track.id === progress.trackId && track.bookId === bookId,
+  );
+  if (!savedTrack) return null;
+
+  const isBookListened = sortedTracks.every(
+    (track) =>
+      track.sortOrder < savedTrack.sortOrder ||
+      (track.id === savedTrack.id && progress.positionMs >= (track.durationMs ?? 0) * 0.95),
+  );
+  if (isBookListened) return null;
+
+  const progressByTrack = buildBookTrackProgress(
+    sortedTracks,
+    progress.trackId,
+    progress.positionMs,
+    null,
+    0,
+  );
+  const fraction = progressByTrack.get(savedTrack.id);
+  if (fraction == null || fraction <= 0 || fraction >= 0.95) return null;
+
+  return { trackTitle: savedTrack.title, positionMs: progress.positionMs };
+}
 
 export function resolveChapterTrackState(
   track: Track,

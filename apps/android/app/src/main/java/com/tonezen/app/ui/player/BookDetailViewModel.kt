@@ -19,7 +19,6 @@ import com.tonezen.app.domain.progress.isBookFullyListened
 import com.tonezen.app.domain.progress.resolveAudiobookPlaybackStartMs
 import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
-import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.PlaybackQueueBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -39,7 +38,6 @@ class BookDetailViewModel @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val progressSyncRepository: ProgressSyncRepository,
     private val playbackClient: PlaybackClient,
-    private val playbackEvents: PlaybackEvents,
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val trackDownloadEnsurer: TrackDownloadEnsurer,
     private val localLibraryNotifier: LocalLibraryNotifier,
@@ -49,12 +47,8 @@ class BookDetailViewModel @Inject constructor(
     val uiState: StateFlow<BookDetailUiState> = _uiState.asStateFlow()
 
     private var currentTrack: Track? = null
-    private var lastProgressSaveMs = 0L
 
     init {
-        viewModelScope.launch {
-            playbackEvents.trackEnded.collect { onPlaybackEnded() }
-        }
         viewModelScope.launch {
             playbackClient.activeTrackId.collect { trackId ->
                 val track = _uiState.value.tracks.find { it.id == trackId }
@@ -76,9 +70,6 @@ class BookDetailViewModel @Inject constructor(
                             0L
                         },
                     )
-                }
-                if (snapshot.isPlaying) {
-                    maybeSaveProgress(snapshot.positionMs)
                 }
             }
         }
@@ -318,30 +309,6 @@ class BookDetailViewModel @Inject constructor(
         if (book.contentType != ContentType.AUDIOBOOK) return
         viewModelScope.launch {
             persistAudiobookProgress(book.id, track.id, 0L)
-        }
-    }
-
-    private fun onPlaybackEnded() {
-        val book = _uiState.value.book ?: return
-        val track = currentTrack ?: return
-        if (book.contentType == ContentType.AUDIOBOOK) {
-            saveAudiobookProgress(book.id, track.id, playbackClient.currentPositionMs())
-        }
-    }
-
-    private fun maybeSaveProgress(positionMs: Long) {
-        val book = _uiState.value.book ?: return
-        if (book.contentType != ContentType.AUDIOBOOK) return
-        val track = currentTrack ?: return
-        val now = System.currentTimeMillis()
-        if (now - lastProgressSaveMs < 15_000) return
-        lastProgressSaveMs = now
-        saveAudiobookProgress(book.id, track.id, positionMs)
-    }
-
-    private fun saveAudiobookProgress(bookId: String, trackId: String, positionMs: Long) {
-        viewModelScope.launch {
-            persistAudiobookProgress(bookId, trackId, positionMs)
         }
     }
 

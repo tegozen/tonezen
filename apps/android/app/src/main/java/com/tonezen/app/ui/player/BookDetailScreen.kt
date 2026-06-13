@@ -18,12 +18,13 @@ import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.TrackListenStatus
+import com.tonezen.app.domain.progress.canContinueBookListening
 import com.tonezen.app.domain.progress.isBookFullyListened
-import com.tonezen.app.domain.progress.resolveAudiobookPlaybackStartMs
 import com.tonezen.app.domain.progress.resolveTrackListenState
+import com.tonezen.app.ui.components.ContinueResumeMeta
+import com.tonezen.app.ui.components.ContinueResumeVariant
 import com.tonezen.app.ui.components.DetailHeaderOverflowMenu
 import com.tonezen.app.ui.components.DownloadConfirmSheet
-import com.tonezen.app.ui.components.PlayingBars
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.components.TonezenTrackListRow
 import com.tonezen.app.ui.components.TrackDownloadedIndicator
@@ -69,15 +70,12 @@ internal fun BookDetailScreen(
     val showDownload = tracks.any { it.localPath.isNullOrBlank() }
     val showRemoveDownload = tracks.any { !it.localPath.isNullOrBlank() }
     val isBookListened = isBookFullyListened(sortedTracks, uiState.audiobookProgress)
+    val continueState = canContinueBookListening(
+        bookId = book.id,
+        tracks = sortedTracks,
+        progress = uiState.audiobookProgress,
+    )
     val snackbarHostState = remember { SnackbarHostState() }
-    val continueTrack = uiState.audiobookProgress?.let { progress ->
-        sortedTracks.find { it.id == progress.trackId }?.takeIf { track ->
-            val startMs = resolveAudiobookPlaybackStartMs(progress, track)
-            val durationMs = track.durationMs ?: 0L
-            startMs > 0L && (durationMs <= 0L || startMs < durationMs * 0.95)
-        }
-    }
-    val showContinue = continueTrack != null && !isBookListened
     val playbackErrorMessage = uiState.playbackErrorRes?.let { stringResource(it) }
     val downloadErrorMessage = if (uiState.error == BookDetailViewModel.DOWNLOAD_FAILED_ERROR) {
         stringResource(R.string.music_playback_error_download)
@@ -139,7 +137,7 @@ internal fun BookDetailScreen(
             )
         },
     ) {
-        if (showContinue) {
+        continueState?.takeIf { !isBookListened }?.let { state ->
             item(key = "continue-listening") {
                 Button(
                     onClick = onContinueListening,
@@ -147,8 +145,9 @@ internal fun BookDetailScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
-                    Text(
-                        text = stringResource(R.string.continue_listening, continueTrack!!.title),
+                    ContinueResumeMeta(
+                        state = state,
+                        variant = ContinueResumeVariant.Button,
                     )
                 }
             }
@@ -209,16 +208,13 @@ internal fun ChapterTrackRow(
         onClick = onClick,
         modifier = modifier,
         leading = {
-            when {
-                isActive -> PlayingBars(active = true)
-                listenPercent != null -> {
-                    Text(
-                        text = stringResource(R.string.cycle_listen_progress, listenPercent),
-                        color = TonezenTeal,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
+            if (listenPercent != null) {
+                Text(
+                    text = stringResource(R.string.cycle_listen_progress, listenPercent),
+                    color = TonezenTeal,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
             Text(
                 (track.sortOrder + 1).toString(),

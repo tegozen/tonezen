@@ -1,9 +1,12 @@
 import type { AudiobookProgress, Book, Cycle, Track } from "@shared/types";
+import { cycleBookIds, resolveBookListenedMs } from "@shared/cycleListenProgress";
 import type { LibraryFilter } from "../i18n/strings";
+import { canContinueBookListening, type BookContinueState } from "./bookTrackUtils";
 
 export interface CycleCardState {
   isDownloaded: boolean;
   progressFraction: number | null;
+  continueState: BookContinueState | null;
   showDownload: boolean;
   showRemoveDownload: boolean;
   isListened: boolean;
@@ -17,6 +20,36 @@ export function buildTracksByBookId(allTracks: Track[]): Map<string, Track[]> {
     else map.set(track.bookId, [track]);
   }
   return map;
+}
+
+export function resolveCycleContinueState(
+  cycle: Cycle,
+  tracksByBookId: Map<string, Track[]>,
+  progressByBook: Map<string, AudiobookProgress>,
+): BookContinueState | null {
+  const bookIds = cycleBookIds(cycle);
+  if (bookIds.size === 0) return null;
+
+  let best: { state: BookContinueState; updatedAt: number } | null = null;
+
+  for (const bookId of bookIds) {
+    const progress = progressByBook.get(bookId);
+    if (!progress || progress.bookId !== bookId) continue;
+
+    const tracks = tracksByBookId.get(bookId) ?? [];
+    if (resolveBookListenedMs(tracks, progress) <= 0) continue;
+
+    const state = canContinueBookListening(bookId, tracks, progress);
+    if (!state) continue;
+
+    const updatedAt = Date.parse(progress.updatedAt);
+    const ts = Number.isFinite(updatedAt) ? updatedAt : 0;
+    if (!best || ts >= best.updatedAt) {
+      best = { state, updatedAt: ts };
+    }
+  }
+
+  return best?.state ?? null;
 }
 
 export function computeCycleCardState(
@@ -52,8 +85,9 @@ export function computeCycleCardState(
 
   const progressFraction = totalTracks > 0 ? completedTracks / totalTracks : null;
   const isListened = progressFraction != null && progressFraction >= 0.99;
+  const continueState = resolveCycleContinueState(cycle, tracksByBookId, progressByBook);
 
-  return { isDownloaded, progressFraction, showDownload, showRemoveDownload, isListened };
+  return { isDownloaded, progressFraction, continueState, showDownload, showRemoveDownload, isListened };
 }
 
 export function filterAndSortCycles(

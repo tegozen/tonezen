@@ -602,8 +602,56 @@
     @apply pointer-events-none absolute left-2.5 top-2.5 z-[1] h-[18px] w-[18px];
   }
 
+  .library-cycle-footer-meta {
+    @apply pointer-events-none absolute bottom-2.5 left-2.5 right-12 z-[1] flex flex-col gap-1;
+  }
+
   .library-cycle-progress {
-    @apply pointer-events-none absolute bottom-2.5 left-2.5 z-[1] text-sm font-semibold text-white/[0.92];
+    @apply text-sm font-semibold text-white/[0.92];
+  }
+
+  .continue-resume-meta {
+    @apply flex min-w-0 flex-col gap-0.5;
+  }
+
+  .continue-resume-meta-label {
+    @apply text-[11px] font-semibold leading-tight text-amber;
+  }
+
+  .continue-resume-meta-chapter {
+    @apply truncate text-[11px] font-medium leading-tight text-white/[0.92];
+  }
+
+  .continue-resume-meta-time {
+    @apply text-[11px] font-semibold leading-tight text-teal;
+  }
+
+  .continue-resume-meta-inline .continue-resume-meta-label {
+    @apply text-xs;
+  }
+
+  .continue-resume-meta-inline .continue-resume-meta-chapter {
+    @apply text-sm text-ink;
+  }
+
+  .continue-resume-meta-inline .continue-resume-meta-time {
+    @apply text-xs;
+  }
+
+  .continue-resume-meta-button {
+    @apply items-center gap-0.5 py-0.5 text-app;
+  }
+
+  .continue-resume-meta-button .continue-resume-meta-label {
+    @apply text-sm font-semibold text-app;
+  }
+
+  .continue-resume-meta-button .continue-resume-meta-chapter {
+    @apply max-w-full text-base font-semibold text-app;
+  }
+
+  .continue-resume-meta-button .continue-resume-meta-time {
+    @apply text-sm font-medium text-app/80;
   }
 
   .compact-media-play-btn {
@@ -649,6 +697,10 @@
 
   .status-chip-teal {
     @apply border-teal/30 bg-teal/15 text-teal;
+  }
+
+  .status-chip-amber {
+    @apply border-amber/30 bg-amber/15 text-amber;
   }
 
   .status-chip-dot {
@@ -963,36 +1015,6 @@
 
   .seek-slider {
     @apply h-1 cursor-pointer appearance-none rounded-full bg-white/15 outline-none accent-teal focus:outline-none;
-  }
-
-  .playing-bars {
-    @apply inline-flex h-4 items-end gap-0.5;
-  }
-
-  .playing-bars span {
-    @apply w-0.5 rounded-full bg-teal;
-    height: 40%;
-  }
-
-  .playing-bars-active span {
-    animation: bar-bounce 0.8s ease-in-out infinite alternate;
-  }
-
-  .playing-bars-active span:nth-child(2) {
-    animation-delay: 0.15s;
-  }
-
-  .playing-bars-active span:nth-child(3) {
-    animation-delay: 0.3s;
-  }
-
-  @keyframes bar-bounce {
-    from {
-      height: 25%;
-    }
-    to {
-      height: 100%;
-    }
   }
 
   .auth-screen {

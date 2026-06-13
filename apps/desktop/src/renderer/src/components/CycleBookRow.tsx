@@ -1,15 +1,18 @@
 import type { Book } from "@shared/types";
 import { BookCover } from "./BookCover";
+import { ContinueResumeMeta } from "./ContinueResumeMeta";
 import { bookAuthorLabel } from "../lib/cycleUtils";
+import type { BookContinueState } from "../lib/bookTrackUtils";
 import { strings } from "../i18n/strings";
 
 interface CycleBookRowProps {
   book: Book;
   downloaded: boolean;
+  continueState?: BookContinueState | null;
   onClick: () => void;
 }
 
-export function CycleBookRow({ book, downloaded, onClick }: CycleBookRowProps) {
+export function CycleBookRow({ book, downloaded, continueState, onClick }: CycleBookRowProps) {
   return (
     <button type="button" className="cycle-book-row" onClick={onClick}>
       <BookCover book={book} className="w-[72px] aspect-[0.78]" />
@@ -18,11 +21,16 @@ export function CycleBookRow({ book, downloaded, onClick }: CycleBookRowProps) {
         <div className="truncate text-sm text-muted">
           {bookAuthorLabel(book) || strings.authorPlaceholder}
         </div>
-        {downloaded && (
-          <span className="status-chip status-chip-teal mt-1">
-            <span className="status-chip-dot" aria-hidden />
-            {strings.offline}
-          </span>
+        {(continueState || downloaded) && (
+          <div className="mt-1.5 flex flex-wrap items-end gap-2">
+            {continueState && <ContinueResumeMeta state={continueState} variant="inline" />}
+            {downloaded && (
+              <span className="status-chip status-chip-teal">
+                <span className="status-chip-dot" aria-hidden />
+                {strings.offline}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </button>

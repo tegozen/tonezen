@@ -9,12 +9,14 @@ import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.domain.model.AudiobookProgress
+import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.playback.PlaybackCoordinator
 import com.tonezen.app.domain.progress.CycleResumeTarget
 import com.tonezen.app.domain.progress.isCycleFullyListened
 import com.tonezen.app.domain.progress.orderedCycleEntriesFromResume
+import com.tonezen.app.domain.progress.resolveCycleContinueState
 import com.tonezen.app.domain.progress.resolveCycleListenFraction
 import com.tonezen.app.domain.progress.resolveCycleResumeTarget
 import com.tonezen.app.playback.PlaybackClient
@@ -177,7 +179,7 @@ internal class LibraryCycleHandler(
     }
 
     suspend fun refreshCycleCardStates(cycles: List<Cycle>, downloadedBookIds: Set<String>) {
-        val (states, progressTimestamps) = withContext(Dispatchers.IO) {
+        val refreshData = withContext(Dispatchers.IO) {
             val bookIds = cycles.flatMap { cycle -> cycle.books.map { it.id } }.toSet()
             val tracksByBookId = catalogRepository.getTracksByBookIds(bookIds)
             val progressByBookId = catalogRepository.getProgressByBookIds(bookIds)
@@ -195,17 +197,25 @@ internal class LibraryCycleHandler(
                 cycle.id to CycleCardState(
                     isDownloaded = isFullyDownloaded,
                     progressFraction = fraction?.takeIf { it > 0f },
+                    continueState = resolveCycleContinueState(cycle, cycleTracks, cycleProgress),
                     showDownload = allTracks.any { it.localPath.isNullOrBlank() },
                     showRemoveDownload = allTracks.any { !it.localPath.isNullOrBlank() },
                     isListened = isCycleFullyListened(cycle, cycleTracks, cycleProgress),
                 )
             }
-            cardStates to progressByBookId.mapValues { entry -> entry.value?.updatedAtEpochMs ?: 0L }
+            RefreshCycleCardData(
+                cardStates = cardStates,
+                progressTimestamps = progressByBookId.mapValues { entry -> entry.value?.updatedAtEpochMs ?: 0L },
+                tracksByBookId = tracksByBookId,
+                progressByBookId = progressByBookId,
+            )
         }
         uiState.update {
             it.copy(
-                cycleCardStateById = states,
-                progressUpdatedAtByBookId = it.progressUpdatedAtByBookId + progressTimestamps,
+                cycleCardStateById = refreshData.cardStates,
+                tracksByBookId = it.tracksByBookId + refreshData.tracksByBookId,
+                audiobookProgressByBookId = it.audiobookProgressByBookId + refreshData.progressByBookId,
+                progressUpdatedAtByBookId = it.progressUpdatedAtByBookId + refreshData.progressTimestamps,
             )
         }
     }
@@ -243,8 +253,22 @@ internal class LibraryCycleHandler(
         } ?: return
         session.activeAudiobookBookId = bookId
         session.activeAudiobookTrackId = audiobookTrackId
-        if (snapshot.isPlaying) {
-            maybeSaveAudiobookProgress(bookId, audiobookTrackId, snapshot.positionMs)
+        val wasPlaying = session.wasAudiobookPlaying
+        session.wasAudiobookPlaying = snapshot.isPlaying
+        when {
+            snapshot.isPlaying -> maybeSaveAudiobookProgress(bookId, audiobookTrackId, snapshot.positionMs)
+            wasPlaying -> flushAudiobookProgress(bookId, audiobookTrackId, snapshot.positionMs)
+        }
+    }
+
+    fun flushActiveAudiobookProgress(snapshot: PlaybackSnapshot) {
+        if (snapshot.contentType != ContentType.AUDIOBOOK || !snapshot.isPlaying) return
+        val trackId = snapshot.trackId ?: return
+        scope.launch {
+            val bookId = withContext(Dispatchers.IO) {
+                catalogRepository.findBookForTrack(trackId)?.id
+            } ?: return@launch
+            flushAudiobookProgress(bookId, trackId, snapshot.positionMs)
         }
     }
 
@@ -345,6 +369,14 @@ internal class LibraryCycleHandler(
         val now = System.currentTimeMillis()
         if (now - session.lastAudiobookProgressSaveMs < 15_000) return
         session.lastAudiobookProgressSaveMs = now
+        scope.launch {
+            persistAudiobookProgress(bookId, trackId, positionMs)
+            refreshCycleCardStates(cyclesContaining(bookId), uiState.value.downloadedBookIds)
+        }
+    }
+
+    private fun flushAudiobookProgress(bookId: String, trackId: String, positionMs: Long) {
+        session.lastAudiobookProgressSaveMs = System.currentTimeMillis()
         scope.launch {
             persistAudiobookProgress(bookId, trackId, positionMs)
             refreshCycleCardStates(cyclesContaining(bookId), uiState.value.downloadedBookIds)
@@ -479,3 +511,10 @@ internal class LibraryCycleHandler(
         uiState.update { it.copy(downloadedBookIds = downloaded) }
     }
 }
+
+private data class RefreshCycleCardData(
+    val cardStates: Map<String, CycleCardState>,
+    val progressTimestamps: Map<String, Long>,
+    val tracksByBookId: Map<String, List<Track>>,
+    val progressByBookId: Map<String, AudiobookProgress?>,
+)

@@ -21,9 +21,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
+import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Cycle
+import com.tonezen.app.domain.model.Track
+import com.tonezen.app.domain.progress.BookContinueState
+import com.tonezen.app.domain.progress.canContinueBookListening
 import com.tonezen.app.ui.components.BookCover
+import com.tonezen.app.ui.components.ContinueResumeMeta
+import com.tonezen.app.ui.components.ContinueResumeVariant
 import com.tonezen.app.ui.components.DetailHeaderOverflowMenu
 import com.tonezen.app.ui.components.StatusChip
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
@@ -40,6 +46,8 @@ internal fun CycleDetailScreen(
     cycle: Cycle,
     cycleCardState: CycleCardState,
     downloadedBookIds: Set<String>,
+    tracksByBookId: Map<String, List<Track>>,
+    progressByBookId: Map<String, AudiobookProgress?>,
     onBack: () -> Unit,
     onBookClick: (Book) -> Unit,
     onDownloadCycle: () -> Unit,
@@ -75,9 +83,15 @@ internal fun CycleDetailScreen(
         },
     ) {
         items(cycle.books) { book ->
+            val continueState = canContinueBookListening(
+                bookId = book.id,
+                tracks = tracksByBookId[book.id].orEmpty(),
+                progress = progressByBookId[book.id],
+            )
             CycleBookRow(
                 book = book,
                 downloaded = downloadedBookIds.contains(book.id),
+                continueState = continueState,
                 onClick = { onBookClick(book) },
             )
         }
@@ -88,6 +102,7 @@ internal fun CycleDetailScreen(
 private fun CycleBookRow(
     book: Book,
     downloaded: Boolean,
+    continueState: BookContinueState?,
     onClick: () -> Unit,
 ) {
     Row(
@@ -115,14 +130,27 @@ private fun CycleBookRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = bookAuthorLabel(book),
+                text = bookAuthorLabel(book).ifBlank { stringResource(R.string.author_placeholder) },
                 color = TonezenMuted,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (downloaded) {
-                StatusChip(label = stringResource(R.string.offline), tone = TonezenTeal)
+            if (continueState != null || downloaded) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    continueState?.let { state ->
+                        ContinueResumeMeta(
+                            state = state,
+                            variant = ContinueResumeVariant.Inline,
+                        )
+                    }
+                    if (downloaded) {
+                        StatusChip(label = stringResource(R.string.offline), tone = TonezenTeal)
+                    }
+                }
             }
         }
     }

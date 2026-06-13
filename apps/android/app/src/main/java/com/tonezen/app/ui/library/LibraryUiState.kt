@@ -1,9 +1,12 @@
 package com.tonezen.app.ui.library
 
 import com.tonezen.app.domain.library.LibraryFilterState
+import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.SessionState
+import com.tonezen.app.domain.model.Track
+import com.tonezen.app.domain.progress.BookContinueState
 
 data class MusicListTrack(
     val trackId: String,
@@ -35,6 +38,7 @@ data class CyclePlaybackUi(
 data class CycleCardState(
     val isDownloaded: Boolean = false,
     val progressFraction: Float? = null,
+    val continueState: BookContinueState? = null,
     val showDownload: Boolean = false,
     val showRemoveDownload: Boolean = false,
     val isListened: Boolean = false,
@@ -45,6 +49,8 @@ data class LibraryUiState(
     val isLoadingCatalog: Boolean = true,
     val cycles: List<Cycle> = emptyList(),
     val cycleCardStateById: Map<String, CycleCardState> = emptyMap(),
+    val tracksByBookId: Map<String, List<Track>> = emptyMap(),
+    val audiobookProgressByBookId: Map<String, AudiobookProgress?> = emptyMap(),
     val cyclePlayback: CyclePlaybackUi = CyclePlaybackUi(),
     val books: List<Book> = emptyList(),
     val downloadedBookIds: Set<String> = emptySet(),

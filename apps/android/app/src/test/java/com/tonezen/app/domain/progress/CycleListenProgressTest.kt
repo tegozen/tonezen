@@ -85,6 +85,42 @@ class CycleListenProgressTest {
         assertNull(fraction)
     }
 
+    @Test
+    fun `continue state returns latest resumable chapter in cycle`() {
+        val continueState = resolveCycleContinueState(
+            cycle = cycle,
+            tracksByBookId = tracksByBookId,
+            progressByBookId = mapOf(
+                bookOne.id to progress(bookOne.id, "t1", 95_000),
+                bookTwo.id to progress(bookTwo.id, "t2", 12_000, updatedAtEpochMs = 2L),
+            ),
+        )
+        assertEquals(BookContinueState("t2", 12_000), continueState)
+    }
+
+    @Test
+    fun `continue state is null for another cycle without its own progress`() {
+        val otherCycle = Cycle(
+            id = "cycle-2",
+            slug = "cycle-2",
+            title = "Other",
+            bookOrder = listOf("book-three"),
+            books = listOf(
+                book("book-3", "book-three", 0),
+            ),
+        )
+        val otherTracks = mapOf(
+            "book-3" to listOf(track("t3", "book-3", 0, 100_000)),
+        )
+        assertNull(
+            resolveCycleContinueState(
+                otherCycle,
+                otherTracks,
+                mapOf(bookTwo.id to progress(bookTwo.id, "t2", 12_000)),
+            ),
+        )
+    }
+
     private fun book(id: String, slug: String, sortOrder: Int) = Book(
         id = id,
         slug = slug,
@@ -103,10 +139,11 @@ class CycleListenProgressTest {
         localPath = null,
     )
 
-    private fun progress(bookId: String, trackId: String, positionMs: Long) = AudiobookProgress(
-        bookId = bookId,
-        trackId = trackId,
-        positionMs = positionMs,
-        updatedAtEpochMs = 1L,
-    )
+    private fun progress(bookId: String, trackId: String, positionMs: Long, updatedAtEpochMs: Long = 1L) =
+        AudiobookProgress(
+            bookId = bookId,
+            trackId = trackId,
+            positionMs = positionMs,
+            updatedAtEpochMs = updatedAtEpochMs,
+        )
 }

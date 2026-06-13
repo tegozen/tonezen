@@ -126,6 +126,33 @@ private fun resolveBookResumeTarget(
     return CycleResumeTarget(firstBook, restartTrack, 0L)
 }
 
+fun resolveCycleContinueState(
+    cycle: Cycle,
+    tracksByBookId: Map<String, List<Track>>,
+    progressByBookId: Map<String, AudiobookProgress?>,
+): BookContinueState? {
+    val bookIds = cycle.books.map { it.id }.toSet()
+    if (bookIds.isEmpty()) return null
+
+    var best: Pair<BookContinueState, Long>? = null
+
+    for (bookId in bookIds) {
+        val progress = progressByBookId[bookId] ?: continue
+        if (progress.bookId != bookId) continue
+
+        val tracks = tracksByBookId[bookId].orEmpty()
+        if (resolveBookListenedMs(tracks, progress) <= 0L) continue
+
+        val state = canContinueBookListening(bookId, tracks, progress) ?: continue
+        val updatedAt = progress.updatedAtEpochMs
+        if (best == null || updatedAt >= best.second) {
+            best = state to updatedAt
+        }
+    }
+
+    return best?.first
+}
+
 fun orderedCycleEntriesFromResume(
     cycle: Cycle,
     tracksByBookId: Map<String, List<Track>>,

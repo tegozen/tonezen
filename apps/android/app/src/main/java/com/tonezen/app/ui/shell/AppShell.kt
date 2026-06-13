@@ -124,6 +124,8 @@ fun AppShell(
                             cycleCardState = libraryState.cycleCardStateById[selectedCycle.id]
                                 ?: CycleCardState(),
                             downloadedBookIds = libraryState.downloadedBookIds,
+                            tracksByBookId = libraryState.tracksByBookId,
+                            progressByBookId = libraryState.audiobookProgressByBookId,
                             onBack = shellViewModel::closeCycle,
                             onBookClick = shellViewModel::openBook,
                             onDownloadCycle = { libraryViewModel.downloadCycle(selectedCycle) },

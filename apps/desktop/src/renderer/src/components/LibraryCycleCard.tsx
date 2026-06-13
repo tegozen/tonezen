@@ -1,5 +1,6 @@
 import type { Cycle } from "@shared/types";
 import { CheckCircleIcon, PauseIcon, PlayIcon } from "./TonezenIcons";
+import { ContinueResumeMeta } from "./ContinueResumeMeta";
 import { CycleCover } from "./CycleCover";
 import type { CycleCardState } from "../lib/cycleUtils";
 import { strings } from "../i18n/strings";
@@ -22,6 +23,7 @@ export function LibraryCycleCard({
   const progressPercent =
     state.progressFraction != null ? Math.round(state.progressFraction * 100) : null;
   const showProgress = cycle.books.length > 0;
+  const continueState = state.continueState;
 
   return (
     <div className="library-cycle-card">
@@ -29,10 +31,15 @@ export function LibraryCycleCard({
       {state.isDownloaded && (
         <CheckCircleIcon className="library-cycle-downloaded text-teal" aria-label={strings.offline} />
       )}
-      {showProgress && (
-        <span className="library-cycle-progress">
-          {strings.cycleListenProgress(progressPercent ?? 0)}
-        </span>
+      {(continueState || showProgress) && (
+        <div className="library-cycle-footer-meta">
+          {continueState && <ContinueResumeMeta state={continueState} variant="overlay" />}
+          {showProgress && (
+            <span className="library-cycle-progress">
+              {strings.cycleListenProgress(progressPercent ?? 0)}
+            </span>
+          )}
+        </div>
       )}
       <button
         type="button"

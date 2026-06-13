@@ -542,6 +542,8 @@ export function App() {
           cycle={selectedCycle}
           cardState={cycleCardStateById[selectedCycle.id] ?? computeCycleCardState(selectedCycle, downloadedBookIds, tracksByBookId, progressByBook)}
           downloadedBookIds={downloadedBookIds}
+          tracksByBookId={tracksByBookId}
+          progressByBook={progressByBook}
           onBack={() => setSelectedCycle(null)}
           onBookClick={(book) => void openBook(book, selectedCycle)}
           onDownloadCycle={() => void downloadCycle(selectedCycle)}

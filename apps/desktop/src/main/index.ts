@@ -1,4 +1,4 @@
-import { app } from "electron";
+import { app, Menu } from "electron";
 import path from "node:path";
 import { registerLocalAudioScheme, setupLocalAudioProtocol } from "./mediaProtocol.js";
 import { WindowLifecycleManager } from "./windowLifecycle.js";
@@ -29,6 +29,8 @@ let profileSync: ProfileSyncService;
 let progressSync: ProgressSyncService;
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
+
   const splashWindow = createSplashWindow();
   if (app.isPackaged) {
     loadPackagedEnv(process.execPath);

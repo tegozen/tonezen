@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBookTrackProgress, resolveChapterTrackState } from "../src/renderer/src/lib/bookTrackUtils.js";
+import { buildBookTrackProgress, canContinueBookListening, resolveChapterTrackState } from "../src/renderer/src/lib/bookTrackUtils.js";
 import type { Track } from "../src/shared/types.js";
 
 const tracks: Track[] = [
@@ -32,5 +32,32 @@ describe("buildBookTrackProgress", () => {
   it("marks earlier tracks complete", () => {
     const map = buildBookTrackProgress(tracks, "t2", 0, null, 0);
     expect(map.get("t1")).toBe(1);
+  });
+});
+
+describe("canContinueBookListening", () => {
+  it("returns resume info for a partially listened chapter", () => {
+    expect(
+      canContinueBookListening("b1", tracks, { bookId: "b1", trackId: "t1", positionMs: 5_000 }),
+    ).toEqual({
+      trackTitle: "One",
+      positionMs: 5_000,
+    });
+  });
+
+  it("returns null when the book is fully listened", () => {
+    expect(
+      canContinueBookListening("b1", tracks, { bookId: "b1", trackId: "t2", positionMs: 95_000 }),
+    ).toBeNull();
+  });
+
+  it("returns null without saved progress", () => {
+    expect(canContinueBookListening("b1", tracks, null)).toBeNull();
+  });
+
+  it("returns null when progress belongs to another book", () => {
+    expect(
+      canContinueBookListening("b1", tracks, { bookId: "other", trackId: "t1", positionMs: 5_000 }),
+    ).toBeNull();
   });
 });

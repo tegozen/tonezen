@@ -1,6 +1,5 @@
 import type { Track } from "@shared/types";
 import { CheckCircleIcon } from "./TonezenIcons";
-import { PlayingBars } from "./PlayingBars";
 import { TrackListRow } from "./TrackListRow";
 import { TrackRowOverflowMenu } from "./TrackRowOverflowMenu";
 import { strings } from "../i18n/strings";
@@ -39,9 +38,7 @@ export function ChapterTrackRow({
       onClick={onClick}
       leading={
         <div className="flex items-center gap-2">
-          {isActive ? (
-            <PlayingBars active />
-          ) : listenPercent != null ? (
+          {listenPercent != null ? (
             <span className="text-xs font-semibold text-teal">
               {strings.cycleListenProgress(listenPercent)}
             </span>

@@ -80,6 +80,7 @@ export function LibraryPage({
               const state = cycleCardStateById[cycle.id] ?? {
                 isDownloaded: false,
                 progressFraction: null,
+                continueState: null,
                 showDownload: true,
                 showRemoveDownload: false,
                 isListened: false,

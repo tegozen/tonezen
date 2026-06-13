@@ -1,5 +1,8 @@
 package com.tonezen.app.ui.library
 
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonezen.app.R
@@ -95,6 +98,13 @@ class LibraryViewModel @Inject constructor(
             },
         )
         playbackClient.connect()
+        ProcessLifecycleOwner.get().lifecycle.addObserver(
+            object : DefaultLifecycleObserver {
+                override fun onStop(owner: LifecycleOwner) {
+                    cycleHandler.flushActiveAudiobookProgress(playbackClient.snapshot.value)
+                }
+            },
+        )
         viewModelScope.launch {
             sessionRepository.session.collectLatest { sessionData ->
                 refreshSessionState(sessionData)
