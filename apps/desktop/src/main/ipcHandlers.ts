@@ -60,9 +60,9 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   ipcMain.handle("download:track", (_e, bookId: string, trackId: string) =>
     downloadManager.downloadTrack(bookId, trackId),
   );
-  ipcMain.handle("download:delete", (_e, bookId: string, trackId: string) => {
-    downloadManager.deleteLocalTrack(bookId, trackId);
-  });
+  ipcMain.handle("download:delete", (_e, bookId: string, trackId: string) =>
+    downloadManager.deleteLocalTrack(bookId, trackId),
+  );
   ipcMain.handle("download:list", () => downloadManager.listDownloadSummaries());
   ipcMain.handle("download:storageStats", () => downloadManager.getStorageStats());
   ipcMain.handle("download:deleteAll", () => downloadManager.deleteAll());

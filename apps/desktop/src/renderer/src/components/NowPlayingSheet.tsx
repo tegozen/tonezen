@@ -1,7 +1,10 @@
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useRef } from "react";
 import { PauseIcon, PlayIcon, SkipBackIcon, SkipForwardIcon } from "./TonezenIcons";
 import { TrackCoverArt } from "./CoverArt";
 import { useAnimatedVisibility } from "../hooks/useAnimatedVisibility";
 import { formatMs } from "../lib/formatTime";
+import { seekFractionFromPointer } from "@shared/playbackSeek";
 import { strings } from "../i18n/strings";
 
 interface NowPlayingSheetProps {
@@ -21,6 +24,8 @@ interface NowPlayingSheetProps {
   onSkipPrevious: () => void;
   onSkipNext: () => void;
   onSeek: (fraction: number) => void;
+  volume: number;
+  onVolumeChange: (volume: number) => void;
 }
 
 export function NowPlayingSheet({
@@ -40,6 +45,8 @@ export function NowPlayingSheet({
   onSkipPrevious,
   onSkipNext,
   onSeek,
+  volume,
+  onVolumeChange,
 }: NowPlayingSheetProps) {
   const { mounted, open } = useAnimatedVisibility(visible, 320);
   const progress = durationMs > 0 ? positionMs / durationMs : 0;
@@ -47,6 +54,44 @@ export function NowPlayingSheet({
   const showDownloadLabel = isDownloading && downloadProgress > 0;
   const disabled = controlsDisabled || isDownloading;
   const coverPlaying = isPlaying && !isDownloading;
+  const volumePercent = Math.round(volume * 100);
+  const progressRef = useRef<HTMLDivElement>(null);
+
+  const seekFromClientX = useCallback(
+    (clientX: number) => {
+      const el = progressRef.current;
+      if (!el || disabled) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const fraction = seekFractionFromPointer(clientX, rect.left, rect.width);
+      onSeek(fraction);
+    },
+    [disabled, onSeek],
+  );
+
+  const handleProgressPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (disabled) return;
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      seekFromClientX(event.clientX);
+    },
+    [disabled, seekFromClientX],
+  );
+
+  const handleProgressPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+      seekFromClientX(event.clientX);
+    },
+    [seekFromClientX],
+  );
+
+  const handleProgressPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, []);
 
   if (!mounted) return null;
 
@@ -66,19 +111,40 @@ export function NowPlayingSheet({
           <div className="now-playing-sheet-handle" />
           <div className="now-playing-sheet-content">
             <div className="now-playing-sheet-hero">
-              <TrackCoverArt
-                seed={coverSeed}
-                title={title}
-                showInitial
-                isPlaying={coverPlaying}
-                className="h-[168px] w-[168px] rounded-[24px]"
-              >
-                {isDownloading ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/55 text-base font-bold text-teal">
-                    {showDownloadLabel ? `${Math.round(downloadProgress * 100)}%` : "…"}
+              <div className="now-playing-sheet-cover-row">
+                <TrackCoverArt
+                  seed={coverSeed}
+                  title={title}
+                  showInitial
+                  isPlaying={coverPlaying}
+                  className="now-playing-sheet-cover h-[168px] w-[168px] rounded-[24px]"
+                >
+                  {isDownloading ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/55 text-base font-bold text-teal">
+                      {showDownloadLabel ? `${Math.round(downloadProgress * 100)}%` : "…"}
+                    </div>
+                  ) : null}
+                </TrackCoverArt>
+                <div className="now-playing-volume">
+                  <div className="now-playing-volume-slider-wrap">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={volumePercent}
+                      className="now-playing-volume-slider"
+                      style={{ "--volume-fill": `${volumePercent}%` } as CSSProperties}
+                      aria-label={strings.volume}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={volumePercent}
+                      onChange={(event) => onVolumeChange(Number(event.target.value) / 100)}
+                    />
                   </div>
-                ) : null}
-              </TrackCoverArt>
+                  <span className="now-playing-volume-label">{volumePercent}%</span>
+                </div>
+              </div>
               <div className="now-playing-sheet-meta">
                 <h2 className="line-clamp-2">{title}</h2>
                 {subtitle ? <p className="line-clamp-2">{subtitle}</p> : null}
@@ -87,6 +153,7 @@ export function NowPlayingSheet({
 
             <div className="now-playing-sheet-progress-block">
               <div
+                ref={progressRef}
                 className="now-playing-progress"
                 role="slider"
                 aria-label={strings.nowPlaying}
@@ -94,11 +161,10 @@ export function NowPlayingSheet({
                 aria-valuemax={1000}
                 aria-valuenow={Math.round(progress * 1000)}
                 tabIndex={disabled ? -1 : 0}
-                onClick={(event) => {
-                  if (disabled) return;
-                  const rect = event.currentTarget.getBoundingClientRect();
-                  onSeek((event.clientX - rect.left) / rect.width);
-                }}
+                onPointerDown={handleProgressPointerDown}
+                onPointerMove={handleProgressPointerMove}
+                onPointerUp={handleProgressPointerUp}
+                onPointerCancel={handleProgressPointerUp}
                 onKeyDown={(event) => {
                   if (disabled) return;
                   if (event.key === "ArrowRight") onSeek(Math.min(1, progress + 0.05));
@@ -106,6 +172,11 @@ export function NowPlayingSheet({
                 }}
               >
                 <div className="now-playing-progress-fill" style={{ width: `${progress * 100}%` }} />
+                <div
+                  className="now-playing-progress-thumb"
+                  style={{ left: `${progress * 100}%` }}
+                  aria-hidden="true"
+                />
               </div>
               <div className="flex justify-between text-xs text-muted">
                 <span>{formatMs(positionMs)}</span>

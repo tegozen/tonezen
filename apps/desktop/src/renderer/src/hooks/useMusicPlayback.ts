@@ -304,6 +304,7 @@ export function useMusicPlayback({
           setMusicPlaybackBook(null);
           musicQueueRef.current = [];
           setMusicQueue([]);
+          await new Promise((resolve) => setTimeout(resolve, 50));
         }
 
         await window.tonezen.download.delete(listTrack.bookId, trackId);

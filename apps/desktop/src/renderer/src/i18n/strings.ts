@@ -83,6 +83,7 @@ export const strings = {
   download: "Скачать",
   rewind15: "Перемотка назад на 15 секунд",
   forward15: "Перемотка вперёд на 15 секунд",
+  volume: "Громкость",
   seekBack15: "-15",
   seekForward15: "+15",
   searchFilterTitle: "Поиск и фильтр",

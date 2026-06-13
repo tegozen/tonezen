@@ -31,6 +31,10 @@ import { ProfilePage } from "./pages/ProfilePage";
 const cycleResolver = new CyclePlaybackResolver();
 const defaultFilter: LibraryFilter = { contentFilter: "all", sortOrder: "recent" };
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function App() {
   const session = useTonezenSession();
   const {
@@ -133,6 +137,8 @@ export function App() {
     seekBy,
     seekTo,
     resumeProgress,
+    volume,
+    setVolume,
   } = usePlayback(selectedBook, tracks, skipTracks, skipHandlers);
 
   const music = useMusicPlayback({
@@ -317,6 +323,10 @@ export function App() {
 
   const removeBookDownloads = async (book: Book) => {
     const bookTracks = await window.tonezen.db.getTracks(book.id);
+    if (currentTrack && bookTracks.some((t) => t.id === currentTrack.id)) {
+      stopPlayback();
+      await delay(50);
+    }
     for (const track of bookTracks) {
       if (track.localPath) {
         await window.tonezen.download.delete(book.id, track.id);
@@ -395,11 +405,23 @@ export function App() {
 
   const removeTrackDownload = async (book: Book, track: Track) => {
     if (!track.localPath) return;
+    if (currentTrack?.id === track.id) {
+      stopPlayback();
+      await delay(50);
+    }
     await window.tonezen.download.delete(book.id, track.id);
     await refreshLibrary();
     if (selectedBook?.id === book.id) {
       setTracks((await window.tonezen.db.getTracks(book.id)) as Track[]);
     }
+  };
+
+  const deleteAllDownloads = async () => {
+    stopPlayback();
+    setShowExpandedPlayer(false);
+    await delay(50);
+    await window.tonezen.download.deleteAll();
+    await refreshLibrary();
   };
 
   const savedBookProgress = selectedBook ? progressByBook.get(selectedBook.id) : undefined;
@@ -603,7 +625,7 @@ export function App() {
           }}
           onCloseSyncDialog={() => setShowSyncDialog(false)}
           onProfileUpdated={() => void refreshSession()}
-          onDeleteAllDownloads={() => void window.tonezen.download.deleteAll().then(refreshLibrary)}
+          onDeleteAllDownloads={() => void deleteAllDownloads()}
         />
       )}
       {error && <p className="error-text">{error}</p>}
@@ -630,6 +652,8 @@ export function App() {
         onSkipPrevious={handleSkipPrevious}
         onSkipNext={handleSkipNext}
         onSeek={seekTo}
+        volume={volume}
+        onVolumeChange={setVolume}
       />
       <audio ref={audioRef} className="hidden" onEnded={handleTrackEnded} onTimeUpdate={onTimeUpdate} />
     </>

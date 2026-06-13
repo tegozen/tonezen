@@ -6,6 +6,7 @@ import {
   resolveTrackDownloadPath,
   sanitizeLocalAudioPath,
 } from "../shared/safeLocalPaths.js";
+import { rmWithRetry, unlinkWithRetry } from "../shared/fileDeleteRetry.js";
 import { apiV1Url } from "../shared/serverPaths.js";
 import type { Track } from "../shared/types.js";
 import { LocalDatabase } from "./database.js";
@@ -49,16 +50,16 @@ export class DownloadManager {
     return targetPath;
   }
 
-  deleteLocalTrack(bookId: string, trackId: string): void {
+  async deleteLocalTrack(bookId: string, trackId: string): Promise<void> {
     const filePath = resolveTrackDownloadPath(this.downloadsRoot, bookId, trackId);
     if (!filePath) throw new Error("__download_invalid_path__");
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    if (fs.existsSync(filePath)) await unlinkWithRetry(filePath);
     LocalDatabase.setTrackLocalPath(trackId, null);
   }
 
-  deleteAll(): void {
+  async deleteAll(): Promise<void> {
     if (fs.existsSync(this.downloadsRoot)) {
-      fs.rmSync(this.downloadsRoot, { recursive: true, force: true });
+      await rmWithRetry(this.downloadsRoot);
       fs.mkdirSync(this.downloadsRoot, { recursive: true });
     }
     LocalDatabase.clearAllLocalPaths();

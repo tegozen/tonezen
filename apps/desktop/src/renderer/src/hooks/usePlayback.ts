@@ -3,6 +3,7 @@ import { effectiveDurationMs } from "@shared/playbackDuration";
 import type { Book, Track } from "@shared/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toAudioFileUrl } from "../lib/audioFileUrl";
+import { loadPlaybackVolume, savePlaybackVolume } from "../lib/playbackVolume";
 import { strings } from "../i18n/strings";
 import {
   clearMediaSession,
@@ -30,6 +31,7 @@ export function usePlayback(
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [volume, setVolumeState] = useState(loadPlaybackVolume);
   const lastProgressSaveRef = useRef(0);
   const lastPositionSyncRef = useRef(0);
   const audioEventsCleanupRef = useRef<(() => void) | null>(null);
@@ -40,12 +42,33 @@ export function usePlayback(
   const currentTrackRef = useRef(currentTrack);
   const skipHandlersRef = useRef(skipHandlers);
   const playTrackRef = useRef<(track: Track, startMs?: number, book?: Book | null) => void>(() => {});
+  const volumeRef = useRef(volume);
+
+  volumeRef.current = volume;
 
   selectedBookRef.current = selectedBook;
   tracksRef.current = tracks;
   skipTracksRef.current = skipTracks;
   currentTrackRef.current = currentTrack;
   skipHandlersRef.current = skipHandlers;
+
+  const applyVolume = useCallback((value: number) => {
+    if (audioRef.current) audioRef.current.volume = value;
+  }, []);
+
+  const setVolume = useCallback(
+    (value: number) => {
+      const clamped = Math.min(1, Math.max(0, value));
+      setVolumeState(clamped);
+      savePlaybackVolume(clamped);
+      applyVolume(clamped);
+    },
+    [applyVolume],
+  );
+
+  useEffect(() => {
+    applyVolume(volume);
+  }, [volume, applyVolume]);
 
   const syncPlayingState = useCallback((audio: HTMLAudioElement) => {
     const playing = !audio.paused && !audio.ended;
@@ -164,6 +187,7 @@ export function usePlayback(
       syncMediaSessionForTrack(track, book);
       const audio = audioRef.current;
       if (!audio) return;
+      audio.volume = volumeRef.current;
       audio.src = toAudioFileUrl(track.localPath);
       if (startMs > 0) audio.currentTime = startMs / 1000;
       void audio.play().then(
@@ -182,13 +206,23 @@ export function usePlayback(
 
   playTrackRef.current = playTrack;
 
+  const releaseAudioSource = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+  }, []);
+
   const stopPlayback = useCallback(() => {
-    audioRef.current?.pause();
+    releaseAudioSource();
     clearMediaSession();
     window.tonezen.playback.setActive(false);
     setIsPlaying(false);
     setCurrentTrack(null);
-  }, []);
+    setPositionMs(0);
+    setDurationMs(0);
+  }, [releaseAudioSource]);
 
   const onTimeUpdate = useCallback(() => {
     const book = selectedBookRef.current;
@@ -286,6 +320,7 @@ export function usePlayback(
       audioEventsCleanupRef.current = null;
       audioRef.current = node;
       if (!node) return;
+      node.volume = volumeRef.current;
 
       const onPlay = () => syncPlayingState(node);
       const onPause = () => syncPlayingState(node);
@@ -325,6 +360,8 @@ export function usePlayback(
     positionMs,
     durationMs,
     playbackSpeed,
+    volume,
+    setVolume,
     audioRef: setAudioElement,
     playTrack,
     stopPlayback,
