@@ -32,7 +32,6 @@ interface UseMusicPlaybackOptions {
   pauseOrResume: () => void;
   seekTo: (fraction: number) => void;
   currentTrack: Track | null;
-  isPlaying: boolean;
   positionMs: number;
 }
 
@@ -50,7 +49,6 @@ export function useMusicPlayback({
   pauseOrResume,
   seekTo,
   currentTrack,
-  isPlaying,
   positionMs,
 }: UseMusicPlaybackOptions) {
   const [musicMode, setMusicMode] = useState(false);

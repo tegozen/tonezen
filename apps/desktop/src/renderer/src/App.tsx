@@ -17,6 +17,12 @@ import { useTonezenSession } from "./hooks/useTonezenSession";
 import type { BottomTab, LibraryFilter } from "./i18n/strings";
 import { strings } from "./i18n/strings";
 import { resolveDownloadError } from "./lib/errorMessages";
+import {
+  buildTracksByBookId,
+  computeCycleCardState,
+  filterAndSortCycles,
+  isBookFullyDownloaded,
+} from "./lib/cycleUtils";
 import { BookDetailPage } from "./pages/BookDetailPage";
 import { CycleDetailPage } from "./pages/CycleDetailPage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -143,7 +149,6 @@ export function App() {
     pauseOrResume,
     seekTo,
     currentTrack,
-    isPlaying,
     positionMs,
   });
 
