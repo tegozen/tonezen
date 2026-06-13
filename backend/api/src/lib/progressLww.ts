@@ -25,8 +25,6 @@ export function maybeSkipProgressWrite(
 ): ProgressSkipResult | null {
   if (!existing) return null;
   const winner = mergeProgressLww(incoming, existing);
-  if (winner !== incoming) {
-    return { skipped: true, progress: winner };
-  }
-  return null;
+  if (winner == null || winner === incoming) return null;
+  return { skipped: true, progress: winner };
 }

@@ -52,4 +52,8 @@ describe("maybeSkipProgressWrite", () => {
     expect(maybeSkipProgressWrite(incoming, null)).toBeNull();
     expect(maybeSkipProgressWrite(incoming, undefined)).toBeNull();
   });
+
+  it("returns null when merge yields no winner", () => {
+    expect(maybeSkipProgressWrite(incoming, incoming)).toBeNull();
+  });
 });
