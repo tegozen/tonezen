@@ -78,17 +78,22 @@ internal class LibraryCycleHandler(
                 ?: return@launch
             val accessToken = sessionData.accessToken
             withContext(Dispatchers.IO) {
+                val bookIds = cycle.bookOrder.mapNotNull { slug ->
+                    cycle.books.find { it.slug == slug }?.id
+                }
+                val tracksByBookId = catalogRepository.getTracksByBookIds(bookIds)
                 for (bookSlug in cycle.bookOrder) {
                     val book = cycle.books.find { it.slug == bookSlug } ?: continue
-                    val tracks = catalogRepository.getTracksForBook(book.id)
-                    tracks.filter { it.localPath.isNullOrBlank() }.forEach { track ->
-                        val file = downloadRepository.downloadTrack(
-                            accessToken,
-                            book.id,
-                            track.id,
-                        ) { }
-                        catalogRepository.markTrackDownloaded(book.id, track.id, file.absolutePath)
-                    }
+                    tracksByBookId[book.id].orEmpty()
+                        .filter { it.localPath.isNullOrBlank() }
+                        .forEach { track ->
+                            val file = downloadRepository.downloadTrack(
+                                accessToken,
+                                book.id,
+                                track.id,
+                            ) { }
+                            catalogRepository.markTrackDownloaded(book.id, track.id, file.absolutePath)
+                        }
                 }
             }
             localLibraryNotifier.notifyLocalLibraryChanged()
@@ -107,10 +112,10 @@ internal class LibraryCycleHandler(
                 uiState.update { it.copy(cyclePlayback = CyclePlaybackUi()) }
             }
             withContext(Dispatchers.IO) {
+                val tracksByBookId = catalogRepository.getTracksByBookIds(cycle.books.map { it.id })
                 for (book in cycle.books) {
                     catalogRepository.clearLocalDownloads(book.id)
-                    val tracks = catalogRepository.getTracksForBook(book.id)
-                    tracks.forEach { track ->
+                    tracksByBookId[book.id].orEmpty().forEach { track ->
                         downloadRepository.deleteLocalTrack(book.id, track.id)
                     }
                 }
@@ -123,15 +128,10 @@ internal class LibraryCycleHandler(
 
     fun toggleCycleListened(cycle: Cycle) {
         scope.launch {
-            val tracksByBookId = withContext(Dispatchers.IO) {
-                cycle.books.associate { book ->
-                    book.id to catalogRepository.getTracksForBook(book.id)
-                }
-            }
-            val progressByBookId = withContext(Dispatchers.IO) {
-                cycle.books.associate { book ->
-                    book.id to catalogRepository.getProgress(book.id)
-                }
+            val bookIds = cycle.books.map { it.id }
+            val (tracksByBookId, progressByBookId) = withContext(Dispatchers.IO) {
+                catalogRepository.getTracksByBookIds(bookIds) to
+                    catalogRepository.getProgressByBookIds(bookIds)
             }
             if (isCycleFullyListened(cycle, tracksByBookId, progressByBookId)) {
                 markCycleUnlistened(cycle)
@@ -144,9 +144,10 @@ internal class LibraryCycleHandler(
     fun markCycleListened(cycle: Cycle) {
         scope.launch {
             withContext(Dispatchers.IO) {
+                val tracksByBookId = catalogRepository.getTracksByBookIds(cycle.books.map { it.id })
                 for (bookSlug in cycle.bookOrder) {
                     val book = cycle.books.find { it.slug == bookSlug } ?: continue
-                    val tracks = catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
+                    val tracks = tracksByBookId[book.id].orEmpty().sortedBy { it.sortOrder }
                     val lastTrack = tracks.lastOrNull() ?: continue
                     persistAudiobookProgress(book.id, lastTrack.id, lastTrack.durationMs ?: 0L)
                 }
@@ -246,7 +247,7 @@ internal class LibraryCycleHandler(
                 catalogRepository.getTracksForBook(bookId).find { it.id == trackId }
             } ?: return@launch
             persistAudiobookProgress(bookId, trackId, track.durationMs ?: 0L)
-            refreshCycleCardStates(uiState.value.cycles, uiState.value.downloadedBookIds)
+            refreshCycleCardStates(cyclesContaining(bookId), uiState.value.downloadedBookIds)
         }
     }
 
@@ -256,7 +257,7 @@ internal class LibraryCycleHandler(
         session.lastAudiobookProgressSaveMs = now
         scope.launch {
             persistAudiobookProgress(bookId, trackId, positionMs)
-            refreshCycleCardStates(uiState.value.cycles, uiState.value.downloadedBookIds)
+            refreshCycleCardStates(cyclesContaining(bookId), uiState.value.downloadedBookIds)
         }
     }
 
@@ -282,15 +283,10 @@ internal class LibraryCycleHandler(
                 ),
             )
         }
-        val tracksByBookId = withContext(Dispatchers.IO) {
-            cycle.books.associate { book ->
-                book.id to catalogRepository.getTracksForBook(book.id)
-            }
-        }
-        val progressByBookId = withContext(Dispatchers.IO) {
-            cycle.books.associate { book ->
-                book.id to catalogRepository.getProgress(book.id)
-            }
+        val bookIds = cycle.books.map { it.id }
+        val (tracksByBookId, progressByBookId) = withContext(Dispatchers.IO) {
+            catalogRepository.getTracksByBookIds(bookIds) to
+                catalogRepository.getProgressByBookIds(bookIds)
         }
         val resume = resolveCycleResumeTarget(cycle, tracksByBookId, progressByBookId)
         if (resume == null) {
@@ -382,6 +378,9 @@ internal class LibraryCycleHandler(
             }
         }
     }
+
+    private fun cyclesContaining(bookId: String): List<Cycle> =
+        uiState.value.cycles.filter { cycle -> cycle.books.any { it.id == bookId } }
 
     private suspend fun refreshDownloadedBooks() {
         val downloaded = withContext(Dispatchers.IO) {

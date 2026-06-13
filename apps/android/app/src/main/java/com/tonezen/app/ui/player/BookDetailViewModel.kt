@@ -82,8 +82,10 @@ class BookDetailViewModel @Inject constructor(
 
     fun loadBook(book: Book) {
         viewModelScope.launch {
-            val tracks = catalogRepository.getTracksForBook(book.id)
-            val progress = catalogRepository.getProgress(book.id)
+            val (tracks, progress) = withContext(Dispatchers.IO) {
+                catalogRepository.getTracksForBook(book.id) to
+                    catalogRepository.getProgress(book.id)
+            }
             val syncStatus = resolveSyncStatus(book, progress)
             _uiState.update {
                 it.copy(

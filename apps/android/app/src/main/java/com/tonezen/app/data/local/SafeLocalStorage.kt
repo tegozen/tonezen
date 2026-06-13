@@ -32,4 +32,13 @@ object SafeLocalStorage {
         if (!file.isFile || file.length() <= 0L) return null
         return file.path
     }
+
+    /** Fast DB read path: prefix check only — full file validation happens before playback. */
+    fun sanitizeStoredLocalPath(rootDir: File, path: String?): String? {
+        if (path.isNullOrBlank() || path.contains("..")) return null
+        val root = rootDir.absolutePath.replace('\\', '/').trimEnd('/')
+        val normalized = path.replace('\\', '/')
+        if (normalized != root && !normalized.startsWith("$root/")) return null
+        return path
+    }
 }

@@ -416,9 +416,10 @@ internal class LibraryMusicHandler(
         }
         val booksById = uiState.value.books.associateBy { it.id }
         return withContext(Dispatchers.IO) {
+            val tracksByBookId = catalogRepository.getTracksByBookIds(list.map { it.bookId }.distinct())
             list.mapNotNull { item ->
                 val book = booksById[item.bookId] ?: return@mapNotNull null
-                val domainTrack = catalogRepository.getTracksForBook(book.id).find { it.id == item.trackId }
+                val domainTrack = tracksByBookId[item.bookId]?.find { it.id == item.trackId }
                     ?: return@mapNotNull null
                 MusicLibraryTrack(book, domainTrack)
             }
@@ -458,9 +459,12 @@ internal class LibraryMusicHandler(
             return
         }
         val queue = withContext(Dispatchers.IO) {
+            val tracksByBookId = catalogRepository.getTracksByBookIds(
+                libraryTracks.map { it.book.id }.distinct(),
+            )
             playbackQueueBuilder.buildLocalMusicLibraryQueue(libraryTracks) { entry ->
-                catalogRepository.getTracksForBook(entry.book.id)
-                    .find { it.id == entry.track.id }
+                tracksByBookId[entry.book.id]
+                    ?.find { it.id == entry.track.id }
                     ?.takeIf { !it.localPath.isNullOrBlank() }
             }
         }

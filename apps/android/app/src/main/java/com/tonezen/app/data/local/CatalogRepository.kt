@@ -68,13 +68,10 @@ class CatalogRepository @Inject constructor(
     suspend fun getDownloadedTrackIds(): Set<String> = withContext(Dispatchers.IO) {
         catalogDao.getAllTracks()
             .asSequence()
-            .filter { entity ->
-                val path = entity.localPath ?: return@filter false
-                SafeLocalStorage.isUnderAppFilesRoot(context.filesDir, path) &&
-                    File(path).isFile &&
-                    File(path).length() > 0L
+            .mapNotNull { entity ->
+                SafeLocalStorage.sanitizeStoredLocalPath(context.filesDir, entity.localPath)
+                    ?.let { entity.id }
             }
-            .map { it.id }
             .toSet()
     }
 
@@ -214,23 +211,29 @@ class CatalogRepository @Inject constructor(
         val tracksByBookId = catalogDao.getAllTracks().groupBy { it.bookId }
         return books.mapNotNull { entity ->
             val book = entity.toDomain()
-            val tracks = tracksByBookId[book.id].orEmpty()
-            val safeDownloaded = tracks.count { entity ->
-                SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, entity.localPath) != null
+            val trackEntities = tracksByBookId[book.id].orEmpty()
+            var safeDownloaded = 0
+            var sizeBytes = 0L
+            for (trackEntity in trackEntities) {
+                val path = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, trackEntity.localPath)
+                    ?: continue
+                safeDownloaded++
+                sizeBytes += File(path).length()
             }
             if (safeDownloaded == 0) return@mapNotNull null
-            val sizeBytes = tracks.mapNotNull { entity ->
-                SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, entity.localPath)
-            }.sumOf { path -> File(path).length() }
             DownloadedBookSummary(
                 bookId = book.id,
                 title = book.title,
                 author = book.author,
                 contentType = book.contentType.name.lowercase(),
                 downloadedTracks = safeDownloaded,
-                totalTracks = tracks.size,
+                totalTracks = trackEntities.size,
                 sizeBytes = sizeBytes,
-                downloadProgress = if (safeDownloaded == tracks.size) 1f else safeDownloaded.toFloat() / tracks.size,
+                downloadProgress = if (safeDownloaded == trackEntities.size) {
+                    1f
+                } else {
+                    safeDownloaded.toFloat() / trackEntities.size
+                },
             )
         }.sortedBy { it.title.lowercase() }
     }
@@ -266,7 +269,7 @@ class CatalogRepository @Inject constructor(
     }
 
     private fun TrackEntity.toDomainTrack(): Track {
-        val safePath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, localPath)
+        val safePath = SafeLocalStorage.sanitizeStoredLocalPath(context.filesDir, localPath)
         return Track(
             id = id,
             bookId = bookId,
