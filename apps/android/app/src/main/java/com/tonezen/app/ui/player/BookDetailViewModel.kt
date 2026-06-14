@@ -53,22 +53,19 @@ class BookDetailViewModel @Inject constructor(
             playbackClient.activeTrackId.collect { trackId ->
                 val track = _uiState.value.tracks.find { it.id == trackId }
                 currentTrack = track
-                _uiState.update { it.copy(activeTrackId = trackId) }
+                _uiState.update { it.copy(activeTrackId = track?.id) }
             }
         }
         viewModelScope.launch {
             playbackClient.snapshot.collectLatest { snapshot ->
-                val book = _uiState.value.book
-                val isCurrentBookTrack = book != null &&
-                    snapshot.trackId != null &&
-                    _uiState.value.tracks.any { it.id == snapshot.trackId }
+                val playbackState = resolveBookDetailPlaybackState(_uiState.value.tracks, snapshot)
                 _uiState.update {
                     it.copy(
-                        playbackPositionMs = if (isCurrentBookTrack && snapshot.isPlaying) {
-                            snapshot.positionMs
-                        } else {
-                            0L
-                        },
+                        activeTrackId = playbackState.activeTrackId,
+                        playbackPositionMs = playbackState.positionMs,
+                        playbackDurationMs = playbackState.durationMs,
+                        isPlaying = playbackState.isPlaying,
+                        isPlaybackActiveForBook = playbackState.isActiveForBook,
                     )
                 }
             }
@@ -197,6 +194,26 @@ class BookDetailViewModel @Inject constructor(
         val progress = _uiState.value.audiobookProgress ?: return
         val track = _uiState.value.tracks.find { it.id == progress.trackId } ?: return
         playTrack(track)
+    }
+
+    fun pauseOrResume() {
+        if (!_uiState.value.isPlaybackActiveForBook) return
+        if (_uiState.value.isPlaying) {
+            playbackClient.pause()
+        } else {
+            playbackClient.play()
+        }
+    }
+
+    fun seekBy(deltaMs: Long) {
+        if (!_uiState.value.isPlaybackActiveForBook) return
+        playbackClient.seekBy(deltaMs)
+    }
+
+    fun seekToFraction(fraction: Float) {
+        val durationMs = _uiState.value.playbackDurationMs
+        if (!_uiState.value.isPlaybackActiveForBook || durationMs <= 0L) return
+        playbackClient.seekTo((durationMs * fraction.coerceIn(0f, 1f)).toLong())
     }
 
     fun downloadBook() {

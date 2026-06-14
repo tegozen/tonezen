@@ -1,6 +1,7 @@
 package com.tonezen.app.data.remote.progress
 
 import com.tonezen.app.data.remote.getRemoteJson
+import com.tonezen.app.data.remote.RemoteHttpException
 import com.tonezen.app.domain.model.AudiobookProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,7 +28,11 @@ class ProgressRemoteApi(
                 .put(body.toRequestBody("application/json".toMediaType()))
                 .header("Authorization", "Bearer $accessToken")
                 .build()
-            httpClient.newCall(request).execute().use { /* response handled by caller */ }
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw RemoteHttpException(response.code, "Progress push failed (${response.code})")
+                }
+            }
         }
 
     suspend fun fetchProgress(accessToken: String): List<RemoteProgress> = withContext(Dispatchers.IO) {

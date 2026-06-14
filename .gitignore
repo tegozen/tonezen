@@ -5,8 +5,8 @@
 *.local
 
 # Runtime data (Postgres + storage live in Docker volumes; see scripts/*-export.sh)
-data/
-backups/
+/data/
+/backups/
 
 # Node
 node_modules/

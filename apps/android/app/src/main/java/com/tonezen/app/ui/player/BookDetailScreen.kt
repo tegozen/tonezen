@@ -34,13 +34,21 @@ import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.ui.Alignment
+import com.tonezen.app.ui.components.PlayButton
+import com.tonezen.app.ui.components.ProgressBar
+import com.tonezen.app.ui.components.RoundControl
+import com.tonezen.app.ui.theme.durationLabel
 import dev.chrisbanes.haze.HazeState
 
 @Composable
@@ -60,6 +68,9 @@ internal fun BookDetailScreen(
     onToggleBookListened: () -> Unit,
     onRemoveBookDownloads: () -> Unit,
     onContinueListening: () -> Unit,
+    onPlaybackPlayPause: () -> Unit,
+    onPlaybackSeekBy: (Long) -> Unit,
+    onPlaybackSeekToFraction: (Float) -> Unit,
     onDismissPlaybackError: () -> Unit,
     onDismissDownloadError: () -> Unit,
     bottomScrollPadding: Dp,
@@ -69,6 +80,7 @@ internal fun BookDetailScreen(
     val sortedTracks = tracks.sortedBy { it.sortOrder }
     val showDownload = tracks.any { it.localPath.isNullOrBlank() }
     val showRemoveDownload = tracks.any { !it.localPath.isNullOrBlank() }
+    val activeTrack = sortedTracks.find { it.id == activeTrackId }
     val isBookListened = isBookFullyListened(sortedTracks, uiState.audiobookProgress)
     val continueState = canContinueBookListening(
         bookId = book.id,
@@ -137,6 +149,21 @@ internal fun BookDetailScreen(
             )
         },
     ) {
+        if (uiState.isPlaybackActiveForBook && activeTrack != null) {
+            item(key = "book-detail-playback") {
+                BookDetailPlaybackControls(
+                    track = activeTrack,
+                    positionMs = uiState.playbackPositionMs,
+                    durationMs = uiState.playbackDurationMs.takeIf { it > 0L }
+                        ?: activeTrack.durationMs
+                        ?: 0L,
+                    isPlaying = uiState.isPlaying,
+                    onPlayPause = onPlaybackPlayPause,
+                    onSeekBy = onPlaybackSeekBy,
+                    onSeekToFraction = onPlaybackSeekToFraction,
+                )
+            }
+        }
         continueState?.takeIf { !isBookListened }?.let { state ->
             item(key = "continue-listening") {
                 Button(
@@ -172,6 +199,77 @@ internal fun BookDetailScreen(
             .align(Alignment.BottomCenter)
             .padding(bottom = bottomScrollPadding),
     )
+    }
+}
+
+@Composable
+private fun BookDetailPlaybackControls(
+    track: Track,
+    positionMs: Long,
+    durationMs: Long,
+    isPlaying: Boolean,
+    onPlayPause: () -> Unit,
+    onSeekBy: (Long) -> Unit,
+    onSeekToFraction: (Float) -> Unit,
+) {
+    val progress = if (durationMs > 0L) {
+        positionMs.toFloat() / durationMs.toFloat()
+    } else {
+        0f
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = track.title,
+            color = TonezenInk,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        ProgressBar(
+            progress = progress,
+            onSeek = onSeekToFraction,
+        )
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                durationLabel(positionMs),
+                color = TonezenMuted,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                durationLabel(durationMs),
+                color = TonezenMuted,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RoundControl(
+                label = stringResource(R.string.rewind_15),
+                outlined = true,
+                size = 40.dp,
+            ) {
+                onSeekBy(-15_000L)
+            }
+            PlayButton(
+                isPlaying = isPlaying,
+                modifier = Modifier.size(56.dp),
+                onClick = onPlayPause,
+            )
+            RoundControl(
+                label = stringResource(R.string.forward_15),
+                outlined = true,
+                size = 40.dp,
+            ) {
+                onSeekBy(15_000L)
+            }
+        }
     }
 }
 

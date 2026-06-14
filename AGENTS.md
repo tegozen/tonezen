@@ -53,12 +53,8 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 
 **Known debt (fix when touching the area)**
 
-- `MainViewModel` still owns multiple features — split into `AuthViewModel`, `LibraryViewModel`, `PlayerViewModel`.
-- `ApiClient` is monolithic — split to match `docs/openapi.yaml` domains.
-- `TonezenDatabase.kt` bundles entities + DAO + DB — split into separate files.
-- `ProgressSyncRepository` still uses `CatalogDao` directly — route through `ProgressRepository`.
-- `PlaybackCoordinator` is tested but not wired to playback end.
-- `BookDetailScreen` uses stub progress/controls — bind to `PlaybackClient` snapshot.
+- Keep this section evidence-based and update it with exact files when new debt is found.
+- Do not re-add stale items without verifying the current code first.
 
 ### API-first
 

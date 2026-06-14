@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.tonezen.app.BuildConfig
 import com.tonezen.app.data.local.CatalogDao
 import com.tonezen.app.data.local.SecureSessionStore
+import com.tonezen.app.data.local.TonezenDatabaseMigrations
 import com.tonezen.app.data.local.TonezenDatabase
 import com.tonezen.app.data.remote.AuthRepository
 import com.tonezen.app.data.remote.AvatarRepository
@@ -27,7 +28,7 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): TonezenDatabase =
         Room.databaseBuilder(context, TonezenDatabase::class.java, "tonezen.db")
-            .fallbackToDestructiveMigration()
+            .addMigrations(*TonezenDatabaseMigrations.ALL)
             .build()
 
     @Provides

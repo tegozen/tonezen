@@ -56,8 +56,7 @@ export class CatalogSyncService {
 
   async fetchCycles(): Promise<Cycle[]> {
     const headers = this.buildHeaders();
-    const cyclesRes = await fetch(apiV1Url(this.baseUrl, "/catalog/cycles"), { headers });
-    const cyclesJson = (await cyclesRes.json()) as { cycles: ApiCycle[] };
+    const cyclesJson = await this.fetchCatalogJson<{ cycles: ApiCycle[] }>("/catalog/cycles", headers);
     return (cyclesJson.cycles ?? []).map((cycle) => {
       const books = (cycle.books ?? []).map(mapBook);
       const bookOrder =
@@ -77,8 +76,7 @@ export class CatalogSyncService {
   async fetchBooks(): Promise<Book[]> {
     const cycles = await this.fetchCycles();
     const headers = this.buildHeaders();
-    const musicRes = await fetch(apiV1Url(this.baseUrl, "/catalog/music"), { headers });
-    const musicJson = (await musicRes.json()) as { albums: ApiBook[] };
+    const musicJson = await this.fetchCatalogJson<{ albums: ApiBook[] }>("/catalog/music", headers);
 
     const books: Book[] = [];
     for (const cycle of cycles) {
@@ -93,10 +91,10 @@ export class CatalogSyncService {
   }
 
   async fetchBookTracks(bookId: string): Promise<Track[]> {
-    const res = await fetch(apiV1Url(this.baseUrl, `/catalog/books/${bookId}`), {
-      headers: this.buildHeaders(),
-    });
-    const detail = (await res.json()) as { tracks?: ApiTrack[] };
+    const detail = await this.fetchCatalogJson<{ tracks?: ApiTrack[] }>(
+      `/catalog/books/${bookId}`,
+      this.buildHeaders(),
+    );
     return (detail.tracks ?? []).map((track) => mapTrack(track, bookId));
   }
 
@@ -115,5 +113,13 @@ export class CatalogSyncService {
   private buildHeaders(): HeadersInit {
     const token = this.getAccessToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  private async fetchCatalogJson<T>(path: string, headers: HeadersInit): Promise<T> {
+    const res = await fetch(apiV1Url(this.baseUrl, path), { headers });
+    if (!res.ok) {
+      throw new Error(`Catalog request failed (${res.status})`);
+    }
+    return (await res.json()) as T;
   }
 }
