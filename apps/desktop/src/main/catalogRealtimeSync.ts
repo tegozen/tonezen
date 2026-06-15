@@ -11,17 +11,39 @@ export interface CatalogRealtimeSyncConfig {
 }
 
 const SYNC_DEBOUNCE_MS = 2000;
+const AUTH_RECOVERY_DELAY_MS = 2000;
+const ERROR_LOG_COOLDOWN_MS = 10_000;
+
+export function isAuthSubscriptionError(err: unknown): boolean {
+  const parts: string[] = [];
+  if (err instanceof Error) {
+    parts.push(err.message);
+    const cause = err.cause as { reason?: string } | undefined;
+    if (cause?.reason) parts.push(cause.reason);
+  } else if (err != null) {
+    parts.push(String(err));
+  }
+  return /expired|invalid.*token|jwt/i.test(parts.join(" "));
+}
 
 export class CatalogRealtimeSyncService {
   private supabase: SupabaseClient | null = null;
   private channel: RealtimeChannel | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private syncInFlight = false;
+  private recoveryInFlight = false;
+  private subscribed = false;
+  private storedSession: StoredSession | null = null;
   private mainWindow: BrowserWindow | null = null;
+  private lastErrorLogMs = 0;
 
   constructor(
     private catalogSync: CatalogSyncService,
     private config: CatalogRealtimeSyncConfig,
+    private getAccessToken: () => string | null,
+    private refreshSession: () => Promise<unknown>,
+    private isAccessTokenUsable: () => boolean,
   ) {}
 
   setMainWindow(window: BrowserWindow | null): void {
@@ -30,8 +52,56 @@ export class CatalogRealtimeSyncService {
 
   async start(session: StoredSession): Promise<void> {
     this.stop();
-    this.supabase = createSupabaseClient(this.config.baseUrl, this.config.anonKey);
-    this.supabase.realtime.setAuth(session.accessToken);
+    this.storedSession = session;
+    await this.refreshSession();
+    await this.ensureSubscribed();
+  }
+
+  stop(): void {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+    if (this.recoveryTimer) {
+      clearTimeout(this.recoveryTimer);
+      this.recoveryTimer = null;
+    }
+    void this.channel?.unsubscribe();
+    this.channel = null;
+    void this.supabase?.removeAllChannels();
+    this.supabase = null;
+    this.storedSession = null;
+    this.subscribed = false;
+  }
+
+  async updateAuth(): Promise<void> {
+    if (!this.storedSession) return;
+    await this.refreshSession();
+    await this.ensureSubscribed();
+  }
+
+  private async ensureSubscribed(): Promise<void> {
+    if (!this.storedSession) return;
+    if (!this.isAccessTokenUsable()) {
+      console.warn("[catalog-realtime] subscription deferred until access token is refreshed");
+      return;
+    }
+    const token = this.getAccessToken();
+    if (!token) return;
+
+    if (!this.supabase) {
+      this.supabase = createSupabaseClient(this.config.baseUrl, this.config.anonKey);
+    }
+    this.supabase.realtime.setAuth(token);
+    if (this.subscribed) return;
+
+    void this.channel?.unsubscribe();
+    this.channel = null;
+    this.attachChannel();
+  }
+
+  private attachChannel(): void {
+    if (!this.supabase || !this.isAccessTokenUsable()) return;
 
     this.channel = this.supabase
       .channel("catalog-global")
@@ -52,29 +122,49 @@ export class CatalogRealtimeSyncService {
       )
       .subscribe((status, err) => {
         if (status === "SUBSCRIBED") {
+          this.subscribed = true;
           console.info("[catalog-realtime] subscribed to catalog changes");
           return;
         }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.error("[catalog-realtime] subscription failed:", status, err);
+          this.subscribed = false;
+          this.logSubscriptionError(status, err);
+          if (isAuthSubscriptionError(err)) {
+            this.scheduleAuthRecovery();
+          }
         }
       });
   }
 
-  stop(): void {
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
-    void this.channel?.unsubscribe();
-    this.channel = null;
-    void this.supabase?.removeAllChannels();
-    this.supabase = null;
+  private logSubscriptionError(status: string, err: unknown): void {
+    const now = Date.now();
+    if (now - this.lastErrorLogMs < ERROR_LOG_COOLDOWN_MS) return;
+    this.lastErrorLogMs = now;
+    console.error("[catalog-realtime] subscription failed:", status, err);
   }
 
-  setAccessToken(accessToken: string | null): void {
-    if (accessToken && this.supabase) {
-      this.supabase.realtime.setAuth(accessToken);
+  private scheduleAuthRecovery(): void {
+    if (this.recoveryTimer || this.recoveryInFlight) return;
+    this.recoveryTimer = setTimeout(() => {
+      this.recoveryTimer = null;
+      void this.recoverSubscription();
+    }, AUTH_RECOVERY_DELAY_MS);
+  }
+
+  private async recoverSubscription(): Promise<void> {
+    if (this.recoveryInFlight || !this.storedSession) return;
+    this.recoveryInFlight = true;
+    try {
+      await this.refreshSession();
+      if (!this.isAccessTokenUsable()) {
+        console.warn("[catalog-realtime] auth recovery waiting for a valid access token");
+        return;
+      }
+      await this.ensureSubscribed();
+    } catch (err) {
+      console.error("[catalog-realtime] auth recovery failed:", err);
+    } finally {
+      this.recoveryInFlight = false;
     }
   }
 
@@ -90,6 +180,8 @@ export class CatalogRealtimeSyncService {
     if (this.syncInFlight) return;
     this.syncInFlight = true;
     try {
+      await this.refreshSession();
+      if (!this.isAccessTokenUsable()) return;
       await this.catalogSync.syncCatalog();
       this.mainWindow?.webContents.send("catalog:updated");
     } catch (err) {

@@ -51,6 +51,8 @@ function mapTrack(raw: ApiTrack, bookId: string): Track {
 }
 
 export class CatalogSyncService {
+  private syncInFlight: Promise<Book[]> | null = null;
+
   constructor(
     private baseUrl: string,
     private getAccessToken: () => string | null,
@@ -100,7 +102,16 @@ export class CatalogSyncService {
     return (detail.tracks ?? []).map((track) => mapTrack(track, bookId));
   }
 
-  async syncCatalog(): Promise<Book[]> {
+  syncCatalog(): Promise<Book[]> {
+    if (!this.syncInFlight) {
+      this.syncInFlight = this.performSyncCatalog().finally(() => {
+        this.syncInFlight = null;
+      });
+    }
+    return this.syncInFlight;
+  }
+
+  private async performSyncCatalog(): Promise<Book[]> {
     const cycles = await this.fetchCycles();
     const books = await this.fetchBooks();
     LocalDatabase.upsertBooks(books);

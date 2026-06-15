@@ -16,10 +16,13 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.flow.Flow
@@ -34,6 +37,9 @@ class CatalogRepository @Inject constructor(
     private val catalogRemoteApi: CatalogRemoteApi,
     private val progressRepository: ProgressRepository,
 ) {
+    private val syncLock = Mutex()
+    private var syncDeferred: Deferred<List<Book>>? = null
+
     suspend fun getAllBooks(): List<Book> =
         catalogDao.getAllBooks().map { it.toDomain() }
 
@@ -95,7 +101,24 @@ class CatalogRepository @Inject constructor(
         catalogDao.getAllCycles().mapNotNull { it.toDomain(booksById) }
     }
 
-    suspend fun syncFromRemote(accessToken: String?): List<Book> = withContext(Dispatchers.IO) {
+    suspend fun syncFromRemote(accessToken: String?): List<Book> = coroutineScope {
+        val deferred = syncLock.withLock {
+            syncDeferred?.takeIf { it.isActive } ?: async(Dispatchers.IO) {
+                performSyncFromRemote(accessToken)
+            }.also { syncDeferred = it }
+        }
+        try {
+            deferred.await()
+        } finally {
+            syncLock.withLock {
+                if (syncDeferred == deferred && !deferred.isActive) {
+                    syncDeferred = null
+                }
+            }
+        }
+    }
+
+    private suspend fun performSyncFromRemote(accessToken: String?): List<Book> = withContext(Dispatchers.IO) {
         val remoteCycles = catalogRemoteApi.fetchCycles(accessToken)
         val remoteBooks = catalogRemoteApi.fetchBooks(accessToken)
         catalogDao.upsertBooks(

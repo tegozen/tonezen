@@ -6,6 +6,7 @@ import com.tonezen.app.data.local.ProgressRepository
 import com.tonezen.app.data.local.toDomain
 import com.tonezen.app.data.local.toEntity
 import com.tonezen.app.data.local.toProgressEntity
+import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.data.remote.progress.ProgressRemoteApi
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.StoredSession
@@ -27,6 +28,8 @@ import kotlinx.coroutines.launch
 class ProgressSyncRepository @Inject constructor(
     private val progressRemoteApi: ProgressRemoteApi,
     private val progressRepository: ProgressRepository,
+    private val sessionRepository: SessionRepository,
+    private val networkMonitor: NetworkMonitor,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val realtimeClient = RealtimeProgressClient(
@@ -35,6 +38,19 @@ class ProgressSyncRepository @Inject constructor(
         scope = scope,
         onProgressChange = { row -> applyRemoteEntity(row.toProgressEntity()) },
     )
+    private val binder = RealtimeSessionBinder(
+        sessionRepository = sessionRepository,
+        networkMonitor = networkMonitor,
+        scope = scope,
+        connect = { session ->
+            realtimeClient.connect(
+                userId = session.userId,
+                accessToken = session.accessToken,
+                onAuthError = ::scheduleAuthRecovery,
+            )
+        },
+        disconnect = realtimeClient::disconnect,
+    )
 
     private val _updates = MutableSharedFlow<AudiobookProgress>(extraBufferCapacity = 8)
     val updates: SharedFlow<AudiobookProgress> = _updates.asSharedFlow()
@@ -42,28 +58,23 @@ class ProgressSyncRepository @Inject constructor(
     private val _lastSyncAtEpochMs = MutableStateFlow<Long?>(null)
     val lastSyncAtEpochMs: StateFlow<Long?> = _lastSyncAtEpochMs.asStateFlow()
 
-    private var activeUserId: String? = null
-
     fun start(session: StoredSession) {
-        if (activeUserId == session.userId) return
-        stop()
-        activeUserId = session.userId
-        realtimeClient.connect(session.userId, session.accessToken)
         scope.launch {
-            pullAll(session.accessToken)
-            flushPending(session.accessToken)
+            val refreshed = binder.ensureStarted(session) ?: return@launch
+            pullAll(refreshed.accessToken)
+            flushPending(refreshed.accessToken)
             markSynced()
         }
     }
 
     fun stop() {
-        activeUserId = null
-        realtimeClient.disconnect()
+        binder.stop()
     }
 
-    suspend fun updateAuth(accessToken: String) {
-        val userId = activeUserId ?: return
-        realtimeClient.connect(userId, accessToken)
+    suspend fun updateAuth() {
+        val session = sessionRepository.loadSession() ?: return
+        if (binder.currentUserId != null && session.userId != binder.currentUserId) return
+        binder.ensureConnected(session)
     }
 
     suspend fun pullAll(accessToken: String) {
@@ -95,6 +106,10 @@ class ProgressSyncRepository @Inject constructor(
             pushProgress(accessToken, entity)
         }
         markSynced()
+    }
+
+    private fun scheduleAuthRecovery() {
+        binder.scheduleAuthRecovery()
     }
 
     private fun markSynced() {

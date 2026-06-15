@@ -29,31 +29,45 @@ class CatalogSyncRepository @Inject constructor(
         scope = scope,
         onCatalogChange = { scheduleSync() },
     )
+    private val binder = RealtimeSessionBinder(
+        sessionRepository = sessionRepository,
+        networkMonitor = networkMonitor,
+        scope = scope,
+        connect = { session ->
+            realtimeClient.connect(
+                userId = session.userId,
+                accessToken = session.accessToken,
+                onAuthError = ::scheduleAuthRecovery,
+            )
+        },
+        disconnect = realtimeClient::disconnect,
+    )
 
     private val _catalogUpdated = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val catalogUpdated: SharedFlow<Unit> = _catalogUpdated.asSharedFlow()
 
-    private var activeUserId: String? = null
     private var debounceJob: Job? = null
-    private var syncInFlight = false
 
     fun start(session: StoredSession) {
-        if (activeUserId == session.userId) return
-        stop()
-        activeUserId = session.userId
-        realtimeClient.connect(session.userId, session.accessToken)
+        scope.launch {
+            binder.ensureStarted(session)
+        }
     }
 
     fun stop() {
         debounceJob?.cancel()
         debounceJob = null
-        activeUserId = null
-        realtimeClient.disconnect()
+        binder.stop()
     }
 
-    fun updateAuth(accessToken: String) {
-        val userId = activeUserId ?: return
-        realtimeClient.connect(userId, accessToken)
+    suspend fun updateAuth() {
+        val session = sessionRepository.loadSession() ?: return
+        if (binder.currentUserId != null && session.userId != binder.currentUserId) return
+        binder.ensureConnected(session)
+    }
+
+    private fun scheduleAuthRecovery() {
+        binder.scheduleAuthRecovery()
     }
 
     private fun scheduleSync() {
@@ -61,14 +75,13 @@ class CatalogSyncRepository @Inject constructor(
         debounceJob = scope.launch {
             delay(SYNC_DEBOUNCE_MS)
             if (!networkMonitor.isOnline()) return@launch
-            val token = sessionRepository.loadSession()?.accessToken ?: return@launch
-            if (syncInFlight) return@launch
-            syncInFlight = true
+            val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession()) ?: return@launch
+            if (!sessionRepository.isAccessTokenUsable(session)) return@launch
             try {
-                catalogRepository.syncFromRemote(token)
+                catalogRepository.syncFromRemote(session.accessToken)
                 _catalogUpdated.emit(Unit)
-            } finally {
-                syncInFlight = false
+            } catch (_: Exception) {
+                // Best-effort; local cache remains authoritative offline.
             }
         }
     }

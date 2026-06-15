@@ -270,28 +270,22 @@ class LibraryViewModel @Inject constructor(
             withContext(Dispatchers.Main) {
                 refreshSessionState(refreshed)
             }
-            val local = catalogRepository.getAllBooks()
-            val localCycles = catalogRepository.getAllCycles()
-            if (local.isEmpty()) {
-                withContext(Dispatchers.Main) {
-                    _uiState.update { it.copy(isLoadingCatalog = true) }
-                }
-            }
-            if (local.isNotEmpty()) {
-                withContext(Dispatchers.Main) {
-                    updateCatalog(local, localCycles)
-                    _uiState.update { it.copy(isLoadingCatalog = false) }
-                }
-            }
             refreshed?.let {
                 progressSyncRepository.start(it)
                 profileSyncRepository.start(it)
                 catalogSyncRepository.start(it)
             } ?: catalogSyncRepository.stop()
+
             if (networkMonitor.isOnline()) {
-                refreshCatalogFromRemote(refreshed?.accessToken)
-            } else {
                 withContext(Dispatchers.Main) {
+                    _uiState.update { it.copy(isLoadingCatalog = true) }
+                }
+                refreshCatalogFromRemote(refreshed?.accessToken, rebuildMusic = true)
+            } else {
+                val local = catalogRepository.getAllBooks()
+                val localCycles = catalogRepository.getAllCycles()
+                withContext(Dispatchers.Main) {
+                    updateCatalog(local, localCycles)
                     _uiState.update { it.copy(isLoadingCatalog = false) }
                 }
             }
@@ -301,28 +295,35 @@ class LibraryViewModel @Inject constructor(
     private suspend fun reloadCatalogFromLocal() {
         val books = withContext(Dispatchers.IO) { catalogRepository.getAllBooks() }
         val cycles = withContext(Dispatchers.IO) { catalogRepository.getAllCycles() }
-        updateCatalog(books, cycles)
+        updateCatalog(books, cycles, rebuildMusic = true)
     }
 
-    private suspend fun refreshCatalogFromRemote(accessToken: String?) {
+    private suspend fun refreshCatalogFromRemote(
+        accessToken: String?,
+        rebuildMusic: Boolean = false,
+    ) {
         try {
             val remoteBooks = catalogRepository.syncFromRemote(accessToken)
             val remoteCycles = catalogRepository.getAllCycles()
-            updateCatalog(remoteBooks, remoteCycles)
+            updateCatalog(remoteBooks, remoteCycles, rebuildMusic)
         } finally {
             _uiState.update { it.copy(isLoadingCatalog = false) }
         }
     }
 
-    private suspend fun updateCatalog(books: List<Book>, cycles: List<Cycle>) {
-        updateBooks(books)
+    private suspend fun updateCatalog(
+        books: List<Book>,
+        cycles: List<Cycle>,
+        rebuildMusic: Boolean = false,
+    ) {
+        updateBooks(books, rebuildMusic)
         _uiState.update { it.copy(cycles = cycles) }
         cycleHandler.refreshCycleCardStates(cycles, _uiState.value.downloadedBookIds)
     }
 
-    private suspend fun updateBooks(books: List<Book>) {
+    private suspend fun updateBooks(books: List<Book>, rebuildMusic: Boolean = false) {
         musicHandler.reloadMusicCatalogData()
-        val trackList = musicHandler.buildMusicTrackListForCatalogUpdate()
+        val trackList = musicHandler.buildMusicTrackListForCatalogUpdate(rebuildMusic = rebuildMusic)
         _uiState.update {
             it.copy(
                 books = books,

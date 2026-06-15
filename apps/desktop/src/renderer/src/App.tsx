@@ -82,7 +82,7 @@ export function App() {
   const musicStartedInSessionRef = useRef(false);
   const refreshLibraryRef = useRef<() => Promise<void>>(async () => {});
 
-  const refreshLibrary = useCallback(async () => {
+  const refreshLibrary = useCallback(async (options?: { rebuildMusic?: boolean }) => {
     const [library, stats, sync, progress] = await Promise.all([
       window.tonezen.db.getLibrarySnapshot(),
       window.tonezen.download.storageStats(),
@@ -98,7 +98,7 @@ export function App() {
     setProgressList(progress);
     setMusicTracks((current) =>
       buildMusicTrackListForCatalogUpdate(
-        current,
+        options?.rebuildMusic ? [] : current,
         library.books as Book[],
         library.tracks as Track[],
         musicStartedInSessionRef.current,
@@ -199,16 +199,17 @@ export function App() {
       void refreshLibrary();
       return;
     }
+    setIsLoading(true);
     void window.tonezen.catalog
       .sync()
-      .then(refreshLibrary)
+      .then(() => refreshLibrary({ rebuildMusic: true }))
       .catch(() => refreshLibrary());
   }, [sessionState, refreshLibrary]);
 
   useEffect(() => {
     if (sessionState === "Unauthenticated" || sessionState === "AuthenticatedOffline") return;
     return window.tonezen.catalog.onUpdated(() => {
-      void refreshLibrary();
+      void refreshLibrary({ rebuildMusic: true });
     });
   }, [sessionState, refreshLibrary]);
 
@@ -216,7 +217,7 @@ export function App() {
     setIsLoading(true);
     try {
       await window.tonezen.catalog.sync();
-      await refreshLibrary();
+      await refreshLibrary({ rebuildMusic: true });
     } finally {
       setIsLoading(false);
     }

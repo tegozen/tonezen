@@ -24,6 +24,9 @@ class SessionManager(
 
     fun isExpired(session: StoredSession): Boolean = clock() >= session.expiresAtEpochSeconds
 
+    fun isAccessTokenUsable(session: StoredSession, skewSeconds: Long = 30): Boolean =
+        clock() < session.expiresAtEpochSeconds - skewSeconds
+
     fun beginRefresh(): Boolean {
         if (refreshInFlight) return false
         refreshInFlight = true

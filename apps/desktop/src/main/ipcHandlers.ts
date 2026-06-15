@@ -32,9 +32,11 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   ipcMain.handle("session:get", async () => {
     await sessionService.refreshIfNeeded();
     await sessionService.syncProfileFromServer();
-    const token = sessionService.getAccessToken();
-    catalogRealtimeSync.setAccessToken(token);
-    await Promise.all([profileSync.updateAuth(), progressSync.updateAuth()]);
+    await Promise.all([
+      catalogRealtimeSync.updateAuth(),
+      profileSync.updateAuth(),
+      progressSync.updateAuth(),
+    ]);
     return sessionService.getSnapshot();
   });
   ipcMain.handle("session:setOnline", (_e, online: boolean) => {

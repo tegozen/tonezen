@@ -23,6 +23,10 @@ export class SessionManager {
     return this.clock() >= session.expiresAtEpochSeconds;
   }
 
+  isAccessTokenUsable(session: StoredSession, skewSeconds = 30): boolean {
+    return this.clock() < session.expiresAtEpochSeconds - skewSeconds;
+  }
+
   beginRefresh(): boolean {
     if (this.refreshInFlight) return false;
     this.refreshInFlight = true;

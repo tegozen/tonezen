@@ -7,6 +7,10 @@ import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.domain.session.SessionManager
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,11 +24,18 @@ class SessionRepository @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val sessionManager: SessionManager,
 ) {
-    private val refreshMutex = Mutex()
+    private val refreshLock = Mutex()
+    private var refreshInFlight: Deferred<StoredSession?>? = null
+    private val enrichLock = Mutex()
     private val _session = MutableStateFlow(sessionStore.load())
     val session: StateFlow<StoredSession?> = _session.asStateFlow()
 
     fun loadSession(): StoredSession? = _session.value
+
+    fun isAccessTokenUsable(session: StoredSession? = loadSession()): Boolean {
+        if (session == null) return false
+        return sessionManager.isAccessTokenUsable(session)
+    }
 
     fun saveSession(session: StoredSession) {
         sessionStore.save(session)
@@ -42,25 +53,39 @@ class SessionRepository @Inject constructor(
     suspend fun refreshIfNeeded(session: StoredSession?): StoredSession? {
         if (session == null) return null
         if (!sessionManager.shouldRefresh(session, networkMonitor.isOnline())) return session
-        if (!sessionManager.beginRefresh()) return session
-        return refreshMutex.withLock {
-            try {
-                if (!networkMonitor.isOnline()) return session
-                val refreshed = authRepository.refreshSession(session.refreshToken)
-                saveSession(refreshed)
-                refreshed
-            } catch (e: RemoteHttpException) {
-                if (networkMonitor.isOnline() && e.isInvalidRefreshToken) {
-                    clearSession()
-                    null
-                } else {
-                    session
-                }
-            } catch (_: Exception) {
-                session
-            } finally {
-                sessionManager.endRefresh()
+        return coroutineScope {
+            val deferred = refreshLock.withLock {
+                refreshInFlight?.takeIf { it.isActive } ?: async(Dispatchers.IO) {
+                    performRefresh(session)
+                }.also { refreshInFlight = it }
             }
+            try {
+                deferred.await()
+            } finally {
+                refreshLock.withLock {
+                    if (refreshInFlight == deferred && !deferred.isActive) {
+                        refreshInFlight = null
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun performRefresh(session: StoredSession): StoredSession? {
+        if (!networkMonitor.isOnline()) return session
+        return try {
+            val refreshed = authRepository.refreshSession(session.refreshToken)
+            saveSession(refreshed)
+            refreshed
+        } catch (e: RemoteHttpException) {
+            if (networkMonitor.isOnline() && e.isInvalidRefreshToken) {
+                clearSession()
+                null
+            } else {
+                session
+            }
+        } catch (_: Exception) {
+            session
         }
     }
 
@@ -68,7 +93,7 @@ class SessionRepository @Inject constructor(
         if (session == null) return null
         if (session.memberSinceEpochMs != null) return session
         if (!networkMonitor.isOnline()) return session
-        return refreshMutex.withLock {
+        return enrichLock.withLock {
             try {
                 val refreshed = authRepository.refreshSession(session.refreshToken)
                 saveSession(refreshed)

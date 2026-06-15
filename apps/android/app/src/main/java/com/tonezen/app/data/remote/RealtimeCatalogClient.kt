@@ -28,9 +28,11 @@ class RealtimeCatalogClient(
     private var webSocket: WebSocket? = null
     private var heartbeatJob: Job? = null
     private var topic: String? = null
+    private var onAuthError: (() -> Unit)? = null
 
-    fun connect(userId: String, accessToken: String) {
+    fun connect(userId: String, accessToken: String, onAuthError: () -> Unit = {}) {
         disconnect()
+        this.onAuthError = onAuthError
         topic = "realtime:catalog-global-$userId"
         val wsBase = supabaseUrl.trimEnd('/').replace("https://", "wss://").replace("http://", "ws://")
         val wsUrl = "$wsBase/realtime/v1/websocket?apikey=$anonKey&vsn=1.0.0"
@@ -56,6 +58,7 @@ class RealtimeCatalogClient(
         webSocket?.close(1000, "bye")
         webSocket = null
         topic = null
+        onAuthError = null
     }
 
     private fun sendJoin(webSocket: WebSocket, accessToken: String) {
@@ -105,9 +108,14 @@ class RealtimeCatalogClient(
     }
 
     private suspend fun handleMessage(text: String) {
-        val message = runCatching { JSONArray(text) }.getOrNull() ?: return
-        if (message.length() < 5) return
-        if (message.optString(3) != "postgres_changes") return
-        onCatalogChange()
+        when (JSONArrayMessageEvent(text)) {
+            "phx_reply" -> {
+                val reason = phxReplyErrorReason(JSONArrayMessagePayload(text))
+                if (reason != null && isAuthSubscriptionError(reason)) {
+                    onAuthError?.invoke()
+                }
+            }
+            "postgres_changes" -> onCatalogChange()
+        }
     }
 }

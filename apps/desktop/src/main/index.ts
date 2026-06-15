@@ -1,4 +1,5 @@
 import { app, Menu } from "electron";
+import type { BrowserWindow } from "electron";
 import path from "node:path";
 import { registerLocalAudioScheme, setupLocalAudioProtocol } from "./mediaProtocol.js";
 import { WindowLifecycleManager } from "./windowLifecycle.js";
@@ -47,10 +48,16 @@ app.whenReady().then(() => {
     anonKey: runtimeConfig.supabaseAnonKey,
   });
   catalogSync = new CatalogSyncService(runtimeConfig.baseUrl, () => sessionService.getAccessToken());
-  catalogRealtimeSync = new CatalogRealtimeSyncService(catalogSync, {
-    baseUrl: runtimeConfig.baseUrl,
-    anonKey: runtimeConfig.supabaseAnonKey,
-  });
+  catalogRealtimeSync = new CatalogRealtimeSyncService(
+    catalogSync,
+    {
+      baseUrl: runtimeConfig.baseUrl,
+      anonKey: runtimeConfig.supabaseAnonKey,
+    },
+    () => sessionService.getAccessToken(),
+    () => sessionService.refreshIfNeeded(),
+    () => sessionService.isAccessTokenUsable(),
+  );
   downloadManager = new DownloadManager(
     downloadsRoot,
     runtimeConfig.baseUrl,
@@ -75,7 +82,7 @@ app.whenReady().then(() => {
   profileSync.setMainWindow(mainWindow);
   progressSync.setMainWindow(mainWindow);
   catalogRealtimeSync.setMainWindow(mainWindow);
-  void startRealtimeSyncIfNeeded();
+  void startRealtimeSyncIfNeeded(mainWindow);
   registerIpcHandlers({
     sessionService,
     catalogSync,
@@ -87,18 +94,24 @@ app.whenReady().then(() => {
   });
 });
 
-async function startRealtimeSyncIfNeeded(): Promise<void> {
+async function startRealtimeSyncIfNeeded(mainWindow: BrowserWindow): Promise<void> {
   await sessionService.refreshIfNeeded();
   const session = sessionService.getSession();
-  if (session) {
-    await Promise.all([
-      profileSync.start(session),
-      progressSync.start(session),
-      catalogRealtimeSync.start(session),
-      catalogSync.syncCatalog().catch((err) => {
-        console.error("[catalog] startup sync failed:", err);
-      }),
-    ]);
+  if (!session) return;
+
+  await Promise.all([
+    profileSync.start(session),
+    progressSync.start(session),
+    catalogRealtimeSync.start(session),
+  ]);
+
+  try {
+    await catalogSync.syncCatalog();
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("catalog:updated");
+    }
+  } catch (err) {
+    console.error("[catalog] startup sync failed:", err);
   }
 }
 

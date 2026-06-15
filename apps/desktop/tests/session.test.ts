@@ -21,5 +21,11 @@ describe("SessionManager", () => {
     const mgr = new SessionManager(300, () => 2000);
     expect(mgr.resolveState(session, true)).toBe("AuthenticatedStale");
     expect(mgr.shouldRefresh(session, true)).toBe(true);
+    expect(mgr.isAccessTokenUsable(session)).toBe(false);
+  });
+
+  it("treats token as usable before expiry skew", () => {
+    const mgr = new SessionManager(300, () => 900);
+    expect(mgr.isAccessTokenUsable(session)).toBe(true);
   });
 });

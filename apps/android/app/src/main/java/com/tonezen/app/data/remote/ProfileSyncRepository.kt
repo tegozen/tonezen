@@ -1,6 +1,7 @@
 package com.tonezen.app.data.remote
 
 import com.tonezen.app.BuildConfig
+import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.domain.model.StoredSession
 import java.time.Instant
 import javax.inject.Inject
@@ -8,11 +9,13 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @Singleton
 class ProfileSyncRepository @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val userProfileMirrorRepository: UserProfileMirrorRepository,
+    private val networkMonitor: NetworkMonitor,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val realtimeClient = RealtimeProfileClient(
@@ -21,24 +24,34 @@ class ProfileSyncRepository @Inject constructor(
         scope = scope,
         onProfileChange = { row -> applyRemote(row) },
     )
-
-    private var activeUserId: String? = null
+    private val binder = RealtimeSessionBinder(
+        sessionRepository = sessionRepository,
+        networkMonitor = networkMonitor,
+        scope = scope,
+        connect = { session ->
+            realtimeClient.connect(
+                userId = session.userId,
+                accessToken = session.accessToken,
+                onAuthError = ::scheduleAuthRecovery,
+            )
+        },
+        disconnect = realtimeClient::disconnect,
+    )
 
     fun start(session: StoredSession) {
-        if (activeUserId == session.userId) return
-        stop()
-        activeUserId = session.userId
-        realtimeClient.connect(session.userId, session.accessToken)
+        scope.launch {
+            binder.ensureStarted(session)
+        }
     }
 
     fun stop() {
-        activeUserId = null
-        realtimeClient.disconnect()
+        binder.stop()
     }
 
-    suspend fun updateAuth(accessToken: String) {
-        val userId = activeUserId ?: return
-        realtimeClient.connect(userId, accessToken)
+    suspend fun updateAuth() {
+        val session = sessionRepository.loadSession() ?: return
+        if (binder.currentUserId != null && session.userId != binder.currentUserId) return
+        binder.ensureConnected(session)
     }
 
     suspend fun mirrorSession(session: StoredSession, updatedAt: String = Instant.now().toString()) {
@@ -51,6 +64,10 @@ class ProfileSyncRepository @Inject constructor(
                 updatedAt = updatedAt,
             )
         }
+    }
+
+    private fun scheduleAuthRecovery() {
+        binder.scheduleAuthRecovery()
     }
 
     private suspend fun applyRemote(row: RealtimeProfileClient.RemoteUserProfile) {

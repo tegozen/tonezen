@@ -28,6 +28,7 @@ export class SessionService {
   private authClient: SupabaseAuthClient | null = null;
   private sessionConfig: SessionConfig | null = null;
   private online = true;
+  private refreshInFlightPromise: Promise<SessionState> | null = null;
 
   init(userDataPath: string, config: SessionConfig): void {
     this.sessionPath = path.join(userDataPath, SESSION_FILE);
@@ -73,6 +74,11 @@ export class SessionService {
 
   getSession(): StoredSession | null {
     return this.session;
+  }
+
+  isAccessTokenUsable(): boolean {
+    if (!this.session) return false;
+    return this.manager.isAccessTokenUsable(this.session);
   }
 
   getSnapshot(): {
@@ -185,9 +191,16 @@ export class SessionService {
     if (!this.manager.shouldRefresh(this.session, this.online)) {
       return this.manager.resolveState(this.session, this.online);
     }
-    if (!this.manager.beginRefresh()) {
-      return this.manager.resolveState(this.session, this.online);
+    if (!this.refreshInFlightPromise) {
+      this.refreshInFlightPromise = this.performRefresh().finally(() => {
+        this.refreshInFlightPromise = null;
+      });
     }
+    return this.refreshInFlightPromise;
+  }
+
+  private async performRefresh(): Promise<SessionState> {
+    if (!this.session) return "Unauthenticated";
     try {
       if (!this.online) {
         return this.manager.resolveState(this.session, false);
@@ -205,8 +218,6 @@ export class SessionService {
         return "Unauthenticated";
       }
       return this.manager.resolveState(this.session, this.online);
-    } finally {
-      this.manager.endRefresh();
     }
   }
 

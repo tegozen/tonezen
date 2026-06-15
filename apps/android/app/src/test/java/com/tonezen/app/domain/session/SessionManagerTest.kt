@@ -36,6 +36,13 @@ class SessionManagerTest {
             manager.resolveState(session, isOnline = true),
         )
         assertTrue(manager.shouldRefresh(session, isOnline = true))
+        assertFalse(manager.isAccessTokenUsable(session))
+    }
+
+    @Test
+    fun accessTokenUsableBeforeExpirySkew() {
+        val manager = SessionManager(clock = { 900 })
+        assertTrue(manager.isAccessTokenUsable(session))
     }
 
     @Test

@@ -29,9 +29,11 @@ class RealtimeProgressClient(
     private var webSocket: WebSocket? = null
     private var heartbeatJob: Job? = null
     private var topic: String? = null
+    private var onAuthError: (() -> Unit)? = null
 
-    fun connect(userId: String, accessToken: String) {
+    fun connect(userId: String, accessToken: String, onAuthError: () -> Unit = {}) {
         disconnect()
+        this.onAuthError = onAuthError
         topic = "realtime:audiobook-progress-$userId"
         val wsBase = supabaseUrl.trimEnd('/').replace("https://", "wss://").replace("http://", "ws://")
         val wsUrl = "$wsBase/realtime/v1/websocket?apikey=$anonKey&vsn=1.0.0"
@@ -57,6 +59,7 @@ class RealtimeProgressClient(
         webSocket?.close(1000, "bye")
         webSocket = null
         topic = null
+        onAuthError = null
     }
 
     private fun sendJoin(webSocket: WebSocket, userId: String, accessToken: String) {
@@ -92,19 +95,28 @@ class RealtimeProgressClient(
     }
 
     private suspend fun handleMessage(text: String) {
-        val message = runCatching { JSONArray(text) }.getOrNull() ?: return
-        if (message.length() < 5) return
-        val event = message.optString(3)
-        if (event != "postgres_changes") return
-        val payload = message.optJSONObject(4) ?: return
-        val data = payload.optJSONObject("data") ?: payload
-        val record = data.optJSONObject("record") ?: return
-        val progress = ProgressRemoteApi.RemoteProgress(
-            bookId = record.getString("book_id"),
-            trackId = record.getString("track_id"),
-            positionMs = record.getLong("position_ms"),
-            updatedAt = record.getString("updated_at"),
-        )
-        onProgressChange(progress)
+        when (JSONArrayMessageEvent(text)) {
+            "phx_reply" -> {
+                val reason = phxReplyErrorReason(JSONArrayMessagePayload(text))
+                if (reason != null && isAuthSubscriptionError(reason)) {
+                    onAuthError?.invoke()
+                }
+                return
+            }
+            "postgres_changes" -> {
+                val message = runCatching { JSONArray(text) }.getOrNull() ?: return
+                if (message.length() < 5) return
+                val payload = message.optJSONObject(4) ?: return
+                val data = payload.optJSONObject("data") ?: payload
+                val record = data.optJSONObject("record") ?: return
+                val progress = ProgressRemoteApi.RemoteProgress(
+                    bookId = record.getString("book_id"),
+                    trackId = record.getString("track_id"),
+                    positionMs = record.getLong("position_ms"),
+                    updatedAt = record.getString("updated_at"),
+                )
+                onProgressChange(progress)
+            }
+        }
     }
 }
