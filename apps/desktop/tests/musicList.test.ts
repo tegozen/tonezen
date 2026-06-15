@@ -53,6 +53,22 @@ describe("buildMusicTrackListForCatalogUpdate", () => {
     expect(built.map((track) => track.trackId)).toEqual(["t3", "t1"]);
   });
 
+  it("preserves order when catalog gains tracks", () => {
+    const stale = [
+      {
+        trackId: "t3",
+        trackTitle: "Zero",
+        artist: "Miyagi",
+        albumTitle: "Library",
+        bookId: "b2",
+        durationMs: 3000,
+        isDownloaded: false,
+      },
+    ];
+    const updated = buildMusicTrackListForCatalogUpdate(stale, books, tracks, false);
+    expect(updated.map((track) => track.trackId)).toEqual(["t3", "t1"]);
+  });
+
   it("rebuilds list when catalog gains tracks", () => {
     const stale = buildMusicTrackList(books, tracks.slice(0, 1));
     const updated = buildMusicTrackListForCatalogUpdate(stale, books, tracks, false);

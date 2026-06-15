@@ -98,7 +98,7 @@ export function App() {
     setProgressList(progress);
     setMusicTracks((current) =>
       buildMusicTrackListForCatalogUpdate(
-        options?.rebuildMusic ? [] : current,
+        current,
         library.books as Book[],
         library.tracks as Track[],
         musicStartedInSessionRef.current,

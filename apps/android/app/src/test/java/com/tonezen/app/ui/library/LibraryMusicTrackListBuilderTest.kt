@@ -36,6 +36,18 @@ class LibraryMusicTrackListBuilderTest {
     )
 
     @Test
+    fun keepsOrderWhenCatalogGainsTracks() {
+        val stale = listOf(toMusicListTrack(book, trackB, emptySet()), toMusicListTrack(book, trackA, emptySet()))
+        val updated = buildMusicTrackListForCatalogUpdate(
+            existing = stale,
+            candidates = listOf(book to trackA, book to trackB),
+            musicStartedInSession = false,
+            downloadedTrackIds = emptySet(),
+        )
+        assertEquals(listOf("t2", "t1"), updated.map { it.trackId })
+    }
+
+    @Test
     fun rebuildsListWhenCatalogGainsTracks() {
         val stale = listOf(toMusicListTrack(book, trackA, emptySet()))
         val updated = buildMusicTrackListForCatalogUpdate(

@@ -129,17 +129,13 @@ export function buildMusicTrackListForCatalogUpdate(
     return refreshMusicTrackListDownloadState(existing, books, tracks);
   }
 
-  if (musicStartedInSession) {
-    const freshById = new Map(built.map((track) => [track.trackId, track]));
-    const kept = existing
-      .map((item) => freshById.get(item.trackId))
-      .filter((item): item is MusicListTrack => item != null);
-    const keptIds = new Set(kept.map((track) => track.trackId));
-    const appended = built.filter((track) => !keptIds.has(track.trackId));
-    return [...kept, ...appended];
-  }
-
-  return shuffleMusicTracks(built);
+  const freshById = new Map(built.map((track) => [track.trackId, track]));
+  const kept = existing
+    .map((item) => freshById.get(item.trackId))
+    .filter((item): item is MusicListTrack => item != null);
+  const keptIds = new Set(kept.map((track) => track.trackId));
+  const appended = built.filter((track) => !keptIds.has(track.trackId));
+  return [...kept, ...appended];
 }
 
 export function musicQueueFrom(

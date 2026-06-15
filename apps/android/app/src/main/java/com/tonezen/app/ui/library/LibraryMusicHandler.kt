@@ -307,7 +307,7 @@ internal class LibraryMusicHandler(
             catalogRepository.getDownloadedTrackIds()
         }
         return buildMusicTrackListForCatalogUpdate(
-            existing = if (rebuildMusic) emptyList() else uiState.value.musicTrackList,
+            existing = uiState.value.musicTrackList,
             candidates = session.musicCandidates,
             musicStartedInSession = session.musicStartedInSession,
             downloadedTrackIds = downloadedTrackIds,

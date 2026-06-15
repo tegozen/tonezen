@@ -63,19 +63,10 @@ internal fun buildMusicTrackListForCatalogUpdate(
         return refreshMusicTrackListDownloadState(existing, downloadedTrackIds)
     }
 
-    if (musicStartedInSession) {
-        val freshById = built.associateBy { it.trackId }
-        val kept = existing.mapNotNull { freshById[it.trackId] }
-        val keptIds = kept.map { it.trackId }.toSet()
-        val appended = built.filter { it.trackId !in keptIds }
-        return kept + appended
-    }
-
-    return buildMusicTrackListFromCandidates(
-        candidates = candidates,
-        shuffle = true,
-        downloadedTrackIds = downloadedTrackIds,
-    )
+    val kept = existing.mapNotNull { freshById[it.trackId] }
+    val keptIds = kept.map { it.trackId }.toSet()
+    val appended = built.filter { it.trackId !in keptIds }
+    return kept + appended
 }
 
 internal fun buildMusicTrackListFromCandidates(
