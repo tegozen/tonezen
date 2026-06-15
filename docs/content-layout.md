@@ -2,6 +2,8 @@
 
 Upload audio to **Supabase Storage** bucket `content` via Studio (http://localhost:8000 → Storage). On `docker compose up`, `storage-bootstrap` ensures **`cycles/`** and **`music/`** exist (via empty `.gitkeep` placeholders).
 
+Files are stored in **Beget S3** (shared bucket for dev and prod). Local dev uses the same bucket as production — uploads and deletes in Studio affect production files.
+
 ## Root structure
 
 ```
@@ -47,9 +49,8 @@ The indexer reads tags from each file (title, artist, track number). All files b
 
 ## Indexer behavior
 
-- Scans `content/tonezen/content/` inside the `tonezen-storage` Docker volume (Supabase Storage file backend)
-- Computes SHA-256 checksum and file size for each audio file
-- Extracts duration and ID3/metadata tags via ffprobe when available
+- Lists objects from `storage.objects` (bucket `content`, prefixes `cycles/` and `music/`)
+- Downloads new/changed files via Storage API for SHA-256 checksum and ffprobe metadata
 - Sets `deleted_at` on catalog entries removed from storage (soft delete)
 - Rescan interval: 60 seconds (hardcoded in `docker-compose.yml`)
 
@@ -71,4 +72,14 @@ If only small files succeed and larger ones fail with `Invalid URL`:
 3. If needed, clear site data for `http://localhost:8000`
 4. After recreating the storage container, run `docker compose restart kong` (Kong may cache a stale upstream)
 
-Alternative: copy files into the `tonezen-storage` Docker volume or use `make storage-import`.
+## S3 credentials
+
+Set in root `.env` (from Beget panel → Object storage → Access keys):
+
+- `S3_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`
+
+Dev and prod share the same bucket. Postgres is local per environment; catalog is rebuilt by indexer on each stack.
+
+## Backup
+
+Use Beget panel or S3 tools (`aws s3 sync`, rclone) against the Beget bucket — not Docker volume export.

@@ -2,19 +2,32 @@ import type pg from "pg";
 import type { ParsedBook, ParsedCycle } from "../parsers.js";
 import { storagePathForAudiobook, storagePathForMusic } from "../parsers.js";
 import {
-  analyzeAudioFile,
+  analyzeAudioFileAtPath,
   metadataFromStoredIfUnchanged,
-  resolveStorageObjectPath,
   type FileMetadata,
 } from "../mediaProbe.js";
-import { stat } from "node:fs/promises";
-import path from "node:path";
+import {
+  downloadObjectToTemp,
+  removeTempFile,
+  type StorageDownloadConfig,
+} from "../storage/download.js";
+import type { StorageObjectRow } from "../storage/listObjects.js";
 
 export class CatalogRepository {
+  private objectSizes = new Map<string, number>();
+
   constructor(
     private pool: pg.Pool,
-    private contentRoot: string,
+    private storage: StorageDownloadConfig,
   ) {}
+
+  setObjectSizes(objects: StorageObjectRow[]): void {
+    this.objectSizes = new Map(
+      objects
+        .filter((object) => object.sizeBytes != null)
+        .map((object) => [object.name, object.sizeBytes as number]),
+    );
+  }
 
   async upsertCatalog(cycles: ParsedCycle[], musicAlbums: ParsedBook[]): Promise<void> {
     const client = await this.pool.connect();
@@ -151,16 +164,6 @@ export class CatalogRepository {
     storagePath: string,
     knownDurationMs: number | null,
   ): Promise<FileMetadata | null> {
-    const filePath = await resolveStorageObjectPath(path.join(this.contentRoot, storagePath));
-    if (!filePath) return null;
-
-    let fileSizeBytes: number;
-    try {
-      fileSizeBytes = (await stat(filePath)).size;
-    } catch {
-      return null;
-    }
-
     const existing = await client.query(
       `SELECT tf.checksum, tf.size_bytes, t.duration_ms
        FROM track_files tf
@@ -168,14 +171,30 @@ export class CatalogRepository {
        WHERE tf.storage_path = $1`,
       [storagePath],
     );
-    if (existing.rows.length > 0) {
-      const reused = metadataFromStoredIfUnchanged(existing.rows[0], fileSizeBytes);
+
+    const cachedSize = this.objectSizes.get(storagePath);
+    if (existing.rows.length > 0 && cachedSize != null) {
+      const reused = metadataFromStoredIfUnchanged(existing.rows[0], cachedSize);
       if (reused) return reused;
     }
 
-    return analyzeAudioFile(this.contentRoot, storagePath, {
-      knownDurationMs: knownDurationMs ?? undefined,
-    });
+    let tempPath: string | null = null;
+    try {
+      tempPath = await downloadObjectToTemp(storagePath, this.storage);
+      const meta = await analyzeAudioFileAtPath(tempPath, {
+        knownDurationMs: knownDurationMs ?? undefined,
+      });
+      if (meta && cachedSize != null && meta.sizeBytes !== cachedSize) {
+        return { ...meta, sizeBytes: cachedSize };
+      }
+      return meta;
+    } catch {
+      return null;
+    } finally {
+      if (tempPath) {
+        await removeTempFile(tempPath);
+      }
+    }
   }
 
   private async softDeleteMissing(

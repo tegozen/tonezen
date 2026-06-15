@@ -1,6 +1,8 @@
 export interface IndexerConfig {
-  contentRoot: string;
   databaseUrl: string;
+  storageUrl: string;
+  storageBucket: string;
+  serviceRoleKey: string;
   intervalSeconds: number;
 }
 
@@ -11,9 +13,17 @@ export function loadConfig(): IndexerConfig {
     process.exit(1);
   }
 
+  const serviceRoleKey = process.env.SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    console.error("SERVICE_ROLE_KEY is required");
+    process.exit(1);
+  }
+
   return {
-    contentRoot: process.env.CONTENT_ROOT ?? "/content",
     databaseUrl,
+    storageUrl: process.env.STORAGE_URL ?? "http://storage:5000",
+    storageBucket: process.env.STORAGE_BUCKET ?? "content",
+    serviceRoleKey,
     intervalSeconds: Number(process.env.INDEXER_INTERVAL_SECONDS ?? "60"),
   };
 }

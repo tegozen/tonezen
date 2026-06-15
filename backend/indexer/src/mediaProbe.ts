@@ -148,14 +148,10 @@ export async function probeDurationMs(filePath: string): Promise<number | null> 
   }
 }
 
-export async function analyzeAudioFile(
-  contentRoot: string,
-  storagePath: string,
+export async function analyzeAudioFileAtPath(
+  filePath: string,
   options?: { knownDurationMs?: number | null },
 ): Promise<FileMetadata | null> {
-  const filePath = await resolveStorageObjectPath(path.join(contentRoot, storagePath));
-  if (!filePath) return null;
-
   try {
     const info = await stat(filePath);
     const checksum = await sha256File(filePath);
@@ -167,4 +163,14 @@ export async function analyzeAudioFile(
   } catch {
     return null;
   }
+}
+
+export async function analyzeAudioFile(
+  contentRoot: string,
+  storagePath: string,
+  options?: { knownDurationMs?: number | null },
+): Promise<FileMetadata | null> {
+  const filePath = await resolveStorageObjectPath(path.join(contentRoot, storagePath));
+  if (!filePath) return null;
+  return analyzeAudioFileAtPath(filePath, options);
 }

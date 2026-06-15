@@ -146,6 +146,8 @@ function main() {
     console.log(`App admin password: ${values.get("ADMIN_PASSWORD")}`);
   }
   console.log("");
+  console.log("Fill S3_* in .env from Beget panel (Object storage → Access keys).");
+  console.log("");
   console.log("Next:");
   console.log("  docker compose up -d --build");
   console.log("  cd apps/desktop && npm run dev   # picks up ANON_KEY from .env");

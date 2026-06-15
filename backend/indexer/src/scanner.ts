@@ -1,5 +1,3 @@
-import { readdir, stat } from "node:fs/promises";
-import path from "node:path";
 import {
   buildAudiobookTracks,
   buildMusicLibrary,
@@ -7,44 +5,95 @@ import {
   pickAudiobookAuthor,
   titleFromSlug,
   type AudiobookFileScan,
+  type MusicFileScan,
   type ParsedBook,
   type ParsedCycle,
 } from "./parsers.js";
-import { probeAudioTags, resolveStorageObjectPath } from "./mediaProbe.js";
+import type { AudioTags } from "./mediaProbe.js";
 
-async function fileExists(filePath: string): Promise<boolean> {
-  try {
-    await stat(filePath);
-    return true;
-  } catch {
-    return false;
+export interface StorageObjectInput {
+  name: string;
+}
+
+export interface ScanStorageOptions {
+  probeTags?: (storagePath: string) => Promise<AudioTags | null>;
+}
+
+function isIndexableAudioPath(name: string): boolean {
+  if (name.endsWith("/")) return false;
+  const basename = name.split("/").pop() ?? "";
+  if (!basename || basename === ".gitkeep") return false;
+  return isAudioFilename(basename);
+}
+
+export async function scanStorageObjects(
+  objects: StorageObjectInput[],
+  options: ScanStorageOptions = {},
+): Promise<{ cycles: ParsedCycle[]; musicAlbums: ParsedBook[] }> {
+  const cycleBooks = new Map<string, Map<string, AudiobookFileScan[]>>();
+  const musicFiles: MusicFileScan[] = [];
+
+  for (const object of objects) {
+    const name = object.name;
+    if (!isIndexableAudioPath(name)) continue;
+
+    if (name.startsWith("music/")) {
+      const filename = name.slice("music/".length);
+      if (!filename || filename.includes("/")) continue;
+      const tags = options.probeTags ? await options.probeTags(name) : null;
+      musicFiles.push({
+        filename,
+        title: tags?.title ?? null,
+        artist: tags?.artist ?? null,
+        album: tags?.album ?? null,
+        trackNumber: tags?.trackNumber ?? null,
+        durationMs: tags?.durationMs ?? null,
+      });
+      continue;
+    }
+
+    if (!name.startsWith("cycles/")) continue;
+    const parts = name.split("/");
+    if (parts.length !== 4) continue;
+
+    const [, cycleSlug, bookSlug, filename] = parts;
+    if (!cycleSlug || !bookSlug || !filename) continue;
+
+    const tags = options.probeTags ? await options.probeTags(name) : null;
+    const files = cycleBooks.get(cycleSlug) ?? new Map<string, AudiobookFileScan[]>();
+    const bookFiles = files.get(bookSlug) ?? [];
+    bookFiles.push({
+      filename,
+      title: tags?.title ?? null,
+      artist: tags?.artist ?? null,
+      durationMs: tags?.durationMs ?? null,
+    });
+    files.set(bookSlug, bookFiles);
+    cycleBooks.set(cycleSlug, files);
   }
-}
 
-export async function scanContentRoot(contentRoot: string): Promise<{
-  cycles: ParsedCycle[];
-  musicAlbums: ParsedBook[];
-}> {
-  const cyclesDir = path.join(contentRoot, "cycles");
-  const musicDir = path.join(contentRoot, "music");
-
-  const cycles = (await fileExists(cyclesDir)) ? await scanCycles(cyclesDir) : [];
-  const musicAlbums = (await fileExists(musicDir)) ? await scanMusic(musicDir) : [];
-
-  return { cycles, musicAlbums };
-}
-
-async function scanCycles(cyclesDir: string): Promise<ParsedCycle[]> {
-  const entries = await readdir(cyclesDir, { withFileTypes: true });
   const cycles: ParsedCycle[] = [];
+  for (const [cycleSlug, booksMap] of cycleBooks) {
+    const bookSlugs = [...booksMap.keys()].sort((a, b) => a.localeCompare(b));
+    const books: ParsedBook[] = [];
 
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const cycleSlug = entry.name;
-    const cyclePath = path.join(cyclesDir, cycleSlug);
-    const books = await scanBooksInCycle(cyclePath);
+    for (const bookSlug of bookSlugs) {
+      const scannedFiles = [...(booksMap.get(bookSlug) ?? [])].sort((a, b) =>
+        a.filename.localeCompare(b.filename),
+      );
+      if (scannedFiles.length === 0) continue;
+
+      books.push({
+        slug: bookSlug,
+        contentType: "audiobook",
+        title: titleFromSlug(bookSlug),
+        author: pickAudiobookAuthor(scannedFiles),
+        coverPath: null,
+        tracks: buildAudiobookTracks(scannedFiles),
+      });
+    }
+
     if (books.length === 0) continue;
-
     cycles.push({
       slug: cycleSlug,
       title: titleFromSlug(cycleSlug),
@@ -54,93 +103,11 @@ async function scanCycles(cyclesDir: string): Promise<ParsedCycle[]> {
     });
   }
 
-  return cycles.sort((a, b) => a.slug.localeCompare(b.slug));
-}
+  cycles.sort((a, b) => a.slug.localeCompare(b.slug));
+  musicFiles.sort((a, b) => a.filename.localeCompare(b.filename));
 
-async function scanBooksInCycle(cyclePath: string): Promise<ParsedBook[]> {
-  const entries = await readdir(cyclePath, { withFileTypes: true });
-  const books: ParsedBook[] = [];
-
-  const bookDirs = entries
-    .filter((entry) => entry.isDirectory())
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  for (const entry of bookDirs) {
-    const bookSlug = entry.name;
-    const bookPath = path.join(cyclePath, bookSlug);
-    const scannedFiles = await scanAudiobookFiles(bookPath);
-    if (scannedFiles.length === 0) continue;
-
-    books.push({
-      slug: bookSlug,
-      contentType: "audiobook",
-      title: titleFromSlug(bookSlug),
-      author: pickAudiobookAuthor(scannedFiles),
-      coverPath: null,
-      tracks: buildAudiobookTracks(scannedFiles),
-    });
-  }
-
-  return books;
-}
-
-async function listAudioFilenames(dirPath: string): Promise<string[]> {
-  const entries = await readdir(dirPath, { withFileTypes: true });
-  return entries
-    .filter(
-      (entry) =>
-        isAudioFilename(entry.name) && (entry.isFile() || entry.isDirectory()),
-    )
-    .map((entry) => entry.name)
-    .sort((a, b) => a.localeCompare(b));
-}
-
-async function scanAudiobookFiles(bookPath: string): Promise<AudiobookFileScan[]> {
-  const filenames = await listAudioFilenames(bookPath);
-
-  const files: AudiobookFileScan[] = [];
-  for (const filename of filenames) {
-    const objectPath = path.join(bookPath, filename);
-    const filePath = await resolveStorageObjectPath(objectPath);
-    if (!filePath) {
-      files.push({ filename, title: null, artist: null });
-      continue;
-    }
-
-    const tags = await probeAudioTags(filePath);
-    files.push({
-      filename,
-      title: tags?.title ?? null,
-      artist: tags?.artist ?? null,
-      durationMs: tags?.durationMs ?? null,
-    });
-  }
-
-  return files;
-}
-
-async function scanMusic(musicDir: string): Promise<ParsedBook[]> {
-  const entries = await readdir(musicDir, { withFileTypes: true });
-  const files = [];
-
-  for (const entry of entries) {
-    if (!isAudioFilename(entry.name)) continue;
-
-    const objectPath = path.join(musicDir, entry.name);
-    const filePath = await resolveStorageObjectPath(objectPath);
-    if (!filePath) continue;
-
-    const tags = await probeAudioTags(filePath);
-
-    files.push({
-      filename: entry.name,
-      title: tags?.title ?? null,
-      artist: tags?.artist ?? null,
-      album: tags?.album ?? null,
-      trackNumber: tags?.trackNumber ?? null,
-      durationMs: tags?.durationMs ?? null,
-    });
-  }
-
-  return buildMusicLibrary(files);
+  return {
+    cycles,
+    musicAlbums: buildMusicLibrary(musicFiles),
+  };
 }

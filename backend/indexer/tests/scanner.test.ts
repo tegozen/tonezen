@@ -1,66 +1,16 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { rm } from "node:fs/promises";
-import { scanContentRoot } from "../src/scanner.js";
+import { describe, expect, it } from "vitest";
+import { scanStorageObjects } from "../src/scanner.js";
 
-const FIXTURE_ROOT = path.join(import.meta.dirname, "fixtures", "content");
+describe("scanStorageObjects", () => {
+  it("builds cycles and music library from flat storage object paths", async () => {
+    const { cycles, musicAlbums } = await scanStorageObjects([
+      { name: "cycles/test-cycle/book-one/001-intro.mp3" },
+      { name: "cycles/test-cycle/book-two/002-part.mp3" },
+      { name: "music/01-track.mp3" },
+      { name: "cycles/test-cycle/book-one/.gitkeep" },
+      { name: "music/readme.txt" },
+    ]);
 
-describe("scanContentRoot", () => {
-  beforeEach(async () => {
-    await rm(FIXTURE_ROOT, { recursive: true, force: true });
-    await mkdir(path.join(FIXTURE_ROOT, "cycles", "test-cycle", "book-one"), {
-      recursive: true,
-    });
-    await writeFile(
-      path.join(FIXTURE_ROOT, "cycles", "test-cycle", "book-one", "001-intro.mp3"),
-      Buffer.alloc(0),
-    );
-
-    await mkdir(path.join(FIXTURE_ROOT, "cycles", "test-cycle", "book-two"), {
-      recursive: true,
-    });
-    await writeFile(
-      path.join(FIXTURE_ROOT, "cycles", "test-cycle", "book-two", "002-part.mp3"),
-      Buffer.alloc(0),
-    );
-
-    await mkdir(path.join(FIXTURE_ROOT, "music"), { recursive: true });
-    await writeFile(path.join(FIXTURE_ROOT, "music", "01-track.mp3"), Buffer.alloc(0));
-  });
-
-  afterEach(async () => {
-    await rm(FIXTURE_ROOT, { recursive: true, force: true });
-  });
-
-  it("discovers audiobook tracks stored as Supabase object directories", async () => {
-    await rm(path.join(FIXTURE_ROOT, "cycles", "storage-cycle", "book-a", "001-intro.mp3"), {
-      force: true,
-    });
-    await mkdir(
-      path.join(FIXTURE_ROOT, "cycles", "storage-cycle", "book-a", "001-intro.mp3"),
-      { recursive: true },
-    );
-    await writeFile(
-      path.join(
-        FIXTURE_ROOT,
-        "cycles",
-        "storage-cycle",
-        "book-a",
-        "001-intro.mp3",
-        "object-id",
-      ),
-      Buffer.from("audio"),
-    );
-
-    const { cycles } = await scanContentRoot(FIXTURE_ROOT);
-    const cycle = cycles.find((item) => item.slug === "storage-cycle");
-    expect(cycle).toBeDefined();
-    expect(cycle?.books[0].tracks[0].filename).toBe("001-intro.mp3");
-  });
-
-  it("discovers cycles from directories and sorts books and tracks by name", async () => {
-    const { cycles, musicAlbums } = await scanContentRoot(FIXTURE_ROOT);
     expect(cycles).toHaveLength(1);
     expect(cycles[0].slug).toBe("test-cycle");
     expect(cycles[0].title).toBe("test cycle");
@@ -73,5 +23,51 @@ describe("scanContentRoot", () => {
     expect(musicAlbums[0].contentType).toBe("music");
     expect(musicAlbums[0].tracks).toHaveLength(1);
     expect(musicAlbums[0].tracks[0].filename).toBe("01-track.mp3");
+  });
+
+  it("uses probeTags callback for ID3 metadata", async () => {
+    const { cycles, musicAlbums } = await scanStorageObjects(
+      [
+        { name: "cycles/saga/book-a/001-intro.mp3" },
+        { name: "music/01-track.mp3" },
+      ],
+      {
+        probeTags: async (storagePath) => {
+          if (storagePath.endsWith("001-intro.mp3")) {
+            return {
+              title: "Intro Tag",
+              artist: "Author Name",
+              album: null,
+              trackNumber: null,
+              durationMs: 120_000,
+            };
+          }
+          return {
+            title: "Song Tag",
+            artist: "Band",
+            album: "Album",
+            trackNumber: 3,
+            durationMs: 200_000,
+          };
+        },
+      },
+    );
+
+    expect(cycles[0].books[0].author).toBe("Author Name");
+    expect(cycles[0].books[0].tracks[0].title).toBe("Intro Tag");
+    expect(cycles[0].books[0].tracks[0].durationMs).toBe(120_000);
+    expect(musicAlbums[0].tracks[0].title).toBe("Song Tag");
+    expect(musicAlbums[0].tracks[0].sortOrder).toBe(0);
+  });
+
+  it("ignores nested music paths and malformed cycle paths", async () => {
+    const { cycles, musicAlbums } = await scanStorageObjects([
+      { name: "music/nested/01-track.mp3" },
+      { name: "cycles/only-cycle/001-intro.mp3" },
+      { name: "cycles/cycle/book/extra/deep.mp3" },
+    ]);
+
+    expect(cycles).toHaveLength(0);
+    expect(musicAlbums).toHaveLength(0);
   });
 });

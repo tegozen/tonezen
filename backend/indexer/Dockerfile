@@ -12,5 +12,4 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
-ENV CONTENT_ROOT=/content
 CMD ["node", "dist/index.js"]
