@@ -90,11 +90,33 @@ export function buildMusicTrackListForCatalogUpdate(
   tracks: Track[],
   musicStartedInSession: boolean,
 ): MusicListTrack[] {
-  if (existing.length > 0) {
+  const built = buildMusicTrackList(books, tracks);
+  if (existing.length === 0) {
+    return musicStartedInSession ? built : shuffleMusicTracks(built);
+  }
+
+  const existingIds = new Set(existing.map((track) => track.trackId));
+  const builtIds = new Set(built.map((track) => track.trackId));
+  const catalogChanged =
+    built.length !== existing.length ||
+    built.some((track) => !existingIds.has(track.trackId)) ||
+    existing.some((track) => !builtIds.has(track.trackId));
+
+  if (!catalogChanged) {
     return refreshMusicTrackListDownloadState(existing, books, tracks);
   }
-  const built = buildMusicTrackList(books, tracks);
-  return musicStartedInSession ? built : shuffleMusicTracks(built);
+
+  if (musicStartedInSession) {
+    const freshById = new Map(built.map((track) => [track.trackId, track]));
+    const kept = existing
+      .map((item) => freshById.get(item.trackId))
+      .filter((item): item is MusicListTrack => item != null);
+    const keptIds = new Set(kept.map((track) => track.trackId));
+    const appended = built.filter((track) => !keptIds.has(track.trackId));
+    return [...kept, ...appended];
+  }
+
+  return shuffleMusicTracks(built);
 }
 
 export function musicQueueFrom(

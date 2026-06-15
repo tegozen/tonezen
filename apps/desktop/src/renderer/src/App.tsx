@@ -205,6 +205,13 @@ export function App() {
       .catch(() => refreshLibrary());
   }, [sessionState, refreshLibrary]);
 
+  useEffect(() => {
+    if (sessionState === "Unauthenticated" || sessionState === "AuthenticatedOffline") return;
+    return window.tonezen.catalog.onUpdated(() => {
+      void refreshLibrary();
+    });
+  }, [sessionState, refreshLibrary]);
+
   const syncCatalog = async () => {
     setIsLoading(true);
     try {

@@ -72,6 +72,8 @@ If only small files succeed and larger ones fail with `Invalid URL`:
 3. If needed, clear site data for `http://localhost:8000`
 4. After recreating the storage container, run `docker compose restart kong` (Kong may cache a stale upstream)
 
+If large uploads fail silently (Studio shows progress but files never appear), check `docker compose logs storage` for `XAmzContentSHA256Mismatch`. Beget S3 requires `AWS_REQUEST_CHECKSUM_CALCULATION=WHEN_REQUIRED` on the storage service (see `docker-compose.yml`). Delete orphaned objects in the Beget panel under `tonezen/content/` and re-upload via Studio.
+
 ## S3 credentials
 
 Set in root `.env` (from Beget panel → Object storage → Access keys):

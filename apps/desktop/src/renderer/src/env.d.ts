@@ -58,6 +58,7 @@ export interface TonezenApi {
   };
   catalog: {
     sync: () => Promise<Array<{ id: string; title: string; contentType: string; author?: string }>>;
+    onUpdated: (callback: () => void) => () => void;
   };
   db: {
     getBooks: () => Promise<

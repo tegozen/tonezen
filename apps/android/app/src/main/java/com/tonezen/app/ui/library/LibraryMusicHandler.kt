@@ -302,13 +302,16 @@ internal class LibraryMusicHandler(
         return session.musicBookIdByTrackId
     }
 
-    suspend fun buildMusicTrackListForCatalogUpdate(): List<MusicListTrack> = when {
-        uiState.value.musicTrackList.isNotEmpty() ->
-            refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
-        session.musicStartedInSession ->
-            buildMusicTrackList(shuffle = false)
-        else ->
-            buildMusicTrackList(shuffle = true)
+    suspend fun buildMusicTrackListForCatalogUpdate(): List<MusicListTrack> {
+        val downloadedTrackIds = withContext(Dispatchers.IO) {
+            catalogRepository.getDownloadedTrackIds()
+        }
+        return buildMusicTrackListForCatalogUpdate(
+            existing = uiState.value.musicTrackList,
+            candidates = session.musicCandidates,
+            musicStartedInSession = session.musicStartedInSession,
+            downloadedTrackIds = downloadedTrackIds,
+        )
     }
 
     suspend fun refreshMusicTrackListForDownloads(): List<MusicListTrack> {

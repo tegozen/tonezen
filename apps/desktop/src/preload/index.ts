@@ -35,6 +35,11 @@ contextBridge.exposeInMainWorld("tonezen", {
   },
   catalog: {
     sync: () => ipcRenderer.invoke("catalog:sync"),
+    onUpdated: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on("catalog:updated", listener);
+      return () => ipcRenderer.removeListener("catalog:updated", listener);
+    },
   },
   db: {
     getBooks: () => ipcRenderer.invoke("db:getBooks"),

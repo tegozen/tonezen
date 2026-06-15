@@ -1,4 +1,5 @@
 import { ipcMain } from "electron";
+import type { CatalogRealtimeSyncService } from "./catalogRealtimeSync.js";
 import type { CatalogSyncService } from "./catalogSync.js";
 import type { DownloadManager } from "./downloadManager.js";
 import { LocalDatabase } from "./database.js";
@@ -10,6 +11,7 @@ import type { SessionService } from "./sessionService.js";
 export interface IpcHandlerDeps {
   sessionService: SessionService;
   catalogSync: CatalogSyncService;
+  catalogRealtimeSync: CatalogRealtimeSyncService;
   downloadManager: DownloadManager;
   profileSync: ProfileSyncService;
   progressSync: ProgressSyncService;
@@ -17,11 +19,21 @@ export interface IpcHandlerDeps {
 }
 
 export function registerIpcHandlers(deps: IpcHandlerDeps): void {
-  const { sessionService, catalogSync, downloadManager, profileSync, progressSync, powerBlocker } = deps;
+  const {
+    sessionService,
+    catalogSync,
+    catalogRealtimeSync,
+    downloadManager,
+    profileSync,
+    progressSync,
+    powerBlocker,
+  } = deps;
 
   ipcMain.handle("session:get", async () => {
     await sessionService.refreshIfNeeded();
     await sessionService.syncProfileFromServer();
+    const token = sessionService.getAccessToken();
+    catalogRealtimeSync.setAccessToken(token);
     await Promise.all([profileSync.updateAuth(), progressSync.updateAuth()]);
     return sessionService.getSnapshot();
   });
@@ -30,12 +42,17 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   });
   ipcMain.handle("session:login", async (_e, email: string, password: string) => {
     const session = await sessionService.login(email, password);
-    await Promise.all([profileSync.start(session), progressSync.start(session)]);
+    await Promise.all([
+      profileSync.start(session),
+      progressSync.start(session),
+      catalogRealtimeSync.start(session),
+    ]);
     return sessionService.getSnapshot();
   });
   ipcMain.handle("session:logout", () => {
     profileSync.stop();
     progressSync.stop();
+    catalogRealtimeSync.stop();
     sessionService.logout();
   });
   ipcMain.handle("session:updateProfile", async (_e, displayName: string) => {

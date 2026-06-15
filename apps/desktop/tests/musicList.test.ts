@@ -52,6 +52,13 @@ describe("buildMusicTrackListForCatalogUpdate", () => {
     const built = buildMusicTrackListForCatalogUpdate([], books, tracks, true);
     expect(built.map((track) => track.trackId)).toEqual(["t3", "t1"]);
   });
+
+  it("rebuilds list when catalog gains tracks", () => {
+    const stale = buildMusicTrackList(books, tracks.slice(0, 1));
+    const updated = buildMusicTrackListForCatalogUpdate(stale, books, tracks, false);
+    expect(updated.map((track) => track.trackId).sort()).toEqual(["t1", "t3"]);
+    expect(updated).toHaveLength(2);
+  });
 });
 
 describe("refreshMusicTrackListDownloadState", () => {

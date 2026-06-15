@@ -5,6 +5,7 @@ import { WindowLifecycleManager } from "./windowLifecycle.js";
 import { SessionService } from "./sessionService.js";
 import { LocalDatabase } from "./database.js";
 import { CatalogSyncService } from "./catalogSync.js";
+import { CatalogRealtimeSyncService } from "./catalogRealtimeSync.js";
 import { DownloadManager } from "./downloadManager.js";
 import { ProfileSyncService } from "./profileSync.js";
 import { ProgressSyncService } from "./progressSync.js";
@@ -24,6 +25,7 @@ const sessionService = new SessionService();
 const powerBlocker = new PlaybackPowerBlocker();
 
 let catalogSync: CatalogSyncService;
+let catalogRealtimeSync: CatalogRealtimeSyncService;
 let downloadManager: DownloadManager;
 let profileSync: ProfileSyncService;
 let progressSync: ProgressSyncService;
@@ -45,6 +47,10 @@ app.whenReady().then(() => {
     anonKey: runtimeConfig.supabaseAnonKey,
   });
   catalogSync = new CatalogSyncService(runtimeConfig.baseUrl, () => sessionService.getAccessToken());
+  catalogRealtimeSync = new CatalogRealtimeSyncService(catalogSync, {
+    baseUrl: runtimeConfig.baseUrl,
+    anonKey: runtimeConfig.supabaseAnonKey,
+  });
   downloadManager = new DownloadManager(
     downloadsRoot,
     runtimeConfig.baseUrl,
@@ -68,10 +74,12 @@ app.whenReady().then(() => {
   createAppTray(mainWindow, lifecycle);
   profileSync.setMainWindow(mainWindow);
   progressSync.setMainWindow(mainWindow);
+  catalogRealtimeSync.setMainWindow(mainWindow);
   void startRealtimeSyncIfNeeded();
   registerIpcHandlers({
     sessionService,
     catalogSync,
+    catalogRealtimeSync,
     downloadManager,
     profileSync,
     progressSync,
@@ -83,7 +91,11 @@ async function startRealtimeSyncIfNeeded(): Promise<void> {
   await sessionService.refreshIfNeeded();
   const session = sessionService.getSession();
   if (session) {
-    await Promise.all([profileSync.start(session), progressSync.start(session)]);
+    await Promise.all([
+      profileSync.start(session),
+      progressSync.start(session),
+      catalogRealtimeSync.start(session),
+    ]);
   }
 }
 

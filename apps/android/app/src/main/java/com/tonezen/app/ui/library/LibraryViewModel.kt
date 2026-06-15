@@ -11,6 +11,7 @@ import com.tonezen.app.data.local.EnsureTrackOutcome
 import com.tonezen.app.data.local.LocalLibraryNotifier
 import com.tonezen.app.data.local.TrackDownloadEnsurer
 import com.tonezen.app.data.network.NetworkMonitor
+import com.tonezen.app.data.remote.CatalogSyncRepository
 import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.data.remote.ProfileSyncRepository
 import com.tonezen.app.data.remote.ProgressSyncRepository
@@ -43,6 +44,7 @@ import kotlinx.coroutines.withContext
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
+    private val catalogSyncRepository: CatalogSyncRepository,
     private val downloadRepository: DownloadRepository,
     private val sessionRepository: SessionRepository,
     private val progressSyncRepository: ProgressSyncRepository,
@@ -156,6 +158,11 @@ class LibraryViewModel @Inject constructor(
             playbackEvents.trackEnded.collect {
                 musicHandler.handleMusicTrackEnded()
                 cycleHandler.handleAudiobookTrackEnded()
+            }
+        }
+        viewModelScope.launch {
+            catalogSyncRepository.catalogUpdated.collect {
+                reloadCatalogFromLocal()
             }
         }
     }
@@ -279,7 +286,8 @@ class LibraryViewModel @Inject constructor(
             refreshed?.let {
                 progressSyncRepository.start(it)
                 profileSyncRepository.start(it)
-            }
+                catalogSyncRepository.start(it)
+            } ?: catalogSyncRepository.stop()
             if (networkMonitor.isOnline()) {
                 refreshCatalogFromRemote(refreshed?.accessToken)
             } else {
@@ -288,6 +296,12 @@ class LibraryViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private suspend fun reloadCatalogFromLocal() {
+        val books = withContext(Dispatchers.IO) { catalogRepository.getAllBooks() }
+        val cycles = withContext(Dispatchers.IO) { catalogRepository.getAllCycles() }
+        updateCatalog(books, cycles)
     }
 
     private suspend fun refreshCatalogFromRemote(accessToken: String?) {
