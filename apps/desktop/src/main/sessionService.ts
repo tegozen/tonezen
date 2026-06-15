@@ -12,6 +12,8 @@ import {
 } from "../shared/supabaseAuth.js";
 import type { SessionState, StoredSession } from "../shared/types.js";
 import { upsertUserProfileMirror, type UserProfileMirrorRow } from "../shared/userProfileMirror.js";
+import { isRefreshAuthFailure } from "../shared/authErrors.js";
+import { createRefreshCoordinator } from "../shared/refreshCoordinator.js";
 import { normalizeAvatarUrl } from "../shared/avatarUpload.js";
 
 const SESSION_FILE = "session.dat";
@@ -28,7 +30,7 @@ export class SessionService {
   private authClient: SupabaseAuthClient | null = null;
   private sessionConfig: SessionConfig | null = null;
   private online = true;
-  private refreshInFlightPromise: Promise<SessionState> | null = null;
+  private readonly refreshCoordinator = createRefreshCoordinator<SessionState>();
 
   init(userDataPath: string, config: SessionConfig): void {
     this.sessionPath = path.join(userDataPath, SESSION_FILE);
@@ -188,42 +190,40 @@ export class SessionService {
 
   async refreshIfNeeded(): Promise<SessionState> {
     if (!this.session) return "Unauthenticated";
-    if (!this.manager.shouldRefresh(this.session, this.online)) {
-      return this.manager.resolveState(this.session, this.online);
-    }
-    if (!this.refreshInFlightPromise) {
-      this.refreshInFlightPromise = this.performRefresh().finally(() => {
-        this.refreshInFlightPromise = null;
-      });
-    }
-    return this.refreshInFlightPromise;
+    return this.refreshCoordinator.coalesce(
+      () => {
+        if (!this.session) return false;
+        return (
+          this.manager.shouldRefresh(this.session, this.online) ||
+          (this.online && this.manager.isExpired(this.session))
+        );
+      },
+      () => this.performRefresh(),
+      () => (this.session ? this.manager.resolveState(this.session, this.online) : "Unauthenticated"),
+    );
   }
 
   private async performRefresh(): Promise<SessionState> {
-    if (!this.session) return "Unauthenticated";
+    const session = this.session;
+    if (!session) return "Unauthenticated";
     try {
       if (!this.online) {
-        return this.manager.resolveState(this.session, false);
+        return this.manager.resolveState(session, false);
       }
-      if (!this.authClient || !this.session.refreshToken) {
+      if (!this.authClient || !session.refreshToken) {
         return "Unauthenticated";
       }
-      const result = await this.authClient.refreshSession(this.session.refreshToken);
-      this.session = this.withClientAvatarUrl(sessionFromGoTrue(result, this.session.email));
+      const result = await this.authClient.refreshSession(session.refreshToken);
+      this.session = this.withClientAvatarUrl(sessionFromGoTrue(result, session.email));
       this.persist(this.session);
       return "AuthenticatedOnline";
     } catch (error) {
-      if (this.isAuthFailure(error)) {
+      if (isRefreshAuthFailure(error)) {
         this.logout();
         return "Unauthenticated";
       }
-      return this.manager.resolveState(this.session, this.online);
+      return this.manager.resolveState(this.session ?? session, this.online);
     }
-  }
-
-  private isAuthFailure(error: unknown): boolean {
-    const message = error instanceof Error ? error.message : String(error);
-    return /\((401|403)\)/.test(message);
   }
 
   private async mirrorProfileToRealtime(updatedAt: string): Promise<void> {

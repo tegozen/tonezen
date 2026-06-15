@@ -33,6 +33,8 @@ services:
       GOTRUE_JWT_SECRET: ${JWT_SECRET}
       GOTRUE_JWT_EXP: 3600
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      # Dev: allow desktop + Android to refresh without invalidating each other's token.
+      GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED: "false"
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_MAILER_AUTOCONFIRM: "true"
       GOTRUE_SMTP_ADMIN_EMAIL: admin@tonezen.local

@@ -39,8 +39,15 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     ]);
     return sessionService.getSnapshot();
   });
-  ipcMain.handle("session:setOnline", (_e, online: boolean) => {
+  ipcMain.handle("session:setOnline", async (_e, online: boolean) => {
     sessionService.setOnline(online);
+    if (!online || !sessionService.getSession()) return;
+    await sessionService.refreshIfNeeded();
+    await Promise.all([
+      catalogRealtimeSync.updateAuth(),
+      profileSync.updateAuth(),
+      progressSync.updateAuth(),
+    ]);
   });
   ipcMain.handle("session:login", async (_e, email: string, password: string) => {
     const session = await sessionService.login(email, password);

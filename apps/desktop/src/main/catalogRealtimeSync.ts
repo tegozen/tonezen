@@ -37,6 +37,7 @@ export class CatalogRealtimeSyncService {
   private storedSession: StoredSession | null = null;
   private mainWindow: BrowserWindow | null = null;
   private lastErrorLogMs = 0;
+  private lastDeferredLogMs = 0;
 
   constructor(
     private catalogSync: CatalogSyncService,
@@ -77,13 +78,18 @@ export class CatalogRealtimeSyncService {
   async updateAuth(): Promise<void> {
     if (!this.storedSession) return;
     await this.refreshSession();
+    if (!this.getAccessToken()) {
+      this.stop();
+      return;
+    }
     await this.ensureSubscribed();
   }
 
   private async ensureSubscribed(): Promise<void> {
     if (!this.storedSession) return;
     if (!this.isAccessTokenUsable()) {
-      console.warn("[catalog-realtime] subscription deferred until access token is refreshed");
+      this.logDeferredOnce();
+      this.scheduleAuthRecovery();
       return;
     }
     const token = this.getAccessToken();
@@ -136,6 +142,13 @@ export class CatalogRealtimeSyncService {
       });
   }
 
+  private logDeferredOnce(): void {
+    const now = Date.now();
+    if (now - this.lastDeferredLogMs < ERROR_LOG_COOLDOWN_MS) return;
+    this.lastDeferredLogMs = now;
+    console.warn("[catalog-realtime] subscription deferred until access token is refreshed");
+  }
+
   private logSubscriptionError(status: string, err: unknown): void {
     const now = Date.now();
     if (now - this.lastErrorLogMs < ERROR_LOG_COOLDOWN_MS) return;
@@ -156,8 +169,13 @@ export class CatalogRealtimeSyncService {
     this.recoveryInFlight = true;
     try {
       await this.refreshSession();
+      if (!this.getAccessToken()) {
+        this.stop();
+        return;
+      }
       if (!this.isAccessTokenUsable()) {
         console.warn("[catalog-realtime] auth recovery waiting for a valid access token");
+        this.scheduleAuthRecovery();
         return;
       }
       await this.ensureSubscribed();

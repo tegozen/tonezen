@@ -68,9 +68,9 @@ app.whenReady().then(() => {
     anonKey: runtimeConfig.supabaseAnonKey,
   });
   progressSync = new ProgressSyncService(
-    () => sessionService.getSession(),
     () => sessionService.getAccessToken(),
     () => sessionService.refreshIfNeeded(),
+    () => sessionService.isAccessTokenUsable(),
     {
       baseUrl: runtimeConfig.baseUrl,
       anonKey: runtimeConfig.supabaseAnonKey,

@@ -26,7 +26,6 @@ class SessionRepository @Inject constructor(
 ) {
     private val refreshLock = Mutex()
     private var refreshInFlight: Deferred<StoredSession?>? = null
-    private val enrichLock = Mutex()
     private val _session = MutableStateFlow(sessionStore.load())
     val session: StateFlow<StoredSession?> = _session.asStateFlow()
 
@@ -52,18 +51,33 @@ class SessionRepository @Inject constructor(
 
     suspend fun refreshIfNeeded(session: StoredSession?): StoredSession? {
         if (session == null) return null
-        if (!sessionManager.shouldRefresh(session, networkMonitor.isOnline())) return session
+        return coalescedRefresh(force = false)
+    }
+
+    suspend fun enrichProfileMetadataIfMissing(session: StoredSession?): StoredSession? {
+        if (session == null) return null
+        if (session.memberSinceEpochMs != null) return session
+        if (!networkMonitor.isOnline()) return session
+        return coalescedRefresh(force = true)
+    }
+
+    private suspend fun coalescedRefresh(force: Boolean): StoredSession? {
+        refreshInFlight?.takeIf { it.isActive }?.let { return it.await() }
+
+        val session = loadSession() ?: return null
+        if (!needsRefresh(session, force)) return session
+
         return coroutineScope {
             val deferred = refreshLock.withLock {
                 refreshInFlight?.takeIf { it.isActive } ?: async(Dispatchers.IO) {
-                    performRefresh(session)
+                    performRefresh()
                 }.also { refreshInFlight = it }
             }
             try {
                 deferred.await()
             } finally {
                 refreshLock.withLock {
-                    if (refreshInFlight == deferred && !deferred.isActive) {
+                    if (refreshInFlight == deferred && deferred.isCompleted) {
                         refreshInFlight = null
                     }
                 }
@@ -71,7 +85,14 @@ class SessionRepository @Inject constructor(
         }
     }
 
-    private suspend fun performRefresh(session: StoredSession): StoredSession? {
+    private fun needsRefresh(session: StoredSession, force: Boolean): Boolean {
+        if (force) return true
+        return sessionManager.shouldRefresh(session, networkMonitor.isOnline()) ||
+            (networkMonitor.isOnline() && sessionManager.isExpired(session))
+    }
+
+    private suspend fun performRefresh(): StoredSession? {
+        val session = loadSession() ?: return null
         if (!networkMonitor.isOnline()) return session
         return try {
             val refreshed = authRepository.refreshSession(session.refreshToken)
@@ -86,21 +107,6 @@ class SessionRepository @Inject constructor(
             }
         } catch (_: Exception) {
             session
-        }
-    }
-
-    suspend fun enrichProfileMetadataIfMissing(session: StoredSession?): StoredSession? {
-        if (session == null) return null
-        if (session.memberSinceEpochMs != null) return session
-        if (!networkMonitor.isOnline()) return session
-        return enrichLock.withLock {
-            try {
-                val refreshed = authRepository.refreshSession(session.refreshToken)
-                saveSession(refreshed)
-                refreshed
-            } catch (_: Exception) {
-                session
-            }
         }
     }
 }
