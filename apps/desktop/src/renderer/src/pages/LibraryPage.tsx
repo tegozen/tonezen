@@ -99,7 +99,9 @@ export function LibraryPage({
             })}
           </div>
         )
-      ) : musicTracks.length === 0 && !isLoading ? (
+      ) : isLoading ? (
+        <p className="text-center text-muted">{strings.libraryLoading}</p>
+      ) : musicTracks.length === 0 ? (
         <EmptyLibrary offline={offlineBanner} />
       ) : (
         <div className="music-library-stack">

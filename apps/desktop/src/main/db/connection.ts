@@ -26,6 +26,7 @@ export function initDatabase(userDataPath: string): void {
       sort_order INTEGER NOT NULL,
       title TEXT NOT NULL,
       filename TEXT NOT NULL,
+      artist TEXT,
       duration_ms INTEGER,
       local_path TEXT
     );
@@ -50,6 +51,16 @@ export function initDatabase(userDataPath: string): void {
     );
   `);
   ensureCycleBooksColumn();
+  ensureTrackArtistColumn();
+}
+
+function ensureTrackArtistColumn(): void {
+  const columns = getDb()
+    .prepare("PRAGMA table_info(tracks)")
+    .all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "artist")) {
+    getDb().exec(`ALTER TABLE tracks ADD COLUMN artist TEXT`);
+  }
 }
 
 function ensureCycleBooksColumn(): void {

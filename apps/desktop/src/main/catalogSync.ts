@@ -16,6 +16,7 @@ interface ApiTrack {
   sort_order: number;
   title: string;
   filename: string;
+  artist?: string | null;
   duration_ms?: number;
 }
 
@@ -44,6 +45,7 @@ function mapTrack(raw: ApiTrack, bookId: string): Track {
     sortOrder: raw.sort_order,
     title: raw.title,
     filename: raw.filename,
+    artist: raw.artist ?? undefined,
     durationMs: raw.duration_ms,
   };
 }

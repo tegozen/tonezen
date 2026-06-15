@@ -16,9 +16,9 @@ class CyclePlaybackResolverTest {
     private val book2 = Book("b2", "book-two", ContentType.AUDIOBOOK, "Book Two", "Author")
     private val cycle = Cycle("c1", "cycle", "Cycle", listOf("book-one", "book-two"), listOf(book1, book2))
 
-    private val t1 = Track("t1", "b1", 0, "Intro", "001.mp3", 1000, null)
-    private val t2 = Track("t2", "b1", 1, "Chapter", "002.mp3", 2000, null)
-    private val t3 = Track("t3", "b2", 0, "Start", "001.mp3", 1500, null)
+    private val t1 = Track("t1", "b1", 0, "Intro", "001.mp3", null, 1000, null)
+    private val t2 = Track("t2", "b1", 1, "Chapter", "002.mp3", null, 2000, null)
+    private val t3 = Track("t3", "b2", 0, "Start", "001.mp3", null, 1500, null)
 
     @Test
     fun advancesToNextTrackInBook() {

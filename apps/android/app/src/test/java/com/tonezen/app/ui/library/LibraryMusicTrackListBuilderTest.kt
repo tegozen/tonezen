@@ -62,4 +62,27 @@ class LibraryMusicTrackListBuilderTest {
         )
         assertEquals(listOf(false, true), refreshed.map { it.isDownloaded })
     }
+
+    @Test
+    fun rebuildsListWhenTrackMetadataChanges() {
+        val stale = listOf(
+            MusicListTrack(
+                trackId = "t1",
+                trackTitle = "Miyagi__Ugly_Name",
+                artist = "Music",
+                albumTitle = "Library",
+                bookId = "b1",
+                durationMs = 1000,
+                isDownloaded = false,
+            ),
+        )
+        val updated = buildMusicTrackListForCatalogUpdate(
+            existing = stale,
+            candidates = listOf(book to trackA),
+            musicStartedInSession = false,
+            downloadedTrackIds = emptySet(),
+        )
+        assertEquals("One", updated.single().trackTitle)
+        assertEquals("Miyagi", updated.single().artist)
+    }
 }

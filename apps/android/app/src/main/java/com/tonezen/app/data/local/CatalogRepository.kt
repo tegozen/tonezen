@@ -163,6 +163,7 @@ class CatalogRepository @Inject constructor(
                     track.sortOrder,
                     track.title,
                     track.filename,
+                    normalizeAuthor(track.artist),
                     track.durationMs,
                     localPath,
                 )
@@ -277,6 +278,7 @@ class CatalogRepository @Inject constructor(
             sortOrder = sortOrder,
             title = title,
             filename = filename,
+            artist = normalizeAuthor(artist),
             durationMs = durationMs,
             localPath = safePath,
         )

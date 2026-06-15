@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  artistFromMusicFilename,
   buildAudiobookTracks,
   buildMusicLibrary,
   buildTracks,
@@ -10,8 +11,18 @@ import {
   storagePathForMusic,
   titleFromSlug,
   trackTitleFromFilename,
+  trackTitleFromMusicFilename,
 } from "../src/parsers.js";
 import { parseTrackNumber } from "../src/mediaProbe.js";
+
+describe("music filename parsing", () => {
+  it("extracts artist and title from upload filename pattern", () => {
+    expect(artistFromMusicFilename("Miyagi_-_Marlboro_65373356.mp3")).toBe("Miyagi");
+    expect(trackTitleFromMusicFilename("Miyagi_-_Marlboro_65373356.mp3")).toBe("Marlboro");
+    expect(artistFromMusicFilename("Miyagi_Amigo_-_Samaya_47829535.mp3")).toBe("Miyagi Amigo");
+    expect(trackTitleFromMusicFilename("Miyagi_Amigo_-_Samaya_47829535.mp3")).toBe("Samaya");
+  });
+});
 
 describe("titleFromSlug", () => {
   it("turns slug into display title", () => {
@@ -109,6 +120,29 @@ describe("buildMusicLibrary", () => {
     expect(library).toHaveLength(1);
     expect(library[0].slug).toBe("music-library");
     expect(library[0].tracks.map((t) => t.title)).toEqual(["Track A", "Track B"]);
+    expect(library[0].author).toBeNull();
+    expect(library[0].tracks.map((t) => t.artist)).toEqual(["Band", "Band"]);
+  });
+
+  it("parses per-track artist from filename when tags are missing", () => {
+    const library = buildMusicLibrary([
+      {
+        filename: "Miyagi_-_Marlboro_65373356.mp3",
+        title: "Marlboro",
+        artist: null,
+        album: null,
+        trackNumber: null,
+      },
+      {
+        filename: "Basta_GUF_-_V_sigaretnom_dymu_81300567.mp3",
+        title: "В сигаретном дыму",
+        artist: "Баста, GUF",
+        album: null,
+        trackNumber: null,
+      },
+    ]);
+    expect(library[0].tracks[0].artist).toBe("Miyagi");
+    expect(library[0].tracks[1].artist).toBe("Баста, GUF");
   });
 
   it("falls back to filename when metadata is missing", () => {

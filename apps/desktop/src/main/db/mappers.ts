@@ -14,6 +14,7 @@ export interface TrackRow {
   sort_order: number;
   title: string;
   filename: string;
+  artist: string | null;
   duration_ms: number | null;
   local_path: string | null;
 }
@@ -35,6 +36,7 @@ export function mapTrackRow(row: TrackRow): Track {
     sortOrder: row.sort_order,
     title: row.title,
     filename: row.filename,
+    artist: row.artist ?? undefined,
     durationMs: row.duration_ms ?? undefined,
     localPath: row.local_path ?? undefined,
   };

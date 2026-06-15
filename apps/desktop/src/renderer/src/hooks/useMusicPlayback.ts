@@ -1,11 +1,10 @@
 import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Book, Track } from "@shared/types";
 import {
-  buildMusicTrackList,
+  buildMusicTrackListForCatalogUpdate,
   musicQueueFrom,
   nextMusicIndex,
   previousMusicIndex,
-  shuffleMusicTracks,
   type MusicListTrack,
 } from "@shared/musicList";
 import {
@@ -218,11 +217,11 @@ export function useMusicPlayback({
   );
 
   const onMusicTabSelected = useCallback(() => {
-    if (musicStartedInSessionRef.current || musicTracks.length > 0) return;
-    const built = buildMusicTrackList(books, allTracks);
-    if (built.length === 0) return;
-    setMusicTracks(shuffleMusicTracks(built));
-  }, [allTracks, books, musicTracks.length, setMusicTracks]);
+    if (musicStartedInSessionRef.current) return;
+    setMusicTracks((current) =>
+      buildMusicTrackListForCatalogUpdate(current, books, allTracks, false),
+    );
+  }, [allTracks, books, setMusicTracks]);
 
   const handleSkipNext = useCallback(() => {
     const queue = musicQueueRef.current;

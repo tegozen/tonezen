@@ -95,6 +95,9 @@ async function startRealtimeSyncIfNeeded(): Promise<void> {
       profileSync.start(session),
       progressSync.start(session),
       catalogRealtimeSync.start(session),
+      catalogSync.syncCatalog().catch((err) => {
+        console.error("[catalog] startup sync failed:", err);
+      }),
     ]);
   }
 }

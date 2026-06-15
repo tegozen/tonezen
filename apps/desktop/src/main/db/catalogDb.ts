@@ -30,13 +30,14 @@ export const CatalogDb = {
 
   upsertTracks(tracks: Track[]): void {
     const stmt = getDb().prepare(`
-      INSERT INTO tracks (id, book_id, sort_order, title, filename, duration_ms, local_path)
-      VALUES (@id, @bookId, @sortOrder, @title, @filename, @durationMs, @localPath)
+      INSERT INTO tracks (id, book_id, sort_order, title, filename, artist, duration_ms, local_path)
+      VALUES (@id, @bookId, @sortOrder, @title, @filename, @artist, @durationMs, @localPath)
       ON CONFLICT(id) DO UPDATE SET
         book_id = excluded.book_id,
         sort_order = excluded.sort_order,
         title = excluded.title,
         filename = excluded.filename,
+        artist = excluded.artist,
         duration_ms = excluded.duration_ms,
         local_path = COALESCE(excluded.local_path, tracks.local_path)
     `);
@@ -44,6 +45,7 @@ export const CatalogDb = {
       for (const track of items) {
         stmt.run({
           ...track,
+          artist: track.artist ?? null,
           durationMs: track.durationMs ?? null,
           localPath: track.localPath ?? null,
         });
@@ -126,7 +128,7 @@ export const CatalogDb = {
   getAllTracks(): Track[] {
     const rows = getDb()
       .prepare(
-        `SELECT id, book_id, sort_order, title, filename, duration_ms, local_path
+        `SELECT id, book_id, sort_order, title, filename, artist, duration_ms, local_path
          FROM tracks ORDER BY book_id, sort_order`,
       )
       .all() as TrackRow[];
@@ -143,7 +145,7 @@ export const CatalogDb = {
   getTracks(bookId: string): Track[] {
     const rows = getDb()
       .prepare(
-        `SELECT id, book_id, sort_order, title, filename, duration_ms, local_path
+        `SELECT id, book_id, sort_order, title, filename, artist, duration_ms, local_path
          FROM tracks WHERE book_id = ? ORDER BY sort_order`,
       )
       .all(bookId) as TrackRow[];

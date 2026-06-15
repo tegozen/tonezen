@@ -224,6 +224,9 @@ components:
           type: integer
         title:
           type: string
+        artist:
+          type: string
+          nullable: true
         filename:
           type: string
         duration_ms:

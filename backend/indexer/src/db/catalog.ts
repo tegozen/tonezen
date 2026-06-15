@@ -113,7 +113,13 @@ export class CatalogRepository {
   private async upsertTrack(
     client: pg.PoolClient,
     bookId: string,
-    track: { filename: string; sortOrder: number; title: string; durationMs?: number | null },
+    track: {
+      filename: string;
+      sortOrder: number;
+      title: string;
+      artist?: string | null;
+      durationMs?: number | null;
+    },
     storagePath: string,
     metadata: FileMetadata | null,
   ): Promise<void> {
@@ -121,11 +127,11 @@ export class CatalogRepository {
       metadata ??
       (await this.resolveFileMetadata(client, storagePath, track.durationMs ?? null));
     const trackResult = await client.query(
-      `INSERT INTO tracks (book_id, sort_order, title, filename, updated_at, deleted_at)
-       VALUES ($1, $2, $3, $4, now(), NULL)
+      `INSERT INTO tracks (book_id, sort_order, title, filename, artist, updated_at, deleted_at)
+       VALUES ($1, $2, $3, $4, $5, now(), NULL)
        ON CONFLICT DO NOTHING
        RETURNING id`,
-      [bookId, track.sortOrder, track.title, track.filename],
+      [bookId, track.sortOrder, track.title, track.filename, track.artist ?? null],
     );
 
     let trackId: string;
@@ -138,8 +144,8 @@ export class CatalogRepository {
       );
       trackId = existing.rows[0].id as string;
       await client.query(
-        `UPDATE tracks SET sort_order = $2, title = $3, updated_at = now(), deleted_at = NULL WHERE id = $1`,
-        [trackId, track.sortOrder, track.title],
+        `UPDATE tracks SET sort_order = $2, title = $3, artist = $4, updated_at = now(), deleted_at = NULL WHERE id = $1`,
+        [trackId, track.sortOrder, track.title, track.artist ?? null],
       );
     }
 

@@ -11,7 +11,7 @@ class TonezenDatabaseMigrationsTest {
     fun migrationsCoverEveryReleasedSchemaVersion() {
         val migrations = TonezenDatabaseMigrations.ALL.map { it.startVersion to it.endVersion }
 
-        assertEquals(listOf(1 to 2, 2 to 3), migrations)
+        assertEquals(listOf(1 to 2, 2 to 3, 3 to 4), migrations)
     }
 
     @Test
@@ -37,5 +37,14 @@ class TonezenDatabaseMigrationsTest {
         TonezenDatabaseMigrations.MIGRATION_2_3.migrate(db)
 
         verify { db.execSQL("DROP TABLE IF EXISTS `favorites`") }
+    }
+
+    @Test
+    fun migrationThreeToFourAddsTrackArtistColumn() {
+        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
+
+        TonezenDatabaseMigrations.MIGRATION_3_4.migrate(db)
+
+        verify { db.execSQL("ALTER TABLE `tracks` ADD COLUMN `artist` TEXT") }
     }
 }

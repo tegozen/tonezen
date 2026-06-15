@@ -39,6 +39,7 @@ export interface Track {
   sortOrder: number;
   title: string;
   filename: string;
+  artist?: string;
   durationMs?: number;
   localPath?: string;
 }

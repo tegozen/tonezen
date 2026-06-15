@@ -10,7 +10,7 @@ import androidx.room.RoomDatabase
         AudiobookProgressEntity::class,
         CycleEntity::class,
     ],
-    version = 3,
+    version = 4,
 )
 abstract class TonezenDatabase : RoomDatabase() {
     abstract fun catalogDao(): CatalogDao

@@ -2,6 +2,7 @@ export interface ParsedTrack {
   filename: string;
   sortOrder: number;
   title: string;
+  artist?: string | null;
   durationMs?: number | null;
 }
 
@@ -64,6 +65,24 @@ export function trackTitleFromFilename(filename: string): string {
   return base.replace(/^\d+-/, "").replace(/-/g, " ").trim() || filename;
 }
 
+/** Parses `Artist_-_Title_123.mp3` and `Miyagi_Amigo_-_Samaya_478.mp3` patterns. */
+export function artistFromMusicFilename(filename: string): string | null {
+  const base = filenameBase(filename);
+  const separator = "_-_";
+  const idx = base.indexOf(separator);
+  if (idx <= 0) return null;
+  return base.slice(0, idx).replace(/_/g, " ").trim() || null;
+}
+
+export function trackTitleFromMusicFilename(filename: string): string | null {
+  const base = filenameBase(filename);
+  const separator = "_-_";
+  const idx = base.indexOf(separator);
+  if (idx < 0) return null;
+  const tail = base.slice(idx + separator.length).replace(/_\d+$/, "");
+  return tail.replace(/_/g, " ").trim() || null;
+}
+
 export interface AudiobookFileScan {
   filename: string;
   title: string | null;
@@ -94,7 +113,11 @@ export function buildMusicLibrary(files: MusicFileScan[]): ParsedBook[] {
   const tracks = files.map((file, index) => ({
     filename: file.filename,
     sortOrder: file.trackNumber != null ? file.trackNumber - 1 : index,
-    title: file.title?.trim() || trackTitleFromFilename(file.filename),
+    title:
+      file.title?.trim() ||
+      trackTitleFromMusicFilename(file.filename) ||
+      trackTitleFromFilename(file.filename),
+    artist: file.artist?.trim() || artistFromMusicFilename(file.filename),
     durationMs: file.durationMs ?? null,
   }));
 
@@ -106,14 +129,12 @@ export function buildMusicLibrary(files: MusicFileScan[]): ParsedBook[] {
     track.sortOrder = index;
   });
 
-  const artist = files.map((file) => file.artist?.trim() || null).find(Boolean) ?? null;
-
   return [
     {
       slug: "music-library",
       contentType: "music",
       title: "Music",
-      author: artist,
+      author: null,
       coverPath: null,
       tracks,
     },

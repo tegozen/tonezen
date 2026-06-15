@@ -40,6 +40,9 @@ class CatalogRemoteApi(
                         sortOrder = t.getInt("sort_order"),
                         title = t.getString("title"),
                         filename = t.getString("filename"),
+                        artist = normalizeAuthor(
+                            if (t.isNull("artist")) null else t.optString("artist"),
+                        ),
                         durationMs = t.optLong("duration_ms").takeIf { it > 0 },
                         localPath = null,
                     ),

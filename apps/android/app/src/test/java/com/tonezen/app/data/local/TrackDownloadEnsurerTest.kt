@@ -31,7 +31,7 @@ class TrackDownloadEnsurerTest {
         networkMonitor = networkMonitor,
     )
 
-    private val track = Track("t1", "b1", 0, "Song", "song.mp3", 180_000, null)
+    private val track = Track("t1", "b1", 0, "Song", "song.mp3", null, 180_000, null)
     private val session = StoredSession(
         userId = "u1",
         email = "u@test.local",

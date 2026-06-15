@@ -40,6 +40,10 @@ export function resolveMusicLibraryTracks(books: Book[], tracks: Track[]): Track
     });
 }
 
+export function musicTrackArtist(track: Track, book: Book): string {
+  return track.artist ?? book.author ?? book.title;
+}
+
 export function buildMusicTrackList(books: Book[], tracks: Track[]): MusicListTrack[] {
   const bookById = new Map(resolveMusicLibraryBooks(books).map((book) => [book.id, book]));
   return resolveMusicLibraryTracks(books, tracks)
@@ -49,7 +53,7 @@ export function buildMusicTrackList(books: Book[], tracks: Track[]): MusicListTr
       return {
         trackId: track.id,
         trackTitle: track.title,
-        artist: book.author ?? book.title,
+        artist: musicTrackArtist(track, book),
         albumTitle: book.title,
         bookId: track.bookId,
         durationMs: track.durationMs,
@@ -84,6 +88,24 @@ export function refreshMusicTrackListDownloadState(
     .filter((item): item is MusicListTrack => item != null);
 }
 
+function musicTrackMetadataMatches(left: MusicListTrack, right: MusicListTrack): boolean {
+  return (
+    left.trackTitle === right.trackTitle &&
+    left.artist === right.artist &&
+    left.albumTitle === right.albumTitle &&
+    left.bookId === right.bookId &&
+    left.durationMs === right.durationMs
+  );
+}
+
+function musicListMetadataChanged(existing: MusicListTrack[], built: MusicListTrack[]): boolean {
+  const freshById = new Map(built.map((track) => [track.trackId, track]));
+  return existing.some((item) => {
+    const fresh = freshById.get(item.trackId);
+    return fresh != null && !musicTrackMetadataMatches(item, fresh);
+  });
+}
+
 export function buildMusicTrackListForCatalogUpdate(
   existing: MusicListTrack[],
   books: Book[],
@@ -100,7 +122,8 @@ export function buildMusicTrackListForCatalogUpdate(
   const catalogChanged =
     built.length !== existing.length ||
     built.some((track) => !existingIds.has(track.trackId)) ||
-    existing.some((track) => !builtIds.has(track.trackId));
+    existing.some((track) => !builtIds.has(track.trackId)) ||
+    musicListMetadataChanged(existing, built);
 
   if (!catalogChanged) {
     return refreshMusicTrackListDownloadState(existing, books, tracks);

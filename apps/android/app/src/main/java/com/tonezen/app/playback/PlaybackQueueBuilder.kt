@@ -110,12 +110,13 @@ class PlaybackQueueBuilder @Inject constructor(
 
     private fun queueItem(book: Book, track: Track, trackNumber: Int, totalTracks: Int): QueuePlayItem {
         val path = track.localPath ?: error("Track ${track.id} missing local path after download")
+        val artist = track.artist ?: book.author ?: book.title
         return QueuePlayItem(
             trackId = track.id,
             mediaUri = path,
             metadata = PlaybackMetadata(
                 trackTitle = track.title,
-                artist = book.author ?: book.title,
+                artist = artist,
                 albumTitle = book.title,
                 trackNumber = trackNumber,
                 totalTracks = totalTracks,

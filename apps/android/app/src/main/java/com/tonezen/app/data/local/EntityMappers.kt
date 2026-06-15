@@ -24,6 +24,7 @@ fun TrackEntity.toDomain() = Track(
     sortOrder = sortOrder,
     title = title,
     filename = filename,
+    artist = normalizeAuthor(artist),
     durationMs = durationMs,
     localPath = localPath,
 )

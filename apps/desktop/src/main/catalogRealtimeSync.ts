@@ -50,7 +50,15 @@ export class CatalogRealtimeSyncService {
         { event: "*", schema: "public", table: "tracks" },
         () => this.scheduleSync(),
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === "SUBSCRIBED") {
+          console.info("[catalog-realtime] subscribed to catalog changes");
+          return;
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.error("[catalog-realtime] subscription failed:", status, err);
+        }
+      });
   }
 
   stop(): void {

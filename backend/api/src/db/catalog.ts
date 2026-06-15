@@ -88,7 +88,7 @@ export class CatalogRepository {
     );
     if (bookResult.rows.length === 0) return null;
     const tracksResult = await this.pool.query(
-      `SELECT t.id, t.sort_order, t.title, t.filename, t.duration_ms
+      `SELECT t.id, t.sort_order, t.title, t.artist, t.filename, t.duration_ms
        FROM tracks t
        WHERE t.book_id = $1 AND t.deleted_at IS NULL
        ORDER BY t.sort_order`,

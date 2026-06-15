@@ -41,6 +41,7 @@ data class Track(
     val sortOrder: Int,
     val title: String,
     val filename: String,
+    val artist: String? = null,
     val durationMs: Long?,
     val localPath: String?,
 )

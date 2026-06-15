@@ -30,9 +30,9 @@ const books: Book[] = [
 ];
 
 const tracks: Track[] = [
-  { id: "t1", bookId: "b2", sortOrder: 1, title: "Two", filename: "2.mp3", durationMs: 2000 },
+  { id: "t1", bookId: "b2", sortOrder: 1, title: "Two", filename: "2.mp3", artist: "Miyagi", durationMs: 2000 },
   { id: "t2", bookId: "b1", sortOrder: 0, title: "One", filename: "1.mp3", durationMs: 1000 },
-  { id: "t3", bookId: "b2", sortOrder: 0, title: "Zero", filename: "0.mp3", durationMs: 3000, localPath: "/tmp/0.mp3" },
+  { id: "t3", bookId: "b2", sortOrder: 0, title: "Zero", filename: "0.mp3", artist: "Miyagi", durationMs: 3000, localPath: "/tmp/0.mp3" },
 ];
 
 describe("buildMusicTrackListForCatalogUpdate", () => {
@@ -58,6 +58,34 @@ describe("buildMusicTrackListForCatalogUpdate", () => {
     const updated = buildMusicTrackListForCatalogUpdate(stale, books, tracks, false);
     expect(updated.map((track) => track.trackId).sort()).toEqual(["t1", "t3"]);
     expect(updated).toHaveLength(2);
+  });
+
+  it("rebuilds list when track metadata changes", () => {
+    const stale = [
+      {
+        trackId: "t3",
+        trackTitle: "Miyagi__Ugly_Name",
+        artist: "Music",
+        albumTitle: "Library",
+        bookId: "b2",
+        durationMs: 3000,
+        isDownloaded: false,
+      },
+    ];
+    const updated = buildMusicTrackListForCatalogUpdate(stale, books, [tracks[2]], false);
+    expect(updated).toHaveLength(1);
+    expect(updated[0]?.trackTitle).toBe("Zero");
+    expect(updated[0]?.artist).toBe("Miyagi");
+  });
+
+  it("uses per-track artist over book author", () => {
+    const mixedBooks: Book[] = [{ ...books[1], author: "Баста" }];
+    const mixedTracks: Track[] = [
+      { id: "t1", bookId: "b2", sortOrder: 0, title: "Marlboro", filename: "a.mp3", artist: "Miyagi" },
+      { id: "t4", bookId: "b2", sortOrder: 1, title: "Весна", filename: "b.mp3", artist: "Баста, GUF" },
+    ];
+    const list = buildMusicTrackList(mixedBooks, mixedTracks);
+    expect(list.map((track) => track.artist)).toEqual(["Miyagi", "Баста, GUF"]);
   });
 });
 

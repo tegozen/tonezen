@@ -10,7 +10,7 @@ internal fun toMusicListTrack(
 ): MusicListTrack = MusicListTrack(
     trackId = track.id,
     trackTitle = track.title,
-    artist = book.author ?: book.title,
+    artist = track.artist ?: book.author ?: book.title,
     albumTitle = book.title,
     bookId = book.id,
     durationMs = track.durationMs,
@@ -46,9 +46,18 @@ internal fun buildMusicTrackListForCatalogUpdate(
 
     val existingIds = existing.map { it.trackId }.toSet()
     val builtIds = built.map { it.trackId }.toSet()
+    val freshById = built.associateBy { it.trackId }
     val catalogChanged = built.size != existing.size ||
         built.any { it.trackId !in existingIds } ||
-        existing.any { it.trackId !in builtIds }
+        existing.any { it.trackId !in builtIds } ||
+        existing.any { item ->
+            val fresh = freshById[item.trackId] ?: return@any false
+            item.trackTitle != fresh.trackTitle ||
+                item.artist != fresh.artist ||
+                item.albumTitle != fresh.albumTitle ||
+                item.bookId != fresh.bookId ||
+                item.durationMs != fresh.durationMs
+        }
 
     if (!catalogChanged) {
         return refreshMusicTrackListDownloadState(existing, downloadedTrackIds)
