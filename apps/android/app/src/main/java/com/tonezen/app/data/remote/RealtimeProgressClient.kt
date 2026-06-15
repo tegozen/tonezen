@@ -30,10 +30,12 @@ class RealtimeProgressClient(
     private var heartbeatJob: Job? = null
     private var topic: String? = null
     private var onAuthError: (() -> Unit)? = null
+    private val messageRef = PhoenixMessageRefCounter()
 
     fun connect(userId: String, accessToken: String, onAuthError: () -> Unit = {}) {
         disconnect()
         this.onAuthError = onAuthError
+        messageRef.reset()
         topic = "realtime:audiobook-progress-$userId"
         val wsBase = supabaseUrl.trimEnd('/').replace("https://", "wss://").replace("http://", "ws://")
         val wsUrl = "$wsBase/realtime/v1/websocket?apikey=$anonKey&vsn=1.0.0"
@@ -75,38 +77,45 @@ class RealtimeProgressClient(
         val payload = JSONObject()
             .put("config", config)
             .put("access_token", accessToken)
-        val message = JSONArray()
-            .put("1")
-            .put("1")
-            .put(topic)
-            .put("phx_join")
-            .put(payload)
-        webSocket.send(message.toString())
+        val joinRef = messageRef.next()
+        webSocket.send(
+            encodePhoenixV1Message(
+                topic = topic ?: return,
+                event = "phx_join",
+                payload = payload,
+                ref = joinRef,
+                joinRef = joinRef,
+            ),
+        )
     }
 
     private fun startHeartbeat(webSocket: WebSocket) {
         heartbeatJob = scope.launch {
             while (isActive) {
                 delay(25_000)
-                val heartbeat = JSONArray().put(null).put(null).put("phoenix").put("heartbeat").put(JSONObject())
-                webSocket.send(heartbeat.toString())
+                webSocket.send(
+                    encodePhoenixV1Message(
+                        topic = "phoenix",
+                        event = "heartbeat",
+                        payload = JSONObject(),
+                        ref = messageRef.next(),
+                    ),
+                )
             }
         }
     }
 
     private suspend fun handleMessage(text: String) {
-        when (JSONArrayMessageEvent(text)) {
+        when (phoenixMessageEvent(text)) {
             "phx_reply" -> {
-                val reason = phxReplyErrorReason(JSONArrayMessagePayload(text))
+                val reason = phxReplyErrorReason(phoenixMessagePayload(text))
                 if (reason != null && isAuthSubscriptionError(reason)) {
                     onAuthError?.invoke()
                 }
                 return
             }
             "postgres_changes" -> {
-                val message = runCatching { JSONArray(text) }.getOrNull() ?: return
-                if (message.length() < 5) return
-                val payload = message.optJSONObject(4) ?: return
+                val payload = phoenixMessagePayload(text) ?: return
                 val data = payload.optJSONObject("data") ?: payload
                 val record = data.optJSONObject("record") ?: return
                 val progress = ProgressRemoteApi.RemoteProgress(
