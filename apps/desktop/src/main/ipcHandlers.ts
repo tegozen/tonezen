@@ -10,6 +10,11 @@ import type { ProgressSyncService } from "./progressSync.js";
 import type { EnqueueDownloadRequest } from "../shared/downloadQueueState.js";
 import type { DownloadPriority } from "../shared/downloadQueuePolicy.js";
 import type { SessionService } from "./sessionService.js";
+import { isSafeStorageId } from "../shared/safeLocalPaths.js";
+
+function assertSafeDownloadIds(bookId: string, trackId: string): boolean {
+  return isSafeStorageId(bookId) && isSafeStorageId(trackId);
+}
 
 export interface IpcHandlerDeps {
   sessionService: SessionService;
@@ -89,22 +94,33 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   ipcMain.handle("db:getAllTracks", () => LocalDatabase.getAllTracks());
   ipcMain.handle("db:getAllProgress", () => LocalDatabase.getAllProgress());
   ipcMain.handle("db:getTracks", (_e, bookId: string) => LocalDatabase.getTracks(bookId));
-  ipcMain.handle("download:track", (_e, bookId: string, trackId: string) =>
-    downloadManager.downloadTrack(bookId, trackId),
-  );
-  ipcMain.handle("download:delete", (_e, bookId: string, trackId: string) =>
-    downloadManager.deleteLocalTrack(bookId, trackId),
-  );
+  ipcMain.handle("download:track", (_e, bookId: string, trackId: string) => {
+    if (!assertSafeDownloadIds(bookId, trackId)) {
+      return Promise.reject(new Error("__download_invalid_path__"));
+    }
+    return downloadManager.downloadTrack(bookId, trackId);
+  });
+  ipcMain.handle("download:delete", (_e, bookId: string, trackId: string) => {
+    if (!assertSafeDownloadIds(bookId, trackId)) {
+      return Promise.reject(new Error("__download_invalid_path__"));
+    }
+    return downloadManager.deleteLocalTrack(bookId, trackId);
+  });
   ipcMain.handle("download:list", () => downloadManager.listDownloadSummaries());
   ipcMain.handle("download:storageStats", () => downloadManager.getStorageStats());
   ipcMain.handle("download:deleteAll", () => downloadManager.deleteAll());
   ipcMain.handle("download:enqueue", (_e, request: EnqueueDownloadRequest) => {
+    if (!assertSafeDownloadIds(request.bookId, request.trackId)) return;
     trackDownloadQueue.enqueue(request);
   });
   ipcMain.handle(
     "download:enqueueBatch",
     (_e, requests: EnqueueDownloadRequest[], batchId?: string) => {
-      trackDownloadQueue.enqueueBatch(requests, batchId);
+      const safe = requests.filter((request) =>
+        assertSafeDownloadIds(request.bookId, request.trackId),
+      );
+      if (safe.length === 0) return;
+      trackDownloadQueue.enqueueBatch(safe, batchId);
     },
   );
   ipcMain.handle(
@@ -119,9 +135,13 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
         subtitle?: string | null;
         contentType?: string;
       },
-    ) => trackDownloadQueue.awaitTrack(bookId, trackId, options),
+    ) => {
+      if (!assertSafeDownloadIds(bookId, trackId)) return Promise.resolve("FAILED");
+      return trackDownloadQueue.awaitTrack(bookId, trackId, options);
+    },
   );
   ipcMain.handle("download:cancelTrack", (_e, bookId: string, trackId: string) => {
+    if (!assertSafeDownloadIds(bookId, trackId)) return;
     trackDownloadQueue.cancelTrack(bookId, trackId);
   });
   ipcMain.handle("download:cancelBatch", (_e, batchId: string) => {

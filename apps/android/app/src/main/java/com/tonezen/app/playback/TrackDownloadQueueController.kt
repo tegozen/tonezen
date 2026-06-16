@@ -117,6 +117,7 @@ class TrackDownloadQueueController @Inject constructor(
     }
 
     fun cancelTrack(bookId: String, trackId: String) {
+        if (!SafeLocalStorage.isSafeId(bookId) || !SafeLocalStorage.isSafeId(trackId)) return
         scope.launch {
             mutex.withLock {
                 val key = DownloadQueueKey(bookId, trackId)

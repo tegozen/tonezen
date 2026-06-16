@@ -6,6 +6,7 @@ import com.tonezen.app.BuildConfig
 import com.tonezen.app.data.local.SafeLocalStorage
 import com.tonezen.app.data.remote.downloads.DownloadsRemoteApi
 import com.tonezen.app.domain.downloads.DownloadResumePolicy
+import com.tonezen.app.domain.downloads.DownloadUrlPolicy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.IOException
@@ -176,7 +177,9 @@ class DownloadRepository @Inject constructor(
             signedUrl.startsWith("/") -> "$apiBase/storage/v1$signedUrl"
             else -> signedUrl
         }
-        return rewriteLocalhostToEmulator(absolute, apiBase)
+        return rewriteLocalhostToEmulator(absolute, apiBase).also { resolved ->
+            DownloadUrlPolicy.assertAllowedDownloadUrl(resolved, apiBase)
+        }
     }
 
     private fun rewriteLocalhostToEmulator(url: String, apiBase: String): String {

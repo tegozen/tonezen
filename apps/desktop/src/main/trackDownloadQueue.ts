@@ -105,6 +105,7 @@ export class TrackDownloadQueue {
       contentType?: string;
     },
   ): Promise<DownloadAwaitResult> {
+    if (!isSafeStorageId(bookId) || !isSafeStorageId(trackId)) return "FAILED";
     const key = queueKey(bookId, trackId);
     if (LocalDatabase.resolveLocalTrackPath(bookId, trackId, this.downloadsRoot)) {
       return "COMPLETED";
@@ -126,6 +127,7 @@ export class TrackDownloadQueue {
   }
 
   cancelTrack(bookId: string, trackId: string): void {
+    if (!isSafeStorageId(bookId) || !isSafeStorageId(trackId)) return;
     void this.mutex.run(async () => {
       const key = queueKey(bookId, trackId);
       this.userCancelledKeys.add(key);
