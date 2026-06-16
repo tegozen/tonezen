@@ -41,6 +41,39 @@ services:
         strip_path: true
         paths:
           - /storage/v1
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - HEAD
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Authorization
+            - Content-Type
+            - apikey
+            - x-client-info
+            - x-upsert
+            - tus-resumable
+            - upload-length
+            - upload-offset
+            - upload-metadata
+            - cache-control
+            - x-amz-content-sha256
+          exposed_headers:
+            - Location
+            - tus-resumable
+            - upload-offset
+            - upload-length
+            - upload-metadata
+            - upload-expires
+          credentials: true
 
   # TUS resumable uploads: storage returns Location without /storage/v1 prefix
   - name: storage-tus
@@ -53,6 +86,37 @@ services:
           - /upload/
     plugins:
       - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - HEAD
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Authorization
+            - Content-Type
+            - apikey
+            - x-client-info
+            - x-upsert
+            - tus-resumable
+            - upload-length
+            - upload-offset
+            - upload-metadata
+            - cache-control
+            - x-amz-content-sha256
+          exposed_headers:
+            - Location
+            - tus-resumable
+            - upload-offset
+            - upload-length
+            - upload-metadata
+            - upload-expires
+          credentials: true
 
   - name: realtime-v1-ws
     url: http://realtime-dev.supabase-realtime:4000/socket
@@ -148,4 +212,18 @@ plugins:
         - Content-Type
         - apikey
         - x-client-info
+        - x-upsert
+        - tus-resumable
+        - upload-length
+        - upload-offset
+        - upload-metadata
+        - cache-control
+        - x-amz-content-sha256
+      exposed_headers:
+        - Location
+        - tus-resumable
+        - upload-offset
+        - upload-length
+        - upload-metadata
+        - upload-expires
       credentials: true

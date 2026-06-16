@@ -63,7 +63,13 @@ The indexer reads tags from each file (title, artist, track number). All files b
 
 ### Large files (> ~6 MB)
 
-Studio switches to **TUS** (resumable upload) for bigger files. Requires `storage-api` **v1.29+** with `REQUEST_ALLOW_X_FORWARDED_PATH=true` and `STORAGE_PUBLIC_URL` set (see `docker-compose.yml`).
+Studio switches to **TUS** (resumable upload) for bigger files. Requires `storage-api` **v1.60+** with `REQUEST_ALLOW_X_FORWARDED_PATH=true` and `STORAGE_PUBLIC_URL` set to the public HTTPS URL (see `docker-compose.yml` and `TONEZEN_BASE_URL` in `.env`).
+
+If Studio shows **«Failed to upload 1 file!»**:
+
+1. **`TONEZEN_BASE_URL` must match how you open Studio** — local dev: `http://localhost:8000`; prod: `https://your-domain` (no `:8000`). If local Studio (`localhost:8000`) points at prod URL, browser CORS blocks uploads.
+2. **Large files (> ~6 MB)** — TUS `Location` must be HTTPS without internal port. After changing `TONEZEN_BASE_URL`, run `docker compose up -d storage kong`.
+3. Hard-refresh Studio (`Ctrl+F5`) and retry failed files only (TUS may cache broken upload URLs).
 
 If only small files succeed and larger ones fail with `Invalid URL`:
 
