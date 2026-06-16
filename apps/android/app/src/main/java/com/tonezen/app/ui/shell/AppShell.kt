@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -14,8 +16,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tonezen.app.R
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.domain.library.filterAndSortBooks
 import com.tonezen.app.domain.library.filterCycles
@@ -23,6 +28,8 @@ import com.tonezen.app.ui.components.BottomDestination
 import com.tonezen.app.ui.components.MiniPlayer
 import com.tonezen.app.ui.components.TonezenBottomChromeBar
 import com.tonezen.app.ui.components.TonezenBottomNavigation
+import com.tonezen.app.ui.components.TonezenTitleChromeBar
+import com.tonezen.app.ui.downloads.DownloadsTabScreen
 import com.tonezen.app.ui.library.CycleCardState
 import com.tonezen.app.ui.library.CycleDetailScreen
 import com.tonezen.app.ui.library.LibraryScreen
@@ -35,6 +42,8 @@ import com.tonezen.app.ui.profile.ProfileScreen
 import com.tonezen.app.ui.profile.AvatarCropScreen
 import com.tonezen.app.ui.profile.ProfileViewModel
 import com.tonezen.app.ui.profile.resolveAvatarUploadError
+import com.tonezen.app.ui.theme.TonezenInk
+import com.tonezen.app.ui.theme.TonezenPageChromeScrollPadding
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.withoutBottom
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
@@ -204,6 +213,29 @@ fun AppShell(
                         showMiniPlayer = shellState.showMiniPlayer,
                         isNetworkOnline = libraryState.isNetworkOnline,
                     )
+
+                    shellState.currentTab == BottomDestination.Downloads -> Box(modifier = Modifier.fillMaxSize()) {
+                        DownloadsTabScreen(
+                            hazeState = hazeState,
+                            topPadding = TonezenPageChromeScrollPadding,
+                            bottomPadding = tonezenBottomChromeScrollPadding(
+                                showMiniPlayer = miniPlayerVisible,
+                                showBottomNav = true,
+                            ),
+                            offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
+                        )
+                        TonezenTitleChromeBar(
+                            modifier = Modifier.align(Alignment.TopCenter),
+                            hazeState = hazeState,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.nav_downloads),
+                                color = TonezenInk,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
 
                     else -> ProfileScreen(
                         padding = PaddingValues(0.dp),

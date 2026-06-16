@@ -3,6 +3,7 @@
     <string name="app_name">Tonezen</string>
     <string name="playback_notification_channel">Воспроизведение</string>
     <string name="nav_library">Библиотека</string>
+    <string name="nav_downloads">Загрузки</string>
     <string name="nav_profile">Профиль</string>
     <string name="tab_audiobooks">Аудиокниги</string>
     <string name="tab_music">Музыка</string>
@@ -124,7 +125,6 @@
     <string name="music_playback_error_offline">Нет сети — нужен интернет для первой загрузки</string>
     <string name="music_playback_error_login">Войдите в аккаунт, чтобы скачать трек</string>
     <string name="music_playback_error_download">Не удалось скачать трек</string>
-    <string name="tab_downloads">Загрузки</string>
     <string name="download_notification_channel">Загрузки</string>
     <string name="download_notification_title">Загрузка Tonezen</string>
     <string name="download_notification_progress">Скачивается: %1$s</string>

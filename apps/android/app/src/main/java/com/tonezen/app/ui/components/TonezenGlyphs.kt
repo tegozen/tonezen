@@ -29,6 +29,7 @@ private enum class TonezenSvgAsset(val fileName: String) {
     Library("library.svg"),
     Player("player.svg"),
     Download("download.svg"),
+    Downloads("downloads.svg"),
     Profile("profile.svg"),
     CheckCircle("check-circle.svg"),
     ChevronLeft("chevron-left.svg"),
@@ -103,6 +104,11 @@ internal fun PlayerGlyph(modifier: Modifier = Modifier, tint: Color = TonezenMut
 @Composable
 internal fun DownloadGlyph(modifier: Modifier = Modifier, tint: Color = TonezenMuted, size: Dp = 20.dp) {
     TonezenSvgGlyph(TonezenSvgAsset.Download, modifier, tint, size)
+}
+
+@Composable
+internal fun DownloadsGlyph(modifier: Modifier = Modifier, tint: Color = TonezenMuted, size: Dp = 20.dp) {
+    TonezenSvgGlyph(TonezenSvgAsset.Downloads, modifier, tint, size)
 }
 
 @Composable

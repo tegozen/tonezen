@@ -40,6 +40,7 @@ import com.tonezen.app.ui.theme.trackCoverBrush
 
 enum class BottomDestination(val labelRes: Int) {
     Library(R.string.nav_library),
+    Downloads(R.string.nav_downloads),
     Profile(R.string.nav_profile),
 }
 
@@ -59,6 +60,13 @@ internal fun TonezenBottomNavigation(
             selected = selected,
             testTag = TestTags.NAV_LIBRARY,
             onClick = { onSelect(BottomDestination.Library) },
+            modifier = Modifier.weight(1f),
+        )
+        BottomNavItem(
+            destination = BottomDestination.Downloads,
+            selected = selected,
+            testTag = TestTags.NAV_DOWNLOADS,
+            onClick = { onSelect(BottomDestination.Downloads) },
             modifier = Modifier.weight(1f),
         )
         BottomNavItem(
@@ -105,6 +113,7 @@ private fun BottomNavItem(
                 val tint = if (active) TonezenAppBg else TonezenMuted
                 when (destination) {
                     BottomDestination.Library -> LibraryGlyph(tint = tint)
+                    BottomDestination.Downloads -> DownloadsGlyph(tint = tint)
                     BottomDestination.Profile -> ProfileGlyph(tint = tint)
                 }
             }

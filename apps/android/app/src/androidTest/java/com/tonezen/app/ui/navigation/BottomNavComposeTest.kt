@@ -22,7 +22,7 @@ class BottomNavComposeTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun bottomNav_switchesBetweenLibraryAndProfile() {
+    fun bottomNav_switchesBetweenLibraryDownloadsAndProfile() {
         var selected by mutableStateOf(BottomDestination.Library)
         composeRule.setContent {
             TonezenComposeTestContent {
@@ -32,6 +32,9 @@ class BottomNavComposeTest {
                 )
             }
         }
+
+        composeRule.onNodeWithTag(TestTags.NAV_DOWNLOADS).performClick()
+        composeRule.runOnIdle { assertEquals(BottomDestination.Downloads, selected) }
 
         composeRule.onNodeWithTag(TestTags.NAV_PROFILE).performClick()
         composeRule.runOnIdle { assertEquals(BottomDestination.Profile, selected) }

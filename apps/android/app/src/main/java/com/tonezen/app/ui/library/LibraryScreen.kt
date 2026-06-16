@@ -49,7 +49,6 @@ import com.tonezen.app.ui.components.TonezenTabs
 import com.tonezen.app.ui.components.TonezenTopChromeBar
 import com.tonezen.app.playback.DownloadQueueState
 import com.tonezen.app.playback.toMusicDownloadState
-import com.tonezen.app.ui.downloads.DownloadsTabScreen
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenSurface
@@ -102,7 +101,6 @@ internal fun LibraryScreen(
     val music = allBooks.filter { it.contentType == ContentType.MUSIC }
     val isAudiobooksTab = selectedTab == 0
     val isMusicTab = selectedTab == 1
-    val isDownloadsTab = selectedTab == 2
     val musicDownload = remember(downloadQueue) { downloadQueue.toMusicDownloadState() }
     val topChromeScrollPadding = remember(offlineBanner, isAudiobooksTab) {
         val base = if (isAudiobooksTab) {
@@ -140,14 +138,6 @@ internal fun LibraryScreen(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (isDownloadsTab) {
-            DownloadsTabScreen(
-                hazeState = hazeState,
-                topPadding = topChromeScrollPadding,
-                bottomPadding = bottomChromeScrollPadding,
-                offlineBanner = offlineBanner,
-            )
-        } else {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -243,7 +233,6 @@ internal fun LibraryScreen(
                     )
                 }
             }
-        }
         }
         TonezenTopChromeBar(
             modifier = Modifier.align(Alignment.TopCenter),

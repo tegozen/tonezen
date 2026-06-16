@@ -376,13 +376,6 @@ internal fun TonezenTabs(selectedTab: Int, onSelect: (Int) -> Unit) {
             modifier = Modifier.weight(1f),
             onClick = { onSelect(1) },
         )
-        TonezenTab(
-            label = stringResource(R.string.tab_downloads),
-            selected = selectedTab == 2,
-            testTag = TestTags.TAB_DOWNLOADS,
-            modifier = Modifier.weight(1f),
-            onClick = { onSelect(2) },
-        )
     }
 }
 
