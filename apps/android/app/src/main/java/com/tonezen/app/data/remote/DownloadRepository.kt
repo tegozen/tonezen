@@ -73,6 +73,15 @@ class DownloadRepository @Inject constructor(
             ?: throw IllegalArgumentException("Invalid download target")
         partFile.parentFile?.mkdirs()
 
+        if (finalFile.isFile && finalFile.length() > 0L) {
+            onProgress(1f)
+            return@withContext ResumableDownloadOutcome(
+                finalFile = finalFile,
+                bytesDownloaded = finalFile.length(),
+                totalBytes = totalBytesHint ?: finalFile.length(),
+            )
+        }
+
         var offset = bytesAlreadyDownloaded.coerceAtLeast(0L)
         if (offset == 0L) {
             partFile.delete()

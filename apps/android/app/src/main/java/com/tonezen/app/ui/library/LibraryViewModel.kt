@@ -116,11 +116,16 @@ class LibraryViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            var wasQueueActive = downloadQueueNotifier.snapshot().isActive
             downloadQueueNotifier.state.collect { state ->
                 if (!state.isActive && pendingCatalogReload) {
                     pendingCatalogReload = false
                     reloadCatalogFromLocal()
                 }
+                if (wasQueueActive && !state.isActive) {
+                    refreshDownloads()
+                }
+                wasQueueActive = state.isActive
             }
         }
         playbackClient.connect()
@@ -155,9 +160,6 @@ class LibraryViewModel @Inject constructor(
             localLibraryNotifier.changes
                 .debounce(LOCAL_LIBRARY_REFRESH_DEBOUNCE_MS)
                 .collect {
-                withContext(Dispatchers.IO) {
-                    musicHandler.invalidatePlaybackIfLocalFilesMissing()
-                }
                 refreshDownloads()
             }
         }

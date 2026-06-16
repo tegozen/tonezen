@@ -126,15 +126,24 @@ internal class LibraryMusicHandler(
 
     fun downloadMusicTrack(track: MusicListTrack) {
         if (!uiState.value.isNetworkOnline) return
-        if (track.isDownloaded) return
-        val snapshot = downloadQueueNotifier.snapshot()
-        if (snapshot.progressForTrack(track.trackId) != null ||
-            snapshot.queuedTrackIds().contains(track.trackId)
-        ) {
-            downloadQueueController.cancelTrack(track.bookId, track.trackId)
-            return
+        scope.launch {
+            if (withContext(Dispatchers.IO) {
+                    trackDownloadEnsurer.isTrackLocal(track.bookId, track.trackId)
+                }
+            ) {
+                val updatedList = refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
+                uiState.update { it.copy(musicTrackList = updatedList) }
+                return@launch
+            }
+            val snapshot = downloadQueueNotifier.snapshot()
+            if (snapshot.progressForTrack(track.trackId) != null ||
+                snapshot.queuedTrackIds().contains(track.trackId)
+            ) {
+                downloadQueueController.cancelQueuedTrack(track.bookId, track.trackId)
+                return@launch
+            }
+            downloadQueueController.enqueue(track.toEnqueueRequest(DownloadPriority.USER))
         }
-        downloadQueueController.enqueue(track.toEnqueueRequest(DownloadPriority.USER))
     }
 
     fun cancelAllDownloads() {
