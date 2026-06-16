@@ -82,7 +82,8 @@ class TrackDownloadQueueController @Inject constructor(
             mutex.withLock {
                 bulkBatchId = batchId
                 bulkTotal = requests.size
-                requests.forEach { enqueueLocked(it.copy(batchId = batchId)) }
+                requests.forEach { enqueueLocked(it.copy(batchId = batchId), refreshNotifier = false) }
+                refreshNotifierFromDb()
             }
         }
     }
@@ -200,7 +201,10 @@ class TrackDownloadQueueController @Inject constructor(
         }
     }
 
-    private suspend fun enqueueLocked(request: EnqueueDownloadRequest) {
+    private suspend fun enqueueLocked(
+        request: EnqueueDownloadRequest,
+        refreshNotifier: Boolean = true,
+    ) {
         if (!SafeLocalStorage.isSafeId(request.bookId) || !SafeLocalStorage.isSafeId(request.trackId)) return
         if (catalogRepository.resolveLocalTrackPath(request.bookId, request.trackId) != null) {
             completeAwaiter(DownloadQueueKey(request.bookId, request.trackId), DownloadAwaitResult.COMPLETED)
@@ -231,7 +235,9 @@ class TrackDownloadQueueController @Inject constructor(
             tempPath = partFile?.absolutePath,
         )
         downloadQueueDao.upsert(entity)
-        refreshNotifierFromDb()
+        if (refreshNotifier) {
+            refreshNotifierFromDb()
+        }
         startWorkerLocked()
     }
 
@@ -378,45 +384,39 @@ class TrackDownloadQueueController @Inject constructor(
     private suspend fun refreshNotifierFromDb(paused: Boolean = pausedForNetwork) {
         val rows = downloadQueueDao.getAll()
         val active = notifier.snapshot()
-        val queued = rows.map { entity ->
+        val entityByKey = rows.associateBy { DownloadQueueKey(it.bookId, it.trackId) }
+        val items = rows.map { entity ->
+            val isActive = !paused &&
+                entity.bookId == active.activeBookId &&
+                entity.trackId == active.activeTrackId
             DownloadQueueItem(
                 bookId = entity.bookId,
                 trackId = entity.trackId,
                 title = entity.title,
                 subtitle = entity.subtitle,
                 contentType = entity.contentType,
-                status = if (paused) {
-                    DownloadQueueItemStatus.PAUSED_OFFLINE
-                } else if (
-                    entity.bookId == active.activeBookId && entity.trackId == active.activeTrackId
-                ) {
-                    DownloadQueueItemStatus.DOWNLOADING
-                } else {
-                    DownloadQueueItemStatus.QUEUED
+                status = when {
+                    paused -> DownloadQueueItemStatus.PAUSED_OFFLINE
+                    isActive -> DownloadQueueItemStatus.DOWNLOADING
+                    else -> DownloadQueueItemStatus.QUEUED
                 },
-                progress = if (entity.bookId == active.activeBookId && entity.trackId == active.activeTrackId) {
-                    active.activeProgress
-                } else {
-                    null
-                },
+                progress = if (isActive) active.activeProgress else null,
                 batchId = entity.batchId,
                 enqueuedAt = entity.enqueuedAt,
                 completedAt = null,
             )
-        }.let { items ->
-            DownloadQueuePolicy.sortPending(
-                items.map { item ->
-                    DownloadQueueSortable(
-                        key = DownloadQueueKey(item.bookId, item.trackId),
-                        priority = DownloadPriority.valueOf(
-                            rows.first { it.trackId == item.trackId && it.bookId == item.bookId }.priority,
-                        ),
-                        enqueuedAt = item.enqueuedAt,
-                    )
-                },
-            ).mapNotNull { sortable ->
-                items.find { it.bookId == sortable.key.bookId && it.trackId == sortable.key.trackId }
-            }
+        }
+        val itemsByKey = items.associateBy { DownloadQueueKey(it.bookId, it.trackId) }
+        val sortables = items.mapNotNull { item ->
+            val entity = entityByKey[DownloadQueueKey(item.bookId, item.trackId)] ?: return@mapNotNull null
+            DownloadQueueSortable(
+                key = DownloadQueueKey(item.bookId, item.trackId),
+                priority = DownloadPriority.valueOf(entity.priority),
+                enqueuedAt = item.enqueuedAt,
+            )
+        }
+        val queued = DownloadQueuePolicy.sortPending(sortables).mapNotNull { sortable ->
+            itemsByKey[sortable.key]
         }
         val bulkBatch = bulkBatchId
         val bulkDone = if (bulkBatch != null) {

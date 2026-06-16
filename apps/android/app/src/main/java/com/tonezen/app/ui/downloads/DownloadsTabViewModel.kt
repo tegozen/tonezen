@@ -17,6 +17,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -60,11 +65,15 @@ class DownloadsTabViewModel @Inject constructor(
     init {
         refreshCompletedFromDb()
         viewModelScope.launch {
-            downloadQueueNotifier.state.collect {
-                if (!it.isActive) {
-                    refreshCompletedFromDb()
+            downloadQueueNotifier.state
+                .scan(false to false) { (_, wasActive), state ->
+                    wasActive to state.isActive
                 }
-            }
+                .drop(1)
+                .map { (wasActive, isActive) -> wasActive && !isActive }
+                .filter { it }
+                .debounce(DOWNLOADS_TAB_REFRESH_DEBOUNCE_MS)
+                .collect { refreshCompletedFromDb() }
         }
     }
 
@@ -151,3 +160,5 @@ class DownloadsTabViewModel @Inject constructor(
             completedAt = localDownloadedAt ?: 0L,
         )
 }
+
+private const val DOWNLOADS_TAB_REFRESH_DEBOUNCE_MS = 300L

@@ -90,8 +90,9 @@ export class TrackDownloadQueue {
       this.bulkBatchId = batchId;
       this.bulkTotal = requests.length;
       for (const request of requests) {
-        await this.enqueueLocked({ ...request, batchId });
+        await this.enqueueLocked({ ...request, batchId }, false);
       }
+      this.refreshNotifierFromDb();
     });
   }
 
@@ -200,7 +201,10 @@ export class TrackDownloadQueue {
     this.startWorkerLocked();
   }
 
-  private async enqueueLocked(request: EnqueueDownloadRequest): Promise<void> {
+  private async enqueueLocked(
+    request: EnqueueDownloadRequest,
+    refreshNotifier = true,
+  ): Promise<void> {
     if (!isSafeStorageId(request.bookId) || !isSafeStorageId(request.trackId)) return;
     const key = queueKey(request.bookId, request.trackId);
     if (LocalDatabase.resolveLocalTrackPath(request.bookId, request.trackId, this.downloadsRoot)) {
@@ -231,7 +235,9 @@ export class TrackDownloadQueue {
       tempPath: partPath,
     };
     LocalDatabase.upsert(entity);
-    this.refreshNotifierFromDb();
+    if (refreshNotifier) {
+      this.refreshNotifierFromDb();
+    }
     this.startWorkerLocked();
   }
 
@@ -417,6 +423,7 @@ export class TrackDownloadQueue {
     const activeBookId = this.state.activeBookId;
     const activeTrackId = this.state.activeTrackId;
     const activeProgress = this.state.trackProgress;
+    const entityByKey = new Map(rows.map((entity) => [queueKey(entity.bookId, entity.trackId), entity]));
 
     const items: DownloadQueueItem[] = rows.map((entity) => {
       const isActive =
@@ -443,23 +450,17 @@ export class TrackDownloadQueue {
       };
     });
 
-    const sortedItems = sortPending(
-      items.map((item) => {
-        const row = rows.find(
-          (entity) => entity.bookId === item.bookId && entity.trackId === item.trackId,
-        )!;
-        return {
-          key: { bookId: item.bookId, trackId: item.trackId },
-          priority: row.priority as DownloadPriority,
-          enqueuedAt: item.enqueuedAt,
-        };
-      }),
-    )
-      .map((sortable) =>
-        items.find(
-          (item) => item.bookId === sortable.key.bookId && item.trackId === sortable.key.trackId,
-        ),
-      )
+    const itemsByKey = new Map(items.map((item) => [queueKey(item.bookId, item.trackId), item]));
+    const sortables = items.map((item) => {
+      const row = entityByKey.get(queueKey(item.bookId, item.trackId))!;
+      return {
+        key: { bookId: item.bookId, trackId: item.trackId },
+        priority: row.priority as DownloadPriority,
+        enqueuedAt: item.enqueuedAt,
+      };
+    });
+    const sortedItems = sortPending(sortables)
+      .map((sortable) => itemsByKey.get(queueKey(sortable.key.bookId, sortable.key.trackId)))
       .filter((item): item is DownloadQueueItem => item != null);
 
     const bulkBatch = this.bulkBatchId;
