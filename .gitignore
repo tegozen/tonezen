@@ -7,6 +7,9 @@
 # Runtime data (Postgres + storage live in Docker volumes; see scripts/*-export.sh)
 /data/
 /backups/
+/docker/landing/public/downloads/*
+!/docker/landing/public/downloads/README.md
+!/docker/landing/public/downloads/.gitkeep
 
 # Node
 node_modules/

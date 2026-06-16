@@ -1,6 +1,6 @@
-.PHONY: test lint up down indexer-test api-test desktop-test postgres-export postgres-import gen-env check-eol
+.PHONY: test lint up down indexer-test api-test desktop-test landing-test postgres-export postgres-import gen-env check-eol
 
-test: check-eol indexer-test api-test desktop-test
+test: check-eol landing-test indexer-test api-test desktop-test
 	@echo "All unit tests passed"
 
 lint: check-eol
@@ -28,6 +28,9 @@ api-test:
 
 desktop-test:
 	cd apps/desktop && npm test
+
+landing-test:
+	node ci/check-landing.mjs
 
 indexer-run:
 	cd backend/indexer && npm run start

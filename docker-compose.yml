@@ -235,6 +235,12 @@ services:
       TONEZEN_BASE_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       PORT: 3001
 
+  landing:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./docker/landing/public:/usr/share/nginx/html:ro
+
   kong:
     image: kong:2.8.1
     restart: unless-stopped
@@ -242,6 +248,7 @@ services:
       - auth
       - rest
       - api
+      - landing
       - realtime
       - storage
       - studio

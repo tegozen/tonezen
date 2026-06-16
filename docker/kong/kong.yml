@@ -71,14 +71,59 @@ services:
         paths:
           - /realtime/v1/api
 
+  - name: landing
+    url: http://landing:80/
+    routes:
+      - name: landing-root
+        strip_path: false
+        paths:
+          - /
+    plugins:
+      - name: cors
+
   - name: studio
     url: http://studio:3000/
     routes:
-      - name: studio
-        strip_path: false
-        regex_priority: 0
+      - name: studio-entry
+        strip_path: true
         paths:
-          - /
+          - /studio
+      - name: studio-next
+        strip_path: false
+        paths:
+          - /_next
+      - name: studio-favicon
+        strip_path: false
+        paths:
+          - /favicon
+      - name: studio-img
+        strip_path: false
+        paths:
+          - /img
+      - name: studio-monaco
+        strip_path: false
+        paths:
+          - /monaco-editor
+      - name: studio-project
+        strip_path: false
+        paths:
+          - /project
+      - name: studio-projects
+        strip_path: false
+        paths:
+          - /projects
+      - name: studio-platform
+        strip_path: false
+        paths:
+          - /platform
+      - name: studio-account
+        strip_path: false
+        paths:
+          - /account
+      - name: studio-api
+        strip_path: false
+        paths:
+          - /api
     plugins:
       - name: cors
       - name: basic-auth
