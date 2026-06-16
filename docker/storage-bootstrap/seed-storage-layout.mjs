@@ -15,6 +15,32 @@ function authHeaders(serviceKey) {
   };
 }
 
+export async function waitForStorageReady({
+  storageUrl,
+  fetchFn = fetch,
+  maxAttempts = 60,
+  delayMs = 2000,
+}) {
+  const base = storageUrl.replace(/\/$/, "");
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const res = await fetchFn(`${base}/status`);
+      if (res.ok) {
+        return;
+      }
+    } catch {
+      // Storage still starting.
+    }
+
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw new Error(`Storage not ready after ${maxAttempts} attempts: ${storageUrl}`);
+}
+
 export async function uploadLayoutObject({
   storageUrl,
   serviceKey,
@@ -67,6 +93,7 @@ async function main() {
     throw new Error("SERVICE_ROLE_KEY is required");
   }
 
+  await waitForStorageReady({ storageUrl });
   const result = await ensureContentLayout({ storageUrl, serviceKey, bucket });
   console.log(
     `Storage layout in bucket '${bucket}': ${result.created.join(", ")}`,

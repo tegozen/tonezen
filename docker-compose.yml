@@ -87,7 +87,7 @@ services:
     restart: "no"
     depends_on:
       storage:
-        condition: service_started
+        condition: service_healthy
     environment:
       STORAGE_URL: http://storage:5000
       STORAGE_BUCKET: content
@@ -209,6 +209,12 @@ services:
       TENANT_ID: tonezen
       ENABLE_IMAGE_TRANSFORMATION: "false"
       IMGPROXY_URL: http://imgproxy:5001
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:5000/status"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
 
   imgproxy:
     image: darthsim/imgproxy:v3.8.0
