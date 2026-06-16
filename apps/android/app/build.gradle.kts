@@ -17,8 +17,15 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000\"")
+        buildConfigField("String", "BASE_URL", "\"https://tonezen.tegozen.ru\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwiZXhwIjoyMDk2NTgzNzc3fQ._CP-vbYhhZ9MPZaShAUB_93enHnw9dfh3_sFLep_Jws\"")
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 
     buildFeatures {

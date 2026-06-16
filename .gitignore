@@ -60,3 +60,4 @@ coverage/
 
 # Deno
 backend/supabase/functions/.deno/
+apps/desktop/client.env

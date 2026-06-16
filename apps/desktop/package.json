@@ -7,10 +7,42 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "dist:win": "node scripts/prepare-client-env.mjs && npm run build && electron-builder --win portable",
     "preview": "electron-vite preview",
     "test": "vitest run",
     "lint": "eslint src electron.vite.config.ts",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
+  },
+  "build": {
+    "appId": "com.tonezen.desktop",
+    "productName": "Tonezen",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**"
+    ],
+    "extraFiles": [
+      {
+        "from": "client.env",
+        "to": ".env"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "tonezen-windows.${ext}"
+    }
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
@@ -31,6 +63,7 @@
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "eslint": "^9.16.0",
     "eslint-plugin-react-hooks": "^5.0.0",
