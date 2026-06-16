@@ -37,6 +37,9 @@ interface CatalogDao {
     @Query("SELECT * FROM tracks WHERE localPath IS NOT NULL AND localPath != ''")
     suspend fun getTracksWithLocalPath(): List<TrackEntity>
 
+    @Query("SELECT * FROM tracks WHERE localPath IS NULL OR localPath = ''")
+    suspend fun getTracksWithoutLocalPath(): List<TrackEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertBooks(books: List<BookEntity>)
 

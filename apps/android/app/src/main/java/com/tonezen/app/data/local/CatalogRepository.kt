@@ -82,7 +82,7 @@ class CatalogRepository @Inject constructor(
         val ids = catalogDao.getTracksWithLocalPath()
             .asSequence()
             .mapNotNull { entity ->
-                SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, entity.localPath)
+                SafeLocalStorage.sanitizeStoredLocalPath(context.filesDir, entity.localPath)
                     ?.let { entity.id }
             }
             .toSet()
@@ -96,30 +96,26 @@ class CatalogRepository @Inject constructor(
 
     /** Backfill DB localPath from files on disk (e.g. after mark failed or offline reopen). */
     suspend fun reconcileLocalDownloadPaths() = withContext(Dispatchers.IO) {
-        var changed = false
-        for (entity in catalogDao.getAllTracks()) {
+        val updates = mutableListOf<TrackEntity>()
+        val onDiskByKey = scanDownloadedFilesOnDisk()
+
+        for (entity in catalogDao.getTracksWithoutLocalPath()) {
+            val safePath = onDiskByKey[entity.bookId to entity.id] ?: continue
+            updates.add(entity.copy(localPath = safePath))
+        }
+
+        for (entity in catalogDao.getTracksWithLocalPath()) {
             val validPath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, entity.localPath)
-            if (validPath != null) {
-                if (validPath != entity.localPath) {
-                    catalogDao.upsertTracks(listOf(entity.copy(localPath = validPath)))
-                    changed = true
-                }
-                continue
-            }
-            val onDisk = expectedTrackFile(entity.bookId, entity.id)
-            if (onDisk?.isFile == true && onDisk.length() > 0L) {
-                val safePath = SafeLocalStorage.sanitizeExistingLocalPath(
-                    context.filesDir,
-                    onDisk.absolutePath,
-                ) ?: continue
-                catalogDao.upsertTracks(listOf(entity.copy(localPath = safePath)))
-                changed = true
-            } else if (!entity.localPath.isNullOrBlank()) {
-                catalogDao.upsertTracks(listOf(entity.copy(localPath = null)))
-                changed = true
+            when {
+                validPath == null -> updates.add(entity.copy(localPath = null))
+                validPath != entity.localPath -> updates.add(entity.copy(localPath = validPath))
             }
         }
-        if (changed) invalidateDownloadedTrackIdsCache()
+
+        if (updates.isNotEmpty()) {
+            catalogDao.upsertTracks(updates)
+            invalidateDownloadedTrackIdsCache()
+        }
     }
 
     private suspend fun invalidateDownloadedTrackIdsCache() {
@@ -206,7 +202,6 @@ class CatalogRepository @Inject constructor(
                 }
             }.awaitAll()
         }
-        reconcileLocalDownloadPaths()
         val remoteIds = remoteBooks.map { it.id }
         if (remoteIds.isNotEmpty()) {
             catalogDao.deleteTracksForBooksNotIn(remoteIds)
@@ -269,6 +264,26 @@ class CatalogRepository @Inject constructor(
 
     private fun expectedTrackFile(bookId: String, trackId: String): File? =
         SafeLocalStorage.trackFile(context.filesDir, bookId, trackId)
+
+    private fun scanDownloadedFilesOnDisk(): Map<Pair<String, String>, String> {
+        val downloadsRoot = File(context.filesDir, "downloads")
+        if (!downloadsRoot.isDirectory) return emptyMap()
+        val result = mutableMapOf<Pair<String, String>, String>()
+        downloadsRoot.listFiles()?.forEach { bookDir ->
+            if (!bookDir.isDirectory) return@forEach
+            val bookId = bookDir.name
+            if (!SafeLocalStorage.isSafeId(bookId)) return@forEach
+            bookDir.listFiles()?.forEach { file ->
+                if (!file.isFile || file.length() <= 0L) return@forEach
+                val trackId = file.name.removeSuffix(".mp3")
+                if (trackId == file.name || !SafeLocalStorage.isSafeId(trackId)) return@forEach
+                SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, file.absolutePath)?.let { safePath ->
+                    result[bookId to trackId] = safePath
+                }
+            }
+        }
+        return result
+    }
 
     suspend fun clearLocalDownloads(bookId: String) {
         catalogDao.clearLocalPathsForBook(bookId)
