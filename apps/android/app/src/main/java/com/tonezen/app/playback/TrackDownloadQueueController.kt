@@ -199,6 +199,7 @@ class TrackDownloadQueueController @Inject constructor(
             val items = downloadQueueDao.getAll()
             items.forEach { cancelTrackLocked(it.bookId, it.trackId) }
             downloadQueueDao.deleteAll()
+            userCancelledKeys.clear()
             bulkBatchId = null
             bulkTotal = 0
             bulkSkipped = 0
@@ -251,6 +252,7 @@ class TrackDownloadQueueController @Inject constructor(
         refreshNotifier: Boolean = true,
     ) {
         if (!SafeLocalStorage.isSafeId(request.bookId) || !SafeLocalStorage.isSafeId(request.trackId)) return
+        userCancelledKeys.remove(DownloadQueueKey(request.bookId, request.trackId))
         if (catalogRepository.resolveLocalTrackPath(request.bookId, request.trackId) != null) {
             completeAwaiter(DownloadQueueKey(request.bookId, request.trackId), DownloadAwaitResult.COMPLETED)
             return
@@ -340,6 +342,10 @@ class TrackDownloadQueueController @Inject constructor(
                         downloadQueueDao.delete(next.bookId, next.trackId)
                         addCompletedHistory(next)
                         localLibraryNotifier.notifyLocalLibraryChanged()
+                        completeQueuedItemsForSameTrackIdOnDisk(
+                            knownBookId = next.bookId,
+                            trackId = next.trackId,
+                        )
                     }
                     DownloadAwaitResult.CANCELLED -> {
                         failureCounts.remove(key)
@@ -356,6 +362,10 @@ class TrackDownloadQueueController @Inject constructor(
                                 addCompletedHistory(next)
                             }
                             completeAwaiter(key, DownloadAwaitResult.COMPLETED)
+                            completeQueuedItemsForSameTrackIdOnDisk(
+                                knownBookId = next.bookId,
+                                trackId = next.trackId,
+                            )
                             localLibraryNotifier.notifyLocalLibraryChanged()
                         } else {
                             val attempts = (failureCounts[key] ?: 0) + 1
@@ -380,6 +390,36 @@ class TrackDownloadQueueController @Inject constructor(
             delay(50)
         }
         mutex.withLock { stopServiceIfIdle() }
+    }
+
+    /**
+     * Music downloads are keyed by (bookId, trackId) in DB, but the on-disk file is effectively keyed
+     * by trackId (we scan `downloads/<bookId>/<trackId>.mp3` as a fallback).
+     *
+     * If the same track was enqueued for multiple bookIds (e.g. after catalog refreshes), we must stop
+     * all of those queued entries once the file appears on disk — otherwise the worker can repeatedly
+     * start downloading the "same" track under different bookId directories.
+     */
+    private suspend fun completeQueuedItemsForSameTrackIdOnDisk(
+        knownBookId: String,
+        trackId: String,
+    ) {
+        val diskAfter = resolveOnDiskTrackPath(knownBookId, trackId) ?: return
+        val (diskBookId, path) = diskAfter
+
+        val others = downloadQueueDao.getAll()
+            .filter { it.trackId == trackId }
+        if (others.isEmpty()) return
+
+        catalogRepository.markTrackDownloaded(diskBookId, trackId, path)
+        others.forEach { entity ->
+            val key = DownloadQueueKey(entity.bookId, entity.trackId)
+            if (userCancelledKeys.contains(key)) return@forEach
+            failureCounts.remove(key)
+            downloadQueueDao.delete(entity.bookId, entity.trackId)
+            addCompletedHistory(entity)
+            completeAwaiter(key, DownloadAwaitResult.COMPLETED)
+        }
     }
 
     private suspend fun isTrackAlreadyOnDisk(bookId: String, trackId: String): Pair<String, String>? {
