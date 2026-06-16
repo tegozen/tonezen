@@ -33,12 +33,13 @@ class AvatarRepository(
                 throw RemoteHttpException(response.code, "Avatar upload failed (${response.code})")
             }
         }
-        publicAvatarUrl(userId)
+        publicAvatarUrl(userId, System.currentTimeMillis())
     }
 
-    fun publicAvatarUrl(userId: String): String {
+    fun publicAvatarUrl(userId: String, cacheBustMs: Long? = null): String {
         require(SafeLocalStorage.isSafeId(userId)) { "Invalid avatar user id" }
-        return "${supabaseUrl.trimEnd('/')}/storage/v1/object/public/avatars/$userId/$AVATAR_FILE_NAME"
+        val base = "${supabaseUrl.trimEnd('/')}/storage/v1/object/public/avatars/$userId/$AVATAR_FILE_NAME"
+        return if (cacheBustMs != null) "$base?v=$cacheBustMs" else base
     }
 
     companion object {

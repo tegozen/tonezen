@@ -41,6 +41,7 @@ class CatalogRepository @Inject constructor(
     private var syncDeferred: Deferred<List<Book>>? = null
     private val downloadedTrackIdsCacheLock = Mutex()
     private var downloadedTrackIdsCache: Set<String>? = null
+    private var downloadedTrackIdsCacheGeneration: Long = 0
 
     suspend fun getAllBooks(): List<Book> =
         catalogDao.getAllBooks().map { it.toDomain() }
@@ -74,25 +75,57 @@ class CatalogRepository @Inject constructor(
         progressRepository.getProgressForBooks(bookIds)
 
     suspend fun getDownloadedTrackIds(): Set<String> = withContext(Dispatchers.IO) {
-        downloadedTrackIdsCacheLock.withLock {
-            downloadedTrackIdsCache?.let { return@withContext it }
+        val cacheGenerationAtRead = downloadedTrackIdsCacheLock.withLock {
+            downloadedTrackIdsCacheGeneration to downloadedTrackIdsCache
         }
+        cacheGenerationAtRead.second?.let { return@withContext it }
         val ids = catalogDao.getTracksWithLocalPath()
             .asSequence()
             .mapNotNull { entity ->
-                SafeLocalStorage.sanitizeStoredLocalPath(context.filesDir, entity.localPath)
+                SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, entity.localPath)
                     ?.let { entity.id }
             }
             .toSet()
         downloadedTrackIdsCacheLock.withLock {
-            downloadedTrackIdsCache = ids
+            if (downloadedTrackIdsCacheGeneration == cacheGenerationAtRead.first) {
+                downloadedTrackIdsCache = ids
+            }
         }
         ids
+    }
+
+    /** Backfill DB localPath from files on disk (e.g. after mark failed or offline reopen). */
+    suspend fun reconcileLocalDownloadPaths() = withContext(Dispatchers.IO) {
+        var changed = false
+        for (entity in catalogDao.getAllTracks()) {
+            val validPath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, entity.localPath)
+            if (validPath != null) {
+                if (validPath != entity.localPath) {
+                    catalogDao.upsertTracks(listOf(entity.copy(localPath = validPath)))
+                    changed = true
+                }
+                continue
+            }
+            val onDisk = expectedTrackFile(entity.bookId, entity.id)
+            if (onDisk?.isFile == true && onDisk.length() > 0L) {
+                val safePath = SafeLocalStorage.sanitizeExistingLocalPath(
+                    context.filesDir,
+                    onDisk.absolutePath,
+                ) ?: continue
+                catalogDao.upsertTracks(listOf(entity.copy(localPath = safePath)))
+                changed = true
+            } else if (!entity.localPath.isNullOrBlank()) {
+                catalogDao.upsertTracks(listOf(entity.copy(localPath = null)))
+                changed = true
+            }
+        }
+        if (changed) invalidateDownloadedTrackIdsCache()
     }
 
     private suspend fun invalidateDownloadedTrackIdsCache() {
         downloadedTrackIdsCacheLock.withLock {
             downloadedTrackIdsCache = null
+            downloadedTrackIdsCacheGeneration++
         }
     }
 
@@ -173,6 +206,7 @@ class CatalogRepository @Inject constructor(
                 }
             }.awaitAll()
         }
+        reconcileLocalDownloadPaths()
         val remoteIds = remoteBooks.map { it.id }
         if (remoteIds.isNotEmpty()) {
             catalogDao.deleteTracksForBooksNotIn(remoteIds)

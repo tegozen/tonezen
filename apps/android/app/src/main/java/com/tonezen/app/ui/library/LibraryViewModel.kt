@@ -65,6 +65,7 @@ class LibraryViewModel @Inject constructor(
     private lateinit var cycleHandler: LibraryCycleHandler
     private lateinit var musicHandler: LibraryMusicHandler
     private var lastLibrarySnapshotUiKey: LibrarySnapshotUiKey? = null
+    private var lastLoadedUserId: String? = null
 
     init {
         cycleHandler = LibraryCycleHandler(
@@ -121,7 +122,11 @@ class LibraryViewModel @Inject constructor(
         viewModelScope.launch {
             sessionRepository.session.collectLatest { sessionData ->
                 refreshSessionState(sessionData)
-                loadLibrary(sessionData)
+                val userId = sessionData?.userId
+                if (userId != lastLoadedUserId) {
+                    lastLoadedUserId = userId
+                    loadLibrary(sessionData)
+                }
             }
         }
         viewModelScope.launch {
@@ -231,6 +236,7 @@ class LibraryViewModel @Inject constructor(
     fun refreshCycleMenu(cycle: Cycle) = cycleHandler.refreshCycleMenu(cycle)
 
     fun refreshDownloads() {
+        if (musicDownloadNotifier.state.value.isBulkDownloading) return
         viewModelScope.launch {
             val books = _uiState.value.books
             val downloadedTrackIds = withContext(Dispatchers.IO) {
@@ -258,6 +264,7 @@ class LibraryViewModel @Inject constructor(
 
     private suspend fun loadLibrary(sessionData: StoredSession?) {
         withContext(Dispatchers.IO) {
+            catalogRepository.reconcileLocalDownloadPaths()
             val refreshed = sessionRepository.refreshIfNeeded(sessionData)
             withContext(Dispatchers.Main) {
                 refreshSessionState(refreshed)

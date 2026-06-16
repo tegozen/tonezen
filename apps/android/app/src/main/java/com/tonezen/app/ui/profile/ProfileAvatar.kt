@@ -14,7 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import com.tonezen.app.ui.components.ProfileGlyph
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
@@ -37,11 +37,14 @@ internal fun ProfileAvatar(
         contentAlignment = Alignment.Center,
     ) {
         if (!avatarUrl.isNullOrBlank()) {
-            AsyncImage(
+            SubcomposeAsyncImage(
                 model = avatarUrl,
                 contentDescription = null,
                 modifier = Modifier.matchParentSize(),
                 contentScale = ContentScale.Crop,
+                error = {
+                    ProfileGlyph(tint = TonezenTeal, size = iconSize)
+                },
             )
         } else {
             ProfileGlyph(tint = TonezenTeal, size = iconSize)

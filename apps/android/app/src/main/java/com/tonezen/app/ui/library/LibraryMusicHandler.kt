@@ -200,6 +200,11 @@ internal class LibraryMusicHandler(
                 }
             } finally {
                 musicDownloadNotifier.clear()
+                withContext(Dispatchers.IO) {
+                    catalogRepository.reconcileLocalDownloadPaths()
+                }
+                val trackList = refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
+                uiState.update { it.copy(musicTrackList = trackList) }
                 refreshDownloadedBooks()
                 val snapshot = playbackClient.snapshot.value
                 val playingTrackId = snapshot.trackId
