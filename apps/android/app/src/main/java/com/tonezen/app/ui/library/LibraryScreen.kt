@@ -47,7 +47,9 @@ import com.tonezen.app.ui.components.OfflineBanner
 import com.tonezen.app.ui.components.SearchRow
 import com.tonezen.app.ui.components.TonezenTabs
 import com.tonezen.app.ui.components.TonezenTopChromeBar
-import com.tonezen.app.playback.MusicDownloadState
+import com.tonezen.app.playback.DownloadQueueState
+import com.tonezen.app.playback.toMusicDownloadState
+import com.tonezen.app.ui.downloads.DownloadsTabScreen
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenSurface
@@ -85,7 +87,7 @@ internal fun LibraryScreen(
     onSortOrderChange: (com.tonezen.app.domain.library.LibrarySortOrder) -> Unit,
     musicTrackList: List<MusicListTrack>,
     musicPlayback: MusicPlaybackUi,
-    musicDownload: MusicDownloadState,
+    downloadQueue: DownloadQueueState,
     musicPlaybackErrorRes: Int?,
     cyclePlaybackErrorRes: Int?,
     onMusicTrackClick: (MusicListTrack) -> Unit,
@@ -99,6 +101,9 @@ internal fun LibraryScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     val music = allBooks.filter { it.contentType == ContentType.MUSIC }
     val isAudiobooksTab = selectedTab == 0
+    val isMusicTab = selectedTab == 1
+    val isDownloadsTab = selectedTab == 2
+    val musicDownload = remember(downloadQueue) { downloadQueue.toMusicDownloadState() }
     val topChromeScrollPadding = remember(offlineBanner, isAudiobooksTab) {
         val base = if (isAudiobooksTab) {
             TonezenTopChromeScrollPaddingAudiobooks
@@ -135,6 +140,14 @@ internal fun LibraryScreen(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
+        if (isDownloadsTab) {
+            DownloadsTabScreen(
+                hazeState = hazeState,
+                topPadding = topChromeScrollPadding,
+                bottomPadding = bottomChromeScrollPadding,
+                offlineBanner = offlineBanner,
+            )
+        } else {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -189,13 +202,13 @@ internal fun LibraryScreen(
                         }
                     }
                 }
-            } else if (isLoadingCatalog) {
+            } else if (isMusicTab && isLoadingCatalog) {
                 item { LibraryLoading() }
-            } else if (music.isEmpty()) {
+            } else if (isMusicTab && music.isEmpty()) {
                 item { EmptyLibrary(offline = offlineBanner) }
-            } else if (musicTrackList.isEmpty()) {
+            } else if (isMusicTab && musicTrackList.isEmpty()) {
                 item { EmptyLibrary(offline = offlineBanner || !isNetworkOnline) }
-            } else {
+            } else if (isMusicTab) {
                 item {
                     MusicDownloadAllButton(
                         tracks = musicTrackList,
@@ -215,11 +228,13 @@ internal fun LibraryScreen(
                 }
                 items(musicTrackList, key = { it.trackId }) { track ->
                     val isActive = musicPlayback.trackId == track.trackId
-                    val trackDownloadProgress = musicDownload.progressForTrack(track.trackId)
+                    val trackDownloadProgress = downloadQueue.progressForTrack(track.trackId)
                     val isDownloading = trackDownloadProgress != null
+                    val isQueued = downloadQueue.isTrackQueued(track.trackId)
                     MusicTrackRow(
                         track = track,
                         isActive = isActive,
+                        isQueued = isQueued,
                         isDownloading = isDownloading,
                         downloadProgress = trackDownloadProgress,
                         onClick = { onMusicTrackClick(track) },
@@ -228,6 +243,7 @@ internal fun LibraryScreen(
                     )
                 }
             }
+        }
         }
         TonezenTopChromeBar(
             modifier = Modifier.align(Alignment.TopCenter),
@@ -240,7 +256,7 @@ internal fun LibraryScreen(
                 selectedTab = selectedTab,
                 onSelect = { tab ->
                     selectedTab = tab
-                    if (tab == 1) onDismissFilterSheet()
+                    if (tab != 0) onDismissFilterSheet()
                 },
             )
             if (isAudiobooksTab) {

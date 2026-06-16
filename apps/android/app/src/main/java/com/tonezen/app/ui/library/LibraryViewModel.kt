@@ -23,7 +23,8 @@ import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.StoredSession
-import com.tonezen.app.playback.MusicDownloadNotifier
+import com.tonezen.app.playback.DownloadQueueNotifier
+import com.tonezen.app.playback.TrackDownloadQueueController
 import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackEvents
@@ -53,7 +54,8 @@ class LibraryViewModel @Inject constructor(
     private val playbackClient: PlaybackClient,
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val trackDownloadEnsurer: TrackDownloadEnsurer,
-    private val musicDownloadNotifier: MusicDownloadNotifier,
+    private val downloadQueueController: TrackDownloadQueueController,
+    private val downloadQueueNotifier: DownloadQueueNotifier,
     private val localLibraryNotifier: LocalLibraryNotifier,
     private val playbackEvents: PlaybackEvents,
     private val musicPlaybackQueue: MusicPlaybackQueue,
@@ -78,10 +80,11 @@ class LibraryViewModel @Inject constructor(
             sessionRepository = sessionRepository,
             progressSyncRepository = progressSyncRepository,
             trackDownloadEnsurer = trackDownloadEnsurer,
+            downloadQueueController = downloadQueueController,
+            downloadQueueNotifier = downloadQueueNotifier,
             playbackClient = playbackClient,
             playbackQueueBuilder = playbackQueueBuilder,
             localLibraryNotifier = localLibraryNotifier,
-            musicDownloadActive = { musicDownloadNotifier.state.value.isActive },
             cancelPlayJob = { musicHandler.cancelPlayJob() },
             playbackErrorRes = ::playbackErrorRes,
         )
@@ -92,7 +95,8 @@ class LibraryViewModel @Inject constructor(
             catalogRepository = catalogRepository,
             downloadRepository = downloadRepository,
             trackDownloadEnsurer = trackDownloadEnsurer,
-            musicDownloadNotifier = musicDownloadNotifier,
+            downloadQueueController = downloadQueueController,
+            downloadQueueNotifier = downloadQueueNotifier,
             localLibraryNotifier = localLibraryNotifier,
             playbackClient = playbackClient,
             playbackQueueBuilder = playbackQueueBuilder,
@@ -105,6 +109,15 @@ class LibraryViewModel @Inject constructor(
         musicHandler.onBulkDownloadFinished = {
             viewModelScope.launch {
                 if (pendingCatalogReload) {
+                    pendingCatalogReload = false
+                    reloadCatalogFromLocal()
+                }
+                refreshDownloads()
+            }
+        }
+        viewModelScope.launch {
+            downloadQueueNotifier.state.collect { state ->
+                if (!state.isActive && pendingCatalogReload) {
                     pendingCatalogReload = false
                     reloadCatalogFromLocal()
                 }
@@ -187,24 +200,9 @@ class LibraryViewModel @Inject constructor(
         }
         viewModelScope.launch {
             catalogSyncRepository.catalogUpdated.collect {
-                if (
-                    musicDownloadNotifier.state.value.isActive ||
-                    musicHandler.downloadAllJob?.isActive == true
-                ) {
+                if (downloadQueueNotifier.state.value.isActive) {
                     pendingCatalogReload = true
                 } else {
-                    reloadCatalogFromLocal()
-                }
-            }
-        }
-        viewModelScope.launch {
-            musicDownloadNotifier.state.collect { state ->
-                if (
-                    !state.isActive &&
-                    pendingCatalogReload &&
-                    musicHandler.downloadAllJob?.isActive != true
-                ) {
-                    pendingCatalogReload = false
                     reloadCatalogFromLocal()
                 }
             }
@@ -261,10 +259,11 @@ class LibraryViewModel @Inject constructor(
 
     fun downloadAllMusic() = musicHandler.downloadAllMusic()
 
+    fun cancelAllDownloads() = musicHandler.cancelAllDownloads()
+
     fun refreshCycleMenu(cycle: Cycle) = cycleHandler.refreshCycleMenu(cycle)
 
     fun refreshDownloads() {
-        if (musicDownloadNotifier.state.value.isActive) return
         viewModelScope.launch {
             val books = _uiState.value.books
             val downloadedTrackIds = musicHandler.resolveDownloadedTrackIdsForUi()

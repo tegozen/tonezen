@@ -18,7 +18,7 @@ import com.tonezen.app.ui.library.CycleCardState
 import com.tonezen.app.ui.library.CyclePlaybackUi
 import com.tonezen.app.ui.library.LibraryScreen
 import com.tonezen.app.ui.library.MusicPlaybackUi
-import com.tonezen.app.playback.MusicDownloadState
+import com.tonezen.app.playback.DownloadQueueState
 import com.tonezen.app.ui.library.MusicListTrack
 import com.tonezen.app.ui.profile.ProfileScreenContent
 import com.tonezen.app.ui.profile.ProfileUiState
@@ -151,7 +151,7 @@ private fun LibraryScreenPreview() {
                 ),
             ),
             musicPlayback = MusicPlaybackUi(),
-            musicDownload = MusicDownloadState(),
+            downloadQueue = DownloadQueueState(),
             musicPlaybackErrorRes = null,
             cyclePlaybackErrorRes = null,
             onMusicTrackClick = {},

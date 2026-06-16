@@ -2,13 +2,13 @@ import type { MusicListTrack } from "@shared/musicList";
 import {
   bulkProgressFraction,
   isBulkDownloading,
-  type MusicDownloadState,
-} from "@shared/musicDownloadState";
+  type DownloadQueueState,
+} from "@shared/downloadQueueState";
 import { strings } from "../i18n/strings";
 
 interface MusicDownloadAllButtonProps {
   tracks: MusicListTrack[];
-  musicDownload: MusicDownloadState;
+  musicDownload: DownloadQueueState;
   onClick: () => void;
 }
 
@@ -30,11 +30,12 @@ export function MusicDownloadAllButton({ tracks, musicDownload, onClick }: Music
     <button
       type="button"
       className="music-download-all-card"
-      disabled={bulkActive}
       onClick={onClick}
     >
       <div className="music-download-all-header">
-        <span className="text-sm font-semibold text-ink">{strings.musicDownloadAll}</span>
+        <span className="text-sm font-semibold text-ink">
+          {bulkActive ? strings.musicDownloadStop : strings.musicDownloadAll}
+        </span>
         <span className="text-xs text-muted">
           {strings.musicDownloadAllProgress(downloaded, displayTotal)}
         </span>

@@ -14,7 +14,10 @@ import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.domain.downloads.DownloadPriority
+import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
 import com.tonezen.app.domain.music.MusicShuffleQueue
+import com.tonezen.app.playback.TrackDownloadQueueController
 import com.tonezen.app.domain.progress.isBookFullyListened
 import com.tonezen.app.domain.progress.resolveAudiobookPlaybackStartMs
 import com.tonezen.app.playback.MusicPlaybackQueue
@@ -40,6 +43,7 @@ class BookDetailViewModel @Inject constructor(
     private val playbackClient: PlaybackClient,
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val trackDownloadEnsurer: TrackDownloadEnsurer,
+    private val downloadQueueController: TrackDownloadQueueController,
     private val localLibraryNotifier: LocalLibraryNotifier,
     private val musicPlaybackQueue: MusicPlaybackQueue,
 ) : ViewModel() {
@@ -216,32 +220,38 @@ class BookDetailViewModel @Inject constructor(
         playbackClient.seekTo((durationMs * fraction.coerceIn(0f, 1f)).toLong())
     }
 
+    private var downloadBatchId: String? = null
+
     fun downloadBook() {
         val book = _uiState.value.book ?: return
+        val snapshotBatchId = downloadBatchId
         _uiState.update { it.copy(showDownloadSheet = false) }
+        if (_uiState.value.downloadProgress != null && snapshotBatchId != null) {
+            downloadQueueController.cancelBatch(snapshotBatchId)
+            downloadBatchId = null
+            _uiState.update { it.copy(downloadProgress = null) }
+            return
+        }
+        val batchId = java.util.UUID.randomUUID().toString()
+        downloadBatchId = batchId
         viewModelScope.launch {
-            try {
-                val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
-                    ?: return@launch
-                val accessToken = session.accessToken
-                val tracks = catalogRepository.getTracksForBook(book.id)
-                tracks.forEachIndexed { index, track ->
-                    val file = downloadRepository.downloadTrack(
-                        accessToken,
-                        book.id,
-                        track.id,
-                    ) { progress ->
-                        _uiState.update {
-                            it.copy(downloadProgress = (index + progress) / tracks.size)
-                        }
-                    }
-                    catalogRepository.markTrackDownloaded(book.id, track.id, file.absolutePath)
-                }
-                _uiState.update { it.copy(downloadProgress = null) }
-                loadBook(book)
-            } catch (_: Exception) {
-                _uiState.update { it.copy(error = DOWNLOAD_FAILED_ERROR, downloadProgress = null) }
-            }
+            val tracks = catalogRepository.getTracksForBook(book.id)
+                .filter { it.localPath.isNullOrBlank() }
+            if (tracks.isEmpty()) return@launch
+            downloadQueueController.enqueueBatch(
+                tracks.map { track ->
+                    EnqueueDownloadRequest(
+                        bookId = book.id,
+                        trackId = track.id,
+                        priority = DownloadPriority.BULK,
+                        batchId = batchId,
+                        title = track.title,
+                        subtitle = book.title,
+                        contentType = book.contentType.name.lowercase(),
+                    )
+                },
+                batchId,
+            )
         }
     }
 

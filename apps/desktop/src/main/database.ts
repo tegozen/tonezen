@@ -1,4 +1,5 @@
 import { CatalogDb } from "./db/catalogDb.js";
+import { DownloadQueueDb } from "./db/downloadQueueDb.js";
 import { initDatabase } from "./db/connection.js";
 import { ProgressDb } from "./db/progressDb.js";
 
@@ -7,4 +8,5 @@ export const LocalDatabase = {
   init: initDatabase,
   ...CatalogDb,
   ...ProgressDb,
+  ...DownloadQueueDb,
 };

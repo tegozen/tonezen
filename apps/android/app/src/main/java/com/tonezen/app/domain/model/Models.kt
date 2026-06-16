@@ -44,6 +44,7 @@ data class Track(
     val artist: String? = null,
     val durationMs: Long?,
     val localPath: String?,
+    val localDownloadedAt: Long? = null,
 )
 
 data class Cycle(

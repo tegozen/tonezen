@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.tonezen.app.BuildConfig
 import com.tonezen.app.data.local.CatalogDao
+import com.tonezen.app.data.local.DownloadQueueDao
 import com.tonezen.app.data.local.SecureSessionStore
 import com.tonezen.app.data.local.TonezenDatabaseMigrations
 import com.tonezen.app.data.local.TonezenDatabase
@@ -30,6 +31,9 @@ object AppModule {
         Room.databaseBuilder(context, TonezenDatabase::class.java, "tonezen.db")
             .addMigrations(*TonezenDatabaseMigrations.ALL)
             .build()
+
+    @Provides
+    fun provideDownloadQueueDao(db: TonezenDatabase): DownloadQueueDao = db.downloadQueueDao()
 
     @Provides
     fun provideCatalogDao(db: TonezenDatabase): CatalogDao = db.catalogDao()

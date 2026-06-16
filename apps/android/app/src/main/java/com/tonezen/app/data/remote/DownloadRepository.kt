@@ -5,14 +5,24 @@ import android.net.Uri
 import com.tonezen.app.BuildConfig
 import com.tonezen.app.data.local.SafeLocalStorage
 import com.tonezen.app.data.remote.downloads.DownloadsRemoteApi
+import com.tonezen.app.domain.downloads.DownloadResumePolicy
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Call
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.io.File
+
+data class ResumableDownloadOutcome(
+    val finalFile: File,
+    val bytesDownloaded: Long,
+    val totalBytes: Long?,
+)
 
 @Singleton
 class DownloadRepository @Inject constructor(
@@ -20,6 +30,12 @@ class DownloadRepository @Inject constructor(
     private val downloadsRemoteApi: DownloadsRemoteApi,
     private val httpClient: OkHttpClient,
 ) {
+    private val activeCall = AtomicReference<Call?>(null)
+
+    fun cancelActiveDownload() {
+        activeCall.getAndSet(null)?.cancel()
+    }
+
     suspend fun signedUrlForTrack(accessToken: String, trackId: String): String =
         downloadsRemoteApi.signDownloadUrls(accessToken, listOf(trackId))
             .firstOrNull()
@@ -31,44 +47,127 @@ class DownloadRepository @Inject constructor(
         bookId: String,
         trackId: String,
         onProgress: (Float) -> Unit = {},
-    ): File = withContext(Dispatchers.IO) {
-        onProgress(0f)
-        val url = resolveDownloadUrl(signedUrlForTrack(accessToken, trackId))
-        val target = SafeLocalStorage.trackFile(context.filesDir, bookId, trackId)
+    ): File = downloadTrackResumable(
+        accessToken = accessToken,
+        bookId = bookId,
+        trackId = trackId,
+        bytesAlreadyDownloaded = 0L,
+        totalBytesHint = null,
+        onProgress = onProgress,
+        isCancelled = { false },
+    ).finalFile
+
+    suspend fun downloadTrackResumable(
+        accessToken: String,
+        bookId: String,
+        trackId: String,
+        bytesAlreadyDownloaded: Long,
+        totalBytesHint: Long?,
+        onProgress: (Float) -> Unit,
+        isCancelled: () -> Boolean,
+    ): ResumableDownloadOutcome = withContext(Dispatchers.IO) {
+        val partFile = SafeLocalStorage.trackPartFile(context.filesDir, bookId, trackId)
             ?: throw IllegalArgumentException("Invalid download target")
-        target.parentFile?.mkdirs()
-        val request = Request.Builder().url(url).build()
-        httpClient.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IllegalStateException("Download failed: ${response.code}")
-            val body = response.body ?: throw IllegalStateException("Empty body")
-            val total = body.contentLength().coerceAtLeast(1L)
-            var lastBucket = -1
-            body.byteStream().use { input ->
-                target.outputStream().use { output ->
-                    val buffer = ByteArray(8192)
-                    var read: Int
-                    var downloaded = 0L
-                    while (input.read(buffer).also { read = it } != -1) {
-                        output.write(buffer, 0, read)
-                        downloaded += read
-                        val bucket = ((downloaded * 100) / total).toInt()
-                        if (bucket > lastBucket) {
-                            lastBucket = bucket
-                            onProgress((downloaded.toFloat() / total.toFloat()).coerceIn(0f, 1f))
+        val finalFile = SafeLocalStorage.trackFile(context.filesDir, bookId, trackId)
+            ?: throw IllegalArgumentException("Invalid download target")
+        partFile.parentFile?.mkdirs()
+
+        var offset = bytesAlreadyDownloaded.coerceAtLeast(0L)
+        if (offset == 0L) {
+            partFile.delete()
+        } else if (!partFile.exists()) {
+            offset = 0L
+        } else {
+            offset = partFile.length()
+        }
+
+        val url = resolveDownloadUrl(signedUrlForTrack(accessToken, trackId))
+        var totalBytes = totalBytesHint
+        var attemptOffset = offset
+
+        repeat(2) { attempt ->
+            if (isCancelled()) throw IOException("Download cancelled")
+            val requestBuilder = Request.Builder().url(url)
+            if (attemptOffset > 0L) {
+                requestBuilder.header("Range", "bytes=$attemptOffset-")
+            }
+            val call = httpClient.newCall(requestBuilder.build())
+            activeCall.set(call)
+            try {
+                call.execute().use { response ->
+                    val action = DownloadResumePolicy.resolveResumeAction(
+                        partFileLength = partFile.length(),
+                        bytesDownloaded = attemptOffset,
+                        totalBytes = totalBytes,
+                        rangeResponseCode = if (attemptOffset > 0L) response.code else null,
+                    )
+                    if (action == DownloadResumePolicy.ResumeAction.RESTART) {
+                        partFile.delete()
+                        attemptOffset = 0L
+                        return@repeat
+                    }
+                    if (!response.isSuccessful && response.code != 206) {
+                        throw IOException("Download failed: ${response.code}")
+                    }
+                    val body = response.body ?: throw IOException("Empty body")
+                    val contentLength = body.contentLength()
+                    totalBytes = when {
+                        response.code == 206 -> attemptOffset + contentLength.coerceAtLeast(0L)
+                        contentLength > 0 -> contentLength
+                        totalBytes != null -> totalBytes
+                        else -> null
+                    }
+                    var lastBucket = -1
+                    body.byteStream().use { input ->
+                        val append = attemptOffset > 0L && partFile.exists() && partFile.length() == attemptOffset
+                        partFile.outputStream().use { output ->
+                            val buffer = ByteArray(8192)
+                            var downloaded = if (append) attemptOffset else 0L
+                            if (!append) partFile.delete()
+                            var read: Int
+                            while (input.read(buffer).also { read = it } != -1) {
+                                if (isCancelled()) throw IOException("Download cancelled")
+                                output.write(buffer, 0, read)
+                                downloaded += read
+                                val total = totalBytes
+                                if (total != null && total > 0) {
+                                    val bucket = ((downloaded * 50) / total).toInt()
+                                    if (bucket > lastBucket) {
+                                        lastBucket = bucket
+                                        onProgress(
+                                            DownloadResumePolicy.progressFraction(downloaded, total) ?: 0f,
+                                        )
+                                    }
+                                }
+                            }
+                            attemptOffset = downloaded
                         }
                     }
+                    if (partFile.length() <= 0L) throw IOException("Download empty")
+                    if (finalFile.exists()) finalFile.delete()
+                    if (!partFile.renameTo(finalFile)) {
+                        partFile.copyTo(finalFile, overwrite = true)
+                        partFile.delete()
+                    }
+                    onProgress(1f)
+                    return@withContext ResumableDownloadOutcome(
+                        finalFile = finalFile,
+                        bytesDownloaded = finalFile.length(),
+                        totalBytes = totalBytes,
+                    )
                 }
+            } finally {
+                activeCall.compareAndSet(call, null)
             }
         }
-        onProgress(1f)
-        target
+        throw IOException("Download failed after retry")
     }
 
     suspend fun deleteLocalTrack(bookId: String, trackId: String) = withContext(Dispatchers.IO) {
         SafeLocalStorage.trackFile(context.filesDir, bookId, trackId)?.delete()
+        SafeLocalStorage.trackPartFile(context.filesDir, bookId, trackId)?.delete()
     }
 
-    /** Storage signed URLs may be relative (/object/sign/...) or use localhost on dev hosts. */
     private fun resolveDownloadUrl(signedUrl: String): String {
         val apiBase = BuildConfig.BASE_URL.trimEnd('/')
         val absolute = when {

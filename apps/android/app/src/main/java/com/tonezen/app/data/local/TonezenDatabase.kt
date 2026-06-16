@@ -9,9 +9,12 @@ import androidx.room.RoomDatabase
         TrackEntity::class,
         AudiobookProgressEntity::class,
         CycleEntity::class,
+        DownloadQueueEntity::class,
     ],
-    version = 4,
+    version = 5,
 )
 abstract class TonezenDatabase : RoomDatabase() {
     abstract fun catalogDao(): CatalogDao
+
+    abstract fun downloadQueueDao(): DownloadQueueDao
 }

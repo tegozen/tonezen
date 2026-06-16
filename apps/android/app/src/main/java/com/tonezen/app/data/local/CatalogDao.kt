@@ -72,4 +72,14 @@ interface CatalogDao {
 
     @Query("DELETE FROM cycles WHERE id NOT IN (:cycleIds)")
     suspend fun deleteCyclesNotIn(cycleIds: List<String>)
+
+    @Query(
+        """
+        SELECT * FROM tracks
+        WHERE localDownloadedAt IS NOT NULL
+        ORDER BY localDownloadedAt ASC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getTracksOrderedByDownloadedAt(limit: Int): List<TrackEntity>
 }

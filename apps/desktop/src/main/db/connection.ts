@@ -52,6 +52,8 @@ export function initDatabase(userDataPath: string): void {
   `);
   ensureCycleBooksColumn();
   ensureTrackArtistColumn();
+  ensureLocalDownloadedAtColumn();
+  ensureDownloadQueueTable();
 }
 
 function ensureTrackArtistColumn(): void {
@@ -70,4 +72,33 @@ function ensureCycleBooksColumn(): void {
   if (!columns.some((column) => column.name === "books_json")) {
     getDb().exec(`ALTER TABLE cycles ADD COLUMN books_json TEXT NOT NULL DEFAULT '[]'`);
   }
+}
+
+function ensureLocalDownloadedAtColumn(): void {
+  const columns = getDb()
+    .prepare("PRAGMA table_info(tracks)")
+    .all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "local_downloaded_at")) {
+    getDb().exec(`ALTER TABLE tracks ADD COLUMN local_downloaded_at INTEGER`);
+  }
+}
+
+function ensureDownloadQueueTable(): void {
+  getDb().exec(`
+    CREATE TABLE IF NOT EXISTS download_queue (
+      book_id TEXT NOT NULL,
+      track_id TEXT NOT NULL,
+      priority TEXT NOT NULL,
+      batch_id TEXT,
+      enqueued_at INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      subtitle TEXT,
+      content_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      bytes_downloaded INTEGER NOT NULL DEFAULT 0,
+      total_bytes INTEGER,
+      temp_path TEXT,
+      PRIMARY KEY (book_id, track_id)
+    );
+  `);
 }

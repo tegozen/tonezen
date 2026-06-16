@@ -1,15 +1,12 @@
 import type { Cycle } from "@shared/types";
 import type { MusicListTrack } from "@shared/musicList";
-import {
-  isMusicDownloadActive,
-  progressForTrack,
-  type MusicDownloadState,
-} from "@shared/musicDownloadState";
+import type { DownloadQueueState } from "@shared/downloadQueueState";
 import { libraryScrollPaddingTop } from "../lib/layoutChrome";
 import { LibraryCycleCard } from "../components/LibraryCycleCard";
 import { LibraryTopChrome } from "../components/LibraryTopChrome";
 import { MusicDownloadAllButton } from "../components/MusicDownloadAllButton";
 import { MusicTrackRow } from "../components/MusicTrackRow";
+import { DownloadsPage } from "./DownloadsPage";
 import type { CycleCardState } from "../lib/cycleUtils";
 import { strings } from "../i18n/strings";
 
@@ -21,7 +18,7 @@ interface LibraryPageProps {
   selectedTab: number;
   offlineBanner: boolean;
   isLoading: boolean;
-  musicDownload: MusicDownloadState;
+  downloadQueue: DownloadQueueState;
   activeMusicTrackId: string | null;
   musicError: string | null;
   cyclePlayingId: string | null;
@@ -35,6 +32,9 @@ interface LibraryPageProps {
   onMusicTrackDownload: (track: MusicListTrack) => void;
   onMusicTrackDelete: (track: MusicListTrack) => void;
   onDownloadAllMusic: () => void;
+  onCancelDownloadTrack: (bookId: string, trackId: string) => void;
+  onCancelAllDownloads: () => void;
+  onDeleteCompletedDownload: (bookId: string, trackId: string) => void;
 }
 
 export function LibraryPage({
@@ -45,7 +45,7 @@ export function LibraryPage({
   selectedTab,
   offlineBanner,
   isLoading,
-  musicDownload,
+  downloadQueue,
   activeMusicTrackId,
   musicError,
   cyclePlayingId,
@@ -59,9 +59,27 @@ export function LibraryPage({
   onMusicTrackDownload,
   onMusicTrackDelete,
   onDownloadAllMusic,
+  onCancelDownloadTrack,
+  onCancelAllDownloads,
+  onDeleteCompletedDownload,
 }: LibraryPageProps) {
   const isAudiobooks = selectedTab === 0;
-  const downloadActive = isMusicDownloadActive(musicDownload);
+  const isMusic = selectedTab === 1;
+  const isDownloads = selectedTab === 2;
+
+  if (isDownloads) {
+    return (
+      <DownloadsPage
+        downloadQueue={downloadQueue}
+        selectedTab={selectedTab}
+        offlineBanner={offlineBanner}
+        onTabChange={onTabChange}
+        onCancelTrack={onCancelDownloadTrack}
+        onCancelAll={onCancelAllDownloads}
+        onDeleteCompleted={onDeleteCompletedDownload}
+      />
+    );
+  }
 
   return (
     <div className="library-page">
@@ -99,37 +117,33 @@ export function LibraryPage({
             })}
           </div>
         )
-      ) : isLoading ? (
+      ) : isMusic && isLoading ? (
         <p className="text-center text-muted">{strings.libraryLoading}</p>
-      ) : musicTracks.length === 0 ? (
+      ) : isMusic && musicTracks.length === 0 ? (
         <EmptyLibrary offline={offlineBanner} />
-      ) : (
+      ) : isMusic ? (
         <div className="music-library-stack">
           <MusicDownloadAllButton
             tracks={musicTracks}
-            musicDownload={musicDownload}
+            musicDownload={downloadQueue}
             onClick={onDownloadAllMusic}
           />
           {musicError && <p className="text-sm text-error">{musicError}</p>}
           <div className="music-track-list">
-            {musicTracks.map((track) => {
-              const trackDownloadProgress = progressForTrack(musicDownload, track.trackId);
-              return (
-                <MusicTrackRow
-                  key={track.trackId}
-                  track={track}
-                  isActive={activeMusicTrackId === track.trackId}
-                  downloadProgress={trackDownloadProgress}
-                  downloadActive={downloadActive}
-                  onClick={() => onMusicTrackClick(track)}
-                  onDownloadClick={() => onMusicTrackDownload(track)}
-                  onDeleteClick={() => onMusicTrackDelete(track)}
-                />
-              );
-            })}
+            {musicTracks.map((track) => (
+              <MusicTrackRow
+                key={track.trackId}
+                track={track}
+                isActive={activeMusicTrackId === track.trackId}
+                downloadQueue={downloadQueue}
+                onClick={() => onMusicTrackClick(track)}
+                onDownloadClick={() => onMusicTrackDownload(track)}
+                onDeleteClick={() => onMusicTrackDelete(track)}
+              />
+            ))}
           </div>
         </div>
-      )}
+      ) : null}
       </div>
       <LibraryTopChrome
         selectedTab={selectedTab}

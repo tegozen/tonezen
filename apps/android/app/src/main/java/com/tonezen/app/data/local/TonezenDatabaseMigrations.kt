@@ -32,5 +32,30 @@ object TonezenDatabaseMigrations {
         }
     }
 
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `tracks` ADD COLUMN `localDownloadedAt` INTEGER")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `download_queue` (
+                    `bookId` TEXT NOT NULL,
+                    `trackId` TEXT NOT NULL,
+                    `priority` TEXT NOT NULL,
+                    `batchId` TEXT,
+                    `enqueuedAt` INTEGER NOT NULL,
+                    `title` TEXT NOT NULL,
+                    `subtitle` TEXT,
+                    `contentType` TEXT NOT NULL,
+                    `status` TEXT NOT NULL,
+                    `bytesDownloaded` INTEGER NOT NULL,
+                    `totalBytes` INTEGER,
+                    `tempPath` TEXT,
+                    PRIMARY KEY(`bookId`, `trackId`)
+                )
+                """.trimIndent(),
+            )
+        }
+    }
+
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 }

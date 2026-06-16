@@ -20,7 +20,7 @@ export function LibraryTopChrome({
   onQueryChange,
   onFilterClick,
 }: LibraryTopChromeProps) {
-  const tabs = [strings.tabAudiobooks, strings.tabMusic];
+  const tabs = [strings.tabAudiobooks, strings.tabMusic, strings.tabDownloads];
 
   return (
     <div className="library-chrome-wrap">

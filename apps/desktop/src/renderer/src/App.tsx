@@ -5,13 +5,13 @@ import {
   visibleMusicTrackList,
   type MusicListTrack,
 } from "@shared/musicList";
-import { isMusicDownloadActive, progressForTrack } from "@shared/musicDownloadState";
+import { progressForTrack } from "@shared/downloadQueueState";
 import { CyclePlaybackResolver } from "@shared/cyclePlayback";
 import { AppShell } from "./components/AppShell";
 import { LibraryFilterSheet } from "./components/LibraryFilterSheet";
 import { LoginView } from "./components/LoginView";
 import { NowPlayingSheet } from "./components/NowPlayingSheet";
-import { useMusicDownload } from "./hooks/useMusicDownload";
+import { useDownloadQueue } from "./hooks/useDownloadQueue";
 import { useMusicPlayback } from "./hooks/useMusicPlayback";
 import { usePlayback } from "./hooks/usePlayback";
 import { useTonezenSession } from "./hooks/useTonezenSession";
@@ -79,7 +79,7 @@ export function App() {
   const [cyclePlayingId, setCyclePlayingId] = useState<string | null>(null);
   const [progressList, setProgressList] = useState<Array<{ bookId: string; trackId: string; positionMs: number; updatedAt: string }>>([]);
 
-  const musicDownload = useMusicDownload();
+  const downloadQueue = useDownloadQueue();
   const musicStartedInSessionRef = useRef(false);
   const refreshLibraryRef = useRef<() => Promise<void>>(async () => {});
 
@@ -153,7 +153,7 @@ export function App() {
     setTracks,
     sessionState,
     refreshLibrary: () => refreshLibraryRef.current(),
-    musicDownload,
+    downloadQueue,
     playTrack,
     stopPlayback,
     pauseOrResume,
@@ -217,6 +217,22 @@ export function App() {
     });
   }, [sessionState, refreshLibrary]);
 
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const unsubscribe = window.tonezen.download.onQueueState((state) => {
+      if (!state.activeTrackId && state.queuedItems.length === 0) {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          void refreshLibrary();
+        }, 300);
+      }
+    });
+    return () => {
+      clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [refreshLibrary]);
+
   const syncCatalog = async () => {
     setIsLoading(true);
     try {
@@ -252,7 +268,15 @@ export function App() {
       return null;
     }
     try {
-      await window.tonezen.download.track(bookId, trackId);
+      const book = books.find((item) => item.id === bookId);
+      const trackMeta = bookTracks.find((item) => item.id === trackId);
+      const result = await downloadQueue.awaitTrack(bookId, trackId, {
+        priority: "PLAY",
+        title: trackMeta?.title ?? trackId,
+        subtitle: book?.title ?? null,
+        contentType: book?.contentType ?? "audiobook",
+      });
+      if (result !== "COMPLETED") return null;
       bookTracks = await window.tonezen.db.getTracks(bookId);
       track = bookTracks.find((item) => item.id === trackId);
       await refreshLibrary();
@@ -283,7 +307,6 @@ export function App() {
   };
 
   const playCycle = async (cycle: Cycle) => {
-    if (isMusicDownloadActive(musicDownload.state)) return;
     if (cyclePlayingId === cycle.id && isPlaying) {
       pauseOrResume();
       return;
@@ -311,25 +334,48 @@ export function App() {
   const downloadBook = async (book: Book) => {
     setShowDownloadSheet(false);
     const bookTracks = await window.tonezen.db.getTracks(book.id);
+    const pending = bookTracks.filter((track) => !track.localPath);
+    if (pending.length === 0) return;
+    const batchId = crypto.randomUUID();
     try {
-      for (const track of bookTracks) {
-        if (!track.localPath) {
-          await window.tonezen.download.track(book.id, track.id);
-        }
-      }
-      await refreshLibrary();
-      if (selectedBook?.id === book.id) {
-        const updated = await window.tonezen.db.getTracks(book.id);
-        setTracks(updated as Track[]);
-      }
+      await downloadQueue.enqueueBatch(
+        pending.map((track) => ({
+          bookId: book.id,
+          trackId: track.id,
+          priority: "BULK" as const,
+          batchId,
+          title: track.title,
+          subtitle: book.title,
+          contentType: book.contentType,
+        })),
+        batchId,
+      );
     } catch (e) {
       setError(resolveDownloadError(e instanceof Error ? e.message : ""));
     }
   };
 
   const downloadCycle = async (cycle: Cycle) => {
+    const batchId = crypto.randomUUID();
+    const requests = [];
     for (const book of cycle.books) {
-      await downloadBook(book);
+      const bookTracks = await window.tonezen.db.getTracks(book.id);
+      for (const track of bookTracks) {
+        if (!track.localPath) {
+          requests.push({
+            bookId: book.id,
+            trackId: track.id,
+            priority: "BULK" as const,
+            batchId,
+            title: track.title,
+            subtitle: book.title,
+            contentType: book.contentType,
+          });
+        }
+      }
+    }
+    if (requests.length > 0) {
+      await downloadQueue.enqueueBatch(requests, batchId);
     }
   };
 
@@ -451,7 +497,7 @@ export function App() {
       : strings.nowPlaying
     : selectedBook?.author ?? strings.nowPlaying;
   const miniDownloadProgress = currentTrack
-    ? progressForTrack(musicDownload.state, currentTrack.id)
+    ? progressForTrack(downloadQueue.state, currentTrack.id)
     : null;
   const currentTrackInSelectedBook =
     selectedBook != null &&
@@ -583,7 +629,7 @@ export function App() {
             selectedTab={libraryTab}
             offlineBanner={sessionState === "AuthenticatedOffline"}
             isLoading={isLoading}
-            musicDownload={musicDownload.state}
+            downloadQueue={downloadQueue.state}
             activeMusicTrackId={music.musicMode ? (currentTrack?.id ?? null) : null}
             musicError={music.musicError}
             cyclePlayingId={cyclePlayingId}
@@ -600,6 +646,12 @@ export function App() {
             onMusicTrackDownload={(track) => void music.downloadMusicTrack(track)}
             onMusicTrackDelete={(track) => void music.deleteMusicTrack(track)}
             onDownloadAllMusic={() => void music.downloadAllMusic()}
+            onCancelDownloadTrack={(bookId, trackId) => void downloadQueue.cancelTrack(bookId, trackId)}
+            onCancelAllDownloads={() => void downloadQueue.cancelAll()}
+            onDeleteCompletedDownload={(bookId, trackId) => {
+              void downloadQueue.cancelTrack(bookId, trackId);
+              void window.tonezen.download.delete(bookId, trackId).then(() => refreshLibrary());
+            }}
           />
           <LibraryFilterSheet
             visible={showFilterSheet}

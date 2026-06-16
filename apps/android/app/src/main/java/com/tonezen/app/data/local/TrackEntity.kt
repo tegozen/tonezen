@@ -13,4 +13,5 @@ data class TrackEntity(
     val artist: String?,
     val durationMs: Long?,
     val localPath: String?,
+    val localDownloadedAt: Long? = null,
 )

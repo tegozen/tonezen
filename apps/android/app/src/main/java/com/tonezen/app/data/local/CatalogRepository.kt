@@ -251,10 +251,20 @@ class CatalogRepository @Inject constructor(
     suspend fun markTrackDownloaded(bookId: String, trackId: String, localPath: String): Boolean {
         val safePath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, localPath) ?: return false
         val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId } ?: return false
-        catalogDao.upsertTracks(listOf(track.copy(localPath = safePath)))
+        catalogDao.upsertTracks(
+            listOf(
+                track.copy(
+                    localPath = safePath,
+                    localDownloadedAt = System.currentTimeMillis(),
+                ),
+            ),
+        )
         invalidateDownloadedTrackIdsCache()
         return true
     }
+
+    suspend fun getTracksOrderedByDownloadedAt(limit: Int): List<Track> =
+        catalogDao.getTracksOrderedByDownloadedAt(limit).map { it.toDomainTrack() }
 
     suspend fun resolveLocalTrackPath(bookId: String, trackId: String): String? = withContext(Dispatchers.IO) {
         val fromDb = catalogDao.getTracksForBook(bookId).find { it.id == trackId }?.localPath
@@ -381,6 +391,7 @@ class CatalogRepository @Inject constructor(
             artist = normalizeAuthor(artist),
             durationMs = durationMs,
             localPath = safePath,
+            localDownloadedAt = localDownloadedAt,
         )
     }
 }

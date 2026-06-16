@@ -1,4 +1,9 @@
+import fs from "node:fs";
 import { booksForCycleOrder } from "../../shared/cycleBooks.js";
+import {
+  resolveTrackDownloadPath,
+  sanitizeLocalAudioPath,
+} from "../../shared/safeLocalPaths.js";
 import type { Book, Cycle, Track } from "../../shared/types.js";
 import { getDb } from "./connection.js";
 import { mapBookRow, mapTrackRow, type BookRow, type TrackRow } from "./mappers.js";
@@ -56,6 +61,41 @@ export const CatalogDb = {
 
   setTrackLocalPath(trackId: string, localPath: string | null): void {
     getDb().prepare(`UPDATE tracks SET local_path = ? WHERE id = ?`).run(localPath, trackId);
+  },
+
+  markTrackDownloaded(
+    bookId: string,
+    trackId: string,
+    localPath: string,
+    downloadsRoot: string,
+  ): boolean {
+    const safePath = sanitizeLocalAudioPath(localPath, [downloadsRoot]);
+    if (!safePath || !fs.existsSync(safePath) || fs.statSync(safePath).size <= 0) return false;
+    const track = this.getTracks(bookId).find((item) => item.id === trackId);
+    if (!track) return false;
+    getDb()
+      .prepare(`UPDATE tracks SET local_path = ?, local_downloaded_at = ? WHERE id = ?`)
+      .run(safePath, Date.now(), trackId);
+    return true;
+  },
+
+  resolveLocalTrackPath(bookId: string, trackId: string, downloadsRoot: string): string | null {
+    const track = this.getTracks(bookId).find((item) => item.id === trackId);
+    if (track?.localPath) {
+      const safePath = sanitizeLocalAudioPath(track.localPath, [downloadsRoot]);
+      if (safePath && fs.existsSync(safePath) && fs.statSync(safePath).size > 0) {
+        return safePath;
+      }
+    }
+    const onDisk = resolveTrackDownloadPath(downloadsRoot, bookId, trackId);
+    if (onDisk && fs.existsSync(onDisk) && fs.statSync(onDisk).size > 0) {
+      this.markTrackDownloaded(bookId, trackId, onDisk, downloadsRoot);
+      return onDisk;
+    }
+    if (track?.localPath) {
+      this.setTrackLocalPath(trackId, null);
+    }
+    return null;
   },
 
   upsertCycles(cycles: Cycle[]): void {

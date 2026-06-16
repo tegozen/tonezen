@@ -4,8 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Cycle
-import com.tonezen.app.playback.MusicDownloadNotifier
+import com.tonezen.app.playback.DownloadQueueNotifier
 import com.tonezen.app.playback.MusicDownloadState
+import com.tonezen.app.playback.toMusicDownloadState
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.ui.components.BottomDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,18 +14,24 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class AppShellViewModel @Inject constructor(
     private val playbackClient: PlaybackClient,
-    musicDownloadNotifier: MusicDownloadNotifier,
+    downloadQueueNotifier: DownloadQueueNotifier,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AppShellUiState())
     val uiState: StateFlow<AppShellUiState> = _uiState.asStateFlow()
-    val musicDownloadState: StateFlow<MusicDownloadState> = musicDownloadNotifier.state
+    val downloadQueueState = downloadQueueNotifier.state
+    val musicDownloadState: StateFlow<MusicDownloadState> = downloadQueueNotifier.state
+        .map { it.toMusicDownloadState() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MusicDownloadState())
 
     init {
         playbackClient.connect()

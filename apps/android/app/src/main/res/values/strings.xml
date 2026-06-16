@@ -124,7 +124,20 @@
     <string name="music_playback_error_offline">Нет сети — нужен интернет для первой загрузки</string>
     <string name="music_playback_error_login">Войдите в аккаунт, чтобы скачать трек</string>
     <string name="music_playback_error_download">Не удалось скачать трек</string>
+    <string name="tab_downloads">Загрузки</string>
+    <string name="download_notification_channel">Загрузки</string>
+    <string name="download_notification_title">Загрузка Tonezen</string>
+    <string name="download_notification_progress">Скачивается: %1$s</string>
+    <string name="download_notification_queued">В очереди: %1$d</string>
+    <string name="download_notification_stop">Остановить</string>
+    <string name="download_paused_offline">Ожидание сети</string>
+    <string name="downloads_section_active">Сейчас</string>
+    <string name="downloads_section_completed">Загружено</string>
+    <string name="downloads_empty">Нет загрузок</string>
+    <string name="download_status_queued">В очереди</string>
     <string name="music_download_all">Скачать все</string>
+    <string name="music_download_stop">Остановить загрузку</string>
+    <string name="music_download_stop_all">Остановить все загрузки</string>
     <string name="music_download_all_progress">%1$d из %2$d</string>
     <string name="music_delete_track">Удалить трек</string>
 </resources>

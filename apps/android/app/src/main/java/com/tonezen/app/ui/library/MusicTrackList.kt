@@ -50,8 +50,9 @@ internal fun MusicDownloadAllButton(
     }
     if (downloaded >= displayTotal && !musicDownload.isBulkDownloading) return
 
-    val isDownloading = musicDownload.isBulkDownloading
+    val isBulkActive = musicDownload.isBulkDownloading
     val progress = musicDownload.bulkProgress ?: (downloaded.toFloat() / displayTotal.toFloat())
+    val labelRes = if (isBulkActive) R.string.music_download_stop else R.string.music_download_all
 
     Column(
         modifier = modifier
@@ -59,7 +60,7 @@ internal fun MusicDownloadAllButton(
             .clip(RoundedCornerShape(12.dp))
             .background(Color.White.copy(alpha = 0.04f))
             .border(BorderStroke(1.dp, TonezenBorder.copy(alpha = 0.5f)), RoundedCornerShape(12.dp))
-            .clickable(enabled = !isDownloading, onClick = onClick)
+            .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -69,7 +70,7 @@ internal fun MusicDownloadAllButton(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource(R.string.music_download_all),
+                text = stringResource(labelRes),
                 color = TonezenInk,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
@@ -101,6 +102,7 @@ internal fun MusicDownloadAllButton(
 internal fun MusicTrackRow(
     track: MusicListTrack,
     isActive: Boolean,
+    isQueued: Boolean,
     isDownloading: Boolean,
     downloadProgress: Float?,
     onClick: () -> Unit,
@@ -114,15 +116,15 @@ internal fun MusicTrackRow(
         durationMs = track.durationMs,
         isActive = isActive,
         onClick = onClick,
-        clickEnabled = !isDownloading,
+        clickEnabled = true,
         modifier = modifier,
         trailing = {
             when {
-                isDownloading -> {
+                isDownloading || isQueued -> {
                     TrackDownloadButton(
                         progress = downloadProgress,
                         onClick = onDownloadClick,
-                        enabled = false,
+                        enabled = true,
                     )
                 }
                 track.isDownloaded -> TrackDownloadedIndicator()
@@ -135,7 +137,7 @@ internal fun MusicTrackRow(
             }
             TrackRowOverflowMenu(
                 onDelete = onDeleteClick,
-                enabled = !isDownloading,
+                enabled = true,
                 showDelete = track.isDownloaded,
                 deleteLabelRes = R.string.remove_download,
             )

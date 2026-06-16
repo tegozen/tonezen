@@ -135,6 +135,110 @@ export interface TonezenApi {
     >;
     storageStats: () => Promise<{ usedBytes: number }>;
     deleteAll: () => Promise<void>;
+    enqueue: (request: {
+      bookId: string;
+      trackId: string;
+      priority: "PREFETCH" | "BULK" | "USER" | "PLAY";
+      batchId?: string | null;
+      title: string;
+      subtitle?: string | null;
+      contentType: string;
+      enqueuedAt?: number;
+    }) => Promise<void>;
+    enqueueBatch: (
+      requests: Array<{
+        bookId: string;
+        trackId: string;
+        priority: "PREFETCH" | "BULK" | "USER" | "PLAY";
+        batchId?: string | null;
+        title: string;
+        subtitle?: string | null;
+        contentType: string;
+        enqueuedAt?: number;
+      }>,
+      batchId?: string,
+    ) => Promise<void>;
+    awaitTrack: (
+      bookId: string,
+      trackId: string,
+      options?: {
+        priority?: "PREFETCH" | "BULK" | "USER" | "PLAY";
+        title?: string;
+        subtitle?: string | null;
+        contentType?: string;
+      },
+    ) => Promise<"COMPLETED" | "CANCELLED" | "FAILED" | "OFFLINE">;
+    cancelTrack: (bookId: string, trackId: string) => Promise<void>;
+    cancelBatch: (batchId: string) => Promise<void>;
+    cancelAll: () => Promise<void>;
+    getQueueState: () => Promise<{
+      queuedItems: Array<{
+        bookId: string;
+        trackId: string;
+        title: string;
+        subtitle: string | null;
+        contentType: string;
+        status: string;
+        progress: number | null;
+        batchId: string | null;
+        enqueuedAt: number;
+        completedAt: number | null;
+      }>;
+      completedHistory: Array<{
+        bookId: string;
+        trackId: string;
+        title: string;
+        subtitle: string | null;
+        contentType: string;
+        status: string;
+        progress: number | null;
+        batchId: string | null;
+        enqueuedAt: number;
+        completedAt: number | null;
+      }>;
+      activeBookId: string | null;
+      activeTrackId: string | null;
+      trackProgress: number | null;
+      bulkDownloaded: number;
+      bulkTotal: number;
+      activeBatchId: string | null;
+      pausedForNetwork: boolean;
+    }>;
+    onQueueState: (
+      callback: (state: {
+        queuedItems: Array<{
+          bookId: string;
+          trackId: string;
+          title: string;
+          subtitle: string | null;
+          contentType: string;
+          status: string;
+          progress: number | null;
+          batchId: string | null;
+          enqueuedAt: number;
+          completedAt: number | null;
+        }>;
+        completedHistory: Array<{
+          bookId: string;
+          trackId: string;
+          title: string;
+          subtitle: string | null;
+          contentType: string;
+          status: string;
+          progress: number | null;
+          batchId: string | null;
+          enqueuedAt: number;
+          completedAt: number | null;
+        }>;
+        activeBookId: string | null;
+        activeTrackId: string | null;
+        trackProgress: number | null;
+        bulkDownloaded: number;
+        bulkTotal: number;
+        activeBatchId: string | null;
+        pausedForNetwork: boolean;
+      }) => void,
+    ) => () => void;
   };
   sync: {
     status: () => Promise<{ pendingCount: number; lastSyncAtEpochMs: number | null }>;

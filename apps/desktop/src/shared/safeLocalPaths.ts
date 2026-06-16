@@ -19,8 +19,25 @@ export function resolveTrackDownloadPath(
   bookId: string,
   trackId: string,
 ): string | null {
+  return resolveTrackFileWithSuffix(downloadsRoot, bookId, trackId, ".mp3");
+}
+
+export function resolveTrackPartPath(
+  downloadsRoot: string,
+  bookId: string,
+  trackId: string,
+): string | null {
+  return resolveTrackFileWithSuffix(downloadsRoot, bookId, trackId, ".part");
+}
+
+function resolveTrackFileWithSuffix(
+  downloadsRoot: string,
+  bookId: string,
+  trackId: string,
+  suffix: string,
+): string | null {
   if (!isSafeStorageId(bookId) || !isSafeStorageId(trackId)) return null;
-  const target = path.resolve(downloadsRoot, bookId, `${trackId}.mp3`);
+  const target = path.resolve(downloadsRoot, bookId, `${trackId}${suffix}`);
   if (!isPathUnderRoot(downloadsRoot, target)) return null;
   return target;
 }

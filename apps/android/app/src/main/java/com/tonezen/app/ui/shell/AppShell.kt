@@ -49,6 +49,7 @@ fun AppShell(
     val libraryState by libraryViewModel.uiState.collectAsState()
     val shellState by shellViewModel.uiState.collectAsState()
     val profileState by profileViewModel.uiState.collectAsState()
+    val downloadQueue by shellViewModel.downloadQueueState.collectAsState()
     val musicDownload by shellViewModel.musicDownloadState.collectAsState()
     val selectedBook = shellState.selectedBook
     val selectedCycle = shellState.selectedCycle
@@ -192,7 +193,7 @@ fun AppShell(
                         onSortOrderChange = libraryViewModel::setSortOrder,
                         musicTrackList = visibleMusicTracks,
                         musicPlayback = libraryState.musicPlayback,
-                        musicDownload = musicDownload,
+                        downloadQueue = downloadQueue,
                         musicPlaybackErrorRes = libraryState.musicPlaybackErrorRes,
                         cyclePlaybackErrorRes = libraryState.cyclePlaybackErrorRes,
                         onMusicTrackClick = libraryViewModel::onMusicTrackClick,
@@ -229,7 +230,7 @@ fun AppShell(
                             positionMs = shellState.positionMs,
                             durationMs = shellState.durationMs,
                             downloadProgress = shellState.nowPlayingCoverSeed
-                                ?.let { musicDownload.progressForTrack(it) },
+                                ?.let { downloadQueue.progressForTrack(it) },
                             onBarClick = shellViewModel::onMiniPlayerClick,
                             onPlayPauseClick = {
                                 if (libraryState.musicPlayback.isActive) {

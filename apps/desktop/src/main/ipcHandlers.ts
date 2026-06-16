@@ -2,10 +2,13 @@ import { ipcMain } from "electron";
 import type { CatalogRealtimeSyncService } from "./catalogRealtimeSync.js";
 import type { CatalogSyncService } from "./catalogSync.js";
 import type { DownloadManager } from "./downloadManager.js";
+import type { TrackDownloadQueue } from "./trackDownloadQueue.js";
 import { LocalDatabase } from "./database.js";
 import type { PlaybackPowerBlocker } from "./playbackPowerBlocker.js";
 import type { ProfileSyncService } from "./profileSync.js";
 import type { ProgressSyncService } from "./progressSync.js";
+import type { EnqueueDownloadRequest } from "../shared/downloadQueueState.js";
+import type { DownloadPriority } from "../shared/downloadQueuePolicy.js";
 import type { SessionService } from "./sessionService.js";
 
 export interface IpcHandlerDeps {
@@ -13,6 +16,7 @@ export interface IpcHandlerDeps {
   catalogSync: CatalogSyncService;
   catalogRealtimeSync: CatalogRealtimeSyncService;
   downloadManager: DownloadManager;
+  trackDownloadQueue: TrackDownloadQueue;
   profileSync: ProfileSyncService;
   progressSync: ProgressSyncService;
   powerBlocker: PlaybackPowerBlocker;
@@ -24,6 +28,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     catalogSync,
     catalogRealtimeSync,
     downloadManager,
+    trackDownloadQueue,
     profileSync,
     progressSync,
     powerBlocker,
@@ -41,6 +46,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   });
   ipcMain.handle("session:setOnline", async (_e, online: boolean) => {
     sessionService.setOnline(online);
+    trackDownloadQueue.setOnline(online);
     if (!online || !sessionService.getSession()) return;
     await sessionService.refreshIfNeeded();
     await Promise.all([
@@ -92,6 +98,39 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   ipcMain.handle("download:list", () => downloadManager.listDownloadSummaries());
   ipcMain.handle("download:storageStats", () => downloadManager.getStorageStats());
   ipcMain.handle("download:deleteAll", () => downloadManager.deleteAll());
+  ipcMain.handle("download:enqueue", (_e, request: EnqueueDownloadRequest) => {
+    trackDownloadQueue.enqueue(request);
+  });
+  ipcMain.handle(
+    "download:enqueueBatch",
+    (_e, requests: EnqueueDownloadRequest[], batchId?: string) => {
+      trackDownloadQueue.enqueueBatch(requests, batchId);
+    },
+  );
+  ipcMain.handle(
+    "download:awaitTrack",
+    (
+      _e,
+      bookId: string,
+      trackId: string,
+      options?: {
+        priority?: DownloadPriority;
+        title?: string;
+        subtitle?: string | null;
+        contentType?: string;
+      },
+    ) => trackDownloadQueue.awaitTrack(bookId, trackId, options),
+  );
+  ipcMain.handle("download:cancelTrack", (_e, bookId: string, trackId: string) => {
+    trackDownloadQueue.cancelTrack(bookId, trackId);
+  });
+  ipcMain.handle("download:cancelBatch", (_e, batchId: string) => {
+    trackDownloadQueue.cancelBatch(batchId);
+  });
+  ipcMain.handle("download:cancelAll", () => {
+    trackDownloadQueue.cancelAll();
+  });
+  ipcMain.handle("download:getQueueState", () => trackDownloadQueue.getQueueState());
   ipcMain.handle("sync:status", () => progressSync.getSyncStatus());
   ipcMain.handle("sync:trigger", () => progressSync.triggerSync());
   ipcMain.handle("progress:get", (_e, bookId: string) => LocalDatabase.getProgress(bookId));

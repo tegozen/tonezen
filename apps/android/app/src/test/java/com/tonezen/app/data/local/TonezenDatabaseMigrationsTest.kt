@@ -11,7 +11,7 @@ class TonezenDatabaseMigrationsTest {
     fun migrationsCoverEveryReleasedSchemaVersion() {
         val migrations = TonezenDatabaseMigrations.ALL.map { it.startVersion to it.endVersion }
 
-        assertEquals(listOf(1 to 2, 2 to 3, 3 to 4), migrations)
+        assertEquals(listOf(1 to 2, 2 to 3, 3 to 4, 4 to 5), migrations)
     }
 
     @Test
@@ -46,5 +46,22 @@ class TonezenDatabaseMigrationsTest {
         TonezenDatabaseMigrations.MIGRATION_3_4.migrate(db)
 
         verify { db.execSQL("ALTER TABLE `tracks` ADD COLUMN `artist` TEXT") }
+    }
+
+    @Test
+    fun migrationFourToFiveAddsDownloadQueueAndTrackTimestamp() {
+        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
+
+        TonezenDatabaseMigrations.MIGRATION_4_5.migrate(db)
+
+        verify { db.execSQL("ALTER TABLE `tracks` ADD COLUMN `localDownloadedAt` INTEGER") }
+        verify {
+            db.execSQL(
+                match {
+                    it.contains("CREATE TABLE IF NOT EXISTS `download_queue`") &&
+                        it.contains("`bytesDownloaded` INTEGER NOT NULL")
+                },
+            )
+        }
     }
 }

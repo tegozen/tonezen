@@ -1,0 +1,106 @@
+package com.tonezen.app.playback
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Intent
+import android.os.IBinder
+import androidx.core.app.NotificationCompat
+import com.tonezen.app.MainActivity
+import com.tonezen.app.R
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+
+@AndroidEntryPoint
+class TrackDownloadService : Service() {
+    @Inject lateinit var notifier: DownloadQueueNotifier
+    @Inject lateinit var queueController: TrackDownloadQueueController
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    override fun onCreate() {
+        super.onCreate()
+        createChannel()
+        scope.launch {
+            notifier.state.collectLatest { state ->
+                val notification = buildNotification(state)
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            queueController.cancelAll()
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        startForeground(NOTIFICATION_ID, buildNotification(notifier.snapshot()))
+        return START_STICKY
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun buildNotification(state: DownloadQueueState): Notification {
+        val pending = state.queuedItems.size
+        val activeTitle = state.queuedItems.find { it.trackId == state.activeTrackId }?.title
+        val text = when {
+            state.pausedForNetwork -> getString(R.string.download_paused_offline)
+            activeTitle != null -> getString(R.string.download_notification_progress, activeTitle)
+            pending > 0 -> getString(R.string.download_notification_queued, pending)
+            else -> getString(R.string.download_notification_title)
+        }
+        val stopIntent = PendingIntent.getService(
+            this,
+            0,
+            Intent(this, TrackDownloadService::class.java).setAction(ACTION_STOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(getString(R.string.download_notification_title))
+            .setContentText(text)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setProgress(100, ((state.activeProgress ?: 0f) * 100).toInt(), state.activeProgress == null)
+            .addAction(0, getString(R.string.download_notification_stop), stopIntent)
+            .setContentIntent(
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    Intent(this, MainActivity::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
+            .build()
+    }
+
+    private fun createChannel() {
+        val manager = getSystemService(NotificationManager::class.java)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            getString(R.string.download_notification_channel),
+            NotificationManager.IMPORTANCE_LOW,
+        )
+        manager.createNotificationChannel(channel)
+    }
+
+    companion object {
+        const val CHANNEL_ID = "tonezen_downloads"
+        const val NOTIFICATION_ID = 42
+        const val ACTION_STOP = "com.tonezen.app.download.STOP"
+    }
+}

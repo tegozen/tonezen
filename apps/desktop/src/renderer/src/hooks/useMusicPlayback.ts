@@ -9,9 +9,10 @@ import {
   type MusicListTrack,
 } from "@shared/musicList";
 import {
-  isMusicDownloadActive,
+  isBulkDownloading,
+  isTrackQueued,
   progressForTrack as downloadProgressForTrack,
-} from "@shared/musicDownloadState";
+} from "@shared/downloadQueueState";
 import {
   findNextPlayableIndex,
   findPreviousPlayableIndex,
@@ -19,7 +20,7 @@ import {
   shouldRestartCurrentMusicTrack,
   type MusicSessionState,
 } from "@shared/musicPlayback";
-import type { useMusicDownload } from "./useMusicDownload";
+import type { useDownloadQueue } from "./useDownloadQueue";
 import { strings } from "../i18n/strings";
 
 type SessionState = MusicSessionState;
@@ -32,7 +33,7 @@ interface UseMusicPlaybackOptions {
   setTracks: Dispatch<SetStateAction<Track[]>>;
   sessionState: SessionState;
   refreshLibrary: () => Promise<void>;
-  musicDownload: ReturnType<typeof useMusicDownload>;
+  downloadQueue: ReturnType<typeof useDownloadQueue>;
   playTrack: (track: Track, startMs?: number, book?: Book | null) => void;
   stopPlayback: () => void;
   pauseOrResume: () => void;
@@ -49,7 +50,7 @@ export function useMusicPlayback({
   setTracks,
   sessionState,
   refreshLibrary,
-  musicDownload,
+  downloadQueue,
   playTrack,
   stopPlayback,
   pauseOrResume,
@@ -81,9 +82,9 @@ export function useMusicPlayback({
       bookId: string,
       trackId: string,
       options?: {
-        showProgress?: boolean;
-        bulkDownloaded?: number;
-        bulkTotal?: number;
+        title?: string;
+        subtitle?: string | null;
+        priority?: "PLAY" | "USER" | "BULK" | "PREFETCH";
         suppressPlaybackError?: boolean;
       },
     ): Promise<Track | null> => {
@@ -104,47 +105,27 @@ export function useMusicPlayback({
         return null;
       }
 
-      const showProgress = options?.showProgress ?? true;
-      let progressInterval: ReturnType<typeof setInterval> | undefined;
-      let simulatedProgress = 0.05;
+      const listTrack = musicTracks.find((item) => item.trackId === trackId);
+      const result = await downloadQueue.awaitTrack(bookId, trackId, {
+        priority: options?.priority ?? "PLAY",
+        title: options?.title ?? listTrack?.trackTitle ?? track?.title ?? trackId,
+        subtitle: options?.subtitle ?? listTrack?.artist ?? null,
+        contentType: "music",
+      });
 
-      const tickProgress = () => {
-        simulatedProgress = Math.min(0.92, simulatedProgress + 0.06);
-        if (options?.bulkTotal != null && options.bulkDownloaded != null) {
-          musicDownload.updateBulk(options.bulkDownloaded, options.bulkTotal, trackId, simulatedProgress);
-        } else if (showProgress) {
-          musicDownload.updateTrack(trackId, simulatedProgress);
-        }
-      };
-
-      if (showProgress) {
-        if (options?.bulkTotal != null && options.bulkDownloaded != null) {
-          musicDownload.updateBulk(options.bulkDownloaded, options.bulkTotal, trackId, simulatedProgress);
-        } else {
-          musicDownload.beginTrack(trackId);
-        }
-        progressInterval = setInterval(tickProgress, 250);
-      }
-
-      try {
-        await window.tonezen.download.track(bookId, trackId);
-        bookTracks = await window.tonezen.db.getTracks(bookId);
-        track = bookTracks.find((item) => item.id === trackId);
-        await refreshLibrary();
-        return (track as Track) ?? null;
-      } catch {
-        if (!options?.suppressPlaybackError) {
+      if (result !== "COMPLETED") {
+        if (result === "FAILED" && !options?.suppressPlaybackError) {
           setMusicError(strings.musicPlaybackErrorDownload);
         }
         return null;
-      } finally {
-        if (progressInterval) clearInterval(progressInterval);
-        if (showProgress && options?.bulkTotal == null) {
-          musicDownload.finishTrack();
-        }
       }
+
+      bookTracks = await window.tonezen.db.getTracks(bookId);
+      track = bookTracks.find((item) => item.id === trackId);
+      await refreshLibrary();
+      return (track as Track) ?? null;
     },
-    [musicDownload, refreshLibrary, sessionState],
+    [downloadQueue, musicTracks, refreshLibrary, sessionState],
   );
 
   const resolveLocalTrack = useCallback(
@@ -160,20 +141,20 @@ export function useMusicPlayback({
 
   const prefetchNextTrack = useCallback(
     (queue: MusicListTrack[], currentTrackId: string) => {
-      if (isMusicDownloadActive(musicDownload.state)) return;
       const index = queue.findIndex((item) => item.trackId === currentTrackId);
       if (index < 0 || queue.length <= 1) return;
       const next = queue[nextMusicIndex(index, queue.length)];
       if (!next || next.isDownloaded) return;
-
-      const jobId = prefetchJobRef.current + 1;
-      prefetchJobRef.current = jobId;
-      void (async () => {
-        await ensureTrackLocal(next.bookId, next.trackId, { showProgress: false });
-        if (prefetchJobRef.current !== jobId) return;
-      })();
+      void downloadQueue.enqueue({
+        bookId: next.bookId,
+        trackId: next.trackId,
+        priority: "PREFETCH",
+        title: next.trackTitle,
+        subtitle: next.artist,
+        contentType: "music",
+      });
     },
-    [ensureTrackLocal, musicDownload.state],
+    [downloadQueue],
   );
 
   const playMusicTrackInternal = useCallback(
@@ -186,9 +167,6 @@ export function useMusicPlayback({
       },
     ) => {
       if (deletingTrackIdRef.current === listTrack.trackId) return false;
-      if (!options?.allowWhileDownloading && isMusicDownloadActive(musicDownload.state)) {
-        return false;
-      }
 
       const book = books.find((item) => item.id === listTrack.bookId);
       if (!book) return false;
@@ -196,7 +174,7 @@ export function useMusicPlayback({
       if (
         musicMode &&
         currentTrack?.id === listTrack.trackId &&
-        !downloadProgressForTrack(musicDownload.state, listTrack.trackId)
+        !downloadProgressForTrack(downloadQueue.state, listTrack.trackId)
       ) {
         if (!listTrack.isDownloaded) {
           const local = await ensureTrackLocal(listTrack.bookId, listTrack.trackId);
@@ -219,7 +197,9 @@ export function useMusicPlayback({
 
       if (!local?.localPath) {
         local = await ensureTrackLocal(listTrack.bookId, listTrack.trackId, {
-          showProgress: showDownloadProgress,
+          title: listTrack.trackTitle,
+          subtitle: listTrack.artist,
+          priority: showDownloadProgress ? "PLAY" : "PREFETCH",
           suppressPlaybackError: options?.advancePlayback,
         });
       }
@@ -238,7 +218,7 @@ export function useMusicPlayback({
       books,
       currentTrack?.id,
       ensureTrackLocal,
-      musicDownload,
+      downloadQueue,
       musicMode,
       musicTracks,
       pauseOrResume,
@@ -319,47 +299,61 @@ export function useMusicPlayback({
 
   const downloadAllMusic = useCallback(async () => {
     if (sessionState !== "AuthenticatedOnline") return;
-    if (isMusicDownloadActive(musicDownload.state)) return;
-    const total = musicTracks.length;
+    if (isBulkDownloading(downloadQueue.state)) {
+      if (downloadQueue.state.activeBatchId) {
+        await downloadQueue.cancelBatch(downloadQueue.state.activeBatchId);
+      }
+      return;
+    }
     const pending = musicTracks.filter((track) => !track.isDownloaded);
     if (pending.length === 0) return;
-
-    let done = musicTracks.filter((track) => track.isDownloaded).length;
-    musicDownload.beginBulk(done, total);
-    for (const track of pending) {
-      const result = await ensureTrackLocal(track.bookId, track.trackId, {
-        showProgress: true,
-        bulkDownloaded: done,
-        bulkTotal: total,
-      });
-      if (result?.localPath) {
-        done += 1;
-        musicDownload.incrementBulk(done, total);
-      }
-    }
-    musicDownload.clear();
-    await refreshLibrary();
-  }, [ensureTrackLocal, musicDownload, musicTracks, refreshLibrary, sessionState]);
+    const batchId = crypto.randomUUID();
+    await downloadQueue.enqueueBatch(
+      pending.map((track) => ({
+        bookId: track.bookId,
+        trackId: track.trackId,
+        priority: "BULK" as const,
+        batchId,
+        title: track.trackTitle,
+        subtitle: track.artist,
+        contentType: "music",
+      })),
+      batchId,
+    );
+  }, [downloadQueue, musicTracks, sessionState]);
 
   const downloadMusicTrack = useCallback(
     async (listTrack: MusicListTrack) => {
-      if (sessionState !== "AuthenticatedOnline") return;
-      if (isMusicDownloadActive(musicDownload.state) || listTrack.isDownloaded) return;
+      if (sessionState !== "AuthenticatedOnline" || listTrack.isDownloaded) return;
       setMusicError(null);
-      await ensureTrackLocal(listTrack.bookId, listTrack.trackId);
+      const queued =
+        isTrackQueued(downloadQueue.state, listTrack.trackId) ||
+        downloadProgressForTrack(downloadQueue.state, listTrack.trackId) != null;
+      if (queued) {
+        await downloadQueue.cancelTrack(listTrack.bookId, listTrack.trackId);
+        return;
+      }
+      await downloadQueue.enqueue({
+        bookId: listTrack.bookId,
+        trackId: listTrack.trackId,
+        priority: "USER",
+        title: listTrack.trackTitle,
+        subtitle: listTrack.artist,
+        contentType: "music",
+      });
     },
-    [ensureTrackLocal, musicDownload.state, sessionState],
+    [downloadQueue, sessionState],
   );
 
   const deleteMusicTrack = useCallback(
     async (listTrack: MusicListTrack) => {
-      if (isMusicDownloadActive(musicDownload.state)) return;
 
       const trackId = listTrack.trackId;
       deletingTrackIdRef.current = trackId;
       prefetchJobRef.current += 1;
 
       try {
+        await downloadQueue.cancelTrack(listTrack.bookId, listTrack.trackId);
         if (currentTrack?.id === trackId) {
           stopPlayback();
           setMusicMode(false);
@@ -382,7 +376,7 @@ export function useMusicPlayback({
         deletingTrackIdRef.current = null;
       }
     },
-    [currentTrack?.id, musicDownload.state, refreshLibrary, stopPlayback],
+    [currentTrack?.id, downloadQueue, refreshLibrary, stopPlayback],
   );
 
   const onMiniPlayerPlayPause = useCallback(
@@ -407,9 +401,8 @@ export function useMusicPlayback({
     musicQueueRef.current = [];
     setMusicQueue([]);
     prefetchJobRef.current += 1;
-    musicDownload.clear();
     setMusicError(null);
-  }, [musicDownload]);
+  }, []);
 
   return {
     musicMode,

@@ -70,6 +70,10 @@ export class SessionService {
     this.online = online;
   }
 
+  isOnline(): boolean {
+    return this.online;
+  }
+
   getAccessToken(): string | null {
     return this.session?.accessToken ?? null;
   }

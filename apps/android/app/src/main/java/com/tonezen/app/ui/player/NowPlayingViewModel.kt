@@ -8,16 +8,16 @@ import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
-import com.tonezen.app.domain.music.MusicDownloadInteractionRules
-import com.tonezen.app.domain.music.MusicDownloadInteractionState
+import com.tonezen.app.domain.downloads.DownloadAwaitResult
+import com.tonezen.app.domain.downloads.DownloadPriority
 import com.tonezen.app.domain.music.MusicLibraryTrack
 import com.tonezen.app.domain.music.MusicPlaybackAdvanceRules
 import com.tonezen.app.domain.music.MusicShuffleQueue
-import com.tonezen.app.playback.MusicDownloadNotifier
 import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.PlaybackQueueBuilder
+import com.tonezen.app.playback.TrackDownloadQueueController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -56,8 +56,8 @@ class NowPlayingViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val trackDownloadEnsurer: TrackDownloadEnsurer,
+    private val downloadQueueController: TrackDownloadQueueController,
     private val playbackEvents: PlaybackEvents,
-    private val musicDownloadNotifier: MusicDownloadNotifier,
     private val musicPlaybackQueue: MusicPlaybackQueue,
     private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
@@ -74,13 +74,8 @@ class NowPlayingViewModel @Inject constructor(
         playbackClient.connect()
         viewModelScope.launch {
             var lastCatalogTrackId: String? = null
-            combine(playbackClient.snapshot, musicDownloadNotifier.state) { snapshot, downloadState ->
-                snapshot to downloadState
-            }.collect { (snapshot, downloadState) ->
-                val blocksPlaybackUi = MusicDownloadInteractionRules.blocksNowPlayingPlaybackUi(
-                    downloadState.toInteractionState(),
-                    snapshot.trackId,
-                )
+            playbackClient.snapshot.collect { snapshot ->
+                val blocksPlaybackUi = false
                 _uiState.update {
                     it.copy(
                         title = if (blocksPlaybackUi) it.title else snapshot.trackTitle,
@@ -101,14 +96,7 @@ class NowPlayingViewModel @Inject constructor(
                     )
                 }
                 val trackId = snapshot.trackId
-                if (
-                    trackId != null &&
-                    trackId != lastCatalogTrackId &&
-                    !MusicDownloadInteractionRules.blocksNowPlayingPlaybackUi(
-                        downloadState.toInteractionState(),
-                        trackId,
-                    )
-                ) {
+                if (trackId != null && trackId != lastCatalogTrackId) {
                     lastCatalogTrackId = trackId
                     scheduleAlbumRefresh(trackId)
                 }
@@ -137,7 +125,6 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun pauseOrResume() {
-        if (isNowPlayingTransportBlocked()) return
         if (_uiState.value.isPlaying) playbackClient.pause() else playbackClient.play()
     }
 
@@ -150,7 +137,6 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun skipPrevious() {
-        if (isNowPlayingTransportBlocked()) return
         if (_uiState.value.contentType == ContentType.MUSIC && libraryTracks.size > 1) {
             if (_uiState.value.positionMs > 3_000L) {
                 playbackClient.seekTo(0)
@@ -175,7 +161,6 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun skipNext() {
-        if (isNowPlayingTransportBlocked()) return
         if (libraryTracks.size <= 1) return
         if (_uiState.value.contentType == ContentType.MUSIC) {
             preserveShuffleOrder = true
@@ -198,7 +183,6 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun playTrack(track: Track) {
-        if (isNowPlayingTransportBlocked()) return
         val index = libraryTracks.indexOfFirst { it.track.id == track.id }
         if (index >= 0) {
             preserveShuffleOrder = true
@@ -224,30 +208,34 @@ class NowPlayingViewModel @Inject constructor(
 
         if (needsDownload) {
             playbackClient.pause()
-        }
-
-        if (needsDownload) {
-            musicDownloadNotifier.beginTrack(target.id)
-        }
-        _uiState.update {
-            it.copy(
+            val awaitResult = downloadQueueController.awaitTrack(
+                bookId = book.id,
+                trackId = target.id,
+                priority = DownloadPriority.PLAY,
                 title = target.title,
-                subtitle = formatSubtitle(book.author, book.title),
-                coverSeed = target.id,
-                isPlaying = false,
+                subtitle = book.title,
+                contentType = book.contentType.name.lowercase(),
             )
+            if (awaitResult != DownloadAwaitResult.COMPLETED) {
+                if (awaitResult == DownloadAwaitResult.FAILED && networkMonitor.isOnline()) {
+                    return
+                }
+                val nextIndex = MusicPlaybackAdvanceRules.findNextPlayable(
+                    items = libraryTracks,
+                    currentIndex = index,
+                    isPlayable = { entry -> isAlbumEntryPlayable(entry) },
+                ) ?: return
+                playQueueAt(nextIndex)
+                return
+            }
         }
-        if (needsDownload) yield()
 
         val ensured = withContext(Dispatchers.IO) {
-            val fresh = catalogRepository.getTracksForBook(book.id)
-                .find { it.id == target.id } ?: target
-            val progress = if (needsDownload) createProgressReporter(target.id) else null
-            val outcome = trackDownloadEnsurer.ensureTrackLocal(book.id, fresh, progress)
-            outcome.track != null
+            catalogRepository.getTracksForBook(book.id)
+                .find { it.id == target.id }
+                ?.let { trackDownloadEnsurer.resolveLocalTrack(book.id, it) } != null
         }
         if (!ensured) {
-            musicDownloadNotifier.finishTrack()
             if (networkMonitor.isOnline()) {
                 return
             }
@@ -260,7 +248,13 @@ class NowPlayingViewModel @Inject constructor(
             return
         }
 
-        musicDownloadNotifier.finishTrack()
+        _uiState.update {
+            it.copy(
+                title = target.title,
+                subtitle = formatSubtitle(book.author, book.title),
+                coverSeed = target.id,
+            )
+        }
 
         val queue = buildLocalQueue()
         if (queue.isEmpty()) return
@@ -304,19 +298,6 @@ class NowPlayingViewModel @Inject constructor(
         val entries = libraryTracks
         return (1 until trackCount.coerceAtMost(4)).map { offset ->
             entries[(index + offset) % trackCount].track
-        }
-    }
-
-    private fun createProgressReporter(trackId: String): (Float) -> Unit {
-        val reporter = object {
-            var lastBucket = -1
-        }
-        return progress@{ progress ->
-            val bucket = (progress * 50).toInt()
-            if (bucket > reporter.lastBucket || progress >= 1f) {
-                reporter.lastBucket = bucket
-                musicDownloadNotifier.updateTrack(trackId, progress)
-            }
         }
     }
 
@@ -416,14 +397,6 @@ class NowPlayingViewModel @Inject constructor(
         )
     }
 
-    private fun isNowPlayingTransportBlocked(): Boolean {
-        val snapshot = playbackClient.snapshot.value
-        return MusicDownloadInteractionRules.blocksNowPlayingPlaybackUi(
-            musicDownloadNotifier.state.value.toInteractionState(),
-            snapshot.trackId,
-        )
-    }
-
     private fun formatSubtitle(artist: String?, album: String?): String? {
         val cleanArtist = artist?.takeIf { it.isNotBlank() }
         val cleanAlbum = album?.takeIf { it.isNotBlank() }
@@ -435,10 +408,3 @@ class NowPlayingViewModel @Inject constructor(
         }
     }
 }
-
-private fun com.tonezen.app.playback.MusicDownloadState.toInteractionState() =
-    MusicDownloadInteractionState(
-        isTrackDownloading = isTrackDownloading,
-        isBulkDownloading = isBulkDownloading,
-        activeTrackId = activeTrackId,
-    )

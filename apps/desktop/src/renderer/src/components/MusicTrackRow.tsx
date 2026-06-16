@@ -1,4 +1,9 @@
 import type { MusicListTrack } from "@shared/musicList";
+import {
+  isTrackQueued,
+  progressForTrack,
+  type DownloadQueueState,
+} from "@shared/downloadQueueState";
 import { TrackDownloadButton } from "./TrackDownloadButton";
 import { TrackDownloadedIndicator } from "./TrackDownloadedIndicator";
 import { TrackListRow } from "./TrackListRow";
@@ -8,8 +13,7 @@ import { strings } from "../i18n/strings";
 interface MusicTrackRowProps {
   track: MusicListTrack;
   isActive: boolean;
-  downloadProgress: number | null;
-  downloadActive: boolean;
+  downloadQueue: DownloadQueueState;
   onClick: () => void;
   onDownloadClick: () => void;
   onDeleteClick: () => void;
@@ -18,13 +22,14 @@ interface MusicTrackRowProps {
 export function MusicTrackRow({
   track,
   isActive,
-  downloadProgress,
-  downloadActive,
+  downloadQueue,
   onClick,
   onDownloadClick,
   onDeleteClick,
 }: MusicTrackRowProps) {
+  const downloadProgress = progressForTrack(downloadQueue, track.trackId);
   const isDownloading = downloadProgress != null;
+  const isQueued = isTrackQueued(downloadQueue, track.trackId);
 
   return (
     <TrackListRow
@@ -32,21 +37,20 @@ export function MusicTrackRow({
       subtitle={track.artist}
       durationMs={track.durationMs}
       isActive={isActive}
-      clickEnabled={!downloadActive}
+      clickEnabled
       onClick={onClick}
       trailing={
         <>
-          {isDownloading ? (
+          {isDownloading || isQueued ? (
             <TrackDownloadButton
-              downloading
+              downloading={isDownloading}
               progress={downloadProgress}
               onClick={onDownloadClick}
-              disabled
             />
           ) : track.isDownloaded ? (
             <TrackDownloadedIndicator />
           ) : (
-            <TrackDownloadButton onClick={onDownloadClick} disabled={downloadActive} />
+            <TrackDownloadButton onClick={onDownloadClick} />
           )}
           {track.isDownloaded ? (
             <TrackRowOverflowMenu

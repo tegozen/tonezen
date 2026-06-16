@@ -16,6 +16,7 @@ import { closeSplashWindow, createSplashWindow } from "./splashWindow.js";
 import { createAppTray } from "./tray.js";
 import { PlaybackPowerBlocker } from "./playbackPowerBlocker.js";
 import { registerIpcHandlers } from "./ipcHandlers.js";
+import { TrackDownloadQueue } from "./trackDownloadQueue.js";
 
 loadAppEnv();
 registerLocalAudioScheme();
@@ -28,10 +29,11 @@ const powerBlocker = new PlaybackPowerBlocker();
 let catalogSync: CatalogSyncService;
 let catalogRealtimeSync: CatalogRealtimeSyncService;
 let downloadManager: DownloadManager;
+let trackDownloadQueue: TrackDownloadQueue;
 let profileSync: ProfileSyncService;
 let progressSync: ProgressSyncService;
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
 
   const splashWindow = createSplashWindow();
@@ -63,6 +65,8 @@ app.whenReady().then(() => {
     runtimeConfig.baseUrl,
     () => sessionService.getAccessToken(),
   );
+  trackDownloadQueue = new TrackDownloadQueue(downloadsRoot, downloadManager, sessionService);
+  await trackDownloadQueue.restoreFromDb();
   profileSync = new ProfileSyncService(sessionService, {
     baseUrl: runtimeConfig.baseUrl,
     anonKey: runtimeConfig.supabaseAnonKey,
@@ -78,6 +82,7 @@ app.whenReady().then(() => {
   );
 
   const mainWindow = createMainWindow(lifecycle, () => closeSplashWindow(splashWindow));
+  trackDownloadQueue.setMainWindow(mainWindow);
   createAppTray(mainWindow, lifecycle);
   profileSync.setMainWindow(mainWindow);
   progressSync.setMainWindow(mainWindow);
@@ -88,6 +93,7 @@ app.whenReady().then(() => {
     catalogSync,
     catalogRealtimeSync,
     downloadManager,
+    trackDownloadQueue,
     profileSync,
     progressSync,
     powerBlocker,

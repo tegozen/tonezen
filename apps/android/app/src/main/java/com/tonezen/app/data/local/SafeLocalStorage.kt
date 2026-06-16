@@ -7,10 +7,16 @@ object SafeLocalStorage {
 
     fun isSafeId(id: String): Boolean = id.isNotBlank() && !unsafeSegment.containsMatchIn(id)
 
-    fun trackFile(rootDir: File, bookId: String, trackId: String): File? {
+    fun trackFile(rootDir: File, bookId: String, trackId: String): File? =
+        trackFileWithSuffix(rootDir, bookId, trackId, ".mp3")
+
+    fun trackPartFile(rootDir: File, bookId: String, trackId: String): File? =
+        trackFileWithSuffix(rootDir, bookId, trackId, ".part")
+
+    private fun trackFileWithSuffix(rootDir: File, bookId: String, trackId: String, suffix: String): File? {
         if (!isSafeId(bookId) || !isSafeId(trackId)) return null
         val downloadsRoot = File(rootDir, "downloads").canonicalFile
-        val target = File(downloadsRoot, "$bookId/$trackId.mp3").canonicalFile
+        val target = File(downloadsRoot, "$bookId/$trackId$suffix").canonicalFile
         val prefix = downloadsRoot.path + File.separator
         if (target.path != downloadsRoot.path && !target.path.startsWith(prefix)) return null
         return target
