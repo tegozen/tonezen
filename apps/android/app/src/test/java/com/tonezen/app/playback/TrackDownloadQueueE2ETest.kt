@@ -31,6 +31,7 @@ import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.data.remote.ResumableDownloadOutcome
 import com.tonezen.app.data.remote.SessionRepository
+import com.tonezen.app.data.local.SafeLocalStorage
 import com.tonezen.app.domain.downloads.DownloadAwaitResult
 import com.tonezen.app.domain.downloads.DownloadPriority
 import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
@@ -91,6 +92,36 @@ class TrackDownloadQueueE2ETest {
                 tempPath = tempPath,
             )
         }
+    }
+
+    @Test
+    fun downloadRepository_skipsHttpWhenTrackExistsUnderAnotherBookFolder() = runBlocking {
+        val rootDir = Files.createTempDirectory("tonezen-q-e2e-cross-book").toFile()
+        rootDir.mkdirs()
+
+        val context = mockk<Context>(relaxed = true)
+        every { context.filesDir } returns rootDir
+
+        val existing = SafeLocalStorage.trackFile(rootDir, "book-a", "t1")!!
+        existing.parentFile?.mkdirs()
+        existing.writeBytes(byteArrayOf(1))
+
+        val downloadsRemoteApi = mockk<com.tonezen.app.data.remote.downloads.DownloadsRemoteApi>(relaxed = true)
+        val httpClient = mockk<okhttp3.OkHttpClient>(relaxed = true)
+        val downloadRepository = DownloadRepository(context, downloadsRemoteApi, httpClient)
+
+        val outcome = downloadRepository.downloadTrackResumable(
+            accessToken = "token",
+            bookId = "book-b",
+            trackId = "t1",
+            bytesAlreadyDownloaded = 0L,
+            totalBytesHint = null,
+            onProgress = {},
+            isCancelled = { false },
+        )
+
+        assertEquals(existing.absolutePath, outcome.finalFile.absolutePath)
+        coVerify(exactly = 0) { downloadsRemoteApi.signDownloadUrls(any(), any()) }
     }
 
     @Test

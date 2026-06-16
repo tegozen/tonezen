@@ -102,7 +102,10 @@ class CatalogRepository @Inject constructor(
         val onDiskByKey = scanDownloadedFilesOnDisk()
 
         for (entity in catalogDao.getTracksWithoutLocalPath()) {
-            val safePath = onDiskByKey[entity.bookId to entity.id] ?: continue
+            val safePath = onDiskByKey[entity.bookId to entity.id]
+                ?: onDiskByKey.entries.firstOrNull { it.key.second == entity.id }?.value
+                ?: SafeLocalStorage.findDownloadedTrack(context.filesDir, entity.id, entity.bookId)?.path
+                ?: continue
             updates.add(entity.copy(localPath = safePath))
         }
 
@@ -111,6 +114,8 @@ class CatalogRepository @Inject constructor(
             when {
                 validPath == null -> {
                     val diskPath = onDiskByKey[entity.bookId to entity.id]
+                        ?: onDiskByKey.entries.firstOrNull { it.key.second == entity.id }?.value
+                        ?: SafeLocalStorage.findDownloadedTrack(context.filesDir, entity.id, entity.bookId)?.path
                     if (diskPath != null) {
                         updates.add(entity.copy(localPath = diskPath))
                     } else {
@@ -243,6 +248,8 @@ class CatalogRepository @Inject constructor(
                     normalizeAuthor(track.artist),
                     track.durationMs,
                     localPath,
+                    localDownloadedAt = existing?.localDownloadedAt
+                        ?: localPath?.let { System.currentTimeMillis() },
                 )
             },
         )
@@ -290,6 +297,7 @@ class CatalogRepository @Inject constructor(
             if (file.isFile && file.length() > 0L) return fromDb
         }
         val onDisk = expectedTrackFile(bookId, trackId)
+            ?: SafeLocalStorage.findDownloadedTrack(context.filesDir, trackId, bookId)?.file
         if (onDisk?.isFile == true && onDisk.length() > 0L) {
             markTrackDownloaded(bookId, trackId, onDisk.absolutePath)
             return onDisk.absolutePath
@@ -299,9 +307,7 @@ class CatalogRepository @Inject constructor(
     }
 
     private fun findOnDiskTrackPath(trackId: String): Pair<String, String>? =
-        scanDownloadedFilesOnDisk().entries.firstOrNull { it.key.second == trackId }?.let {
-            it.key.first to it.value
-        }
+        SafeLocalStorage.findDownloadedTrack(context.filesDir, trackId)?.let { it.bookId to it.path }
 
     private fun expectedTrackFile(bookId: String, trackId: String): File? =
         SafeLocalStorage.trackFile(context.filesDir, bookId, trackId)

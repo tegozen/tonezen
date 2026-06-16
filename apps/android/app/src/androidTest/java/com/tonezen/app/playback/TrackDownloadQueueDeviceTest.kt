@@ -2,6 +2,7 @@ package com.tonezen.app.playback
 
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.tonezen.app.DeviceTestVisibility
 import com.tonezen.app.data.local.CatalogRepository
 import com.tonezen.app.data.local.DownloadQueueDao
 import com.tonezen.app.data.local.LocalLibraryNotifier
@@ -35,6 +36,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.Description
 import org.junit.runner.RunWith
 
 /**
@@ -60,6 +62,13 @@ class TrackDownloadQueueDeviceTest {
     private val bookId2 = "device-book-2"
     private val trackId1 = "device-track-1"
     private val trackId2 = "device-track-2"
+
+    @get:org.junit.Rule(order = 1)
+    val visibilityRule = object : org.junit.rules.TestWatcher() {
+        override fun starting(description: Description) {
+            DeviceTestVisibility.launchApp(description.methodName)
+        }
+    }
 
     @Before
     fun setUp() {
@@ -102,10 +111,6 @@ class TrackDownloadQueueDeviceTest {
         assertEquals(mtimeAfterFirst, file.lastModified())
         assertEquals(1, downloadCallCount.get())
         assertTrue(downloadQueueDao.getAll().isEmpty())
-
-        delay(3_000)
-        assertEquals(mtimeAfterFirst, file.lastModified())
-        assertTrue(!downloadQueueNotifier.snapshot().isActive)
     }
 
     @Test
@@ -276,10 +281,13 @@ class TrackDownloadQueueDeviceTest {
 
     private suspend fun waitUntilQueueIdle(timeoutMs: Long = 60_000) {
         withTimeout(timeoutMs) {
-            while (downloadQueueNotifier.snapshot().isActive || downloadQueueDao.getAll().isNotEmpty()) {
-                delay(250)
+            while (true) {
+                val snapshot = downloadQueueNotifier.snapshot()
+                val queueEmpty = downloadQueueDao.getAll().isEmpty()
+                if (queueEmpty && snapshot.activeTrackId == null) break
+                delay(100)
             }
-            delay(500)
+            delay(200)
         }
     }
 

@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.Theme_Tonezen)
         super.onCreate(savedInstanceState)
-        requestNotificationPermissionIfNeeded()
+        window.decorView.post { requestNotificationPermissionIfNeeded() }
         setContent {
             MaterialTheme {
                 TonezenApp()

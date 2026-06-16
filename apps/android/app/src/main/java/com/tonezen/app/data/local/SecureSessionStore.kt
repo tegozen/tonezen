@@ -6,13 +6,16 @@ import androidx.security.crypto.MasterKey
 import com.tonezen.app.domain.model.StoredSession
 
 class SecureSessionStore(context: Context) {
-    private val prefs = EncryptedSharedPreferences.create(
-        context,
-        "tonezen_session",
-        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-    )
+    private val appContext = context.applicationContext
+    private val prefs by lazy {
+        EncryptedSharedPreferences.create(
+            appContext,
+            "tonezen_session",
+            MasterKey.Builder(appContext).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+        )
+    }
 
     fun save(session: StoredSession) {
         prefs.edit()

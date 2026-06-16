@@ -14,8 +14,8 @@ android {
         applicationId = "com.tonezen.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.1.2"
+        versionCode = 4
+        versionName = "0.1.3"
         testInstrumentationRunner = "com.tonezen.app.HiltTestRunner"
         buildConfigField("String", "BASE_URL", "\"https://tonezen.tegozen.ru\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwiZXhwIjoyMDk2NTgzNzc3fQ._CP-vbYhhZ9MPZaShAUB_93enHnw9dfh3_sFLep_Jws\"")
@@ -93,10 +93,28 @@ dependencies {
 
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+    androidTestImplementation(composeBom)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation("io.mockk:mockk-android:1.13.13")
     androidTestImplementation("com.google.dagger:hilt-android-testing:2.52")
     kspAndroidTest("com.google.dagger:hilt-compiler:2.52")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+tasks.register<Exec>("connectedDebugAndroidTestRecorded") {
+    group = "verification"
+    description = "Run device E2E tests with adb screenrecord per test method"
+    workingDir = rootProject.projectDir
+    commandLine(
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        rootProject.projectDir.resolve("scripts/record-device-e2e.ps1").absolutePath,
+    )
 }

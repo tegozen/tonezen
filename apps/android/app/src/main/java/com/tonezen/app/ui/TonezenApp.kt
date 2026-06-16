@@ -23,6 +23,7 @@ fun TonezenApp(
 
     TonezenTheme {
         when {
+            !libraryState.isSessionLoaded -> Unit
             libraryState.sessionState == SessionState.UNAUTHENTICATED -> AuthScreen(
                 padding = PaddingValues(0.dp),
                 onLogin = authViewModel::login,

@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
+import com.tonezen.app.ui.testing.TestTags
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenBottomNavContentHeight
@@ -55,12 +57,14 @@ internal fun TonezenBottomNavigation(
         BottomNavItem(
             destination = BottomDestination.Library,
             selected = selected,
+            testTag = TestTags.NAV_LIBRARY,
             onClick = { onSelect(BottomDestination.Library) },
             modifier = Modifier.weight(1f),
         )
         BottomNavItem(
             destination = BottomDestination.Profile,
             selected = selected,
+            testTag = TestTags.NAV_PROFILE,
             onClick = { onSelect(BottomDestination.Profile) },
             modifier = Modifier.weight(1f),
         )
@@ -71,6 +75,7 @@ internal fun TonezenBottomNavigation(
 private fun BottomNavItem(
     destination: BottomDestination,
     selected: BottomDestination,
+    testTag: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -78,6 +83,7 @@ private fun BottomNavItem(
     Box(
         modifier = modifier
             .fillMaxHeight()
+            .testTag(testTag)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

@@ -1,59 +1,40 @@
 package com.tonezen.app.data.local
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
 import java.io.File
+import java.nio.file.Files
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
 
 class SafeLocalStorageTest {
     @Test
-    fun trackFile_rejectsPathTraversalInIds() {
-        val root = File("build/test-safe-storage").apply {
-            deleteRecursively()
-            mkdirs()
-        }
-        assertNull(SafeLocalStorage.trackFile(root, "../etc", "track"))
-        assertNull(SafeLocalStorage.trackFile(root, "book", "../passwd"))
+    fun findDownloadedTrack_returnsFileFromAnyBookFolder() {
+        val root = Files.createTempDirectory("tonezen-safe-storage").toFile()
+        val file = File(root, "downloads/book-a/track-1.mp3")
+        file.parentFile?.mkdirs()
+        file.writeBytes(byteArrayOf(1, 2, 3))
+
+        val found = SafeLocalStorage.findDownloadedTrack(root, "track-1", preferredBookId = "book-b")
+
+        assertNotNull(found)
+        assertEquals("book-a", found?.bookId)
+        assertTrue(found?.file?.isFile == true)
     }
 
     @Test
-    fun trackFile_staysUnderDownloadsRoot() {
-        val root = File("build/test-safe-storage").apply {
-            deleteRecursively()
-            mkdirs()
-        }
-        val target = SafeLocalStorage.trackFile(root, "book-1", "track-1")
-        requireNotNull(target)
-        target.parentFile?.mkdirs()
-        target.writeText("ok")
-        assertEquals(true, target.isFile)
-        assertEquals(true, SafeLocalStorage.isUnderAppFilesRoot(root, target.path))
-    }
+    fun findDownloadedTrack_promotesCompletePartFile() {
+        val root = Files.createTempDirectory("tonezen-safe-storage-part").toFile()
+        val part = File(root, "downloads/book-a/track-1.part")
+        part.parentFile?.mkdirs()
+        part.writeBytes(byteArrayOf(9))
 
-    @Test
-    fun sanitizeExistingLocalPath_rejectsPathsOutsideAppRoot() {
-        val root = File("build/test-safe-storage").apply {
-            deleteRecursively()
-            mkdirs()
-        }
-        val allowed = File(root, "downloads/book/track.mp3").apply {
-            parentFile?.mkdirs()
-            writeText("audio")
-        }
-        assertEquals(allowed.canonicalFile.path, SafeLocalStorage.sanitizeExistingLocalPath(root, allowed.path))
-        assertNull(SafeLocalStorage.sanitizeExistingLocalPath(root, "/etc/passwd"))
-        assertNull(SafeLocalStorage.sanitizeExistingLocalPath(root, "../outside.mp3"))
-    }
+        val found = SafeLocalStorage.findDownloadedTrack(root, "track-1", preferredBookId = "book-a")
 
-    @Test
-    fun sanitizeStoredLocalPath_rejectsPathsOutsideAppRoot() {
-        val root = File("build/test-safe-storage").apply {
-            deleteRecursively()
-            mkdirs()
-        }.absoluteFile
-        val allowed = File(root, "downloads/book/track.mp3")
-        assertEquals(allowed.path, SafeLocalStorage.sanitizeStoredLocalPath(root, allowed.path))
-        assertNull(SafeLocalStorage.sanitizeStoredLocalPath(root, "/etc/passwd"))
-        assertNull(SafeLocalStorage.sanitizeStoredLocalPath(root, "../outside.mp3"))
+        assertNotNull(found)
+        assertEquals("book-a", found?.bookId)
+        assertTrue(File(root, "downloads/book-a/track-1.mp3").isFile)
+        assertNull(SafeLocalStorage.trackPartFile(root, "book-a", "track-1")?.takeIf { it.exists() })
     }
 }

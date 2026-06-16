@@ -22,6 +22,7 @@ import com.tonezen.app.domain.library.LibrarySortOrder
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Cycle
+import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.playback.DownloadQueueNotifier
 import com.tonezen.app.playback.TrackDownloadQueueController
@@ -128,7 +129,6 @@ class LibraryViewModel @Inject constructor(
                 wasQueueActive = state.isActive
             }
         }
-        playbackClient.connect()
         _uiState.update { it.copy(isNetworkOnline = networkMonitor.isOnline()) }
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             object : DefaultLifecycleObserver {
@@ -147,8 +147,16 @@ class LibraryViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            sessionRepository.isLoaded.collectLatest { loaded ->
+                _uiState.update { it.copy(isSessionLoaded = loaded) }
+            }
+        }
+        viewModelScope.launch {
             sessionRepository.session.collectLatest { sessionData ->
                 refreshSessionState(sessionData)
+                if (sessionRepository.resolveState(sessionData) != SessionState.UNAUTHENTICATED) {
+                    playbackClient.connect()
+                }
                 val userId = sessionData?.userId
                 if (userId != lastLoadedUserId) {
                     lastLoadedUserId = userId
@@ -290,6 +298,22 @@ class LibraryViewModel @Inject constructor(
     }
 
     private suspend fun loadLibrary(sessionData: StoredSession?) {
+        if (sessionData == null) {
+            catalogSyncRepository.stop()
+            withContext(Dispatchers.Main) {
+                refreshSessionState(null)
+                _uiState.update {
+                    it.copy(
+                        isLoadingCatalog = false,
+                        books = emptyList(),
+                        cycles = emptyList(),
+                        musicTrackList = emptyList(),
+                        downloadedBookIds = emptySet(),
+                    )
+                }
+            }
+            return
+        }
         withContext(Dispatchers.IO) {
             catalogRepository.reconcileLocalDownloadPaths()
             val refreshed = sessionRepository.refreshIfNeeded(sessionData)

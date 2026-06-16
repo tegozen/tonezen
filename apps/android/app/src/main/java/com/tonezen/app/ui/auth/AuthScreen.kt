@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
+import com.tonezen.app.ui.testing.TestTags
 import com.tonezen.app.ui.components.EyeGlyph
 import com.tonezen.app.ui.components.EyeOffGlyph
 import com.tonezen.app.ui.components.LockGlyph
@@ -114,6 +116,7 @@ private fun AuthSignInForm(
             label = stringResource(R.string.email),
             keyboardType = KeyboardType.Email,
             icon = AuthFieldIcon.Email,
+            modifier = Modifier.testTag(TestTags.AUTH_EMAIL),
         )
         TonezenAuthField(
             value = password,
@@ -125,6 +128,7 @@ private fun AuthSignInForm(
             showPasswordToggle = true,
             passwordVisible = passwordVisible,
             onTogglePasswordVisible = onTogglePasswordVisible,
+            modifier = Modifier.testTag(TestTags.AUTH_PASSWORD),
         )
         AuthSignInButton(
             enabled = canSubmit,
@@ -135,7 +139,9 @@ private fun AuthSignInForm(
                 resolveAuthError(it),
                 color = TonezenError,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 2.dp),
+                modifier = Modifier
+                    .padding(horizontal = 2.dp)
+                    .testTag(TestTags.AUTH_ERROR),
             )
         }
         Text(
@@ -168,6 +174,7 @@ private fun AuthSignInButton(
             .height(54.dp)
             .clip(RoundedCornerShape(17.dp))
             .background(gradient)
+            .testTag(TestTags.AUTH_SIGN_IN)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -191,6 +198,7 @@ private fun TonezenAuthField(
     label: String,
     keyboardType: KeyboardType,
     icon: AuthFieldIcon,
+    modifier: Modifier = Modifier,
     hidden: Boolean = false,
     showPasswordToggle: Boolean = false,
     passwordVisible: Boolean = false,
@@ -214,7 +222,7 @@ private fun TonezenAuthField(
         } else {
             null
         },
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(58.dp),
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),

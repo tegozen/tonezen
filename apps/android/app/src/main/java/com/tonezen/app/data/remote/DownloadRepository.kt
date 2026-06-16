@@ -73,12 +73,12 @@ class DownloadRepository @Inject constructor(
             ?: throw IllegalArgumentException("Invalid download target")
         partFile.parentFile?.mkdirs()
 
-        if (finalFile.isFile && finalFile.length() > 0L) {
+        SafeLocalStorage.findDownloadedTrack(context.filesDir, trackId, bookId)?.let { existing ->
             onProgress(1f)
             return@withContext ResumableDownloadOutcome(
-                finalFile = finalFile,
-                bytesDownloaded = finalFile.length(),
-                totalBytes = totalBytesHint ?: finalFile.length(),
+                finalFile = existing.file,
+                bytesDownloaded = existing.file.length(),
+                totalBytes = totalBytesHint ?: existing.file.length(),
             )
         }
 

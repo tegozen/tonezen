@@ -7,13 +7,16 @@ import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.domain.session.SessionManager
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -24,10 +27,22 @@ class SessionRepository @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val sessionManager: SessionManager,
 ) {
+    private val loadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val refreshLock = Mutex()
     private var refreshInFlight: Deferred<StoredSession?>? = null
-    private val _session = MutableStateFlow(sessionStore.load())
+    private val _session = MutableStateFlow<StoredSession?>(null)
     val session: StateFlow<StoredSession?> = _session.asStateFlow()
+    private val _isLoaded = MutableStateFlow(false)
+    val isLoaded: StateFlow<Boolean> = _isLoaded.asStateFlow()
+
+    init {
+        loadScope.launch {
+            if (!_isLoaded.value) {
+                _session.value = sessionStore.load()
+                _isLoaded.value = true
+            }
+        }
+    }
 
     fun loadSession(): StoredSession? = _session.value
 
@@ -39,11 +54,13 @@ class SessionRepository @Inject constructor(
     fun saveSession(session: StoredSession) {
         sessionStore.save(session)
         _session.value = session
+        _isLoaded.value = true
     }
 
     fun clearSession() {
         sessionStore.clear()
         _session.value = null
+        _isLoaded.value = true
     }
 
     fun resolveState(session: StoredSession?): SessionState =

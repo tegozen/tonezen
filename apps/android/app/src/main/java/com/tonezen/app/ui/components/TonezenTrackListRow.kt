@@ -28,6 +28,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -37,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.tonezen.app.R
+import com.tonezen.app.ui.testing.TestTags
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Brush
 import com.tonezen.app.ui.theme.TonezenAmber
@@ -280,10 +285,13 @@ internal fun TrackDownloadButton(
     enabled: Boolean = true,
 ) {
     val isDownloading = progress != null
+    val downloadLabel = stringResource(R.string.download)
     Box(
         modifier = modifier
             .size(36.dp)
             .clip(CircleShape)
+            .testTag(TestTags.TRACK_DOWNLOAD)
+            .semantics { contentDescription = downloadLabel }
             .then(
                 if (isDownloading) {
                     Modifier
@@ -390,7 +398,9 @@ internal fun CompactMediaPlayButton(
 @Composable
 internal fun TrackDownloadedIndicator(modifier: Modifier = Modifier) {
     Box(
-        modifier = modifier.size(36.dp),
+        modifier = modifier
+            .size(36.dp)
+            .testTag(TestTags.TRACK_DOWNLOADED),
         contentAlignment = Alignment.Center,
     ) {
         CheckCircleGlyph(tint = TonezenTeal, size = 18.dp)

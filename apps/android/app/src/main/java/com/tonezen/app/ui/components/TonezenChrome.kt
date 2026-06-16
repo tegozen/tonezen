@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
+import com.tonezen.app.ui.testing.TestTags
 import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenChromeBarBackground
 import com.tonezen.app.ui.theme.TonezenChromeBarBorder
@@ -363,18 +365,21 @@ internal fun TonezenTabs(selectedTab: Int, onSelect: (Int) -> Unit) {
         TonezenTab(
             label = stringResource(R.string.tab_audiobooks),
             selected = selectedTab == 0,
+            testTag = TestTags.TAB_AUDIOBOOKS,
             modifier = Modifier.weight(1f),
             onClick = { onSelect(0) },
         )
         TonezenTab(
             label = stringResource(R.string.tab_music),
             selected = selectedTab == 1,
+            testTag = TestTags.TAB_MUSIC,
             modifier = Modifier.weight(1f),
             onClick = { onSelect(1) },
         )
         TonezenTab(
             label = stringResource(R.string.tab_downloads),
             selected = selectedTab == 2,
+            testTag = TestTags.TAB_DOWNLOADS,
             modifier = Modifier.weight(1f),
             onClick = { onSelect(2) },
         )
@@ -382,9 +387,16 @@ internal fun TonezenTabs(selectedTab: Int, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-private fun TonezenTab(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun TonezenTab(
+    label: String,
+    selected: Boolean,
+    testTag: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     Column(
         modifier = modifier
+            .testTag(testTag)
             .clickable(onClick = onClick)
             .padding(top = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
