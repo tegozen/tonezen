@@ -26,7 +26,7 @@ BEGIN
     TO authenticated, service_role
     WITH CHECK (
       bucket_id = 'avatars'
-      AND auth.uid()::text = (storage.foldername(name))[1]
+      AND split_part(name, '/', 1) = auth.uid()::text
     );
   END IF;
 
@@ -39,11 +39,11 @@ BEGIN
     TO authenticated, service_role
     USING (
       bucket_id = 'avatars'
-      AND auth.uid()::text = (storage.foldername(name))[1]
+      AND split_part(name, '/', 1) = auth.uid()::text
     )
     WITH CHECK (
       bucket_id = 'avatars'
-      AND auth.uid()::text = (storage.foldername(name))[1]
+      AND split_part(name, '/', 1) = auth.uid()::text
     );
   END IF;
 
@@ -56,7 +56,7 @@ BEGIN
     TO authenticated, service_role
     USING (
       bucket_id = 'avatars'
-      AND auth.uid()::text = (storage.foldername(name))[1]
+      AND split_part(name, '/', 1) = auth.uid()::text
     );
   END IF;
 END $$;

@@ -1,6 +1,12 @@
 -- Fix storage-api role impersonation (supabase/storage#369)
 -- Without authenticator grant, Studio cannot list buckets (42501 on set_config role).
 
+-- Self-hosted: init-scripts create roles without our POSTGRES_PASSWORD.
+ALTER ROLE supabase_admin WITH PASSWORD 'tonezen-postgres-internal';
+ALTER ROLE supabase_auth_admin WITH PASSWORD 'tonezen-postgres-internal';
+ALTER ROLE supabase_storage_admin WITH PASSWORD 'tonezen-postgres-internal';
+ALTER ROLE authenticator WITH PASSWORD 'tonezen-postgres-internal';
+
 GRANT authenticator TO supabase_storage_admin;
 REVOKE anon, authenticated, service_role FROM supabase_storage_admin;
 
