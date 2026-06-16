@@ -83,6 +83,7 @@ export function App() {
   const refreshLibraryRef = useRef<() => Promise<void>>(async () => {});
 
   const refreshLibrary = useCallback(async (options?: { rebuildMusic?: boolean }) => {
+    const rebuildMusic = options?.rebuildMusic ?? true;
     const [library, stats, sync, progress] = await Promise.all([
       window.tonezen.db.getLibrarySnapshot(),
       window.tonezen.download.storageStats(),
@@ -96,14 +97,16 @@ export function App() {
     setPendingCount(sync.pendingCount);
     setLastSyncAtEpochMs(sync.lastSyncAtEpochMs);
     setProgressList(progress);
-    setMusicTracks((current) =>
-      buildMusicTrackListForCatalogUpdate(
-        current,
-        library.books as Book[],
-        library.tracks as Track[],
-        musicStartedInSessionRef.current,
-      ),
-    );
+    if (rebuildMusic) {
+      setMusicTracks((current) =>
+        buildMusicTrackListForCatalogUpdate(
+          current,
+          library.books as Book[],
+          library.tracks as Track[],
+          musicStartedInSessionRef.current,
+        ),
+      );
+    }
     setIsLoading(false);
   }, []);
 
