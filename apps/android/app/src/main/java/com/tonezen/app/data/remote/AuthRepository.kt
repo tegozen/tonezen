@@ -44,7 +44,7 @@ class AuthRepository(
                 data.put("full_name", displayName)
             }
             if (avatarUrl != null) {
-                data.put("avatar_url", avatarUrl)
+                data.put("avatar_url", avatarUrl.substringBefore("?"))
             }
             body.put("data", data)
         }

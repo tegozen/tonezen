@@ -7,6 +7,7 @@ import android.graphics.ImageDecoder
 import android.graphics.Matrix
 import android.net.Uri
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.exifinterface.media.ExifInterface
 import com.tonezen.app.data.local.SafeLocalStorage
 import java.io.File
@@ -54,6 +55,7 @@ private fun decodeBitmap(context: Context, uri: Uri, maxSidePx: Int): Bitmap? {
     return decodeWithBitmapFactory(context, uri, maxSidePx)
 }
 
+@RequiresApi(Build.VERSION_CODES.P)
 private fun decodeWithImageDecoder(context: Context, uri: Uri, maxSidePx: Int): Bitmap? {
     return try {
         val source = if (isSafeLocalFileUri(context, uri)) {
