@@ -38,6 +38,8 @@ data class PlaybackSnapshot(
     val artist: String? = null,
     val albumTitle: String? = null,
     val contentType: ContentType? = null,
+    val canSeekToNextMediaItem: Boolean = false,
+    val canSeekToPreviousMediaItem: Boolean = false,
 )
 
 private data class PendingQueuePlay(
@@ -253,6 +255,10 @@ class PlaybackClient @Inject constructor(
                 artist = metadata.artist?.toString(),
                 albumTitle = metadata.albumTitle?.toString(),
                 contentType = lastContentType ?: metadata.mediaType?.toContentType(),
+                canSeekToNextMediaItem = mediaController.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM),
+                canSeekToPreviousMediaItem = mediaController.isCommandAvailable(
+                    Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+                ),
             )
         }
         if (mediaController.isPlaying) {

@@ -15,7 +15,6 @@ import com.tonezen.app.domain.music.MusicPlaybackAdvanceRules
 import com.tonezen.app.domain.music.MusicShuffleQueue
 import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
-import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.PlaybackQueueBuilder
 import com.tonezen.app.playback.TrackDownloadQueueController
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,11 +24,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.yield
 
 data class NowPlayingUiState(
     val title: String? = null,
@@ -57,7 +54,6 @@ class NowPlayingViewModel @Inject constructor(
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val trackDownloadEnsurer: TrackDownloadEnsurer,
     private val downloadQueueController: TrackDownloadQueueController,
-    private val playbackEvents: PlaybackEvents,
     private val musicPlaybackQueue: MusicPlaybackQueue,
     private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
@@ -93,19 +89,14 @@ class NowPlayingViewModel @Inject constructor(
                         positionMs = if (blocksPlaybackUi) it.positionMs else snapshot.positionMs,
                         durationMs = if (blocksPlaybackUi) it.durationMs else snapshot.durationMs,
                         contentType = snapshot.contentType ?: it.contentType,
+                        canSkipNext = snapshot.canSeekToNextMediaItem,
+                        canSkipPrevious = snapshot.canSeekToPreviousMediaItem,
                     )
                 }
                 val trackId = snapshot.trackId
                 if (trackId != null && trackId != lastCatalogTrackId) {
                     lastCatalogTrackId = trackId
                     scheduleAlbumRefresh(trackId)
-                }
-            }
-        }
-        viewModelScope.launch {
-            playbackEvents.trackEnded.collect {
-                if (_uiState.value.contentType == ContentType.MUSIC && libraryTracks.size > 1) {
-                    skipNext()
                 }
             }
         }
@@ -137,49 +128,11 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun skipPrevious() {
-        if (_uiState.value.contentType == ContentType.MUSIC && libraryTracks.size > 1) {
-            if (_uiState.value.positionMs > 3_000L) {
-                playbackClient.seekTo(0)
-            } else {
-                preserveShuffleOrder = true
-                viewModelScope.launch {
-                    val previousIndex = MusicPlaybackAdvanceRules.findPreviousPlayable(
-                        items = libraryTracks,
-                        currentIndex = currentTrackIndex,
-                        isPlayable = { entry -> isAlbumEntryPlayable(entry) },
-                    ) ?: return@launch
-                    skipToIndex(previousIndex)
-                }
-            }
-            return
-        }
-        when {
-            currentTrackIndex > 0 -> skipToIndex(currentTrackIndex - 1)
-            _uiState.value.positionMs > 3_000L -> playbackClient.seekTo(0)
-            else -> playbackClient.seekTo(0)
-        }
+        playbackClient.skipToPrevious()
     }
 
     fun skipNext() {
-        if (libraryTracks.size <= 1) return
-        if (_uiState.value.contentType == ContentType.MUSIC) {
-            preserveShuffleOrder = true
-            viewModelScope.launch {
-                val nextIndex = MusicPlaybackAdvanceRules.findNextPlayable(
-                    items = libraryTracks,
-                    currentIndex = currentTrackIndex,
-                    isPlayable = { entry -> isAlbumEntryPlayable(entry) },
-                ) ?: run {
-                    playbackClient.pause()
-                    return@launch
-                }
-                skipToIndex(nextIndex)
-            }
-            return
-        }
-        if (currentTrackIndex in 0 until libraryTracks.lastIndex) {
-            skipToIndex(currentTrackIndex + 1)
-        }
+        playbackClient.skipToNext()
     }
 
     fun playTrack(track: Track) {
@@ -281,14 +234,6 @@ class NowPlayingViewModel @Inject constructor(
                     ContentType.MUSIC -> musicUpNext(index, libraryTracks.size)
                     else -> libraryTracks.drop(index + 1).map { entry -> entry.track }
                 },
-                canSkipPrevious = when (book.contentType) {
-                    ContentType.MUSIC -> libraryTracks.size > 1
-                    else -> index > 0 || it.positionMs > 3_000L
-                },
-                canSkipNext = when (book.contentType) {
-                    ContentType.MUSIC -> libraryTracks.size > 1
-                    else -> index < libraryTracks.lastIndex
-                },
             )
         }
     }
@@ -329,14 +274,6 @@ class NowPlayingViewModel @Inject constructor(
                     musicUpNext(index, entries.size)
                 } else {
                     entries.drop(index + 1).map { entry -> entry.track }
-                },
-                canSkipPrevious = when (book.contentType) {
-                    ContentType.MUSIC -> entries.size > 1
-                    else -> index > 0 || it.positionMs > 3_000L
-                },
-                canSkipNext = when (book.contentType) {
-                    ContentType.MUSIC -> entries.size > 1
-                    else -> index < entries.lastIndex
                 },
             )
         }
@@ -381,11 +318,7 @@ class NowPlayingViewModel @Inject constructor(
         currentTrackIndex = -1
         preserveShuffleOrder = false
         _uiState.update {
-            it.copy(
-                upNext = emptyList(),
-                canSkipPrevious = true,
-                canSkipNext = false,
-            )
+            it.copy(upNext = emptyList())
         }
     }
 

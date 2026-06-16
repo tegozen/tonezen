@@ -175,11 +175,15 @@ internal fun NowPlayingContent(
             }
             RoundIconControl(
                 outlined = true,
-                enabled = !isDownloading,
+                enabled = state.canSkipPrevious && !isDownloading,
                 onClick = viewModel::skipPrevious,
             ) {
                 SkipPreviousGlyph(
-                    tint = if (isDownloading) TonezenMuted.copy(alpha = 0.38f) else TonezenInk,
+                    tint = when {
+                        isDownloading -> TonezenMuted.copy(alpha = 0.38f)
+                        state.canSkipPrevious -> TonezenInk
+                        else -> TonezenMuted.copy(alpha = 0.38f)
+                    },
                 )
             }
             PlayButton(
