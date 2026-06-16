@@ -1,7 +1,7 @@
 package com.tonezen.app.ui.testing
 
 /**
- * Stable selectors for Compose UI tests and UI Automator E2E.
+ * Stable selectors for Compose UI tests.
  */
 object TestTags {
     const val AUTH_EMAIL = "auth_email"
