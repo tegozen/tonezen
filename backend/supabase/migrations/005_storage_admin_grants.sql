@@ -17,7 +17,3 @@ BEGIN
       GRANT SELECT ON TABLES TO anon, authenticated, service_role;
   END IF;
 END $$;
-
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('content', 'content', false, 524288000, NULL)
-ON CONFLICT (id) DO NOTHING;

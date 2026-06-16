@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
 
-# Create Supabase roles expected by GoTrue and PostgREST
+# Supabase roles for GoTrue, PostgREST, and storage-api.
+# Tonezen SQL migrations run later via supabase/postgres migrate.sh (after init-scripts create storage).
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
   CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
   CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -59,16 +60,3 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
 
   ALTER ROLE supabase_auth_admin SET search_path TO auth, public;
 EOSQL
-
-for f in /docker-entrypoint-initdb.d/migrations/*.sql; do
-  if [ -f "$f" ]; then
-    case "$(basename "$f")" in
-      004_*|005_*|007_*|008_*|009_*)
-        echo "Skipping $(basename "$f") — applied by storage-db-bootstrap after storage-api starts"
-        continue
-        ;;
-    esac
-    echo "Running migration: $f"
-    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -f "$f"
-  fi
-done

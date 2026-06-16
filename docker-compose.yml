@@ -86,8 +86,8 @@ services:
     image: node:20-alpine
     restart: "no"
     depends_on:
-      storage-db-bootstrap:
-        condition: service_completed_successfully
+      storage:
+        condition: service_healthy
     environment:
       STORAGE_URL: http://storage:5000
       STORAGE_BUCKET: content
@@ -95,20 +95,6 @@ services:
     volumes:
       - ./docker/storage-bootstrap/seed-storage-layout.mjs:/app/seed-storage-layout.mjs:ro
     command: ["node", "/app/seed-storage-layout.mjs"]
-
-  storage-db-bootstrap:
-    image: postgres:15-alpine
-    restart: "no"
-    depends_on:
-      storage:
-        condition: service_healthy
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-tonezen}
-      PGPASSWORD: tonezen-postgres-internal
-    volumes:
-      - ./docker/storage-db-bootstrap/sql:/bootstrap:ro
-      - ./docker/storage-db-bootstrap/apply-storage-migrations.sh:/apply-storage-migrations.sh:ro
-    entrypoint: ["sh", "/apply-storage-migrations.sh"]
 
   rest:
     image: postgrest/postgrest:v12.2.3
@@ -224,11 +210,15 @@ services:
       ENABLE_IMAGE_TRANSFORMATION: "false"
       IMGPROXY_URL: http://imgproxy:5001
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:5000/status"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O - --header=\"Authorization: Bearer $$SERVICE_KEY\" --header=\"apikey: $$SERVICE_KEY\" http://127.0.0.1:5000/bucket >/dev/null 2>&1",
+        ]
       interval: 5s
       timeout: 5s
-      retries: 12
-      start_period: 15s
+      retries: 18
+      start_period: 30s
 
   imgproxy:
     image: darthsim/imgproxy:v3.8.0
