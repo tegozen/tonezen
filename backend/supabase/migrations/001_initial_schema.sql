@@ -111,8 +111,3 @@ CREATE POLICY progress_select ON audiobook_progress FOR SELECT TO authenticated 
 CREATE POLICY progress_insert ON audiobook_progress FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
 CREATE POLICY progress_update ON audiobook_progress FOR UPDATE TO authenticated USING (user_id = auth.uid());
 CREATE POLICY progress_delete ON audiobook_progress FOR DELETE TO authenticated USING (user_id = auth.uid());
-
--- auth.uid() shim for non-supabase postgres (PostgREST provides this via JWT)
-CREATE OR REPLACE FUNCTION auth.uid() RETURNS UUID AS $$
-  SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::UUID;
-$$ LANGUAGE sql STABLE;

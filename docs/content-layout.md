@@ -1,6 +1,6 @@
 # Content Storage Layout
 
-Upload audio to **Supabase Storage** bucket `content` via Studio (http://localhost:8000/studio → Storage). On `docker compose up`, `storage-bootstrap` ensures **`cycles/`** and **`music/`** exist (via empty `.gitkeep` placeholders).
+Upload audio to **Supabase Storage** bucket `content` via Studio (http://localhost:8000/studio → Storage). On `docker compose up`, the **`seed`** service ensures the default admin user and **`cycles/`** / **`music/`** layout exist (via empty `.gitkeep` placeholders). Re-run manually: `make seed`.
 
 Files are stored in **Beget S3** (shared bucket for dev and prod). Local dev uses the same bucket as production — uploads and deletes in Studio affect production files.
 

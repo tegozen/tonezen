@@ -20,6 +20,20 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:9999/health",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
@@ -41,59 +55,25 @@ services:
       GOTRUE_SMTP_PORT: 2500
       GOTRUE_SMTP_SENDER_NAME: Tonezen
 
-  bootstrap:
-    image: alpine:3.20
+  seed:
+    image: node:20-alpine
     restart: "no"
     depends_on:
-      db:
-        condition: service_healthy
       auth:
-        condition: service_started
+        condition: service_healthy
+      storage:
+        condition: service_healthy
     environment:
-      AUTH_INTERNAL_URL: http://auth:9999
+      AUTH_URL: http://auth:9999
+      STORAGE_URL: http://storage:5000
+      STORAGE_BUCKET: content
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@tonezen.local}
       ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-tonezen}
-      PGPASSWORD: tonezen-postgres-internal
-    command:
-      - sh
-      - -ec
-      - |
-        apk add --no-cache postgresql-client curl jq >/dev/null
-        for i in $(seq 1 60); do
-          psql -h db -U supabase_admin -d "$$POSTGRES_DB" -c "INSERT INTO auth.schema_migrations (version) SELECT '20221208132122' WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'auth' AND table_name = 'schema_migrations') ON CONFLICT DO NOTHING;" >/dev/null 2>&1 && break
-          sleep 2
-        done
-        for i in $(seq 1 60); do
-          curl -sf "$$AUTH_INTERNAL_URL/health" >/dev/null && break
-          sleep 2
-        done
-        users=$$(curl -sf -H "Authorization: Bearer $$SERVICE_ROLE_KEY" -H "apikey: $$SERVICE_ROLE_KEY" "$$AUTH_INTERNAL_URL/admin/users?page=1&per_page=200")
-        if echo "$$users" | jq -e --arg email "$$ADMIN_EMAIL" '.users[] | select(.email == $$email)' >/dev/null; then
-          echo "Admin user already exists: $$ADMIN_EMAIL"
-          exit 0
-        fi
-        jq -n --arg email "$$ADMIN_EMAIL" --arg password "$$ADMIN_PASSWORD" --arg name "$$ADMIN_DISPLAY_NAME" \
-          '{email: $$email, password: $$password, email_confirm: true, user_metadata: {role: "admin", full_name: $$name}}' \
-          | curl -sf -X POST -H "Authorization: Bearer $$SERVICE_ROLE_KEY" -H "apikey: $$SERVICE_ROLE_KEY" \
-            -H "Content-Type: application/json" -d @- "$$AUTH_INTERNAL_URL/admin/users"
-        echo "Created admin user: $$ADMIN_EMAIL"
-
-  storage-bootstrap:
-    image: node:20-alpine
-    restart: "no"
-    depends_on:
-      storage:
-        condition: service_healthy
-    environment:
-      STORAGE_URL: http://storage:5000
-      STORAGE_BUCKET: content
-      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
     volumes:
-      - ./docker/storage-bootstrap/seed-storage-layout.mjs:/app/seed-storage-layout.mjs:ro
-    command: ["node", "/app/seed-storage-layout.mjs"]
+      - ./docker/seed:/app:ro
+    command: ["node", "/app/run.mjs"]
 
   rest:
     image: postgrest/postgrest:v12.2.3

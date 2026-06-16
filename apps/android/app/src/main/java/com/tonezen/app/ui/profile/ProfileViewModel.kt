@@ -246,6 +246,8 @@ class ProfileViewModel @Inject constructor(
                     progressSyncRepository.flushPending(session.accessToken)
                 }
                 refreshStats()
+            } catch (_: Exception) {
+                // Manual sync is best-effort; offline/local state is unchanged.
             } finally {
                 _uiState.update { it.copy(syncing = false) }
             }

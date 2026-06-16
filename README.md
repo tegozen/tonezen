@@ -153,7 +153,7 @@ tonezen/
 │   ├── api/               # REST API (catalog, signed URLs, progress)
 │   ├── indexer/           # storage bucket scanner
 │   └── supabase/migrations/
-├── docker/                # kong, postgres init, storage-bootstrap
+├── docker/                # kong, seed (admin + storage layout)
 ├── ci/                    # check-eol
 ├── docs/
 ├── scripts/               # gen-env, postgres import & export

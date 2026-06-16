@@ -1,4 +1,4 @@
-.PHONY: test lint up down indexer-test api-test desktop-test landing-test postgres-export postgres-import gen-env check-eol
+.PHONY: test lint up down seed indexer-test api-test desktop-test landing-test postgres-export postgres-import gen-env check-eol
 
 test: check-eol landing-test indexer-test api-test desktop-test
 	@echo "All unit tests passed"
@@ -19,6 +19,9 @@ up:
 
 down:
 	docker compose down
+
+seed:
+	docker compose run --rm seed
 
 indexer-test:
 	cd backend/indexer && npm test

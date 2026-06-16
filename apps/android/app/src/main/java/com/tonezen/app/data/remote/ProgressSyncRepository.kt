@@ -61,9 +61,7 @@ class ProgressSyncRepository @Inject constructor(
     fun start(session: StoredSession) {
         scope.launch {
             val refreshed = binder.ensureStarted(session) ?: return@launch
-            pullAll(refreshed.accessToken)
-            flushPending(refreshed.accessToken)
-            markSynced()
+            syncBestEffort(refreshed.accessToken)
         }
     }
 
@@ -78,17 +76,26 @@ class ProgressSyncRepository @Inject constructor(
     }
 
     suspend fun pullAll(accessToken: String) {
-        for (row in progressRemoteApi.fetchProgress(accessToken)) {
-            applyRemoteEntity(row.toProgressEntity())
+        if (!networkMonitor.isOnline()) return
+        try {
+            for (row in progressRemoteApi.fetchProgress(accessToken)) {
+                applyRemoteEntity(row.toProgressEntity())
+            }
+            markSynced()
+        } catch (_: Exception) {
+            // Best-effort; local cache remains authoritative offline.
         }
-        markSynced()
     }
 
     suspend fun saveLocal(progress: AudiobookProgress, pendingSync: Boolean, accessToken: String?) {
         val entity = progress.toEntity(pendingSync)
         progressRepository.upsertProgressEntity(entity)
-        if (accessToken != null) {
-            pushProgress(accessToken, entity)
+        if (accessToken != null && networkMonitor.isOnline()) {
+            try {
+                pushProgress(accessToken, entity)
+            } catch (_: Exception) {
+                // Keep pendingSync=true until a later flush succeeds.
+            }
         }
     }
 
@@ -102,10 +109,22 @@ class ProgressSyncRepository @Inject constructor(
     }
 
     suspend fun flushPending(accessToken: String) {
+        if (!networkMonitor.isOnline()) return
         for (entity in progressRepository.getPendingProgress()) {
-            pushProgress(accessToken, entity)
+            try {
+                pushProgress(accessToken, entity)
+            } catch (_: Exception) {
+                // Continue with remaining pending rows.
+            }
         }
-        markSynced()
+        if (progressRepository.getPendingProgress().isEmpty()) {
+            markSynced()
+        }
+    }
+
+    private suspend fun syncBestEffort(accessToken: String) {
+        pullAll(accessToken)
+        flushPending(accessToken)
     }
 
     private fun scheduleAuthRecovery() {
