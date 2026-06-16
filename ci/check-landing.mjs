@@ -52,6 +52,14 @@ assertIncludes(index, 'lang="ru"', "landing page");
 assertIncludes(index, "Прогресс аудиокниг синхронизируется", "landing copy");
 assertIncludes(index, "Музыка остаётся локальной", "landing copy");
 assertIncludes(index, "Ваши данные под защитой", "landing copy");
+assertIncludes(index, 'src="/assets/icons/feature-offline.svg"', "landing feature icons");
+assertIncludes(index, 'src="/assets/icons/feature-sync.svg"', "landing feature icons");
+assertIncludes(index, 'src="/assets/icons/feature-music.svg"', "landing feature icons");
+assertIncludes(index, 'src="/assets/icons/feature-security.svg"', "landing feature icons");
+assertNotIncludes(index, 'class="feature-icon" aria-hidden="true">↓</div>', "landing feature icons");
+assertNotIncludes(index, 'class="feature-icon" aria-hidden="true">↻</div>', "landing feature icons");
+assertNotIncludes(index, 'class="feature-icon" aria-hidden="true">♪</div>', "landing feature icons");
+assertNotIncludes(index, 'class="feature-icon" aria-hidden="true">◇</div>', "landing feature icons");
 assertIncludes(index, "/downloads/tonezen-android.apk", "landing downloads");
 assertIncludes(index, "/downloads/tonezen-windows.exe", "landing downloads");
 assertIncludes(index, "/downloads/tonezen-macos.dmg", "landing downloads");
@@ -87,12 +95,17 @@ assertIncludes(styles, "height: var(--device-preview-height);", "device preview 
 assertIncludes(styles, ".device-column", "device column CSS");
 assertIncludes(styles, "justify-content: center;", "centered hero CSS");
 assertIncludes(styles, ".brand-icon", "landing CSS");
+assertIncludes(styles, ".feature-icon img", "landing feature icon CSS");
 
 assertFile("docker/landing/public/favicon.ico");
 assertFile("docker/landing/public/favicon.png");
 assertFile("docker/landing/public/assets/app-icon.png");
 assertFile("docker/landing/public/assets/desktop-music.png");
 assertFile("docker/landing/public/assets/android-music.png");
+assertFile("docker/landing/public/assets/icons/feature-offline.svg");
+assertFile("docker/landing/public/assets/icons/feature-sync.svg");
+assertFile("docker/landing/public/assets/icons/feature-music.svg");
+assertFile("docker/landing/public/assets/icons/feature-security.svg");
 assertFile("docker/landing/public/downloads/README.md");
 assertFile("docker/landing/public/downloads/.gitkeep");
 

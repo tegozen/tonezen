@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Protected data" color="#5eead4">
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3">
+    <path d="M24 5.5 38 11v11.5c0 9-5.8 16.8-14 20-8.2-3.2-14-11-14-20V11l14-5.5Z" />
+    <path d="M18.5 24h11v9h-11z" />
+    <path d="M21 24v-3a3 3 0 0 1 6 0v3" />
+  </g>
+</svg>

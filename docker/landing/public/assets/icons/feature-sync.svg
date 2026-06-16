@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Progress sync" color="#5eead4">
+  <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3">
+    <path d="M36.5 16.5A15 15 0 0 0 11 13.3" />
+    <path d="M36.5 8v8.5H28" />
+    <path d="M11.5 31.5A15 15 0 0 0 37 34.7" />
+    <path d="M11.5 40v-8.5H20" />
+  </g>
+</svg>
