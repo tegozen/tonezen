@@ -39,6 +39,8 @@ class CatalogRepository @Inject constructor(
 ) {
     private val syncLock = Mutex()
     private var syncDeferred: Deferred<List<Book>>? = null
+    private val downloadedTrackIdsCacheLock = Mutex()
+    private var downloadedTrackIdsCache: Set<String>? = null
 
     suspend fun getAllBooks(): List<Book> =
         catalogDao.getAllBooks().map { it.toDomain() }
@@ -72,13 +74,26 @@ class CatalogRepository @Inject constructor(
         progressRepository.getProgressForBooks(bookIds)
 
     suspend fun getDownloadedTrackIds(): Set<String> = withContext(Dispatchers.IO) {
-        catalogDao.getAllTracks()
+        downloadedTrackIdsCacheLock.withLock {
+            downloadedTrackIdsCache?.let { return@withContext it }
+        }
+        val ids = catalogDao.getTracksWithLocalPath()
             .asSequence()
             .mapNotNull { entity ->
                 SafeLocalStorage.sanitizeStoredLocalPath(context.filesDir, entity.localPath)
                     ?.let { entity.id }
             }
             .toSet()
+        downloadedTrackIdsCacheLock.withLock {
+            downloadedTrackIdsCache = ids
+        }
+        ids
+    }
+
+    private suspend fun invalidateDownloadedTrackIdsCache() {
+        downloadedTrackIdsCacheLock.withLock {
+            downloadedTrackIdsCache = null
+        }
     }
 
     suspend fun getTracksForBook(bookId: String): List<Track> =
@@ -163,6 +178,7 @@ class CatalogRepository @Inject constructor(
             catalogDao.deleteTracksForBooksNotIn(remoteIds)
             catalogDao.deleteBooksNotIn(remoteIds)
         }
+        invalidateDownloadedTrackIdsCache()
         remoteBooks
     }
 
@@ -198,6 +214,7 @@ class CatalogRepository @Inject constructor(
         val safePath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, localPath) ?: return false
         val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId } ?: return false
         catalogDao.upsertTracks(listOf(track.copy(localPath = safePath)))
+        invalidateDownloadedTrackIdsCache()
         return true
     }
 
@@ -221,6 +238,7 @@ class CatalogRepository @Inject constructor(
 
     suspend fun clearLocalDownloads(bookId: String) {
         catalogDao.clearLocalPathsForBook(bookId)
+        invalidateDownloadedTrackIdsCache()
     }
 
     suspend fun isProgressPendingSync(bookId: String): Boolean =
@@ -229,6 +247,7 @@ class CatalogRepository @Inject constructor(
     suspend fun clearTrackLocalPath(bookId: String, trackId: String) {
         val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId } ?: return
         catalogDao.upsertTracks(listOf(track.copy(localPath = null)))
+        invalidateDownloadedTrackIdsCache()
     }
 
     suspend fun getDownloadedBookSummaries(): List<DownloadedBookSummary> = withContext(Dispatchers.IO) {

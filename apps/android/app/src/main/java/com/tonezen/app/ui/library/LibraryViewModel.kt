@@ -28,6 +28,7 @@ import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.PlaybackQueueBuilder
+import com.tonezen.app.playback.PlaybackSnapshot
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -62,6 +64,7 @@ class LibraryViewModel @Inject constructor(
     private val session = LibraryPlaybackSession()
     private lateinit var cycleHandler: LibraryCycleHandler
     private lateinit var musicHandler: LibraryMusicHandler
+    private var lastLibrarySnapshotUiKey: LibrarySnapshotUiKey? = null
 
     init {
         cycleHandler = LibraryCycleHandler(
@@ -122,7 +125,9 @@ class LibraryViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            localLibraryNotifier.changes.collect {
+            localLibraryNotifier.changes
+                .debounce(LOCAL_LIBRARY_REFRESH_DEBOUNCE_MS)
+                .collect {
                 withContext(Dispatchers.IO) {
                     musicHandler.invalidatePlaybackIfLocalFilesMissing()
                 }
@@ -138,6 +143,9 @@ class LibraryViewModel @Inject constructor(
                 } else if (snapshot.contentType == ContentType.AUDIOBOOK) {
                     cycleHandler.onAudiobookSnapshot(snapshot)
                 }
+                val uiKey = LibrarySnapshotUiKey.from(snapshot)
+                if (uiKey == lastLibrarySnapshotUiKey) return@collectLatest
+                lastLibrarySnapshotUiKey = uiKey
                 val current = _uiState.value
                 val cyclePlayback = when {
                     isMusic -> CyclePlaybackUi()
@@ -148,13 +156,6 @@ class LibraryViewModel @Inject constructor(
                 }
                 val musicPlayback = musicHandler.musicPlaybackUi(snapshot)
                 val nowPlayingTitle = snapshot.trackTitle ?: current.nowPlayingTitle
-                if (
-                    musicPlayback == current.musicPlayback &&
-                    cyclePlayback == current.cyclePlayback &&
-                    nowPlayingTitle == current.nowPlayingTitle
-                ) {
-                    return@collectLatest
-                }
                 _uiState.update { state ->
                     state.copy(
                         nowPlayingTitle = nowPlayingTitle,
@@ -232,7 +233,10 @@ class LibraryViewModel @Inject constructor(
     fun refreshDownloads() {
         viewModelScope.launch {
             val books = _uiState.value.books
-            val trackList = musicHandler.refreshMusicTrackListForDownloads()
+            val downloadedTrackIds = withContext(Dispatchers.IO) {
+                catalogRepository.getDownloadedTrackIds()
+            }
+            val trackList = musicHandler.refreshMusicTrackListWithDownloadedIds(downloadedTrackIds)
             val downloaded = withContext(Dispatchers.IO) {
                 catalogRepository.downloadedBookIds(books)
             }
@@ -328,5 +332,29 @@ class LibraryViewModel @Inject constructor(
         EnsureTrackOutcome.Failure.OFFLINE -> R.string.music_playback_error_offline
         EnsureTrackOutcome.Failure.NO_SESSION -> R.string.music_playback_error_login
         EnsureTrackOutcome.Failure.DOWNLOAD_FAILED, null -> R.string.music_playback_error_download
+    }
+
+    private companion object {
+        const val LOCAL_LIBRARY_REFRESH_DEBOUNCE_MS = 300L
+    }
+}
+
+private data class LibrarySnapshotUiKey(
+    val trackId: String?,
+    val isPlaying: Boolean,
+    val contentType: ContentType?,
+    val trackTitle: String?,
+    val artist: String?,
+    val albumTitle: String?,
+) {
+    companion object {
+        fun from(snapshot: PlaybackSnapshot) = LibrarySnapshotUiKey(
+            trackId = snapshot.trackId,
+            isPlaying = snapshot.isPlaying,
+            contentType = snapshot.contentType,
+            trackTitle = snapshot.trackTitle,
+            artist = snapshot.artist,
+            albumTitle = snapshot.albumTitle,
+        )
     }
 }

@@ -375,6 +375,9 @@ internal class LibraryMusicHandler(
         return refreshMusicTrackListDownloadState(uiState.value.musicTrackList, downloadedTrackIds)
     }
 
+    suspend fun refreshMusicTrackListWithDownloadedIds(downloadedTrackIds: Set<String>): List<MusicListTrack> =
+        refreshMusicTrackListDownloadState(uiState.value.musicTrackList, downloadedTrackIds)
+
     fun cancelPlayJob() {
         playJob?.cancel()
     }
