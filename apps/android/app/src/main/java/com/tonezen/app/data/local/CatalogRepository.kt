@@ -79,13 +79,15 @@ class CatalogRepository @Inject constructor(
             downloadedTrackIdsCacheGeneration to downloadedTrackIdsCache
         }
         cacheGenerationAtRead.second?.let { return@withContext it }
+        val onDiskTrackIds = scanDownloadedFilesOnDisk().keys.map { (_, trackId) -> trackId }
         val ids = catalogDao.getTracksWithLocalPath()
             .asSequence()
             .mapNotNull { entity ->
                 SafeLocalStorage.sanitizeStoredLocalPath(context.filesDir, entity.localPath)
                     ?.let { entity.id }
             }
-            .toSet()
+            .toMutableSet()
+        ids.addAll(onDiskTrackIds)
         downloadedTrackIdsCacheLock.withLock {
             if (downloadedTrackIdsCacheGeneration == cacheGenerationAtRead.first) {
                 downloadedTrackIdsCache = ids
@@ -107,7 +109,14 @@ class CatalogRepository @Inject constructor(
         for (entity in catalogDao.getTracksWithLocalPath()) {
             val validPath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, entity.localPath)
             when {
-                validPath == null -> updates.add(entity.copy(localPath = null))
+                validPath == null -> {
+                    val diskPath = onDiskByKey[entity.bookId to entity.id]
+                    if (diskPath != null) {
+                        updates.add(entity.copy(localPath = diskPath))
+                    } else {
+                        updates.add(entity.copy(localPath = null))
+                    }
+                }
                 validPath != entity.localPath -> updates.add(entity.copy(localPath = validPath))
             }
         }

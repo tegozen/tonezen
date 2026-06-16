@@ -102,6 +102,14 @@ class LibraryViewModel @Inject constructor(
                 cycleHandler.refreshCycleCardStates(cycles, downloadedBookIds)
             },
         )
+        musicHandler.onBulkDownloadFinished = {
+            viewModelScope.launch {
+                if (pendingCatalogReload) {
+                    pendingCatalogReload = false
+                    reloadCatalogFromLocal()
+                }
+            }
+        }
         playbackClient.connect()
         _uiState.update { it.copy(isNetworkOnline = networkMonitor.isOnline()) }
         ProcessLifecycleOwner.get().lifecycle.addObserver(
@@ -179,7 +187,10 @@ class LibraryViewModel @Inject constructor(
         }
         viewModelScope.launch {
             catalogSyncRepository.catalogUpdated.collect {
-                if (musicDownloadNotifier.state.value.isActive) {
+                if (
+                    musicDownloadNotifier.state.value.isActive ||
+                    musicHandler.downloadAllJob?.isActive == true
+                ) {
                     pendingCatalogReload = true
                 } else {
                     reloadCatalogFromLocal()
@@ -188,7 +199,11 @@ class LibraryViewModel @Inject constructor(
         }
         viewModelScope.launch {
             musicDownloadNotifier.state.collect { state ->
-                if (!state.isActive && pendingCatalogReload) {
+                if (
+                    !state.isActive &&
+                    pendingCatalogReload &&
+                    musicHandler.downloadAllJob?.isActive != true
+                ) {
                     pendingCatalogReload = false
                     reloadCatalogFromLocal()
                 }

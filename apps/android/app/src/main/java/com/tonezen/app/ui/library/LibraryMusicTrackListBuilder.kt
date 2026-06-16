@@ -22,7 +22,7 @@ internal fun refreshMusicTrackListDownloadState(
     list: List<MusicListTrack>,
     downloadedTrackIds: Set<String>,
 ): List<MusicListTrack> = list.map { item ->
-    item.copy(isDownloaded = item.trackId in downloadedTrackIds)
+    item.copy(isDownloaded = item.trackId in downloadedTrackIds || item.isDownloaded)
 }
 
 internal fun buildMusicTrackListForCatalogUpdate(

@@ -42,6 +42,7 @@ internal class LibraryMusicHandler(
     private val playbackErrorRes: (EnsureTrackOutcome.Failure?) -> Int,
     private val refreshCycleCardStates: suspend (List<com.tonezen.app.domain.model.Cycle>, Set<String>) -> Unit,
 ) {
+    var onBulkDownloadFinished: () -> Unit = {}
     var playJob: Job? = null
     var downloadTrackJob: Job? = null
     var downloadAllJob: Job? = null
@@ -204,12 +205,17 @@ internal class LibraryMusicHandler(
                 }
             } finally {
                 musicDownloadNotifier.clear()
-                withContext(Dispatchers.IO) {
-                    catalogRepository.reconcileLocalDownloadPaths()
+                val downloadedIds = withContext(Dispatchers.IO) { resolveDownloadedTrackIdsForUi() }
+                uiState.update { state ->
+                    state.copy(
+                        musicTrackList = state.musicTrackList.map { row ->
+                            row.copy(isDownloaded = row.trackId in downloadedIds || row.isDownloaded)
+                        },
+                    )
                 }
-                val trackList = refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
-                uiState.update { it.copy(musicTrackList = trackList) }
                 refreshDownloadedBooks()
+                localLibraryNotifier.notifyLocalLibraryChanged()
+                onBulkDownloadFinished()
                 val snapshot = playbackClient.snapshot.value
                 val playingTrackId = snapshot.trackId
                 if (playingTrackId != null && isMusicSnapshot(snapshot) && session.musicLibraryTracks.isNotEmpty()) {
