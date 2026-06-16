@@ -94,6 +94,7 @@ internal fun LibraryScreen(
     onDownloadAllMusic: () -> Unit,
     onMusicTabSelected: () -> Unit,
     showMiniPlayer: Boolean,
+    isNetworkOnline: Boolean = true,
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val music = allBooks.filter { it.contentType == ContentType.MUSIC }
@@ -192,6 +193,8 @@ internal fun LibraryScreen(
                 item { LibraryLoading() }
             } else if (music.isEmpty()) {
                 item { EmptyLibrary(offline = offlineBanner) }
+            } else if (musicTrackList.isEmpty()) {
+                item { EmptyLibrary(offline = offlineBanner || !isNetworkOnline) }
             } else {
                 item {
                     MusicDownloadAllButton(

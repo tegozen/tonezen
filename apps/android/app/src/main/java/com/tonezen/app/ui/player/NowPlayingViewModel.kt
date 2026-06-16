@@ -4,12 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonezen.app.data.local.CatalogRepository
 import com.tonezen.app.data.local.TrackDownloadEnsurer
+import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.music.MusicDownloadInteractionRules
 import com.tonezen.app.domain.music.MusicDownloadInteractionState
 import com.tonezen.app.domain.music.MusicLibraryTrack
+import com.tonezen.app.domain.music.MusicPlaybackAdvanceRules
 import com.tonezen.app.domain.music.MusicShuffleQueue
 import com.tonezen.app.playback.MusicDownloadNotifier
 import com.tonezen.app.playback.MusicPlaybackQueue
@@ -57,6 +59,7 @@ class NowPlayingViewModel @Inject constructor(
     private val playbackEvents: PlaybackEvents,
     private val musicDownloadNotifier: MusicDownloadNotifier,
     private val musicPlaybackQueue: MusicPlaybackQueue,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(NowPlayingUiState())
     val uiState: StateFlow<NowPlayingUiState> = _uiState.asStateFlow()
@@ -153,7 +156,14 @@ class NowPlayingViewModel @Inject constructor(
                 playbackClient.seekTo(0)
             } else {
                 preserveShuffleOrder = true
-                skipToIndex(MusicShuffleQueue.previousIndex(currentTrackIndex, libraryTracks.size))
+                viewModelScope.launch {
+                    val previousIndex = MusicPlaybackAdvanceRules.findPreviousPlayable(
+                        items = libraryTracks,
+                        currentIndex = currentTrackIndex,
+                        isPlayable = { entry -> isAlbumEntryPlayable(entry) },
+                    ) ?: return@launch
+                    skipToIndex(previousIndex)
+                }
             }
             return
         }
@@ -169,7 +179,17 @@ class NowPlayingViewModel @Inject constructor(
         if (libraryTracks.size <= 1) return
         if (_uiState.value.contentType == ContentType.MUSIC) {
             preserveShuffleOrder = true
-            skipToIndex(MusicShuffleQueue.nextIndex(currentTrackIndex, libraryTracks.size))
+            viewModelScope.launch {
+                val nextIndex = MusicPlaybackAdvanceRules.findNextPlayable(
+                    items = libraryTracks,
+                    currentIndex = currentTrackIndex,
+                    isPlayable = { entry -> isAlbumEntryPlayable(entry) },
+                ) ?: run {
+                    playbackClient.pause()
+                    return@launch
+                }
+                skipToIndex(nextIndex)
+            }
             return
         }
         if (currentTrackIndex in 0 until libraryTracks.lastIndex) {
@@ -228,6 +248,15 @@ class NowPlayingViewModel @Inject constructor(
         }
         if (!ensured) {
             musicDownloadNotifier.finishTrack()
+            if (networkMonitor.isOnline()) {
+                return
+            }
+            val nextIndex = MusicPlaybackAdvanceRules.findNextPlayable(
+                items = libraryTracks,
+                currentIndex = index,
+                isPlayable = { entry -> isAlbumEntryPlayable(entry) },
+            ) ?: return
+            playQueueAt(nextIndex)
             return
         }
 
@@ -377,6 +406,14 @@ class NowPlayingViewModel @Inject constructor(
                 canSkipNext = false,
             )
         }
+    }
+
+    private fun isAlbumEntryPlayable(entry: AlbumTrackEntry): Boolean {
+        val hasLocal = !entry.track.localPath.isNullOrBlank()
+        return MusicPlaybackAdvanceRules.isTrackPlayable(
+            isDownloaded = hasLocal,
+            isNetworkOnline = networkMonitor.isOnline(),
+        )
     }
 
     private fun isNowPlayingTransportBlocked(): Boolean {

@@ -2,6 +2,7 @@ package com.tonezen.app.ui.library
 
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.domain.music.MusicLibraryVisibilityRules
 
 internal fun toMusicListTrack(
     book: Book,
@@ -78,3 +79,12 @@ internal fun buildMusicTrackListFromCandidates(
     val ordered = if (shuffle) candidates.shuffled() else candidates
     return ordered.map { (book, track) -> toMusicListTrack(book, track, downloadedTrackIds) }
 }
+
+internal fun visibleMusicTrackList(
+    tracks: List<MusicListTrack>,
+    isNetworkOnline: Boolean,
+): List<MusicListTrack> = MusicLibraryVisibilityRules.visibleInLibrary(
+    tracks = tracks,
+    isDownloaded = { it.isDownloaded },
+    isNetworkOnline = isNetworkOnline,
+)

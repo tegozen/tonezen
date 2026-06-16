@@ -46,6 +46,7 @@ data class CycleCardState(
 
 data class LibraryUiState(
     val sessionState: SessionState = SessionState.UNAUTHENTICATED,
+    val isNetworkOnline: Boolean = true,
     val isLoadingCatalog: Boolean = true,
     val cycles: List<Cycle> = emptyList(),
     val cycleCardStateById: Map<String, CycleCardState> = emptyMap(),

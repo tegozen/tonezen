@@ -27,6 +27,7 @@ import com.tonezen.app.ui.library.CycleCardState
 import com.tonezen.app.ui.library.CycleDetailScreen
 import com.tonezen.app.ui.library.LibraryScreen
 import com.tonezen.app.ui.library.LibraryViewModel
+import com.tonezen.app.ui.library.visibleMusicTrackList
 import com.tonezen.app.ui.player.BookDetailScreen
 import com.tonezen.app.ui.player.BookDetailViewModel
 import com.tonezen.app.ui.player.NowPlayingSheet
@@ -78,6 +79,11 @@ fun AppShell(
                 filter = libraryState.filter,
                 progressUpdatedAtByBookId = libraryState.progressUpdatedAtByBookId,
             )
+        }
+    }
+    val visibleMusicTracks by remember {
+        derivedStateOf {
+            visibleMusicTrackList(libraryState.musicTrackList, libraryState.isNetworkOnline)
         }
     }
 
@@ -184,7 +190,7 @@ fun AppShell(
                         onResetFilter = libraryViewModel::resetFilter,
                         onContentFilterChange = libraryViewModel::setContentFilter,
                         onSortOrderChange = libraryViewModel::setSortOrder,
-                        musicTrackList = libraryState.musicTrackList,
+                        musicTrackList = visibleMusicTracks,
                         musicPlayback = libraryState.musicPlayback,
                         musicDownload = musicDownload,
                         musicPlaybackErrorRes = libraryState.musicPlaybackErrorRes,
@@ -195,6 +201,7 @@ fun AppShell(
                         onDownloadAllMusic = libraryViewModel::downloadAllMusic,
                         onMusicTabSelected = libraryViewModel::onMusicTabSelected,
                         showMiniPlayer = shellState.showMiniPlayer,
+                        isNetworkOnline = libraryState.isNetworkOnline,
                     )
 
                     else -> ProfileScreen(

@@ -138,6 +138,13 @@ export function buildMusicTrackListForCatalogUpdate(
   return [...kept, ...appended];
 }
 
+export function visibleMusicTrackList(
+  tracks: MusicListTrack[],
+  isNetworkOnline: boolean,
+): MusicListTrack[] {
+  return isNetworkOnline ? tracks : tracks.filter((track) => track.isDownloaded);
+}
+
 export function musicQueueFrom(
   tracks: MusicListTrack[],
   startTrackId: string,

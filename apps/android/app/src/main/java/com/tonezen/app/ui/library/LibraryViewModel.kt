@@ -98,6 +98,7 @@ class LibraryViewModel @Inject constructor(
             },
         )
         playbackClient.connect()
+        _uiState.update { it.copy(isNetworkOnline = networkMonitor.isOnline()) }
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             object : DefaultLifecycleObserver {
                 override fun onStop(owner: LifecycleOwner) {
@@ -105,6 +106,15 @@ class LibraryViewModel @Inject constructor(
                 }
             },
         )
+        viewModelScope.launch {
+            networkMonitor.online.collect { online ->
+                val wasOnline = _uiState.value.isNetworkOnline
+                _uiState.update { it.copy(isNetworkOnline = online) }
+                if (wasOnline && !online) {
+                    musicHandler.onNetworkOffline()
+                }
+            }
+        }
         viewModelScope.launch {
             sessionRepository.session.collectLatest { sessionData ->
                 refreshSessionState(sessionData)

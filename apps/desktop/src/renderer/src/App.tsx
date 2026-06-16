@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Book, Cycle, Track } from "@shared/types";
 import {
   buildMusicTrackListForCatalogUpdate,
+  visibleMusicTrackList,
   type MusicListTrack,
 } from "@shared/musicList";
 import { isMusicDownloadActive, progressForTrack } from "@shared/musicDownloadState";
@@ -439,6 +440,10 @@ export function App() {
 
   const miniTitle = currentTrack?.title ?? null;
   const activeMusicTrack = music.musicQueue.find((track) => track.trackId === currentTrack?.id);
+  const visibleMusicTracks = useMemo(
+    () => visibleMusicTrackList(musicTracks, sessionState === "AuthenticatedOnline"),
+    [musicTracks, sessionState],
+  );
   const miniSubtitle = music.musicMode
     ? activeMusicTrack
       ? [activeMusicTrack.artist, activeMusicTrack.albumTitle].filter(Boolean).join(" · ") ||
@@ -573,7 +578,7 @@ export function App() {
           <LibraryPage
             cycles={filteredCycles}
             cycleCardStateById={cycleCardStateById}
-            musicTracks={musicTracks}
+            musicTracks={visibleMusicTracks}
             query={query}
             selectedTab={libraryTab}
             offlineBanner={sessionState === "AuthenticatedOffline"}

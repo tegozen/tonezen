@@ -1,21 +1,28 @@
-import { useCallback, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Book, Track } from "@shared/types";
 import {
   buildMusicTrackListForCatalogUpdate,
   musicQueueFrom,
   nextMusicIndex,
   previousMusicIndex,
+  visibleMusicTrackList,
   type MusicListTrack,
 } from "@shared/musicList";
 import {
   isMusicDownloadActive,
   progressForTrack as downloadProgressForTrack,
 } from "@shared/musicDownloadState";
-import { shouldRestartCurrentMusicTrack } from "@shared/musicPlayback";
+import {
+  findNextPlayableIndex,
+  findPreviousPlayableIndex,
+  isMusicTrackPlayable,
+  shouldRestartCurrentMusicTrack,
+  type MusicSessionState,
+} from "@shared/musicPlayback";
 import type { useMusicDownload } from "./useMusicDownload";
 import { strings } from "../i18n/strings";
 
-type SessionState = "Unauthenticated" | "AuthenticatedOnline" | "AuthenticatedOffline";
+type SessionState = MusicSessionState;
 
 interface UseMusicPlaybackOptions {
   books: Book[];
@@ -59,22 +66,41 @@ export function useMusicPlayback({
   const musicStartedInSessionRef = useRef(false);
   const prefetchJobRef = useRef(0);
 
+  const playbackMusicTracks = useMemo(
+    () => visibleMusicTrackList(musicTracks, sessionState === "AuthenticatedOnline"),
+    [musicTracks, sessionState],
+  );
+
+  const isTrackPlayable = useCallback(
+    (track: MusicListTrack) => isMusicTrackPlayable(track, sessionState),
+    [sessionState],
+  );
+
   const ensureTrackLocal = useCallback(
     async (
       bookId: string,
       trackId: string,
-      options?: { showProgress?: boolean; bulkDownloaded?: number; bulkTotal?: number },
+      options?: {
+        showProgress?: boolean;
+        bulkDownloaded?: number;
+        bulkTotal?: number;
+        suppressPlaybackError?: boolean;
+      },
     ): Promise<Track | null> => {
       let bookTracks = await window.tonezen.db.getTracks(bookId);
       let track = bookTracks.find((item) => item.id === trackId);
       if (track?.localPath) return track as Track;
 
       if (sessionState === "AuthenticatedOffline") {
-        setMusicError(strings.musicPlaybackErrorOffline);
+        if (!options?.suppressPlaybackError) {
+          setMusicError(strings.musicPlaybackErrorOffline);
+        }
         return null;
       }
       if (sessionState === "Unauthenticated") {
-        setMusicError(strings.musicPlaybackErrorLogin);
+        if (!options?.suppressPlaybackError) {
+          setMusicError(strings.musicPlaybackErrorLogin);
+        }
         return null;
       }
 
@@ -107,7 +133,9 @@ export function useMusicPlayback({
         await refreshLibrary();
         return (track as Track) ?? null;
       } catch {
-        setMusicError(strings.musicPlaybackErrorDownload);
+        if (!options?.suppressPlaybackError) {
+          setMusicError(strings.musicPlaybackErrorDownload);
+        }
         return null;
       } finally {
         if (progressInterval) clearInterval(progressInterval);
@@ -151,7 +179,11 @@ export function useMusicPlayback({
   const playMusicTrackInternal = useCallback(
     async (
       listTrack: MusicListTrack,
-      options?: { showDownloadProgress?: boolean; allowWhileDownloading?: boolean },
+      options?: {
+        showDownloadProgress?: boolean;
+        allowWhileDownloading?: boolean;
+        advancePlayback?: boolean;
+      },
     ) => {
       if (deletingTrackIdRef.current === listTrack.trackId) return false;
       if (!options?.allowWhileDownloading && isMusicDownloadActive(musicDownload.state)) {
@@ -188,12 +220,13 @@ export function useMusicPlayback({
       if (!local?.localPath) {
         local = await ensureTrackLocal(listTrack.bookId, listTrack.trackId, {
           showProgress: showDownloadProgress,
+          suppressPlaybackError: options?.advancePlayback,
         });
       }
 
       if (!local?.localPath) return false;
 
-      const queue = musicQueueFrom(musicTracks, listTrack.trackId);
+      const queue = musicQueueFrom(playbackMusicTracks, listTrack.trackId);
       musicQueueRef.current = queue;
       setMusicQueue(queue);
       setTracks([local]);
@@ -210,6 +243,7 @@ export function useMusicPlayback({
       musicTracks,
       pauseOrResume,
       playTrack,
+      playbackMusicTracks,
       prefetchNextTrack,
       resolveLocalTrack,
       setTracks,
@@ -223,14 +257,38 @@ export function useMusicPlayback({
     );
   }, [allTracks, books, setMusicTracks]);
 
+  const advanceToPlayableTrack = useCallback(
+    async (
+      queue: MusicListTrack[],
+      fromIndex: number,
+      direction: "next" | "previous",
+    ): Promise<boolean> => {
+      const stepper = direction === "next" ? nextMusicIndex : previousMusicIndex;
+      const finder = direction === "next" ? findNextPlayableIndex : findPreviousPlayableIndex;
+      let index = fromIndex;
+      for (let step = 0; step < queue.length - 1; step += 1) {
+        const nextIndex = finder(queue, index, isTrackPlayable, stepper);
+        if (nextIndex == null) return false;
+        const played = await playMusicTrackInternal(queue[nextIndex], {
+          showDownloadProgress: false,
+          advancePlayback: true,
+        });
+        if (played) return true;
+        index = nextIndex;
+      }
+      return false;
+    },
+    [isTrackPlayable, playMusicTrackInternal],
+  );
+
   const handleSkipNext = useCallback(() => {
     const queue = musicQueueRef.current;
     if (!musicMode || queue.length === 0 || !currentTrack) return false;
     const index = queue.findIndex((item) => item.trackId === currentTrack.id);
     if (index < 0) return false;
-    void playMusicTrackInternal(queue[nextMusicIndex(index, queue.length)]);
+    void advanceToPlayableTrack(queue, index, "next");
     return true;
-  }, [currentTrack, musicMode, playMusicTrackInternal]);
+  }, [advanceToPlayableTrack, currentTrack, musicMode]);
 
   const handleSkipPrevious = useCallback(() => {
     const queue = musicQueueRef.current;
@@ -241,22 +299,26 @@ export function useMusicPlayback({
     }
     const index = queue.findIndex((item) => item.trackId === currentTrack.id);
     if (index < 0) return false;
-    void playMusicTrackInternal(queue[previousMusicIndex(index, queue.length)]);
+    void advanceToPlayableTrack(queue, index, "previous");
     return true;
-  }, [currentTrack, musicMode, playMusicTrackInternal, positionMs, seekTo]);
+  }, [advanceToPlayableTrack, currentTrack, musicMode, positionMs, seekTo]);
 
   const handleTrackEnded = useCallback(() => {
     const queue = musicQueueRef.current;
     if (!musicMode || queue.length === 0 || !currentTrack) return false;
     const index = queue.findIndex((item) => item.trackId === currentTrack.id);
     if (index < 0) return false;
-    void playMusicTrackInternal(queue[nextMusicIndex(index, queue.length)], {
-      showDownloadProgress: false,
-    });
+    void (async () => {
+      const advanced = await advanceToPlayableTrack(queue, index, "next");
+      if (!advanced) {
+        stopPlayback();
+      }
+    })();
     return true;
-  }, [currentTrack, musicMode, playMusicTrackInternal]);
+  }, [advanceToPlayableTrack, currentTrack, musicMode, stopPlayback]);
 
   const downloadAllMusic = useCallback(async () => {
+    if (sessionState !== "AuthenticatedOnline") return;
     if (isMusicDownloadActive(musicDownload.state)) return;
     const total = musicTracks.length;
     const pending = musicTracks.filter((track) => !track.isDownloaded);
@@ -277,15 +339,16 @@ export function useMusicPlayback({
     }
     musicDownload.clear();
     await refreshLibrary();
-  }, [ensureTrackLocal, musicDownload, musicTracks, refreshLibrary]);
+  }, [ensureTrackLocal, musicDownload, musicTracks, refreshLibrary, sessionState]);
 
   const downloadMusicTrack = useCallback(
     async (listTrack: MusicListTrack) => {
+      if (sessionState !== "AuthenticatedOnline") return;
       if (isMusicDownloadActive(musicDownload.state) || listTrack.isDownloaded) return;
       setMusicError(null);
       await ensureTrackLocal(listTrack.bookId, listTrack.trackId);
     },
-    [ensureTrackLocal, musicDownload.state],
+    [ensureTrackLocal, musicDownload.state, sessionState],
   );
 
   const deleteMusicTrack = useCallback(
