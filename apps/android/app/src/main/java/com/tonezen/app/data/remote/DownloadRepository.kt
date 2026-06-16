@@ -9,6 +9,7 @@ import com.tonezen.app.domain.downloads.DownloadResumePolicy
 import com.tonezen.app.domain.downloads.DownloadUrlPolicy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
@@ -130,10 +131,10 @@ class DownloadRepository @Inject constructor(
                     var lastBucket = -1
                     body.byteStream().use { input ->
                         val append = attemptOffset > 0L && partFile.exists() && partFile.length() == attemptOffset
-                        partFile.outputStream().use { output ->
+                        if (!append) partFile.delete()
+                        FileOutputStream(partFile, append).use { output ->
                             val buffer = ByteArray(8192)
                             var downloaded = if (append) attemptOffset else 0L
-                            if (!append) partFile.delete()
                             var read: Int
                             while (input.read(buffer).also { read = it } != -1) {
                                 if (isCancelled()) throw IOException("Download cancelled")

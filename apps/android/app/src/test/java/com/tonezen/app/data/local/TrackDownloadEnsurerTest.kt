@@ -5,6 +5,7 @@ import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.playback.TrackDownloadLocks
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -29,6 +30,7 @@ class TrackDownloadEnsurerTest {
         downloadRepository = downloadRepository,
         sessionRepository = sessionRepository,
         networkMonitor = networkMonitor,
+        trackDownloadLocks = TrackDownloadLocks(),
     )
 
     private val track = Track("t1", "b1", 0, "Song", "song.mp3", null, 180_000, null)
@@ -66,6 +68,7 @@ class TrackDownloadEnsurerTest {
             )
         } returns File("/local/t1.mp3")
         coEvery { catalogRepository.markTrackDownloaded("b1", "t1", "/local/t1.mp3") } returns false
+        coEvery { catalogRepository.reconcileLocalDownloadPaths() } returns Unit
 
         val outcome = ensurer.ensureTrackLocal("b1", track)
 
@@ -89,6 +92,7 @@ class TrackDownloadEnsurerTest {
             )
         } returns File("/local/t1.mp3")
         coEvery { catalogRepository.markTrackDownloaded("b1", "t1", "/local/t1.mp3") } returns false
+        coEvery { catalogRepository.reconcileLocalDownloadPaths() } returns Unit
 
         val outcome = ensurer.ensureTrackLocal("b1", track)
 

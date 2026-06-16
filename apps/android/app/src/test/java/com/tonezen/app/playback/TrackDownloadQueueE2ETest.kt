@@ -6,8 +6,10 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -37,6 +39,7 @@ import com.tonezen.app.domain.downloads.DownloadPriority
 import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.StoredSession
+import com.tonezen.app.playback.TrackDownloadLocks
 
 class TrackDownloadQueueE2ETest {
     @Before
@@ -194,6 +197,7 @@ class TrackDownloadQueueE2ETest {
             networkMonitor = networkMonitor,
             notifier = notifier,
             localLibraryNotifier = localLibraryNotifier,
+            trackDownloadLocks = TrackDownloadLocks(),
         )
 
         val r1 = async {
@@ -286,6 +290,7 @@ class TrackDownloadQueueE2ETest {
             networkMonitor = networkMonitor,
             notifier = notifier,
             localLibraryNotifier = localLibraryNotifier,
+            trackDownloadLocks = TrackDownloadLocks(),
         )
 
         val result = queueController.awaitTrack(
@@ -371,6 +376,7 @@ class TrackDownloadQueueE2ETest {
             networkMonitor = networkMonitor,
             notifier = notifier,
             localLibraryNotifier = localLibraryNotifier,
+            trackDownloadLocks = TrackDownloadLocks(),
         )
 
         val batchId = "batch-1"
@@ -422,6 +428,91 @@ class TrackDownloadQueueE2ETest {
             )
         }
         assertFalse(notifier.snapshot().isActive)
+    }
+
+    @Test
+    fun awaitTrack_waitsThroughTransientFailuresUntilSuccess() = runBlocking {
+        val rootDir = Files.createTempDirectory("tonezen-q-e2e-retry").toFile()
+        rootDir.mkdirs()
+
+        val context = mockk<Context>(relaxed = true)
+        every { context.filesDir } returns rootDir
+
+        val dao = InMemoryDownloadQueueDao()
+        val notifier = DownloadQueueNotifier()
+        val localLibraryNotifier = LocalLibraryNotifier()
+
+        val catalogRepository = mockk<CatalogRepository>(relaxed = true)
+        coEvery { catalogRepository.resolveLocalTrackPath(any(), any()) } returns null
+        coEvery { catalogRepository.markTrackDownloaded(any(), any(), any()) } returns true
+
+        val session = StoredSession(
+            userId = "u1",
+            email = "u@test.local",
+            displayName = "User",
+            accessToken = "token",
+            refreshToken = "refresh",
+            expiresAtEpochSeconds = 9_999_999_999L,
+        )
+        val sessionRepository = mockk<SessionRepository>(relaxed = true)
+        every { sessionRepository.loadSession() } returns session
+        coEvery { sessionRepository.refreshIfNeeded(any()) } returns session
+
+        val networkMonitor = mockk<NetworkMonitor>(relaxed = true)
+        every { networkMonitor.isOnline() } returns true
+        every { networkMonitor.online } returns MutableStateFlow(true)
+
+        val attempts = AtomicInteger(0)
+        val downloadRepository = mockk<DownloadRepository>(relaxed = true)
+        coEvery {
+            downloadRepository.downloadTrackResumable(
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+            )
+        } coAnswers {
+            if (attempts.incrementAndGet() < 2) throw IOException("transient")
+            val bookId = it.invocation.args[1] as String
+            val trackId = it.invocation.args[2] as String
+            val finalFile = SafeLocalStorage.trackFile(rootDir, bookId, trackId)
+                ?: error("Invalid track path")
+            finalFile.parentFile?.mkdirs()
+            finalFile.writeBytes(byteArrayOf(1))
+            ResumableDownloadOutcome(
+                finalFile = finalFile,
+                bytesDownloaded = finalFile.length(),
+                totalBytes = 1L,
+            )
+        }
+
+        val queueController = TrackDownloadQueueController(
+            context = context,
+            downloadQueueDao = dao,
+            catalogRepository = catalogRepository,
+            downloadRepository = downloadRepository,
+            sessionRepository = sessionRepository,
+            networkMonitor = networkMonitor,
+            notifier = notifier,
+            localLibraryNotifier = localLibraryNotifier,
+            trackDownloadLocks = TrackDownloadLocks(),
+        )
+
+        val result = queueController.awaitTrack(
+            bookId = "b1",
+            trackId = "t1",
+            priority = DownloadPriority.PLAY,
+            title = "Song",
+            subtitle = "Artist",
+            contentType = ContentType.MUSIC.name.lowercase(),
+        )
+
+        assertEquals(DownloadAwaitResult.COMPLETED, result)
+        assertEquals(2, attempts.get())
+        assertTrue(dao.getAll().isEmpty())
     }
 }
 

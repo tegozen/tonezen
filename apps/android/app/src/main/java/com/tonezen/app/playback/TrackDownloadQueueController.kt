@@ -17,7 +17,6 @@ import com.tonezen.app.domain.downloads.DownloadQueuePolicy
 import com.tonezen.app.domain.downloads.DownloadQueueSortable
 import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.File
 import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -45,6 +44,7 @@ class TrackDownloadQueueController @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val notifier: DownloadQueueNotifier,
     private val localLibraryNotifier: LocalLibraryNotifier,
+    private val trackDownloadLocks: TrackDownloadLocks,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
@@ -56,7 +56,6 @@ class TrackDownloadQueueController @Inject constructor(
     private var bulkTotal: Int = 0
     private var bulkSkipped: Int = 0
     private val failureCounts = mutableMapOf<DownloadQueueKey, Int>()
-    private val trackDownloadLocks = ConcurrentHashMap<String, Mutex>()
 
     init {
         scope.launch {
@@ -255,7 +254,9 @@ class TrackDownloadQueueController @Inject constructor(
         if (!SafeLocalStorage.isSafeId(request.bookId) || !SafeLocalStorage.isSafeId(request.trackId)) return
         val requestKey = DownloadQueueKey(request.bookId, request.trackId)
         userCancelledKeys.remove(requestKey)
-        failureCounts.remove(requestKey)
+        if (request.priority == DownloadPriority.USER || request.priority == DownloadPriority.PLAY) {
+            failureCounts.remove(requestKey)
+        }
         if (completeTrackIfOnDisk(request.bookId, request.trackId, purgeQueue = true)) return
         if (catalogRepository.resolveLocalTrackPath(request.bookId, request.trackId) != null) {
             completeAwaiter(requestKey, DownloadAwaitResult.COMPLETED)
@@ -358,16 +359,21 @@ class TrackDownloadQueueController @Inject constructor(
                             }
                             completeAwaiter(key, DownloadAwaitResult.COMPLETED)
                             localLibraryNotifier.notifyLocalLibraryChanged()
-                        } else {
-                            val attempts = (failureCounts[key] ?: 0) + 1
-                            failureCounts[key] = attempts
-                            if (attempts >= MAX_DOWNLOAD_FAILURES) {
-                                failureCounts.remove(key)
-                                downloadQueueDao.delete(next.bookId, next.trackId)
-                                completeAwaiter(key, DownloadAwaitResult.FAILED)
-                            } else {
+                        } else when (result) {
+                            DownloadAwaitResult.OFFLINE -> {
                                 persistPartProgress(next.bookId, next.trackId)
-                                completeAwaiter(key, result)
+                                completeAwaiter(key, DownloadAwaitResult.OFFLINE)
+                            }
+                            else -> {
+                                val attempts = (failureCounts[key] ?: 0) + 1
+                                failureCounts[key] = attempts
+                                if (attempts >= MAX_DOWNLOAD_FAILURES) {
+                                    failureCounts.remove(key)
+                                    downloadQueueDao.delete(next.bookId, next.trackId)
+                                    completeAwaiter(key, DownloadAwaitResult.FAILED)
+                                } else {
+                                    persistPartProgress(next.bookId, next.trackId)
+                                }
                             }
                         }
                     }
@@ -394,6 +400,7 @@ class TrackDownloadQueueController @Inject constructor(
         if (purgeQueue) {
             purgeQueueForTrackId(trackId)
         }
+        localLibraryNotifier.notifyLocalLibraryChanged()
         completeAwaiter(DownloadQueueKey(bookId, trackId), DownloadAwaitResult.COMPLETED)
         return true
     }
@@ -403,7 +410,7 @@ class TrackDownloadQueueController @Inject constructor(
         if (pending.isEmpty()) return
         pending.forEach { entity ->
             val key = DownloadQueueKey(entity.bookId, entity.trackId)
-            if (userCancelledKeys.contains(key)) return@forEach
+            userCancelledKeys.remove(key)
             failureCounts.remove(key)
             downloadQueueDao.delete(entity.bookId, entity.trackId)
             completeAwaiter(key, DownloadAwaitResult.COMPLETED)
@@ -418,11 +425,8 @@ class TrackDownloadQueueController @Inject constructor(
             ?.let { it.bookId to it.path }
     }
 
-    private fun trackDownloadMutex(trackId: String): Mutex =
-        trackDownloadLocks.getOrPut(trackId) { Mutex() }
-
     private suspend fun downloadOne(entity: DownloadQueueEntity, key: DownloadQueueKey): DownloadAwaitResult =
-        trackDownloadMutex(entity.trackId).withLock {
+        trackDownloadLocks.forTrack(entity.trackId).withLock {
             downloadOneLocked(entity, key)
         }
 
@@ -469,6 +473,7 @@ class TrackDownloadQueueController @Inject constructor(
                 isTrackAlreadyOnDisk(entity.bookId, entity.trackId)?.let { (diskBookId, path) ->
                     catalogRepository.markTrackDownloaded(diskBookId, entity.trackId, path)
                 }
+                catalogRepository.reconcileLocalDownloadPaths()
                 if (!outcome.finalFile.isFile || outcome.finalFile.length() <= 0L) {
                     return DownloadAwaitResult.FAILED
                 }

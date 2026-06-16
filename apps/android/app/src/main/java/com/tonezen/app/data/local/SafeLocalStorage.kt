@@ -21,7 +21,7 @@ object SafeLocalStorage {
 
     /**
      * Resolves a downloaded track by [trackId], optionally preferring [preferredBookId].
-     * Promotes a complete `.part` file to `.mp3` when the final file is missing.
+     * Partial `.part` files are not considered downloaded; the downloader owns resume/restart.
      */
     fun findDownloadedTrack(
         rootDir: File,
@@ -43,20 +43,6 @@ object SafeLocalStorage {
         return null
     }
 
-    fun promotePartToFinal(part: File, final: File): Boolean {
-        if (!part.isFile || part.length() <= 0L) return false
-        final.parentFile?.mkdirs()
-        if (final.exists()) final.delete()
-        if (part.renameTo(final)) {
-            return final.isFile && final.length() > 0L
-        }
-        return runCatching {
-            part.copyTo(final, overwrite = true)
-            part.delete()
-            final.isFile && final.length() > 0L
-        }.getOrDefault(false)
-    }
-
     private fun locateDownloadedTrack(
         rootDir: File,
         bookId: String,
@@ -66,10 +52,7 @@ object SafeLocalStorage {
         if (finalFile.isFile && finalFile.length() > 0L) {
             return DownloadedTrackLocation(bookId, finalFile.absolutePath, finalFile)
         }
-        val partFile = trackPartFile(rootDir, bookId, trackId) ?: return null
-        if (!partFile.isFile || partFile.length() <= 0L) return null
-        if (!promotePartToFinal(partFile, finalFile)) return null
-        return DownloadedTrackLocation(bookId, finalFile.absolutePath, finalFile)
+        return null
     }
 
     private fun trackFileWithSuffix(rootDir: File, bookId: String, trackId: String, suffix: String): File? {

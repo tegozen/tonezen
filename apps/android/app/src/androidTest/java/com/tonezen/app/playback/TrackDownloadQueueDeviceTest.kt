@@ -251,6 +251,7 @@ class TrackDownloadQueueDeviceTest {
             networkMonitor = networkMonitor,
             notifier = downloadQueueNotifier,
             localLibraryNotifier = localLibraryNotifier,
+            trackDownloadLocks = TrackDownloadLocks(),
         )
     }
 

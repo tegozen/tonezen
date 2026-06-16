@@ -6,9 +6,9 @@ import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.domain.downloads.EnsureTrackDownloadPolicy
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.playback.TrackDownloadLocks
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 data class EnsureTrackOutcome(
@@ -33,19 +33,13 @@ class TrackDownloadEnsurer @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val sessionRepository: SessionRepository,
     private val networkMonitor: NetworkMonitor,
+    private val trackDownloadLocks: TrackDownloadLocks,
 ) {
-    private val downloadLocks = mutableMapOf<String, Mutex>()
-
-    private fun lockFor(bookId: String, trackId: String): Mutex =
-        synchronized(downloadLocks) {
-            downloadLocks.getOrPut("$bookId:$trackId") { Mutex() }
-        }
-
     suspend fun ensureTrackLocal(
         bookId: String,
         track: Track,
         onProgress: ((Float) -> Unit)? = null,
-    ): EnsureTrackOutcome = lockFor(bookId, track.id).withLock {
+    ): EnsureTrackOutcome = trackDownloadLocks.forTrack(track.id).withLock {
         ensureTrackLocalUnlocked(bookId, track, onProgress)
     }
 
@@ -69,8 +63,10 @@ class TrackDownloadEnsurer @Inject constructor(
             )
             if (!catalogRepository.markTrackDownloaded(bookId, track.id, file.absolutePath)) {
                 catalogRepository.resolveLocalTrackPath(bookId, track.id)
+                catalogRepository.reconcileLocalDownloadPaths()
             }
-            EnsureTrackOutcome.success(track.copy(localPath = file.absolutePath))
+            val path = catalogRepository.resolveLocalTrackPath(bookId, track.id) ?: file.absolutePath
+            EnsureTrackOutcome.success(track.copy(localPath = path))
         } catch (_: Exception) {
             val path = EnsureTrackDownloadPolicy.resolveLocalPathAfterFailure(
                 catalogRepository.resolveLocalTrackPath(bookId, track.id),

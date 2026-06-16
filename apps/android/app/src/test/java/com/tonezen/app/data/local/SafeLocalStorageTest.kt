@@ -24,7 +24,7 @@ class SafeLocalStorageTest {
     }
 
     @Test
-    fun findDownloadedTrack_promotesCompletePartFile() {
+    fun findDownloadedTrack_ignoresPartFile() {
         val root = Files.createTempDirectory("tonezen-safe-storage-part").toFile()
         val part = File(root, "downloads/book-a/track-1.part")
         part.parentFile?.mkdirs()
@@ -32,9 +32,8 @@ class SafeLocalStorageTest {
 
         val found = SafeLocalStorage.findDownloadedTrack(root, "track-1", preferredBookId = "book-a")
 
-        assertNotNull(found)
-        assertEquals("book-a", found?.bookId)
-        assertTrue(File(root, "downloads/book-a/track-1.mp3").isFile)
-        assertNull(SafeLocalStorage.trackPartFile(root, "book-a", "track-1")?.takeIf { it.exists() })
+        assertNull(found)
+        assertTrue(part.isFile)
+        assertNull(File(root, "downloads/book-a/track-1.mp3").takeIf { it.exists() })
     }
 }
