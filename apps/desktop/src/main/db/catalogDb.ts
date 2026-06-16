@@ -1,6 +1,8 @@
 import fs from "node:fs";
+import path from "node:path";
 import { booksForCycleOrder } from "../../shared/cycleBooks.js";
 import {
+  isSafeStorageId,
   resolveTrackDownloadPath,
   sanitizeLocalAudioPath,
 } from "../../shared/safeLocalPaths.js";
@@ -60,7 +62,23 @@ export const CatalogDb = {
   },
 
   setTrackLocalPath(trackId: string, localPath: string | null): void {
+    if (localPath == null) {
+      getDb()
+        .prepare(`UPDATE tracks SET local_path = NULL, local_downloaded_at = NULL WHERE id = ?`)
+        .run(trackId);
+      return;
+    }
     getDb().prepare(`UPDATE tracks SET local_path = ? WHERE id = ?`).run(localPath, trackId);
+  },
+
+  getTrackById(trackId: string): Track | null {
+    const row = getDb()
+      .prepare(
+        `SELECT id, book_id, sort_order, title, filename, artist, duration_ms, local_path
+         FROM tracks WHERE id = ? LIMIT 1`,
+      )
+      .get(trackId) as TrackRow | undefined;
+    return row ? mapTrackRow(row) : null;
   },
 
   markTrackDownloaded(
@@ -71,7 +89,8 @@ export const CatalogDb = {
   ): boolean {
     const safePath = sanitizeLocalAudioPath(localPath, [downloadsRoot]);
     if (!safePath || !fs.existsSync(safePath) || fs.statSync(safePath).size <= 0) return false;
-    const track = this.getTracks(bookId).find((item) => item.id === trackId);
+    const track =
+      this.getTracks(bookId).find((item) => item.id === trackId) ?? this.getTrackById(trackId);
     if (!track) return false;
     getDb()
       .prepare(`UPDATE tracks SET local_path = ?, local_downloaded_at = ? WHERE id = ?`)
@@ -128,13 +147,43 @@ export const CatalogDb = {
     return this.buildCycles(allBooks ?? this.getBooks());
   },
 
-  getLibrarySnapshot(): { books: Book[]; cycles: Cycle[]; tracks: Track[] } {
+  getLibrarySnapshot(downloadsRoot: string): { books: Book[]; cycles: Cycle[]; tracks: Track[] } {
+    this.reconcileLocalDownloadPaths(downloadsRoot);
     const books = this.getBooks();
     return {
       books,
       cycles: this.buildCycles(books),
       tracks: this.getAllTracks(),
     };
+  },
+
+  reconcileLocalDownloadPaths(downloadsRoot: string): void {
+    const onDiskByKey = scanDownloadedFilesOnDisk(downloadsRoot);
+    const rows = getDb()
+      .prepare(
+        `SELECT id, book_id, sort_order, title, filename, artist, duration_ms, local_path
+         FROM tracks`,
+      )
+      .all() as TrackRow[];
+
+    for (const row of rows) {
+      const track = mapTrackRow(row);
+      const diskPath = onDiskByKey.get(trackKey(track.bookId, track.id));
+      const safeStored = track.localPath
+        ? sanitizeLocalAudioPath(track.localPath, [downloadsRoot])
+        : null;
+      const storedValid =
+        safeStored != null && fs.existsSync(safeStored) && fs.statSync(safeStored).size > 0;
+
+      if (!storedValid && diskPath) {
+        this.markTrackDownloaded(track.bookId, track.id, diskPath, downloadsRoot);
+        continue;
+      }
+      if (storedValid) continue;
+      if (track.localPath) {
+        this.setTrackLocalPath(track.id, null);
+      }
+    }
   },
 
   buildCycles(allBooks: Book[]): Cycle[] {
@@ -193,6 +242,33 @@ export const CatalogDb = {
   },
 
   clearAllLocalPaths(): void {
-    getDb().prepare(`UPDATE tracks SET local_path = NULL`).run();
+    getDb().prepare(`UPDATE tracks SET local_path = NULL, local_downloaded_at = NULL`).run();
   },
 };
+
+function trackKey(bookId: string, trackId: string): string {
+  return `${bookId}\0${trackId}`;
+}
+
+function scanDownloadedFilesOnDisk(downloadsRoot: string): Map<string, string> {
+  const result = new Map<string, string>();
+  if (!fs.existsSync(downloadsRoot)) return result;
+  for (const bookEntry of fs.readdirSync(downloadsRoot, { withFileTypes: true })) {
+    if (!bookEntry.isDirectory()) continue;
+    const bookId = bookEntry.name;
+    if (!isSafeStorageId(bookId)) continue;
+    const bookDir = path.join(downloadsRoot, bookId);
+    for (const fileEntry of fs.readdirSync(bookDir, { withFileTypes: true })) {
+      if (!fileEntry.isFile()) continue;
+      if (!fileEntry.name.endsWith(".mp3")) continue;
+      const trackId = fileEntry.name.slice(0, -4);
+      if (!isSafeStorageId(trackId)) continue;
+      const fullPath = path.join(bookDir, fileEntry.name);
+      const safePath = sanitizeLocalAudioPath(fullPath, [downloadsRoot]);
+      if (safePath && fs.existsSync(safePath) && fs.statSync(safePath).size > 0) {
+        result.set(trackKey(bookId, trackId), safePath);
+      }
+    }
+  }
+  return result;
+}

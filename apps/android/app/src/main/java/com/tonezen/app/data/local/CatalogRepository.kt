@@ -250,7 +250,11 @@ class CatalogRepository @Inject constructor(
 
     suspend fun markTrackDownloaded(bookId: String, trackId: String, localPath: String): Boolean {
         val safePath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, localPath) ?: return false
-        val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId } ?: return false
+        val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId }
+            ?: catalogDao.getBookIdForTrack(trackId)?.let { resolvedBookId ->
+                catalogDao.getTracksForBook(resolvedBookId).find { it.id == trackId }
+            }
+            ?: return false
         catalogDao.upsertTracks(
             listOf(
                 track.copy(
@@ -313,8 +317,12 @@ class CatalogRepository @Inject constructor(
         progressRepository.isProgressPendingSync(bookId)
 
     suspend fun clearTrackLocalPath(bookId: String, trackId: String) {
-        val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId } ?: return
-        catalogDao.upsertTracks(listOf(track.copy(localPath = null)))
+        val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId }
+            ?: catalogDao.getBookIdForTrack(trackId)?.let { resolvedBookId ->
+                catalogDao.getTracksForBook(resolvedBookId).find { it.id == trackId }
+            }
+            ?: return
+        catalogDao.upsertTracks(listOf(track.copy(localPath = null, localDownloadedAt = null)))
         invalidateDownloadedTrackIdsCache()
     }
 
@@ -374,6 +382,7 @@ class CatalogRepository @Inject constructor(
             }
         }
         File(context.filesDir, "downloads").deleteRecursively()
+        invalidateDownloadedTrackIdsCache()
     }
 
     fun observeLibraryRefresh(): Flow<Unit> = flow {

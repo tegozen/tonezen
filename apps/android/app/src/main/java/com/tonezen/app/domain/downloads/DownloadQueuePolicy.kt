@@ -20,4 +20,14 @@ object DownloadQueuePolicy {
 
     fun shouldUpgrade(current: DownloadPriority, incoming: DownloadPriority): Boolean =
         incoming.higherThan(current)
+
+    fun computeBulkDownloaded(bulkSkipped: Int, bulkBatchId: String?, completedInBatch: Int): Int {
+        if (bulkBatchId == null) return 0
+        return bulkSkipped + completedInBatch
+    }
+
+    fun isBulkBatchComplete(bulkSkipped: Int, bulkTotal: Int, bulkBatchId: String?, completedInBatch: Int): Boolean {
+        if (bulkBatchId == null || bulkTotal <= 0) return false
+        return computeBulkDownloaded(bulkSkipped, bulkBatchId, completedInBatch) >= bulkTotal
+    }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergePriority, shouldUpgrade, sortPending } from "../src/shared/downloadQueuePolicy.js";
+import { computeBulkDownloaded, mergePriority, shouldUpgrade, sortPending } from "../src/shared/downloadQueuePolicy.js";
 
 describe("downloadQueuePolicy", () => {
   it("sorts by priority then enqueue time", () => {
@@ -19,5 +19,16 @@ describe("downloadQueuePolicy", () => {
   it("shouldUpgrade only when incoming is higher", () => {
     expect(shouldUpgrade("PREFETCH", "USER")).toBe(true);
     expect(shouldUpgrade("PLAY", "BULK")).toBe(false);
+  });
+
+  it("computeBulkDownloaded includes skipped-at-enqueue tracks", () => {
+    const batchId = "batch-1";
+    expect(
+      computeBulkDownloaded(3, batchId, [
+        { batchId, trackId: "t1" },
+        { batchId, trackId: "t2" },
+      ] as Array<{ batchId: string; trackId: string }>),
+    ).toBe(5);
+    expect(computeBulkDownloaded(0, null, [])).toBe(0);
   });
 });

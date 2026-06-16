@@ -478,6 +478,7 @@ export function App() {
     stopPlayback();
     setShowExpandedPlayer(false);
     await delay(50);
+    await downloadQueue.cancelAll();
     await window.tonezen.download.deleteAll();
     await refreshLibrary();
   };

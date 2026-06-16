@@ -53,6 +53,7 @@ class TrackDownloadQueueController @Inject constructor(
     private val awaiters = ConcurrentHashMap<DownloadQueueKey, CompletableDeferred<DownloadAwaitResult>>()
     private var bulkBatchId: String? = null
     private var bulkTotal: Int = 0
+    private var bulkSkipped: Int = 0
 
     init {
         scope.launch {
@@ -82,7 +83,20 @@ class TrackDownloadQueueController @Inject constructor(
             mutex.withLock {
                 bulkBatchId = batchId
                 bulkTotal = requests.size
-                requests.forEach { enqueueLocked(it.copy(batchId = batchId), refreshNotifier = false) }
+                var skipped = 0
+                requests.forEach { request ->
+                    val req = request.copy(batchId = batchId)
+                    if (!SafeLocalStorage.isSafeId(req.bookId) || !SafeLocalStorage.isSafeId(req.trackId)) {
+                        return@forEach
+                    }
+                    if (catalogRepository.resolveLocalTrackPath(req.bookId, req.trackId) != null) {
+                        skipped++
+                        completeAwaiter(DownloadQueueKey(req.bookId, req.trackId), DownloadAwaitResult.COMPLETED)
+                    } else {
+                        enqueueLocked(req, refreshNotifier = false)
+                    }
+                }
+                bulkSkipped = skipped
                 refreshNotifierFromDb()
             }
         }
@@ -143,6 +157,7 @@ class TrackDownloadQueueController @Inject constructor(
                 if (bulkBatchId == batchId) {
                     bulkBatchId = null
                     bulkTotal = 0
+                    bulkSkipped = 0
                 }
                 refreshNotifierFromDb()
                 stopServiceIfIdle()
@@ -152,16 +167,21 @@ class TrackDownloadQueueController @Inject constructor(
 
     fun cancelAll() {
         scope.launch {
-            mutex.withLock {
-                downloadRepository.cancelActiveDownload()
-                val items = downloadQueueDao.getAll()
-                items.forEach { cancelTrackLocked(it.bookId, it.trackId) }
-                downloadQueueDao.deleteAll()
-                bulkBatchId = null
-                bulkTotal = 0
-                refreshNotifierFromDb()
-                stopServiceIfIdle()
-            }
+            cancelAllAwait()
+        }
+    }
+
+    suspend fun cancelAllAwait() {
+        mutex.withLock {
+            downloadRepository.cancelActiveDownload()
+            val items = downloadQueueDao.getAll()
+            items.forEach { cancelTrackLocked(it.bookId, it.trackId) }
+            downloadQueueDao.deleteAll()
+            bulkBatchId = null
+            bulkTotal = 0
+            bulkSkipped = 0
+            refreshNotifierFromDb()
+            stopServiceIfIdle()
         }
     }
 
@@ -259,6 +279,9 @@ class TrackDownloadQueueController @Inject constructor(
             if (catalogRepository.resolveLocalTrackPath(next.bookId, next.trackId) != null) {
                 mutex.withLock {
                     downloadQueueDao.delete(next.bookId, next.trackId)
+                    if (next.batchId != null && next.batchId == bulkBatchId) {
+                        addCompletedHistory(next)
+                    }
                     completeAwaiter(key, DownloadAwaitResult.COMPLETED)
                     refreshNotifierFromDb()
                 }
@@ -419,23 +442,37 @@ class TrackDownloadQueueController @Inject constructor(
             itemsByKey[sortable.key]
         }
         val bulkBatch = bulkBatchId
-        val bulkDone = if (bulkBatch != null) {
+        val completedInBatch = if (bulkBatch != null) {
             active.completedHistory.count { it.batchId == bulkBatch }
         } else {
             0
         }
+        val bulkDone = DownloadQueuePolicy.computeBulkDownloaded(bulkSkipped, bulkBatch, completedInBatch)
+        maybeFinishBulkBatchLocked(bulkDone)
+        val activeBatch = bulkBatchId
         notifier.update { state ->
             state.copy(
                 queuedItems = queued,
                 activeBookId = if (paused) null else state.activeBookId,
                 activeTrackId = if (paused) null else state.activeTrackId,
                 activeProgress = if (paused) null else state.activeProgress,
-                bulkTotal = if (bulkBatch != null) bulkTotal else 0,
-                bulkDownloaded = bulkDone,
-                activeBatchId = bulkBatch,
+                bulkTotal = if (activeBatch != null) bulkTotal else 0,
+                bulkDownloaded = if (activeBatch != null) bulkDone else 0,
+                activeBatchId = activeBatch,
                 pausedForNetwork = paused,
             )
         }
+    }
+
+    private fun maybeFinishBulkBatchLocked(bulkDone: Int) {
+        val bulkBatch = bulkBatchId ?: return
+        val completedInBatch = bulkDone - bulkSkipped
+        if (!DownloadQueuePolicy.isBulkBatchComplete(bulkSkipped, bulkTotal, bulkBatch, completedInBatch)) {
+            return
+        }
+        bulkBatchId = null
+        bulkTotal = 0
+        bulkSkipped = 0
     }
 
     private fun addCompletedHistory(entity: DownloadQueueEntity) {
@@ -468,6 +505,13 @@ class TrackDownloadQueueController @Inject constructor(
 
     private suspend fun stopServiceIfIdle() {
         if (downloadQueueDao.getAll().isNotEmpty()) return
+        val active = notifier.snapshot()
+        val bulkBatch = bulkBatchId
+        if (bulkBatch != null) {
+            val completedInBatch = active.completedHistory.count { it.batchId == bulkBatch }
+            val bulkDone = DownloadQueuePolicy.computeBulkDownloaded(bulkSkipped, bulkBatch, completedInBatch)
+            maybeFinishBulkBatchLocked(bulkDone)
+        }
         workerJob?.cancel()
         workerJob = null
         withContext(Dispatchers.Main) {

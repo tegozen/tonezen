@@ -25,6 +25,7 @@ export interface IpcHandlerDeps {
   profileSync: ProfileSyncService;
   progressSync: ProgressSyncService;
   powerBlocker: PlaybackPowerBlocker;
+  downloadsRoot: string;
 }
 
 export function registerIpcHandlers(deps: IpcHandlerDeps): void {
@@ -37,6 +38,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     profileSync,
     progressSync,
     powerBlocker,
+    downloadsRoot,
   } = deps;
 
   ipcMain.handle("session:get", async () => {
@@ -90,7 +92,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   ipcMain.handle("catalog:sync", () => catalogSync.syncCatalog());
   ipcMain.handle("db:getBooks", () => LocalDatabase.getBooks());
   ipcMain.handle("db:getCycles", () => LocalDatabase.getCycles());
-  ipcMain.handle("db:getLibrarySnapshot", () => LocalDatabase.getLibrarySnapshot());
+  ipcMain.handle("db:getLibrarySnapshot", () => LocalDatabase.getLibrarySnapshot(downloadsRoot));
   ipcMain.handle("db:getAllTracks", () => LocalDatabase.getAllTracks());
   ipcMain.handle("db:getAllProgress", () => LocalDatabase.getAllProgress());
   ipcMain.handle("db:getTracks", (_e, bookId: string) => LocalDatabase.getTracks(bookId));
@@ -140,16 +142,14 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
       return trackDownloadQueue.awaitTrack(bookId, trackId, options);
     },
   );
-  ipcMain.handle("download:cancelTrack", (_e, bookId: string, trackId: string) => {
+  ipcMain.handle("download:cancelTrack", async (_e, bookId: string, trackId: string) => {
     if (!assertSafeDownloadIds(bookId, trackId)) return;
-    trackDownloadQueue.cancelTrack(bookId, trackId);
+    await trackDownloadQueue.cancelTrack(bookId, trackId);
   });
   ipcMain.handle("download:cancelBatch", (_e, batchId: string) => {
     trackDownloadQueue.cancelBatch(batchId);
   });
-  ipcMain.handle("download:cancelAll", () => {
-    trackDownloadQueue.cancelAll();
-  });
+  ipcMain.handle("download:cancelAll", () => trackDownloadQueue.cancelAll());
   ipcMain.handle("download:getQueueState", () => trackDownloadQueue.getQueueState());
   ipcMain.handle("sync:status", () => progressSync.getSyncStatus());
   ipcMain.handle("sync:trigger", () => progressSync.triggerSync());

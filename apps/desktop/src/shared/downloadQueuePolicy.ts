@@ -33,3 +33,25 @@ export function mergePriority(current: DownloadPriority, incoming: DownloadPrior
 export function shouldUpgrade(current: DownloadPriority, incoming: DownloadPriority): boolean {
   return PRIORITY_WEIGHT[incoming] > PRIORITY_WEIGHT[current];
 }
+
+export function computeBulkDownloaded(
+  bulkSkipped: number,
+  bulkBatchId: string | null,
+  completedHistory: ReadonlyArray<{ batchId?: string | null }>,
+): number {
+  if (!bulkBatchId) return 0;
+  return (
+    bulkSkipped +
+    completedHistory.filter((item) => item.batchId === bulkBatchId).length
+  );
+}
+
+export function isBulkBatchComplete(
+  bulkSkipped: number,
+  bulkTotal: number,
+  bulkBatchId: string | null,
+  completedHistory: ReadonlyArray<{ batchId?: string | null }>,
+): boolean {
+  if (!bulkBatchId || bulkTotal <= 0) return false;
+  return computeBulkDownloaded(bulkSkipped, bulkBatchId, completedHistory) >= bulkTotal;
+}

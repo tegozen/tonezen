@@ -76,6 +76,16 @@ class LibraryMusicTrackListBuilderTest {
     }
 
     @Test
+    fun clearsDownloadFlagWhenTrackRemovedFromDownloadedSet() {
+        val existing = listOf(
+            toMusicListTrack(book, trackA, setOf("t1")),
+            toMusicListTrack(book, trackB, setOf("t2")),
+        )
+        val refreshed = refreshMusicTrackListDownloadState(existing, emptySet())
+        assertEquals(listOf(false, false), refreshed.map { it.isDownloaded })
+    }
+
+    @Test
     fun rebuildsListWhenTrackMetadataChanges() {
         val stale = listOf(
             MusicListTrack(

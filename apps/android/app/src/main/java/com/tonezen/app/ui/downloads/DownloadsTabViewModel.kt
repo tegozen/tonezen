@@ -3,6 +3,7 @@ package com.tonezen.app.ui.downloads
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonezen.app.data.local.CatalogRepository
+import com.tonezen.app.data.local.LocalLibraryNotifier
 import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.domain.downloads.DownloadResumePolicy
 import com.tonezen.app.domain.model.Track
@@ -48,6 +49,7 @@ class DownloadsTabViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val downloadRepository: DownloadRepository,
     private val downloadQueueController: TrackDownloadQueueController,
+    private val localLibraryNotifier: LocalLibraryNotifier,
 ) : ViewModel() {
     private val completedFromDb = kotlinx.coroutines.flow.MutableStateFlow<List<DownloadListItem>>(emptyList())
 
@@ -101,6 +103,7 @@ class DownloadsTabViewModel @Inject constructor(
                 downloadRepository.deleteLocalTrack(bookId, trackId)
                 catalogRepository.clearTrackLocalPath(bookId, trackId)
             }
+            localLibraryNotifier.notifyLocalLibraryChanged()
             refreshCompletedFromDb()
         }
     }

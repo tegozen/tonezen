@@ -97,6 +97,7 @@ app.whenReady().then(async () => {
     profileSync,
     progressSync,
     powerBlocker,
+    downloadsRoot,
   });
 });
 

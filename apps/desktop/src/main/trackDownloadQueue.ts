@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import type { BrowserWindow } from "electron";
 import {
+  computeBulkDownloaded,
+  isBulkBatchComplete,
   mergePriority,
   sortPending,
   type DownloadPriority,
@@ -49,6 +51,7 @@ export class TrackDownloadQueue {
   private readonly awaiters = new Map<string, Awaiter>();
   private bulkBatchId: string | null = null;
   private bulkTotal = 0;
+  private bulkSkipped = 0;
   private mainWindow: BrowserWindow | null = null;
 
   constructor(
@@ -89,9 +92,18 @@ export class TrackDownloadQueue {
     void this.mutex.run(async () => {
       this.bulkBatchId = batchId;
       this.bulkTotal = requests.length;
+      let skipped = 0;
       for (const request of requests) {
-        await this.enqueueLocked({ ...request, batchId }, false);
+        const req = { ...request, batchId };
+        if (!isSafeStorageId(req.bookId) || !isSafeStorageId(req.trackId)) continue;
+        if (LocalDatabase.resolveLocalTrackPath(req.bookId, req.trackId, this.downloadsRoot)) {
+          skipped++;
+          this.completeAwaiter(queueKey(req.bookId, req.trackId), "COMPLETED");
+        } else {
+          await this.enqueueLocked(req, false);
+        }
       }
+      this.bulkSkipped = skipped;
       this.refreshNotifierFromDb();
     });
   }
@@ -127,9 +139,9 @@ export class TrackDownloadQueue {
     });
   }
 
-  cancelTrack(bookId: string, trackId: string): void {
-    if (!isSafeStorageId(bookId) || !isSafeStorageId(trackId)) return;
-    void this.mutex.run(async () => {
+  cancelTrack(bookId: string, trackId: string): Promise<void> {
+    if (!isSafeStorageId(bookId) || !isSafeStorageId(trackId)) return Promise.resolve();
+    return this.mutex.run(async () => {
       const key = queueKey(bookId, trackId);
       this.userCancelledKeys.add(key);
       LocalDatabase.delete(bookId, trackId);
@@ -150,14 +162,15 @@ export class TrackDownloadQueue {
       if (this.bulkBatchId === batchId) {
         this.bulkBatchId = null;
         this.bulkTotal = 0;
+        this.bulkSkipped = 0;
       }
       this.refreshNotifierFromDb();
       this.stopWorkerIfIdle();
     });
   }
 
-  cancelAll(): void {
-    void this.mutex.run(async () => {
+  cancelAll(): Promise<void> {
+    return this.mutex.run(async () => {
       this.downloadManager.cancelActiveDownload();
       const items = LocalDatabase.getAll();
       for (const item of items) {
@@ -166,6 +179,7 @@ export class TrackDownloadQueue {
       LocalDatabase.deleteAll();
       this.bulkBatchId = null;
       this.bulkTotal = 0;
+      this.bulkSkipped = 0;
       this.refreshNotifierFromDb();
       this.stopWorkerIfIdle();
     });
@@ -262,6 +276,9 @@ export class TrackDownloadQueue {
         if (LocalDatabase.resolveLocalTrackPath(next.bookId, next.trackId, this.downloadsRoot)) {
           await this.mutex.run(async () => {
             LocalDatabase.delete(next.bookId, next.trackId);
+            if (next.batchId != null && next.batchId === this.bulkBatchId) {
+              this.addCompletedHistory(next);
+            }
             this.completeAwaiter(key, "COMPLETED");
             this.refreshNotifierFromDb();
           });
@@ -464,10 +481,13 @@ export class TrackDownloadQueue {
       .filter((item): item is DownloadQueueItem => item != null);
 
     const bulkBatch = this.bulkBatchId;
-    const bulkDone =
-      bulkBatch != null
-        ? this.state.completedHistory.filter((item) => item.batchId === bulkBatch).length
-        : 0;
+    const bulkDone = computeBulkDownloaded(
+      this.bulkSkipped,
+      bulkBatch,
+      this.state.completedHistory,
+    );
+    this.maybeFinishBulkBatchLocked(bulkDone);
+    const activeBatch = this.bulkBatchId;
 
     this.state = trimCompletedHistory({
       ...this.state,
@@ -475,12 +495,21 @@ export class TrackDownloadQueue {
       activeBookId: paused ? null : activeBookId,
       activeTrackId: paused ? null : activeTrackId,
       trackProgress: paused ? null : activeProgress,
-      bulkTotal: bulkBatch != null ? this.bulkTotal : 0,
-      bulkDownloaded: bulkDone,
-      activeBatchId: bulkBatch,
+      bulkTotal: activeBatch != null ? this.bulkTotal : 0,
+      bulkDownloaded: activeBatch != null ? bulkDone : 0,
+      activeBatchId: activeBatch,
       pausedForNetwork: paused,
     });
     this.broadcastState();
+  }
+
+  private maybeFinishBulkBatchLocked(bulkDone: number): void {
+    if (!isBulkBatchComplete(this.bulkSkipped, this.bulkTotal, this.bulkBatchId, this.state.completedHistory)) {
+      return;
+    }
+    this.bulkBatchId = null;
+    this.bulkTotal = 0;
+    this.bulkSkipped = 0;
   }
 
   private addCompletedHistory(entity: DownloadQueueRow): void {
@@ -515,6 +544,12 @@ export class TrackDownloadQueue {
 
   private stopWorkerIfIdle(): void {
     if (LocalDatabase.getAll().length > 0) return;
+    const bulkDone = computeBulkDownloaded(
+      this.bulkSkipped,
+      this.bulkBatchId,
+      this.state.completedHistory,
+    );
+    this.maybeFinishBulkBatchLocked(bulkDone);
     this.workerRunning = false;
     this.patchState({
       activeBookId: null,

@@ -61,7 +61,7 @@ interface CatalogDao {
     @Query("DELETE FROM audiobook_progress WHERE bookId = :bookId")
     suspend fun deleteProgress(bookId: String)
 
-    @Query("UPDATE tracks SET localPath = NULL WHERE bookId = :bookId")
+    @Query("UPDATE tracks SET localPath = NULL, localDownloadedAt = NULL WHERE bookId = :bookId")
     suspend fun clearLocalPathsForBook(bookId: String)
 
     @Query("SELECT * FROM cycles ORDER BY title")

@@ -12,6 +12,7 @@ import com.tonezen.app.data.remote.ProfileSyncRepository
 import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.playback.PlaybackClient
+import com.tonezen.app.playback.TrackDownloadQueueController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.ZoneId
@@ -35,6 +36,7 @@ class ProfileViewModel @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val playbackClient: PlaybackClient,
     private val localLibraryNotifier: LocalLibraryNotifier,
+    private val downloadQueueController: TrackDownloadQueueController,
 ) : ViewModel() {
     private val syncTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
     private val memberSinceFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
@@ -110,6 +112,8 @@ class ProfileViewModel @Inject constructor(
     fun deleteAllDownloads() {
         viewModelScope.launch {
             try {
+                downloadQueueController.cancelAllAwait()
+                playbackClient.stopAndRelease()
                 catalogRepository.deleteAllDownloads()
                 localLibraryNotifier.notifyLocalLibraryChanged()
                 refreshStats()

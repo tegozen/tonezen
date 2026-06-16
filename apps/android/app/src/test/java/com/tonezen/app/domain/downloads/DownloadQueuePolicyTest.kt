@@ -40,4 +40,10 @@ class DownloadQueuePolicyTest {
         assertTrue(DownloadQueuePolicy.shouldUpgrade(DownloadPriority.PREFETCH, DownloadPriority.USER))
         assertFalse(DownloadQueuePolicy.shouldUpgrade(DownloadPriority.PLAY, DownloadPriority.BULK))
     }
+
+    @Test
+    fun computeBulkDownloadedIncludesSkippedAtEnqueue() {
+        assertEquals(5, DownloadQueuePolicy.computeBulkDownloaded(3, "batch-1", 2))
+        assertEquals(0, DownloadQueuePolicy.computeBulkDownloaded(0, null, 0))
+    }
 }
