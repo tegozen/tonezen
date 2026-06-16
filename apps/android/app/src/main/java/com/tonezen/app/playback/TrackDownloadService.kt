@@ -29,6 +29,8 @@ class TrackDownloadService : Service() {
     override fun onCreate() {
         super.onCreate()
         createChannel()
+        val snapshot = notifier.snapshot()
+        startForeground(NOTIFICATION_ID, buildNotification(snapshot))
         scope.launch {
             notifier.state.collectLatest { state ->
                 if (!shouldKeepDownloadServiceForeground(state)) {
@@ -36,8 +38,7 @@ class TrackDownloadService : Service() {
                     stopSelf()
                     return@collectLatest
                 }
-                val notification = buildNotification(state)
-                startForeground(NOTIFICATION_ID, notification)
+                startForeground(NOTIFICATION_ID, buildNotification(state))
             }
         }
     }
@@ -50,11 +51,12 @@ class TrackDownloadService : Service() {
             return START_NOT_STICKY
         }
         val snapshot = notifier.snapshot()
+        startForeground(NOTIFICATION_ID, buildNotification(snapshot))
         if (!shouldKeepDownloadServiceForeground(snapshot)) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
-        startForeground(NOTIFICATION_ID, buildNotification(snapshot))
         return START_NOT_STICKY
     }
 
