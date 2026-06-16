@@ -177,8 +177,10 @@ class DownloadRepository @Inject constructor(
             signedUrl.startsWith("/") -> "$apiBase/storage/v1$signedUrl"
             else -> signedUrl
         }
-        return rewriteLocalhostToEmulator(absolute, apiBase).also { resolved ->
-            DownloadUrlPolicy.assertAllowedDownloadUrl(resolved, apiBase)
+        return rewriteLocalhostToEmulator(absolute, apiBase).let { resolved ->
+            val normalized = DownloadUrlPolicy.normalizeDownloadUrl(resolved, apiBase)
+            DownloadUrlPolicy.assertAllowedDownloadUrl(normalized, apiBase)
+            normalized
         }
     }
 

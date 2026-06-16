@@ -99,6 +99,16 @@ export const CatalogDb = {
   },
 
   resolveLocalTrackPath(bookId: string, trackId: string, downloadsRoot: string): string | null {
+    const direct = this.resolveLocalTrackPathForBook(bookId, trackId, downloadsRoot);
+    if (direct) return direct;
+    const onDisk = findOnDiskTrackPath(trackId, downloadsRoot);
+    if (!onDisk) return null;
+    const [diskBookId, path] = onDisk;
+    this.markTrackDownloaded(diskBookId, trackId, path, downloadsRoot);
+    return path;
+  },
+
+  resolveLocalTrackPathForBook(bookId: string, trackId: string, downloadsRoot: string): string | null {
     const track = this.getTracks(bookId).find((item) => item.id === trackId);
     if (track?.localPath) {
       const safePath = sanitizeLocalAudioPath(track.localPath, [downloadsRoot]);
@@ -248,6 +258,17 @@ export const CatalogDb = {
 
 function trackKey(bookId: string, trackId: string): string {
   return `${bookId}\0${trackId}`;
+}
+
+function findOnDiskTrackPath(trackId: string, downloadsRoot: string): [string, string] | null {
+  for (const [key, filePath] of scanDownloadedFilesOnDisk(downloadsRoot)) {
+    const separator = key.indexOf("\0");
+    if (separator < 0) continue;
+    const bookId = key.slice(0, separator);
+    const id = key.slice(separator + 1);
+    if (id === trackId) return [bookId, filePath];
+  }
+  return null;
 }
 
 function scanDownloadedFilesOnDisk(downloadsRoot: string): Map<string, string> {

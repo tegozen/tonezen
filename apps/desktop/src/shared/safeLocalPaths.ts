@@ -54,12 +54,34 @@ export function sanitizeLocalAudioPath(
   return null;
 }
 
-/** Ensures a signed download URL targets the configured API/storage origin. */
-export function assertAllowedDownloadUrl(signedUrl: string, baseUrl: string): void {
+/** Rewrites signed storage URLs to the configured API origin when path matches storage sign. */
+export function normalizeDownloadUrl(signedUrl: string, baseUrl: string): string {
   let target: URL;
   let allowed: URL;
   try {
     target = new URL(signedUrl);
+    allowed = new URL(baseUrl.replace(/\/$/, ""));
+  } catch {
+    return signedUrl;
+  }
+  const path = target.pathname;
+  if (!path.includes("/object/sign/")) return signedUrl;
+  const normalizedPath = path.includes("/storage/v1/")
+    ? path
+    : path.startsWith("/object/sign/")
+      ? `/storage/v1${path}`
+      : path;
+  const query = target.search;
+  return `${allowed.origin}${normalizedPath}${query}`;
+}
+
+/** Ensures a signed download URL targets the configured API/storage origin. */
+export function assertAllowedDownloadUrl(signedUrl: string, baseUrl: string): void {
+  const normalized = normalizeDownloadUrl(signedUrl, baseUrl);
+  let target: URL;
+  let allowed: URL;
+  try {
+    target = new URL(normalized);
     allowed = new URL(baseUrl);
   } catch {
     throw new Error("Invalid download URL");

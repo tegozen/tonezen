@@ -10,6 +10,15 @@ describe("toPublicDownloadUrl", () => {
       ),
     ).toBe("http://localhost:8000/storage/v1/object/sign/content/music/a.mp3?token=x");
   });
+
+  it("rewrites absolute storage sign URLs to public base origin", () => {
+    expect(
+      toPublicDownloadUrl(
+        "https://internal.supabase.example/storage/v1/object/sign/content/a.mp3?token=x",
+        "https://tonezen.tegozen.ru",
+      ),
+    ).toBe("https://tonezen.tegozen.ru/storage/v1/object/sign/content/a.mp3?token=x");
+  });
 });
 
 describe("signStoragePath", () => {

@@ -297,6 +297,7 @@ export class TrackDownloadQueue {
 
         const result = await this.downloadOne(next, key);
 
+        let effectiveResult: DownloadAwaitResult = result;
         await this.mutex.run(async () => {
           if (result === "COMPLETED") {
             LocalDatabase.delete(next.bookId, next.trackId);
@@ -305,12 +306,19 @@ export class TrackDownloadQueue {
             LocalDatabase.delete(next.bookId, next.trackId);
           } else {
             await this.persistPartProgress(next.bookId, next.trackId);
+            if (LocalDatabase.resolveLocalTrackPath(next.bookId, next.trackId, this.downloadsRoot)) {
+              LocalDatabase.delete(next.bookId, next.trackId);
+              if (next.batchId != null && next.batchId === this.bulkBatchId) {
+                this.addCompletedHistory(next);
+              }
+              effectiveResult = "COMPLETED";
+            }
           }
-          this.completeAwaiter(key, result);
+          this.completeAwaiter(key, effectiveResult);
           this.refreshNotifierFromDb();
         });
 
-        if (result === "OFFLINE") break;
+        if (effectiveResult === "OFFLINE") break;
         await delay(50);
       }
     } finally {

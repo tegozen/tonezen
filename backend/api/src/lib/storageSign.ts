@@ -57,6 +57,21 @@ export async function signStoragePath(
 export function toPublicDownloadUrl(signedURL: string, publicBaseUrl: string): string {
   const base = publicBaseUrl.replace(/\/$/, "");
   if (signedURL.startsWith("http://") || signedURL.startsWith("https://")) {
+    try {
+      const target = new URL(signedURL);
+      const path = target.pathname;
+      if (path.includes("/object/sign/")) {
+        const normalizedPath = path.includes("/storage/v1/")
+          ? path
+          : path.startsWith("/object/sign/")
+            ? `/storage/v1${path}`
+            : path;
+        const allowed = new URL(base);
+        return `${allowed.origin}${normalizedPath}${target.search}`;
+      }
+    } catch {
+      return signedURL;
+    }
     return signedURL;
   }
   if (signedURL.startsWith("/storage/v1/")) {

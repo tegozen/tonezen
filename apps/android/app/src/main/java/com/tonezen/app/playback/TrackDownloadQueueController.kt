@@ -306,10 +306,21 @@ class TrackDownloadQueueController @Inject constructor(
                     }
                     DownloadAwaitResult.CANCELLED -> downloadQueueDao.delete(next.bookId, next.trackId)
                     DownloadAwaitResult.FAILED, DownloadAwaitResult.OFFLINE -> {
-                        persistPartProgress(next.bookId, next.trackId)
+                        if (catalogRepository.resolveLocalTrackPath(next.bookId, next.trackId) != null) {
+                            downloadQueueDao.delete(next.bookId, next.trackId)
+                            if (next.batchId != null && next.batchId == bulkBatchId) {
+                                addCompletedHistory(next)
+                            }
+                            completeAwaiter(key, DownloadAwaitResult.COMPLETED)
+                        } else {
+                            persistPartProgress(next.bookId, next.trackId)
+                            completeAwaiter(key, result)
+                        }
                     }
                 }
-                completeAwaiter(key, result)
+                if (result != DownloadAwaitResult.FAILED && result != DownloadAwaitResult.OFFLINE) {
+                    completeAwaiter(key, result)
+                }
                 refreshNotifierFromDb()
             }
             if (result == DownloadAwaitResult.OFFLINE) break

@@ -31,4 +31,24 @@ class DownloadUrlPolicyTest {
             )
         }
     }
+
+    @Test
+    fun normalizesForeignStorageSignOriginToApiBase() {
+        DownloadUrlPolicy.assertAllowedDownloadUrl(
+            "https://internal.supabase.example/storage/v1/object/sign/content/a.mp3?token=x",
+            "https://tonezen.tegozen.ru",
+        )
+    }
+
+    @Test
+    fun normalizeDownloadUrlRewritesHost() {
+        val normalized = DownloadUrlPolicy.normalizeDownloadUrl(
+            "https://internal.example/object/sign/content/a.mp3?token=x",
+            "https://tonezen.tegozen.ru",
+        )
+        org.junit.Assert.assertEquals(
+            "https://tonezen.tegozen.ru/storage/v1/object/sign/content/a.mp3?token=x",
+            normalized,
+        )
+    }
 }

@@ -64,6 +64,15 @@ interface CatalogDao {
     @Query("UPDATE tracks SET localPath = NULL, localDownloadedAt = NULL WHERE bookId = :bookId")
     suspend fun clearLocalPathsForBook(bookId: String)
 
+    @Query(
+        """
+        UPDATE tracks
+        SET localPath = :localPath, localDownloadedAt = :downloadedAt
+        WHERE id = :trackId
+        """,
+    )
+    suspend fun updateTrackLocalPathById(trackId: String, localPath: String, downloadedAt: Long)
+
     @Query("SELECT * FROM cycles ORDER BY title")
     suspend fun getAllCycles(): List<CycleEntity>
 

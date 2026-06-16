@@ -8,6 +8,7 @@ import { progressFraction, resolveResumeAction } from "../shared/downloadResumeP
 import { rmWithRetry, unlinkWithRetry } from "../shared/fileDeleteRetry.js";
 import {
   assertAllowedDownloadUrl,
+  normalizeDownloadUrl,
   resolveTrackDownloadPath,
   resolveTrackPartPath,
   sanitizeLocalAudioPath,
@@ -306,6 +307,6 @@ export class DownloadManager {
     } catch {
       return absolute;
     }
-    return absolute;
+    return normalizeDownloadUrl(absolute, apiBase);
   }
 }

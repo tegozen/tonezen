@@ -254,15 +254,20 @@ class CatalogRepository @Inject constructor(
             ?: catalogDao.getBookIdForTrack(trackId)?.let { resolvedBookId ->
                 catalogDao.getTracksForBook(resolvedBookId).find { it.id == trackId }
             }
-            ?: return false
-        catalogDao.upsertTracks(
-            listOf(
-                track.copy(
-                    localPath = safePath,
-                    localDownloadedAt = System.currentTimeMillis(),
+        if (track != null) {
+            catalogDao.upsertTracks(
+                listOf(
+                    track.copy(
+                        localPath = safePath,
+                        localDownloadedAt = System.currentTimeMillis(),
+                    ),
                 ),
-            ),
-        )
+            )
+            invalidateDownloadedTrackIdsCache()
+            return true
+        }
+        if (catalogDao.getBookIdForTrack(trackId) == null) return false
+        catalogDao.updateTrackLocalPathById(trackId, safePath, System.currentTimeMillis())
         invalidateDownloadedTrackIdsCache()
         return true
     }
@@ -271,19 +276,32 @@ class CatalogRepository @Inject constructor(
         catalogDao.getTracksOrderedByDownloadedAt(limit).map { it.toDomainTrack() }
 
     suspend fun resolveLocalTrackPath(bookId: String, trackId: String): String? = withContext(Dispatchers.IO) {
+        resolveLocalTrackPathForBook(bookId, trackId)
+            ?: findOnDiskTrackPath(trackId)?.let { (diskBookId, path) ->
+                markTrackDownloaded(diskBookId, trackId, path)
+                path
+            }
+    }
+
+    private suspend fun resolveLocalTrackPathForBook(bookId: String, trackId: String): String? {
         val fromDb = catalogDao.getTracksForBook(bookId).find { it.id == trackId }?.localPath
         if (fromDb != null && SafeLocalStorage.isUnderAppFilesRoot(context.filesDir, fromDb)) {
             val file = File(fromDb)
-            if (file.isFile && file.length() > 0L) return@withContext fromDb
+            if (file.isFile && file.length() > 0L) return fromDb
         }
         val onDisk = expectedTrackFile(bookId, trackId)
         if (onDisk?.isFile == true && onDisk.length() > 0L) {
             markTrackDownloaded(bookId, trackId, onDisk.absolutePath)
-            return@withContext onDisk.absolutePath
+            return onDisk.absolutePath
         }
         if (fromDb != null) clearTrackLocalPath(bookId, trackId)
-        null
+        return null
     }
+
+    private fun findOnDiskTrackPath(trackId: String): Pair<String, String>? =
+        scanDownloadedFilesOnDisk().entries.firstOrNull { it.key.second == trackId }?.let {
+            it.key.first to it.value
+        }
 
     private fun expectedTrackFile(bookId: String, trackId: String): File? =
         SafeLocalStorage.trackFile(context.filesDir, bookId, trackId)

@@ -4,6 +4,7 @@ import {
   assertAllowedDownloadUrl,
   isPathUnderRoot,
   isSafeStorageId,
+  normalizeDownloadUrl,
   resolveTrackDownloadPath,
   sanitizeLocalAudioPath,
 } from "../src/shared/safeLocalPaths.js";
@@ -69,9 +70,35 @@ describe("assertAllowedDownloadUrl", () => {
     ).not.toThrow();
   });
 
-  it("rejects foreign origins", () => {
+  it("rejects foreign origins without storage sign path", () => {
     expect(() =>
       assertAllowedDownloadUrl("http://evil.example/file.mp3", "http://localhost:8000"),
     ).toThrow(/origin mismatch/i);
+  });
+
+  it("rejects non-http schemes", () => {
+    expect(() =>
+      assertAllowedDownloadUrl("file:///etc/passwd", "http://localhost:8000"),
+    ).toThrow(/Invalid download URL/i);
+  });
+});
+
+describe("normalizeDownloadUrl", () => {
+  it("rewrites foreign storage sign URLs to API origin", () => {
+    expect(
+      normalizeDownloadUrl(
+        "https://internal.supabase.example/storage/v1/object/sign/content/a.mp3?token=x",
+        "https://tonezen.tegozen.ru",
+      ),
+    ).toBe("https://tonezen.tegozen.ru/storage/v1/object/sign/content/a.mp3?token=x");
+  });
+
+  it("allows assert after normalization", () => {
+    expect(() =>
+      assertAllowedDownloadUrl(
+        "https://internal.supabase.example/storage/v1/object/sign/content/a.mp3?token=x",
+        "https://tonezen.tegozen.ru",
+      ),
+    ).not.toThrow();
   });
 });

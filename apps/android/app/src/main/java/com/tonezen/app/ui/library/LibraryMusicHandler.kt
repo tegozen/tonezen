@@ -274,6 +274,7 @@ internal class LibraryMusicHandler(
     }
 
     private suspend fun playNextAvailableFrom(currentIndex: Int) {
+        refreshMusicLibraryTracksLocalPaths()
         val library = session.musicLibraryTracks
         if (library.isEmpty()) return
         val nextIndex = MusicPlaybackAdvanceRules.findNextPlayable(
@@ -360,8 +361,23 @@ internal class LibraryMusicHandler(
     }
 
     suspend fun refreshMusicTrackListForDownloads(): List<MusicListTrack> {
+        refreshMusicLibraryTracksLocalPaths()
         val downloadedTrackIds = resolveDownloadedTrackIdsForUi()
         return refreshMusicTrackListDownloadState(uiState.value.musicTrackList, downloadedTrackIds)
+    }
+
+    private suspend fun refreshMusicLibraryTracksLocalPaths() {
+        if (session.musicLibraryTracks.isEmpty()) return
+        session.musicLibraryTracks = withContext(Dispatchers.IO) {
+            session.musicLibraryTracks.map { entry ->
+                val path = catalogRepository.resolveLocalTrackPath(entry.book.id, entry.track.id)
+                if (path != null && path != entry.track.localPath) {
+                    entry.copy(track = entry.track.copy(localPath = path))
+                } else {
+                    entry
+                }
+            }
+        }
     }
 
     suspend fun refreshMusicTrackListWithDownloadedIds(downloadedTrackIds: Set<String>): List<MusicListTrack> =
