@@ -66,6 +66,7 @@ class LibraryViewModel @Inject constructor(
     private lateinit var musicHandler: LibraryMusicHandler
     private var lastLibrarySnapshotUiKey: LibrarySnapshotUiKey? = null
     private var lastLoadedUserId: String? = null
+    private var pendingCatalogReload = false
 
     init {
         cycleHandler = LibraryCycleHandler(
@@ -178,7 +179,19 @@ class LibraryViewModel @Inject constructor(
         }
         viewModelScope.launch {
             catalogSyncRepository.catalogUpdated.collect {
-                reloadCatalogFromLocal()
+                if (musicDownloadNotifier.state.value.isActive) {
+                    pendingCatalogReload = true
+                } else {
+                    reloadCatalogFromLocal()
+                }
+            }
+        }
+        viewModelScope.launch {
+            musicDownloadNotifier.state.collect { state ->
+                if (!state.isActive && pendingCatalogReload) {
+                    pendingCatalogReload = false
+                    reloadCatalogFromLocal()
+                }
             }
         }
     }
@@ -236,12 +249,10 @@ class LibraryViewModel @Inject constructor(
     fun refreshCycleMenu(cycle: Cycle) = cycleHandler.refreshCycleMenu(cycle)
 
     fun refreshDownloads() {
-        if (musicDownloadNotifier.state.value.isBulkDownloading) return
+        if (musicDownloadNotifier.state.value.isActive) return
         viewModelScope.launch {
             val books = _uiState.value.books
-            val downloadedTrackIds = withContext(Dispatchers.IO) {
-                catalogRepository.getDownloadedTrackIds()
-            }
+            val downloadedTrackIds = musicHandler.resolveDownloadedTrackIdsForUi()
             val trackList = musicHandler.refreshMusicTrackListWithDownloadedIds(downloadedTrackIds)
             val downloaded = withContext(Dispatchers.IO) {
                 catalogRepository.downloadedBookIds(books)

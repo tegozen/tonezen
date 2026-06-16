@@ -60,9 +60,13 @@ internal class LibraryMusicHandler(
 
     fun onMusicTabSelected() {
         scope.launch {
-            if (session.musicCandidates.isEmpty() || session.musicStartedInSession) return@launch
-            if (uiState.value.musicTrackList.isNotEmpty()) return@launch
-            val list = buildMusicTrackList(shuffle = true)
+            if (session.musicCandidates.isEmpty()) return@launch
+            val list = if (uiState.value.musicTrackList.isEmpty()) {
+                if (session.musicStartedInSession) return@launch
+                buildMusicTrackList(shuffle = true)
+            } else {
+                refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
+            }
             uiState.update { it.copy(musicTrackList = list) }
         }
     }
@@ -147,7 +151,7 @@ internal class LibraryMusicHandler(
             }
             val updatedList = refreshMusicTrackListDownloadState(
                 uiState.value.musicTrackList,
-                withContext(Dispatchers.IO) { catalogRepository.getDownloadedTrackIds() },
+                withContext(Dispatchers.IO) { resolveDownloadedTrackIdsForUi() },
             )
             uiState.update { state ->
                 state.copy(
@@ -361,10 +365,26 @@ internal class LibraryMusicHandler(
         return session.musicBookIdByTrackId
     }
 
+    suspend fun resolveDownloadedTrackIdsForUi(): Set<String> = withContext(Dispatchers.IO) {
+        catalogRepository.reconcileLocalDownloadPaths()
+        val ids = catalogRepository.getDownloadedTrackIds().toMutableSet()
+        ids.addAll(localPlaybackDownloadedTrackIds())
+        ids
+    }
+
+    private suspend fun localPlaybackDownloadedTrackIds(): Set<String> {
+        val playback = uiState.value.musicPlayback
+        val trackId = playback.trackId ?: return emptySet()
+        if (!playback.isActive) return emptySet()
+        val bookId = playback.bookId
+            ?: session.musicBookIdByTrackId[trackId]
+            ?: catalogRepository.findBookForTrack(trackId)?.id
+            ?: return emptySet()
+        return if (trackDownloadEnsurer.isTrackLocal(bookId, trackId)) setOf(trackId) else emptySet()
+    }
+
     suspend fun buildMusicTrackListForCatalogUpdate(rebuildMusic: Boolean = false): List<MusicListTrack> {
-        val downloadedTrackIds = withContext(Dispatchers.IO) {
-            catalogRepository.getDownloadedTrackIds()
-        }
+        val downloadedTrackIds = resolveDownloadedTrackIdsForUi()
         return buildMusicTrackListForCatalogUpdate(
             existing = uiState.value.musicTrackList,
             candidates = session.musicCandidates,
@@ -374,9 +394,7 @@ internal class LibraryMusicHandler(
     }
 
     suspend fun refreshMusicTrackListForDownloads(): List<MusicListTrack> {
-        val downloadedTrackIds = withContext(Dispatchers.IO) {
-            catalogRepository.getDownloadedTrackIds()
-        }
+        val downloadedTrackIds = resolveDownloadedTrackIdsForUi()
         return refreshMusicTrackListDownloadState(uiState.value.musicTrackList, downloadedTrackIds)
     }
 
@@ -389,18 +407,14 @@ internal class LibraryMusicHandler(
 
     private suspend fun buildMusicTrackList(shuffle: Boolean): List<MusicListTrack> {
         if (session.musicCandidates.isEmpty()) return emptyList()
-        val downloadedTrackIds = withContext(Dispatchers.IO) {
-            catalogRepository.getDownloadedTrackIds()
-        }
+        val downloadedTrackIds = resolveDownloadedTrackIdsForUi()
         return buildMusicTrackListFromCandidates(session.musicCandidates, shuffle, downloadedTrackIds)
     }
 
     private suspend fun refreshMusicTrackListDownloadState(
         list: List<MusicListTrack>,
     ): List<MusicListTrack> {
-        val downloadedTrackIds = withContext(Dispatchers.IO) {
-            catalogRepository.getDownloadedTrackIds()
-        }
+        val downloadedTrackIds = resolveDownloadedTrackIdsForUi()
         return refreshMusicTrackListDownloadState(list, downloadedTrackIds)
     }
 
@@ -606,6 +620,7 @@ internal class LibraryMusicHandler(
             playbackClient.playQueue(queue, startIndex)
             scheduleMusicPrefetch(libraryStartIndex + 1)
             refreshDownloadedBooks()
+            localLibraryNotifier.notifyLocalLibraryChanged()
         } finally {
             finishTrackDownloadUi(track.trackId)
         }
@@ -637,6 +652,7 @@ internal class LibraryMusicHandler(
                 )
             }
             refreshDownloadedBooks()
+            localLibraryNotifier.notifyLocalLibraryChanged()
         } else {
             musicDownloadNotifier.finishTrack()
             uiState.update {
