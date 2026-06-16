@@ -62,6 +62,12 @@ EOSQL
 
 for f in /docker-entrypoint-initdb.d/migrations/*.sql; do
   if [ -f "$f" ]; then
+    case "$(basename "$f")" in
+      004_*|005_*|007_*|008_*|009_*)
+        echo "Skipping $(basename "$f") — applied by storage-db-bootstrap after storage-api starts"
+        continue
+        ;;
+    esac
     echo "Running migration: $f"
     psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" -f "$f"
   fi

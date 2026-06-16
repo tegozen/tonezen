@@ -86,8 +86,8 @@ services:
     image: node:20-alpine
     restart: "no"
     depends_on:
-      storage:
-        condition: service_healthy
+      storage-db-bootstrap:
+        condition: service_completed_successfully
     environment:
       STORAGE_URL: http://storage:5000
       STORAGE_BUCKET: content
@@ -95,6 +95,20 @@ services:
     volumes:
       - ./docker/storage-bootstrap/seed-storage-layout.mjs:/app/seed-storage-layout.mjs:ro
     command: ["node", "/app/seed-storage-layout.mjs"]
+
+  storage-db-bootstrap:
+    image: postgres:15-alpine
+    restart: "no"
+    depends_on:
+      storage:
+        condition: service_healthy
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tonezen}
+      PGPASSWORD: tonezen-postgres-internal
+    volumes:
+      - ./docker/storage-db-bootstrap/sql:/bootstrap:ro
+      - ./docker/storage-db-bootstrap/apply-storage-migrations.sh:/apply-storage-migrations.sh:ro
+    entrypoint: ["sh", "/apply-storage-migrations.sh"]
 
   rest:
     image: postgrest/postgrest:v12.2.3

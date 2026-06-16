@@ -74,6 +74,30 @@ If only small files succeed and larger ones fail with `Invalid URL`:
 
 If large uploads fail silently (Studio shows progress but files never appear), check `docker compose logs storage` for `XAmzContentSHA256Mismatch`. Beget S3 requires `AWS_REQUEST_CHECKSUM_CALCULATION=WHEN_REQUIRED` on the storage service (see `docker-compose.yml`). Delete orphaned objects in the Beget panel under `tonezen/content/` and re-upload via Studio.
 
+### Studio shows "Failed to fetch buckets"
+
+Storage metadata lives in Postgres (`storage.buckets`), not in S3. If `storage-api` migrations did not run (common after `make postgres-import`), bucket list returns HTTP 500 with `relation "buckets" does not exist`.
+
+On the server:
+
+```bash
+# 1. Recreate storage schema via storage-api
+docker compose stop storage
+docker compose exec -e PGPASSWORD=tonezen-postgres-internal db \
+  psql -U supabase_admin -d tonezen -c "DROP SCHEMA IF EXISTS storage CASCADE;"
+docker compose up -d storage
+docker compose exec -e PGPASSWORD=tonezen-postgres-internal db \
+  psql -U supabase_admin -d tonezen -c "\dt storage.*"
+
+# 2. Apply Tonezen storage grants, buckets, and policies
+docker compose run --rm storage-db-bootstrap
+
+# 3. Seed cycles/ and music/ placeholders
+docker compose run --rm storage-bootstrap
+```
+
+Hard-refresh Studio (`Ctrl+F5`) after step 2.
+
 ## S3 credentials
 
 Set in root `.env` (from Beget panel → Object storage → Access keys):
