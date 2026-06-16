@@ -11,12 +11,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+@Suppress("DEPRECATION")
 fun Context.isNetworkAvailable(): Boolean {
     val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    if (resolveOnlineState(cm.allNetworks.map { cm.getNetworkCapabilities(it) })) {
+        return true
+    }
     val network = cm.activeNetwork ?: return false
-    val caps = cm.getNetworkCapabilities(network) ?: return false
-    return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    return resolveOnlineState(listOf(cm.getNetworkCapabilities(network)))
 }
+
+internal fun resolveOnlineState(capabilities: Iterable<NetworkCapabilities?>): Boolean =
+    capabilities.any { it?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true }
 
 @Singleton
 class NetworkMonitor @Inject constructor(

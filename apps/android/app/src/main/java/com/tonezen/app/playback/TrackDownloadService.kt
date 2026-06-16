@@ -31,6 +31,11 @@ class TrackDownloadService : Service() {
         createChannel()
         scope.launch {
             notifier.state.collectLatest { state ->
+                if (!shouldKeepDownloadServiceForeground(state)) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                    return@collectLatest
+                }
                 val notification = buildNotification(state)
                 startForeground(NOTIFICATION_ID, notification)
             }
@@ -40,11 +45,17 @@ class TrackDownloadService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             queueController.cancelAll()
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
-        startForeground(NOTIFICATION_ID, buildNotification(notifier.snapshot()))
-        return START_STICKY
+        val snapshot = notifier.snapshot()
+        if (!shouldKeepDownloadServiceForeground(snapshot)) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        startForeground(NOTIFICATION_ID, buildNotification(snapshot))
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
@@ -104,3 +115,5 @@ class TrackDownloadService : Service() {
         const val ACTION_STOP = "com.tonezen.app.download.STOP"
     }
 }
+
+internal fun shouldKeepDownloadServiceForeground(state: DownloadQueueState): Boolean = state.isActive
