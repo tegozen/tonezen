@@ -1,15 +1,17 @@
+import {
+  activeDownloadItems,
+  type CompletedDownloadItem,
+} from "@shared/downloadsPageState";
 import type { DownloadQueueItem, DownloadQueueState } from "@shared/downloadQueueState";
-import { libraryScrollPaddingTop } from "../lib/layoutChrome";
-import { LibraryTopChrome } from "../components/LibraryTopChrome";
+import { PAGE_TITLE_TOP_SCROLL_PX } from "../lib/layoutChrome";
+import { TitleTopChrome } from "../components/TitleTopChrome";
 import { TrackDownloadButton } from "../components/TrackDownloadButton";
 import { TrackListRow } from "../components/TrackListRow";
 import { strings } from "../i18n/strings";
 
 interface DownloadsPageProps {
   downloadQueue: DownloadQueueState;
-  selectedTab: number;
-  offlineBanner: boolean;
-  onTabChange: (tab: number) => void;
+  completedItems: CompletedDownloadItem[];
   onCancelTrack: (bookId: string, trackId: string) => void;
   onCancelAll: () => void;
   onDeleteCompleted: (bookId: string, trackId: string) => void;
@@ -17,29 +19,19 @@ interface DownloadsPageProps {
 
 export function DownloadsPage({
   downloadQueue,
-  selectedTab,
-  offlineBanner,
-  onTabChange,
+  completedItems,
   onCancelTrack,
   onCancelAll,
   onDeleteCompleted,
 }: DownloadsPageProps) {
-  const activeItems = downloadQueue.queuedItems.filter(
-    (item) =>
-      item.status === "QUEUED" ||
-      item.status === "DOWNLOADING" ||
-      item.status === "PAUSED_OFFLINE",
-  );
-  const completedItems = downloadQueue.completedHistory.filter(
-    (item) => item.status === "COMPLETED",
-  );
+  const activeItems = activeDownloadItems(downloadQueue);
   const isEmpty = activeItems.length === 0 && completedItems.length === 0;
 
   return (
     <div className="library-page">
       <div
         className="scroll-under-chrome space-y-4"
-        style={{ paddingTop: libraryScrollPaddingTop(false, offlineBanner) }}
+        style={{ paddingTop: PAGE_TITLE_TOP_SCROLL_PX }}
       >
         {downloadQueue.pausedForNetwork && (
           <p className="text-sm text-muted">{strings.downloadPausedOffline}</p>
@@ -69,7 +61,7 @@ export function DownloadsPage({
                 key={`${item.bookId}:${item.trackId}`}
                 title={item.title}
                 subtitle={item.subtitle}
-                durationMs={null}
+                durationMs={item.durationMs ?? null}
                 isActive={false}
                 clickEnabled={false}
                 onClick={() => {}}
@@ -92,15 +84,7 @@ export function DownloadsPage({
           </div>
         )}
       </div>
-      <LibraryTopChrome
-        selectedTab={selectedTab}
-        query=""
-        offlineBanner={offlineBanner}
-        showSearch={false}
-        onTabChange={onTabChange}
-        onQueryChange={() => {}}
-        onFilterClick={() => {}}
-      />
+      <TitleTopChrome title={strings.navDownloads} />
     </div>
   );
 }

@@ -17,6 +17,7 @@ export interface TrackRow {
   artist: string | null;
   duration_ms: number | null;
   local_path: string | null;
+  local_downloaded_at: number | null;
 }
 
 export function mapBookRow(row: BookRow): Book {
@@ -39,5 +40,6 @@ export function mapTrackRow(row: TrackRow): Track {
     artist: row.artist ?? undefined,
     durationMs: row.duration_ms ?? undefined,
     localPath: row.local_path ?? undefined,
+    localDownloadedAt: row.local_downloaded_at ?? undefined,
   };
 }

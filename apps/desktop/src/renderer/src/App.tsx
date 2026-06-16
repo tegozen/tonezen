@@ -5,6 +5,7 @@ import {
   visibleMusicTrackList,
   type MusicListTrack,
 } from "@shared/musicList";
+import { completedDownloadItems } from "@shared/downloadsPageState";
 import { progressForTrack } from "@shared/downloadQueueState";
 import { CyclePlaybackResolver } from "@shared/cyclePlayback";
 import { AppShell } from "./components/AppShell";
@@ -26,6 +27,7 @@ import {
 } from "./lib/cycleUtils";
 import { BookDetailPage } from "./pages/BookDetailPage";
 import { CycleDetailPage } from "./pages/CycleDetailPage";
+import { DownloadsPage } from "./pages/DownloadsPage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { ProfilePage } from "./pages/ProfilePage";
 
@@ -491,6 +493,10 @@ export function App() {
     () => visibleMusicTrackList(musicTracks, sessionState === "AuthenticatedOnline"),
     [musicTracks, sessionState],
   );
+  const completedDownloads = useMemo(
+    () => completedDownloadItems(downloadQueue.state, allTracks, books),
+    [allTracks, books, downloadQueue.state],
+  );
   const miniSubtitle = music.musicMode
     ? activeMusicTrack
       ? [activeMusicTrack.artist, activeMusicTrack.albumTitle].filter(Boolean).join(" · ") ||
@@ -647,12 +653,6 @@ export function App() {
             onMusicTrackDownload={(track) => void music.downloadMusicTrack(track)}
             onMusicTrackDelete={(track) => void music.deleteMusicTrack(track)}
             onDownloadAllMusic={() => void music.downloadAllMusic()}
-            onCancelDownloadTrack={(bookId, trackId) => void downloadQueue.cancelTrack(bookId, trackId)}
-            onCancelAllDownloads={() => void downloadQueue.cancelAll()}
-            onDeleteCompletedDownload={(bookId, trackId) => {
-              void downloadQueue.cancelTrack(bookId, trackId);
-              void window.tonezen.download.delete(bookId, trackId).then(() => refreshLibrary());
-            }}
           />
           <LibraryFilterSheet
             visible={showFilterSheet}
@@ -664,6 +664,17 @@ export function App() {
             onSortOrderChange={(sortOrder) => setFilter((f) => ({ ...f, sortOrder }))}
           />
         </div>
+      ) : activeTab === "downloads" ? (
+        <DownloadsPage
+          downloadQueue={downloadQueue.state}
+          completedItems={completedDownloads}
+          onCancelTrack={(bookId, trackId) => void downloadQueue.cancelTrack(bookId, trackId)}
+          onCancelAll={() => void downloadQueue.cancelAll()}
+          onDeleteCompleted={(bookId, trackId) => {
+            void downloadQueue.cancelTrack(bookId, trackId);
+            void window.tonezen.download.delete(bookId, trackId).then(() => refreshLibrary());
+          }}
+        />
       ) : (
         <ProfilePage
           displayName={displayName}

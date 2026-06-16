@@ -6,7 +6,6 @@ import { LibraryCycleCard } from "../components/LibraryCycleCard";
 import { LibraryTopChrome } from "../components/LibraryTopChrome";
 import { MusicDownloadAllButton } from "../components/MusicDownloadAllButton";
 import { MusicTrackRow } from "../components/MusicTrackRow";
-import { DownloadsPage } from "./DownloadsPage";
 import type { CycleCardState } from "../lib/cycleUtils";
 import { strings } from "../i18n/strings";
 
@@ -32,9 +31,6 @@ interface LibraryPageProps {
   onMusicTrackDownload: (track: MusicListTrack) => void;
   onMusicTrackDelete: (track: MusicListTrack) => void;
   onDownloadAllMusic: () => void;
-  onCancelDownloadTrack: (bookId: string, trackId: string) => void;
-  onCancelAllDownloads: () => void;
-  onDeleteCompletedDownload: (bookId: string, trackId: string) => void;
 }
 
 export function LibraryPage({
@@ -59,27 +55,9 @@ export function LibraryPage({
   onMusicTrackDownload,
   onMusicTrackDelete,
   onDownloadAllMusic,
-  onCancelDownloadTrack,
-  onCancelAllDownloads,
-  onDeleteCompletedDownload,
 }: LibraryPageProps) {
   const isAudiobooks = selectedTab === 0;
   const isMusic = selectedTab === 1;
-  const isDownloads = selectedTab === 2;
-
-  if (isDownloads) {
-    return (
-      <DownloadsPage
-        downloadQueue={downloadQueue}
-        selectedTab={selectedTab}
-        offlineBanner={offlineBanner}
-        onTabChange={onTabChange}
-        onCancelTrack={onCancelDownloadTrack}
-        onCancelAll={onCancelAllDownloads}
-        onDeleteCompleted={onDeleteCompletedDownload}
-      />
-    );
-  }
 
   return (
     <div className="library-page">

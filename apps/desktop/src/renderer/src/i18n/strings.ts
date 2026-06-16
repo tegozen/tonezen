@@ -1,4 +1,4 @@
-export type BottomTab = "library" | "profile";
+export type { BottomTab } from "@shared/navigation";
 
 export type ContentFilter = "all" | "downloaded";
 export type SortOrder = "recent" | "title";
@@ -11,10 +11,10 @@ export interface LibraryFilter {
 export const strings = {
   appName: "Tonezen",
   navLibrary: "Библиотека",
+  navDownloads: "Загрузки",
   navProfile: "Профиль",
   tabAudiobooks: "Аудиокниги",
   tabMusic: "Музыка",
-  tabDownloads: "Загрузки",
   searchLibrary: "Поиск в библиотеке",
   filter: "Фильтр",
   offline: "Офлайн",

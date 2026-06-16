@@ -42,6 +42,7 @@ export interface Track {
   artist?: string;
   durationMs?: number;
   localPath?: string;
+  localDownloadedAt?: number;
 }
 
 export interface Cycle {

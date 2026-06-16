@@ -3,7 +3,6 @@ import fs from "node:fs";
 import type { BrowserWindow } from "electron";
 import {
   computeBulkDownloaded,
-  isBulkBatchComplete,
   mergePriority,
   sortPending,
   type DownloadPriority,
@@ -512,7 +511,7 @@ export class TrackDownloadQueue {
   }
 
   private maybeFinishBulkBatchLocked(bulkDone: number): void {
-    if (!isBulkBatchComplete(this.bulkSkipped, this.bulkTotal, this.bulkBatchId, this.state.completedHistory)) {
+    if (this.bulkBatchId == null || this.bulkTotal <= 0 || bulkDone < this.bulkTotal) {
       return;
     }
     this.bulkBatchId = null;

@@ -68,13 +68,15 @@ export const CatalogDb = {
         .run(trackId);
       return;
     }
-    getDb().prepare(`UPDATE tracks SET local_path = ? WHERE id = ?`).run(localPath, trackId);
+    getDb()
+      .prepare(`UPDATE tracks SET local_path = ?, local_downloaded_at = ? WHERE id = ?`)
+      .run(localPath, Date.now(), trackId);
   },
 
   getTrackById(trackId: string): Track | null {
     const row = getDb()
       .prepare(
-        `SELECT id, book_id, sort_order, title, filename, artist, duration_ms, local_path
+        `SELECT id, book_id, sort_order, title, filename, artist, duration_ms, local_path, local_downloaded_at
          FROM tracks WHERE id = ? LIMIT 1`,
       )
       .get(trackId) as TrackRow | undefined;
@@ -171,7 +173,7 @@ export const CatalogDb = {
     const onDiskByKey = scanDownloadedFilesOnDisk(downloadsRoot);
     const rows = getDb()
       .prepare(
-        `SELECT id, book_id, sort_order, title, filename, artist, duration_ms, local_path
+        `SELECT id, book_id, sort_order, title, filename, artist, duration_ms, local_path, local_downloaded_at
          FROM tracks`,
       )
       .all() as TrackRow[];
@@ -227,7 +229,7 @@ export const CatalogDb = {
   getAllTracks(): Track[] {
     const rows = getDb()
       .prepare(
-        `SELECT id, book_id, sort_order, title, filename, artist, duration_ms, local_path
+        `SELECT id, book_id, sort_order, title, filename, artist, duration_ms, local_path, local_downloaded_at
          FROM tracks ORDER BY book_id, sort_order`,
       )
       .all() as TrackRow[];
@@ -244,7 +246,7 @@ export const CatalogDb = {
   getTracks(bookId: string): Track[] {
     const rows = getDb()
       .prepare(
-        `SELECT id, book_id, sort_order, title, filename, artist, duration_ms, local_path
+        `SELECT id, book_id, sort_order, title, filename, artist, duration_ms, local_path, local_downloaded_at
          FROM tracks WHERE book_id = ? ORDER BY sort_order`,
       )
       .all(bookId) as TrackRow[];

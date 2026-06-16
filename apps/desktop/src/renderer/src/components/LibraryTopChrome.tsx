@@ -1,3 +1,4 @@
+import { LIBRARY_TOP_TABS, type LibraryTopTab } from "@shared/navigation";
 import { FilterIcon, SearchIcon } from "./TonezenIcons";
 import { strings } from "../i18n/strings";
 
@@ -20,7 +21,14 @@ export function LibraryTopChrome({
   onQueryChange,
   onFilterClick,
 }: LibraryTopChromeProps) {
-  const tabs = [strings.tabAudiobooks, strings.tabMusic, strings.tabDownloads];
+  const labelForTab = (tab: LibraryTopTab): string => {
+    switch (tab) {
+      case "audiobooks":
+        return strings.tabAudiobooks;
+      case "music":
+        return strings.tabMusic;
+    }
+  };
 
   return (
     <div className="library-chrome-wrap">
@@ -28,7 +36,8 @@ export function LibraryTopChrome({
         <div className="library-chrome-inner">
           {offlineBanner && <div className="library-offline-banner">{strings.noNetworkSyncPaused}</div>}
           <div className="library-tabs">
-            {tabs.map((label, index) => {
+            {LIBRARY_TOP_TABS.map((tab, index) => {
+              const label = labelForTab(tab);
               const selected = selectedTab === index;
               return (
                 <button
