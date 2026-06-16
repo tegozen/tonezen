@@ -201,19 +201,19 @@ class CatalogRepository @Inject constructor(
         return true
     }
 
-    suspend fun resolveLocalTrackPath(bookId: String, trackId: String): String? {
+    suspend fun resolveLocalTrackPath(bookId: String, trackId: String): String? = withContext(Dispatchers.IO) {
         val fromDb = catalogDao.getTracksForBook(bookId).find { it.id == trackId }?.localPath
         if (fromDb != null && SafeLocalStorage.isUnderAppFilesRoot(context.filesDir, fromDb)) {
             val file = File(fromDb)
-            if (file.isFile && file.length() > 0L) return fromDb
+            if (file.isFile && file.length() > 0L) return@withContext fromDb
         }
         val onDisk = expectedTrackFile(bookId, trackId)
         if (onDisk?.isFile == true && onDisk.length() > 0L) {
             markTrackDownloaded(bookId, trackId, onDisk.absolutePath)
-            return onDisk.absolutePath
+            return@withContext onDisk.absolutePath
         }
         if (fromDb != null) clearTrackLocalPath(bookId, trackId)
-        return null
+        null
     }
 
     private fun expectedTrackFile(bookId: String, trackId: String): File? =
@@ -231,10 +231,10 @@ class CatalogRepository @Inject constructor(
         catalogDao.upsertTracks(listOf(track.copy(localPath = null)))
     }
 
-    suspend fun getDownloadedBookSummaries(): List<DownloadedBookSummary> {
+    suspend fun getDownloadedBookSummaries(): List<DownloadedBookSummary> = withContext(Dispatchers.IO) {
         val books = catalogDao.getAllBooks()
         val tracksByBookId = catalogDao.getAllTracks().groupBy { it.bookId }
-        return books.mapNotNull { entity ->
+        books.mapNotNull { entity ->
             val book = entity.toDomain()
             val trackEntities = tracksByBookId[book.id].orEmpty()
             var safeDownloaded = 0
@@ -263,14 +263,14 @@ class CatalogRepository @Inject constructor(
         }.sortedBy { it.title.lowercase() }
     }
 
-    suspend fun getStorageStats(): StorageStats {
+    suspend fun getStorageStats(): StorageStats = withContext(Dispatchers.IO) {
         val downloadsDir = File(context.filesDir, "downloads")
         val usedBytes = downloadsDir.walkTopDown()
             .filter { it.isFile }
             .sumOf { it.length() }
         val statFs = StatFs(context.filesDir.absolutePath)
         val totalBytes = statFs.totalBytes
-        return StorageStats(usedBytes = usedBytes, totalBytes = totalBytes)
+        StorageStats(usedBytes = usedBytes, totalBytes = totalBytes)
     }
 
     suspend fun getPendingSyncCount(): Int =

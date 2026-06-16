@@ -18,4 +18,7 @@ object MusicDownloadInteractionRules {
 
     fun blocksDeletingTrack(state: MusicDownloadInteractionState, trackId: String): Boolean =
         state.isTrackDownloading && state.activeTrackId == trackId
+
+    fun blocksNowPlayingPlaybackUi(state: MusicDownloadInteractionState, playingTrackId: String?): Boolean =
+        playingTrackId != null && state.isTrackDownloading && state.activeTrackId == playingTrackId
 }

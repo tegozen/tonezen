@@ -248,9 +248,16 @@ internal class LibraryCycleHandler(
 
     suspend fun onAudiobookSnapshot(snapshot: PlaybackSnapshot) {
         val audiobookTrackId = snapshot.trackId ?: return
-        val bookId = withContext(Dispatchers.IO) {
-            catalogRepository.findBookForTrack(audiobookTrackId)?.id
-        } ?: return
+        val bookId = if (
+            session.activeAudiobookTrackId == audiobookTrackId &&
+            session.activeAudiobookBookId != null
+        ) {
+            session.activeAudiobookBookId!!
+        } else {
+            withContext(Dispatchers.IO) {
+                catalogRepository.findBookForTrack(audiobookTrackId)?.id
+            } ?: return
+        }
         session.activeAudiobookBookId = bookId
         session.activeAudiobookTrackId = audiobookTrackId
         val wasPlaying = session.wasAudiobookPlaying
@@ -489,13 +496,11 @@ internal class LibraryCycleHandler(
             val bucket = (progress * 50).toInt()
             if (bucket > reporter.lastBucket || progress >= 1f) {
                 reporter.lastBucket = bucket
-                scope.launch(Dispatchers.Main.immediate) {
-                    uiState.update { state ->
-                        if (state.cyclePlayback.cycleId != cycleId) return@update state
-                        state.copy(
-                            cyclePlayback = state.cyclePlayback.copy(downloadProgress = progress),
-                        )
-                    }
+                uiState.update { state ->
+                    if (state.cyclePlayback.cycleId != cycleId) return@update state
+                    state.copy(
+                        cyclePlayback = state.cyclePlayback.copy(downloadProgress = progress),
+                    )
                 }
             }
         }

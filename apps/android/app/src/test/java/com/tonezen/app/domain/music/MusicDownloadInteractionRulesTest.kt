@@ -64,4 +64,13 @@ class MusicDownloadInteractionRulesTest {
         assertFalse(MusicDownloadInteractionRules.blocksDeletingTrack(state(trackDownloading = true, activeTrackId = "t1"), "t2"))
         assertFalse(MusicDownloadInteractionRules.blocksDeletingTrack(state(bulkDownloading = true, activeTrackId = "t2"), "t1"))
     }
+
+    @Test
+    fun blocksNowPlayingPlaybackUiOnlyForPlayingTrackDownload() {
+        val downloadingT2 = state(trackDownloading = true, activeTrackId = "t2")
+        assertTrue(MusicDownloadInteractionRules.blocksNowPlayingPlaybackUi(downloadingT2, "t2"))
+        assertFalse(MusicDownloadInteractionRules.blocksNowPlayingPlaybackUi(downloadingT2, "t1"))
+        assertFalse(MusicDownloadInteractionRules.blocksNowPlayingPlaybackUi(downloadingT2, null))
+        assertFalse(MusicDownloadInteractionRules.blocksNowPlayingPlaybackUi(state(), "t1"))
+    }
 }

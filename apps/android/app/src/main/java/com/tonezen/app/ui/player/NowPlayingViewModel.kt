@@ -7,6 +7,8 @@ import com.tonezen.app.data.local.TrackDownloadEnsurer
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.domain.music.MusicDownloadInteractionRules
+import com.tonezen.app.domain.music.MusicDownloadInteractionState
 import com.tonezen.app.domain.music.MusicLibraryTrack
 import com.tonezen.app.domain.music.MusicShuffleQueue
 import com.tonezen.app.playback.MusicDownloadNotifier
@@ -21,6 +23,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -68,20 +71,29 @@ class NowPlayingViewModel @Inject constructor(
         playbackClient.connect()
         viewModelScope.launch {
             var lastCatalogTrackId: String? = null
-            playbackClient.snapshot.collect { snapshot ->
-                val downloading = musicDownloadNotifier.state.value.isTrackDownloading
+            combine(playbackClient.snapshot, musicDownloadNotifier.state) { snapshot, downloadState ->
+                snapshot to downloadState
+            }.collect { (snapshot, downloadState) ->
+                val blocksPlaybackUi = MusicDownloadInteractionRules.blocksNowPlayingPlaybackUi(
+                    downloadState.toInteractionState(),
+                    snapshot.trackId,
+                )
                 _uiState.update {
                     it.copy(
-                        title = if (downloading) it.title else snapshot.trackTitle,
-                        subtitle = if (downloading) it.subtitle else formatSubtitle(snapshot.artist, snapshot.albumTitle),
-                        coverSeed = if (downloading) {
+                        title = if (blocksPlaybackUi) it.title else snapshot.trackTitle,
+                        subtitle = if (blocksPlaybackUi) {
+                            it.subtitle
+                        } else {
+                            formatSubtitle(snapshot.artist, snapshot.albumTitle)
+                        },
+                        coverSeed = if (blocksPlaybackUi) {
                             it.coverSeed
                         } else {
                             snapshot.trackId ?: snapshot.trackTitle
                         },
-                        isPlaying = if (downloading) false else snapshot.isPlaying,
-                        positionMs = if (downloading) it.positionMs else snapshot.positionMs,
-                        durationMs = if (downloading) it.durationMs else snapshot.durationMs,
+                        isPlaying = if (blocksPlaybackUi) false else snapshot.isPlaying,
+                        positionMs = if (blocksPlaybackUi) it.positionMs else snapshot.positionMs,
+                        durationMs = if (blocksPlaybackUi) it.durationMs else snapshot.durationMs,
                         contentType = snapshot.contentType ?: it.contentType,
                     )
                 }
@@ -89,7 +101,10 @@ class NowPlayingViewModel @Inject constructor(
                 if (
                     trackId != null &&
                     trackId != lastCatalogTrackId &&
-                    !musicDownloadNotifier.state.value.isTrackDownloading
+                    !MusicDownloadInteractionRules.blocksNowPlayingPlaybackUi(
+                        downloadState.toInteractionState(),
+                        trackId,
+                    )
                 ) {
                     lastCatalogTrackId = trackId
                     scheduleAlbumRefresh(trackId)
@@ -119,7 +134,7 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun pauseOrResume() {
-        if (musicDownloadNotifier.state.value.isTrackDownloading) return
+        if (isNowPlayingTransportBlocked()) return
         if (_uiState.value.isPlaying) playbackClient.pause() else playbackClient.play()
     }
 
@@ -132,7 +147,7 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun skipPrevious() {
-        if (musicDownloadNotifier.state.value.isTrackDownloading) return
+        if (isNowPlayingTransportBlocked()) return
         if (_uiState.value.contentType == ContentType.MUSIC && libraryTracks.size > 1) {
             if (_uiState.value.positionMs > 3_000L) {
                 playbackClient.seekTo(0)
@@ -150,7 +165,7 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun skipNext() {
-        if (musicDownloadNotifier.state.value.isTrackDownloading) return
+        if (isNowPlayingTransportBlocked()) return
         if (libraryTracks.size <= 1) return
         if (_uiState.value.contentType == ContentType.MUSIC) {
             preserveShuffleOrder = true
@@ -163,7 +178,7 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun playTrack(track: Track) {
-        if (musicDownloadNotifier.state.value.isTrackDownloading) return
+        if (isNowPlayingTransportBlocked()) return
         val index = libraryTracks.indexOfFirst { it.track.id == track.id }
         if (index >= 0) {
             preserveShuffleOrder = true
@@ -271,9 +286,7 @@ class NowPlayingViewModel @Inject constructor(
             val bucket = (progress * 50).toInt()
             if (bucket > reporter.lastBucket || progress >= 1f) {
                 reporter.lastBucket = bucket
-                viewModelScope.launch(Dispatchers.Main.immediate) {
-                    musicDownloadNotifier.updateTrack(trackId, progress)
-                }
+                musicDownloadNotifier.updateTrack(trackId, progress)
             }
         }
     }
@@ -366,6 +379,14 @@ class NowPlayingViewModel @Inject constructor(
         }
     }
 
+    private fun isNowPlayingTransportBlocked(): Boolean {
+        val snapshot = playbackClient.snapshot.value
+        return MusicDownloadInteractionRules.blocksNowPlayingPlaybackUi(
+            musicDownloadNotifier.state.value.toInteractionState(),
+            snapshot.trackId,
+        )
+    }
+
     private fun formatSubtitle(artist: String?, album: String?): String? {
         val cleanArtist = artist?.takeIf { it.isNotBlank() }
         val cleanAlbum = album?.takeIf { it.isNotBlank() }
@@ -377,3 +398,10 @@ class NowPlayingViewModel @Inject constructor(
         }
     }
 }
+
+private fun com.tonezen.app.playback.MusicDownloadState.toInteractionState() =
+    MusicDownloadInteractionState(
+        isTrackDownloading = isTrackDownloading,
+        isBulkDownloading = isBulkDownloading,
+        activeTrackId = activeTrackId,
+    )

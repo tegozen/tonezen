@@ -61,7 +61,8 @@ internal class LibraryMusicHandler(
         scope.launch {
             if (session.musicCandidates.isEmpty() || session.musicStartedInSession) return@launch
             if (uiState.value.musicTrackList.isNotEmpty()) return@launch
-            uiState.update { it.copy(musicTrackList = buildMusicTrackList(shuffle = true)) }
+            val list = buildMusicTrackList(shuffle = true)
+            uiState.update { it.copy(musicTrackList = list) }
         }
     }
 
@@ -166,9 +167,7 @@ internal class LibraryMusicHandler(
                     } ?: continue
                     val outcome = withContext(Dispatchers.IO) {
                         trackDownloadEnsurer.ensureTrackLocal(item.bookId, track) { trackProgress ->
-                            scope.launch(Dispatchers.Main.immediate) {
-                                musicDownloadNotifier.updateBulk(completed, total, item.trackId, trackProgress)
-                            }
+                            musicDownloadNotifier.updateBulk(completed, total, item.trackId, trackProgress)
                         }
                     }
                     if (outcome.track != null) {
@@ -238,9 +237,11 @@ internal class LibraryMusicHandler(
         val isMusic = snapshot.contentType == ContentType.MUSIC || trackId in session.musicBookIdByTrackId
         if (!isMusic) return
         val bookId = session.musicBookIdByTrackId[trackId]
-            ?: catalogRepository.findBookForTrack(trackId)?.id
+            ?: withContext(Dispatchers.IO) { catalogRepository.findBookForTrack(trackId)?.id }
             ?: return
-        val isLocal = trackDownloadEnsurer.isTrackLocal(bookId, trackId)
+        val isLocal = withContext(Dispatchers.IO) {
+            trackDownloadEnsurer.isTrackLocal(bookId, trackId)
+        }
         if (!isLocal) {
             playJob?.cancel()
             clearMusicPrefetchState()
@@ -401,32 +402,9 @@ internal class LibraryMusicHandler(
         val resolvedTrack = withContext(Dispatchers.IO) {
             catalogRepository.getTracksForBook(bookId).find { it.id == trackId } ?: entry.track
         }
-        val needsDownload = withContext(Dispatchers.IO) {
-            !trackDownloadEnsurer.isTrackLocal(bookId, trackId)
-        }
-        val progressReporter = if (needsDownload && !musicDownloadNotifier.state.value.isTrackDownloading) {
-            withContext(Dispatchers.Main.immediate) {
-                musicDownloadNotifier.beginTrack(trackId)
-            }
-            createTrackProgressReporter(trackId)
-        } else {
-            null
-        }
         val localTrack = withContext(Dispatchers.IO) {
-            trackDownloadEnsurer.ensureTrackLocal(bookId, resolvedTrack, progressReporter).track
-        } ?: run {
-            if (progressReporter != null) {
-                withContext(Dispatchers.Main.immediate) {
-                    musicDownloadNotifier.finishTrack()
-                }
-            }
-            return
-        }
-        if (progressReporter != null) {
-            withContext(Dispatchers.Main.immediate) {
-                musicDownloadNotifier.finishTrack()
-            }
-        }
+            trackDownloadEnsurer.ensureTrackLocal(bookId, resolvedTrack).track
+        } ?: return
 
         withContext(Dispatchers.Main) {
             uiState.update { state ->
@@ -598,9 +576,7 @@ internal class LibraryMusicHandler(
             val bucket = (progress * 50).toInt()
             if (bucket > reporter.lastBucket || progress >= 1f) {
                 reporter.lastBucket = bucket
-                scope.launch(Dispatchers.Main.immediate) {
-                    musicDownloadNotifier.updateTrack(trackId, progress)
-                }
+                musicDownloadNotifier.updateTrack(trackId, progress)
             }
         }
     }

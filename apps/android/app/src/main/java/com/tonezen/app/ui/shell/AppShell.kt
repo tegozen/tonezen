@@ -9,12 +9,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tonezen.app.domain.model.SessionState
+import com.tonezen.app.domain.library.filterAndSortBooks
+import com.tonezen.app.domain.library.filterCycles
 import com.tonezen.app.ui.components.BottomDestination
 import com.tonezen.app.ui.components.MiniPlayer
 import com.tonezen.app.ui.components.TonezenBottomChromeBar
@@ -34,7 +38,6 @@ import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.withoutBottom
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
 import dev.chrisbanes.haze.HazeState
-import androidx.compose.runtime.remember
 
 @Composable
 fun AppShell(
@@ -57,6 +60,26 @@ fun AppShell(
         showBottomNav = false,
     )
     val hazeState = remember { HazeState() }
+    val filteredCycles by remember {
+        derivedStateOf {
+            filterCycles(
+                cycles = libraryState.cycles,
+                downloadedBookIds = libraryState.downloadedBookIds,
+                filter = libraryState.filter,
+                progressUpdatedAtByBookId = libraryState.progressUpdatedAtByBookId,
+            )
+        }
+    }
+    val filteredBooks by remember {
+        derivedStateOf {
+            filterAndSortBooks(
+                books = libraryState.books,
+                downloadedBookIds = libraryState.downloadedBookIds,
+                filter = libraryState.filter,
+                progressUpdatedAtByBookId = libraryState.progressUpdatedAtByBookId,
+            )
+        }
+    }
 
     Scaffold(
         containerColor = TonezenSurface,
@@ -140,9 +163,9 @@ fun AppShell(
 
                     shellState.currentTab == BottomDestination.Library -> LibraryScreen(
                         hazeState = hazeState,
-                        cycles = libraryViewModel.filteredCycles,
+                        cycles = filteredCycles,
                         allCycles = libraryState.cycles,
-                        books = libraryViewModel.filteredBooks,
+                        books = filteredBooks,
                         allBooks = libraryState.books,
                         downloadedBookIds = libraryState.downloadedBookIds,
                         cycleCardStateById = libraryState.cycleCardStateById,

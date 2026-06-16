@@ -19,8 +19,6 @@ import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.domain.library.LibraryContentFilter
 import com.tonezen.app.domain.library.LibraryFilterState
 import com.tonezen.app.domain.library.LibrarySortOrder
-import com.tonezen.app.domain.library.filterAndSortBooks
-import com.tonezen.app.domain.library.filterCycles
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Cycle
@@ -115,7 +113,9 @@ class LibraryViewModel @Inject constructor(
         }
         viewModelScope.launch {
             localLibraryNotifier.changes.collect {
-                musicHandler.invalidatePlaybackIfLocalFilesMissing()
+                withContext(Dispatchers.IO) {
+                    musicHandler.invalidatePlaybackIfLocalFilesMissing()
+                }
                 refreshDownloads()
             }
         }
@@ -166,28 +166,6 @@ class LibraryViewModel @Inject constructor(
             }
         }
     }
-
-    val filteredCycles: List<Cycle>
-        get() {
-            val state = _uiState.value
-            return filterCycles(
-                cycles = state.cycles,
-                downloadedBookIds = state.downloadedBookIds,
-                filter = state.filter,
-                progressUpdatedAtByBookId = state.progressUpdatedAtByBookId,
-            )
-        }
-
-    val filteredBooks: List<Book>
-        get() {
-            val state = _uiState.value
-            return filterAndSortBooks(
-                books = state.books,
-                downloadedBookIds = state.downloadedBookIds,
-                filter = state.filter,
-                progressUpdatedAtByBookId = state.progressUpdatedAtByBookId,
-            )
-        }
 
     fun setSearchQuery(query: String) {
         _uiState.update { it.copy(filter = it.filter.copy(query = query)) }
@@ -324,10 +302,13 @@ class LibraryViewModel @Inject constructor(
     private suspend fun updateBooks(books: List<Book>, rebuildMusic: Boolean = false) {
         musicHandler.reloadMusicCatalogData()
         val trackList = musicHandler.buildMusicTrackListForCatalogUpdate(rebuildMusic = rebuildMusic)
+        val downloaded = withContext(Dispatchers.IO) {
+            catalogRepository.downloadedBookIds(books)
+        }
         _uiState.update {
             it.copy(
                 books = books,
-                downloadedBookIds = catalogRepository.downloadedBookIds(books),
+                downloadedBookIds = downloaded,
                 musicTrackList = trackList,
             )
         }
