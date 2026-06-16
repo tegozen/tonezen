@@ -17,6 +17,7 @@ import com.tonezen.app.domain.downloads.DownloadQueuePolicy
 import com.tonezen.app.domain.downloads.DownloadQueueSortable
 import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -111,7 +112,10 @@ class TrackDownloadQueueController @Inject constructor(
         contentType: String = "music",
     ): DownloadAwaitResult {
         val key = DownloadQueueKey(bookId, trackId)
-        if (catalogRepository.resolveLocalTrackPath(bookId, trackId) != null) {
+        if (catalogRepository.resolveLocalTrackPath(bookId, trackId) != null) return DownloadAwaitResult.COMPLETED
+        resolveOnDiskTrackPath(bookId, trackId)?.let { (diskBookId, path) ->
+            // Even if catalog mapping isn't ready, we should never retry forever once the file exists.
+            catalogRepository.markTrackDownloaded(diskBookId, trackId, path)
             return DownloadAwaitResult.COMPLETED
         }
         val deferred = CompletableDeferred<DownloadAwaitResult>()
@@ -230,6 +234,11 @@ class TrackDownloadQueueController @Inject constructor(
             completeAwaiter(DownloadQueueKey(request.bookId, request.trackId), DownloadAwaitResult.COMPLETED)
             return
         }
+        resolveOnDiskTrackPath(request.bookId, request.trackId)?.let { (diskBookId, path) ->
+            catalogRepository.markTrackDownloaded(diskBookId, request.trackId, path)
+            completeAwaiter(DownloadQueueKey(request.bookId, request.trackId), DownloadAwaitResult.COMPLETED)
+            return
+        }
         val existing = downloadQueueDao.get(request.bookId, request.trackId)
         val priority = if (existing != null) {
             DownloadQueuePolicy.mergePriority(
@@ -276,7 +285,10 @@ class TrackDownloadQueueController @Inject constructor(
             val next = mutex.withLock { pickNextLocked() } ?: break
             val key = DownloadQueueKey(next.bookId, next.trackId)
             if (userCancelledKeys.remove(key)) continue
-            if (catalogRepository.resolveLocalTrackPath(next.bookId, next.trackId) != null) {
+            val disk = resolveOnDiskTrackPath(next.bookId, next.trackId)
+            if (disk != null) {
+                val (diskBookId, path) = disk
+                catalogRepository.markTrackDownloaded(diskBookId, next.trackId, path)
                 mutex.withLock {
                     downloadQueueDao.delete(next.bookId, next.trackId)
                     if (next.batchId != null && next.batchId == bulkBatchId) {
@@ -306,7 +318,10 @@ class TrackDownloadQueueController @Inject constructor(
                     }
                     DownloadAwaitResult.CANCELLED -> downloadQueueDao.delete(next.bookId, next.trackId)
                     DownloadAwaitResult.FAILED, DownloadAwaitResult.OFFLINE -> {
-                        if (catalogRepository.resolveLocalTrackPath(next.bookId, next.trackId) != null) {
+                        val disk = resolveOnDiskTrackPath(next.bookId, next.trackId)
+                        if (disk != null) {
+                            val (diskBookId, path) = disk
+                            catalogRepository.markTrackDownloaded(diskBookId, next.trackId, path)
                             downloadQueueDao.delete(next.bookId, next.trackId)
                             if (next.batchId != null && next.batchId == bulkBatchId) {
                                 addCompletedHistory(next)
@@ -327,6 +342,28 @@ class TrackDownloadQueueController @Inject constructor(
             delay(50)
         }
         mutex.withLock { stopServiceIfIdle() }
+    }
+
+    private fun resolveOnDiskTrackPath(bookId: String, trackId: String): Pair<String, String>? {
+        if (!SafeLocalStorage.isSafeId(bookId) || !SafeLocalStorage.isSafeId(trackId)) return null
+
+        // Expected folder for this request.
+        val expected = SafeLocalStorage.trackFile(context.filesDir, bookId, trackId)
+        if (expected != null && expected.isFile && expected.length() > 0L) return bookId to expected.absolutePath
+
+        // Fallback: find by trackId only under downloaded book folders.
+        val downloadsRoot = File(context.filesDir, "downloads")
+        if (!downloadsRoot.isDirectory) return null
+        val fileName = "$trackId.mp3"
+        val children = downloadsRoot.listFiles() ?: return null
+        for (bookDir in children) {
+            if (!bookDir.isDirectory) continue
+            val diskBookId = bookDir.name
+            if (!SafeLocalStorage.isSafeId(diskBookId)) continue
+            val candidate = File(bookDir, fileName)
+            if (candidate.isFile && candidate.length() > 0L) return diskBookId to candidate.absolutePath
+        }
+        return null
     }
 
     private suspend fun downloadOne(entity: DownloadQueueEntity, key: DownloadQueueKey): DownloadAwaitResult {
