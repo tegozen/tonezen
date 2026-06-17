@@ -8,6 +8,7 @@ import {
   SupabaseAuthClient,
   applyUserProfile,
   displayNameFromUser,
+  mergeSessionOnRefresh,
   sessionFromGoTrue,
 } from "../shared/supabaseAuth.js";
 import type { SessionState, StoredSession } from "../shared/types.js";
@@ -218,7 +219,8 @@ export class SessionService {
         return "Unauthenticated";
       }
       const result = await this.authClient.refreshSession(session.refreshToken);
-      this.session = this.withClientAvatarUrl(sessionFromGoTrue(result, session.email));
+      const next = sessionFromGoTrue(result, session.email);
+      this.session = this.withClientAvatarUrl(mergeSessionOnRefresh(session, next));
       this.persist(this.session);
       return "AuthenticatedOnline";
     } catch (error) {

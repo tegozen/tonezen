@@ -75,4 +75,17 @@ class SessionRepositoryCoalescingTest {
         assertEquals("access-new", waiter.await()?.accessToken)
         coVerify(exactly = 1) { authRepository.refreshSession("refresh") }
     }
+
+    @Test
+    fun refreshIfNeeded_preservesAvatarUrlWhenMetadataOmitsIt() = runTest {
+        val avatarUrl = "https://tonezen.tegozen.ru/storage/v1/object/public/avatars/u1/avatar.jpg"
+        val sessionWithAvatar = staleSession.copy(avatarUrl = avatarUrl)
+        every { sessionStore.load() } returns sessionWithAvatar
+        coEvery { authRepository.refreshSession("refresh") } returns freshSession
+        repository.saveSession(sessionWithAvatar)
+
+        val result = repository.refreshIfNeeded(sessionWithAvatar)
+
+        assertEquals(avatarUrl, result?.avatarUrl)
+    }
 }

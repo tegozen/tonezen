@@ -162,3 +162,12 @@ export function applyUserProfile(session: StoredSession, user: GoTrueUser): Stor
     avatarUrl: avatarUrlFromUser(user) ?? session.avatarUrl ?? null,
   };
 }
+
+export function mergeSessionOnRefresh(previous: StoredSession, refreshed: StoredSession): StoredSession {
+  return {
+    ...refreshed,
+    avatarUrl: refreshed.avatarUrl ?? previous.avatarUrl ?? null,
+    profileUpdatedAt: refreshed.profileUpdatedAt ?? previous.profileUpdatedAt ?? null,
+    memberSinceEpochMs: refreshed.memberSinceEpochMs ?? previous.memberSinceEpochMs ?? null,
+  };
+}

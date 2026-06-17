@@ -2,6 +2,7 @@ package com.tonezen.app.data.remote
 
 import com.tonezen.app.BuildConfig
 import com.tonezen.app.data.network.NetworkMonitor
+import com.tonezen.app.domain.avatar.normalizeAvatarUrl
 import com.tonezen.app.domain.model.StoredSession
 import java.time.Instant
 import javax.inject.Inject
@@ -74,7 +75,7 @@ class ProfileSyncRepository @Inject constructor(
         val session = sessionRepository.loadSession() ?: return
         if (row.userId != session.userId) return
 
-        val avatarBase = row.avatarUrl?.substringBefore("?")
+        val avatarBase = normalizeAvatarUrl(row.avatarUrl?.substringBefore("?"), BuildConfig.BASE_URL)
         val avatarUrl = avatarBase?.let { base ->
             val bustMs = runCatching { Instant.parse(row.updatedAt).toEpochMilli() }.getOrDefault(System.currentTimeMillis())
             "$base?v=$bustMs"

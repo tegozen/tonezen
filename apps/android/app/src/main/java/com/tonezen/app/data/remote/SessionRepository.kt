@@ -1,8 +1,11 @@
 package com.tonezen.app.data.remote
 
+import com.tonezen.app.BuildConfig
 import com.tonezen.app.data.local.SecureSessionStore
 import com.tonezen.app.data.network.NetworkMonitor
+import com.tonezen.app.domain.avatar.normalizeAvatarUrl
 import com.tonezen.app.domain.model.StoredSession
+import com.tonezen.app.domain.session.mergeProfileOnRefresh
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.domain.session.SessionManager
 import javax.inject.Inject
@@ -38,7 +41,7 @@ class SessionRepository @Inject constructor(
     init {
         loadScope.launch {
             if (!_isLoaded.value) {
-                _session.value = sessionStore.load()
+                _session.value = sessionStore.load()?.let(::withClientAvatarUrl)
                 _isLoaded.value = true
             }
         }
@@ -52,8 +55,9 @@ class SessionRepository @Inject constructor(
     }
 
     fun saveSession(session: StoredSession) {
-        sessionStore.save(session)
-        _session.value = session
+        val normalized = withClientAvatarUrl(session)
+        sessionStore.save(normalized)
+        _session.value = normalized
         _isLoaded.value = true
     }
 
@@ -113,8 +117,9 @@ class SessionRepository @Inject constructor(
         if (!networkMonitor.isOnline()) return session
         return try {
             val refreshed = authRepository.refreshSession(session.refreshToken)
-            saveSession(refreshed)
-            refreshed
+            val merged = mergeProfileOnRefresh(session, refreshed)
+            saveSession(merged)
+            merged
         } catch (e: RemoteHttpException) {
             if (networkMonitor.isOnline() && e.isInvalidRefreshToken) {
                 clearSession()
@@ -125,5 +130,11 @@ class SessionRepository @Inject constructor(
         } catch (_: Exception) {
             session
         }
+    }
+
+    private fun withClientAvatarUrl(session: StoredSession): StoredSession {
+        val avatarUrl = normalizeAvatarUrl(session.avatarUrl, BuildConfig.BASE_URL) ?: return session
+        if (avatarUrl == session.avatarUrl) return session
+        return session.copy(avatarUrl = avatarUrl)
     }
 }
