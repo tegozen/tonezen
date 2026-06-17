@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,11 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -45,24 +42,30 @@ import com.tonezen.app.ui.components.LibraryLoading
 import com.tonezen.app.ui.components.LibraryFilterSheet
 import com.tonezen.app.ui.components.OfflineBanner
 import com.tonezen.app.ui.components.SearchRow
-import com.tonezen.app.ui.components.TonezenTabs
 import com.tonezen.app.ui.components.TonezenTopChromeBar
 import com.tonezen.app.playback.DownloadQueueState
 import com.tonezen.app.playback.toMusicDownloadState
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
+import com.tonezen.app.ui.theme.TonezenChromeHeaderRowHeight
 import com.tonezen.app.ui.theme.TonezenInk
+import com.tonezen.app.ui.theme.TonezenPageChromeScrollPadding
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenTeal
 import com.tonezen.app.ui.theme.TonezenTopChromeOfflineBannerExtra
-import com.tonezen.app.ui.theme.TonezenTopChromeScrollPaddingAudiobooks
-import com.tonezen.app.ui.theme.TonezenTopChromeScrollPaddingMusic
+import com.tonezen.app.ui.theme.TonezenTopChromeScrollPaddingBooks
 import com.tonezen.app.ui.theme.tonezenScreenContentPadding
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 
+internal enum class LibrarySection {
+    Music,
+    Books,
+}
+
 @Composable
 internal fun LibraryScreen(
     hazeState: HazeState,
+    section: LibrarySection,
     cycles: List<Cycle>,
     allCycles: List<Cycle>,
     books: List<Book>,
@@ -97,16 +100,15 @@ internal fun LibraryScreen(
     showMiniPlayer: Boolean,
     isNetworkOnline: Boolean = true,
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
     val music = allBooks.filter { it.contentType == ContentType.MUSIC }
-    val isAudiobooksTab = selectedTab == 0
-    val isMusicTab = selectedTab == 1
+    val isBooksSection = section == LibrarySection.Books
+    val isMusicSection = section == LibrarySection.Music
     val musicDownload = remember(downloadQueue) { downloadQueue.toMusicDownloadState() }
-    val topChromeScrollPadding = remember(offlineBanner, isAudiobooksTab) {
-        val base = if (isAudiobooksTab) {
-            TonezenTopChromeScrollPaddingAudiobooks
+    val topChromeScrollPadding = remember(offlineBanner, section) {
+        val base = if (isBooksSection) {
+            TonezenTopChromeScrollPaddingBooks
         } else {
-            TonezenTopChromeScrollPaddingMusic
+            TonezenPageChromeScrollPadding
         }
         if (offlineBanner) base + TonezenTopChromeOfflineBannerExtra else base
     }
@@ -115,19 +117,10 @@ internal fun LibraryScreen(
         showBottomNav = true,
     )
 
-    LaunchedEffect(selectedTab) {
-        if (!isAudiobooksTab && showFilterSheet) {
-            onDismissFilterSheet()
-        }
-        if (selectedTab == 1) {
-            onMusicTabSelected()
-        }
-    }
-
-    BackHandler(enabled = showFilterSheet && isAudiobooksTab, onBack = onDismissFilterSheet)
+    BackHandler(enabled = showFilterSheet && isBooksSection, onBack = onDismissFilterSheet)
 
     LibraryFilterSheet(
-        visible = showFilterSheet && isAudiobooksTab,
+        visible = showFilterSheet && isBooksSection,
         hazeState = hazeState,
         filter = filter,
         onDismiss = onDismissFilterSheet,
@@ -149,11 +142,11 @@ internal fun LibraryScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            if (isAudiobooksTab && isLoadingCatalog) {
+            if (isBooksSection && isLoadingCatalog) {
                 item { LibraryLoading() }
-            } else if (isAudiobooksTab && allCycles.isEmpty()) {
+            } else if (isBooksSection && allCycles.isEmpty()) {
                 item { EmptyLibrary(offline = offlineBanner) }
-            } else if (isAudiobooksTab) {
+            } else if (isBooksSection) {
                 if (cyclePlaybackErrorRes != null) {
                     item {
                         Text(
@@ -192,13 +185,13 @@ internal fun LibraryScreen(
                         }
                     }
                 }
-            } else if (isMusicTab && isLoadingCatalog) {
+            } else if (isMusicSection && isLoadingCatalog) {
                 item { LibraryLoading() }
-            } else if (isMusicTab && music.isEmpty()) {
+            } else if (isMusicSection && music.isEmpty()) {
                 item { EmptyLibrary(offline = offlineBanner) }
-            } else if (isMusicTab && musicTrackList.isEmpty()) {
+            } else if (isMusicSection && musicTrackList.isEmpty()) {
                 item { EmptyLibrary(offline = offlineBanner || !isNetworkOnline) }
-            } else if (isMusicTab) {
+            } else if (isMusicSection) {
                 item {
                     MusicDownloadAllButton(
                         tracks = musicTrackList,
@@ -241,14 +234,22 @@ internal fun LibraryScreen(
             if (offlineBanner) {
                 OfflineBanner()
             }
-            TonezenTabs(
-                selectedTab = selectedTab,
-                onSelect = { tab ->
-                    selectedTab = tab
-                    if (tab != 0) onDismissFilterSheet()
-                },
-            )
-            if (isAudiobooksTab) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = TonezenChromeHeaderRowHeight),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Text(
+                    text = stringResource(
+                        if (isBooksSection) R.string.nav_books else R.string.nav_music,
+                    ),
+                    color = TonezenInk,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            if (isBooksSection) {
                 SearchRow(
                     query = filter.query,
                     onQueryChange = onSearchChange,

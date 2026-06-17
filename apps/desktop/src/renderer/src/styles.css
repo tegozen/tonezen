@@ -514,28 +514,8 @@
     @apply rounded-xl border border-amber/35 bg-amber/10 px-3 py-3 text-sm text-amber;
   }
 
-  .library-tabs {
-    @apply flex w-full;
-  }
-
-  .library-tab {
-    @apply flex flex-1 cursor-pointer flex-col items-center pt-1 outline-none focus:outline-none;
-  }
-
-  .library-tab-label {
-    @apply text-sm font-normal text-muted;
-  }
-
-  .library-tab-label-active {
-    @apply text-sm font-semibold text-teal;
-  }
-
-  .library-tab-indicator {
-    @apply mt-3 h-0.5 w-full bg-border/35;
-  }
-
-  .library-tab-indicator-active {
-    @apply bg-teal;
+  .library-chrome-title {
+    @apply flex min-h-10 items-center text-base font-semibold text-ink;
   }
 
   .library-search-row {

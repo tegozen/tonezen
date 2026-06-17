@@ -9,12 +9,10 @@ object TestTags {
     const val AUTH_SIGN_IN = "auth_sign_in"
     const val AUTH_ERROR = "auth_error"
 
-    const val NAV_LIBRARY = "nav_library"
+    const val NAV_MUSIC = "nav_music"
+    const val NAV_BOOKS = "nav_books"
     const val NAV_DOWNLOADS = "nav_downloads"
     const val NAV_PROFILE = "nav_profile"
-
-    const val TAB_AUDIOBOOKS = "tab_audiobooks"
-    const val TAB_MUSIC = "tab_music"
 
     const val EMPTY_LIBRARY = "empty_library"
     const val LIBRARY_LOADING = "library_loading"

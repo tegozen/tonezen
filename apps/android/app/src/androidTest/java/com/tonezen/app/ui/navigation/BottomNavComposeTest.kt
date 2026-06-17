@@ -22,8 +22,8 @@ class BottomNavComposeTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun bottomNav_switchesBetweenLibraryDownloadsAndProfile() {
-        var selected by mutableStateOf(BottomDestination.Library)
+    fun bottomNav_switchesBetweenMusicBooksDownloadsAndProfile() {
+        var selected by mutableStateOf(BottomDestination.Music)
         composeRule.setContent {
             TonezenComposeTestContent {
                 TonezenBottomNavigation(
@@ -33,13 +33,16 @@ class BottomNavComposeTest {
             }
         }
 
+        composeRule.onNodeWithTag(TestTags.NAV_BOOKS).performClick()
+        composeRule.runOnIdle { assertEquals(BottomDestination.Books, selected) }
+
         composeRule.onNodeWithTag(TestTags.NAV_DOWNLOADS).performClick()
         composeRule.runOnIdle { assertEquals(BottomDestination.Downloads, selected) }
 
         composeRule.onNodeWithTag(TestTags.NAV_PROFILE).performClick()
         composeRule.runOnIdle { assertEquals(BottomDestination.Profile, selected) }
 
-        composeRule.onNodeWithTag(TestTags.NAV_LIBRARY).performClick()
-        composeRule.runOnIdle { assertEquals(BottomDestination.Library, selected) }
+        composeRule.onNodeWithTag(TestTags.NAV_MUSIC).performClick()
+        composeRule.runOnIdle { assertEquals(BottomDestination.Music, selected) }
     }
 }

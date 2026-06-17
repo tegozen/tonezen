@@ -23,8 +23,7 @@ internal fun tonezenBottomChromeContentHeight(
     return divider + topPad + miniBody + nav + TonezenChromeBarVerticalPadding
 }
 internal val TonezenOverlayScrollGap = 16.dp
-internal val TonezenTopChromeScrollPaddingAudiobooks = 144.dp
-internal val TonezenTopChromeScrollPaddingMusic = 72.dp
+internal val TonezenTopChromeScrollPaddingBooks = 144.dp
 internal val TonezenTopChromeOfflineBannerExtra = 44.dp
 internal val TonezenChromeHeaderRowHeight = 40.dp
 internal val TonezenPageChromeHeight =

@@ -1,7 +1,7 @@
 import type { Cycle } from "@shared/types";
 import type { MusicListTrack } from "@shared/musicList";
 import type { DownloadQueueState } from "@shared/downloadQueueState";
-import { libraryScrollPaddingTop } from "../lib/layoutChrome";
+import { libraryScrollPaddingTop, type LibrarySection } from "../lib/layoutChrome";
 import { LibraryCycleCard } from "../components/LibraryCycleCard";
 import { LibraryTopChrome } from "../components/LibraryTopChrome";
 import { MusicDownloadAllButton } from "../components/MusicDownloadAllButton";
@@ -14,7 +14,7 @@ interface LibraryPageProps {
   cycleCardStateById: Record<string, CycleCardState>;
   musicTracks: MusicListTrack[];
   query: string;
-  selectedTab: number;
+  section: LibrarySection;
   offlineBanner: boolean;
   isLoading: boolean;
   downloadQueue: DownloadQueueState;
@@ -23,7 +23,6 @@ interface LibraryPageProps {
   cyclePlayingId: string | null;
   cycleIsPlaying: boolean;
   onQueryChange: (value: string) => void;
-  onTabChange: (tab: number) => void;
   onCycleClick: (cycle: Cycle) => void;
   onCyclePlay: (cycle: Cycle) => void;
   onFilterClick: () => void;
@@ -38,7 +37,7 @@ export function LibraryPage({
   cycleCardStateById,
   musicTracks,
   query,
-  selectedTab,
+  section,
   offlineBanner,
   isLoading,
   downloadQueue,
@@ -47,7 +46,6 @@ export function LibraryPage({
   cyclePlayingId,
   cycleIsPlaying,
   onQueryChange,
-  onTabChange,
   onCycleClick,
   onCyclePlay,
   onFilterClick,
@@ -56,16 +54,16 @@ export function LibraryPage({
   onMusicTrackDelete,
   onDownloadAllMusic,
 }: LibraryPageProps) {
-  const isAudiobooks = selectedTab === 0;
-  const isMusic = selectedTab === 1;
+  const isBooks = section === "books";
+  const isMusic = section === "music";
 
   return (
     <div className="library-page">
       <div
         className="scroll-under-chrome space-y-5"
-        style={{ paddingTop: libraryScrollPaddingTop(isAudiobooks, offlineBanner) }}
+        style={{ paddingTop: libraryScrollPaddingTop(section, offlineBanner) }}
       >
-      {isAudiobooks ? (
+      {isBooks ? (
         isLoading ? (
           <p className="text-center text-muted">{strings.libraryLoading}</p>
         ) : cycles.length === 0 ? (
@@ -124,11 +122,10 @@ export function LibraryPage({
       ) : null}
       </div>
       <LibraryTopChrome
-        selectedTab={selectedTab}
+        title={isBooks ? strings.navBooks : strings.navMusic}
         query={query}
         offlineBanner={offlineBanner}
-        showSearch={isAudiobooks}
-        onTabChange={onTabChange}
+        showSearch={isBooks}
         onQueryChange={onQueryChange}
         onFilterClick={onFilterClick}
       />

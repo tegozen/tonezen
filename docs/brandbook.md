@@ -100,7 +100,7 @@ Android uses **Material 3 default typography** (`MaterialTheme.typography`) with
 | `headlineSmall` | 24 / 32 | Bold | Auth headline, now playing title |
 | `titleLarge` | 22 / 28 | Bold | Cycle cover title, empty-library heading |
 | `titleMedium` | 16 / 24 | SemiBold | Screen chrome titles, profile, book detail |
-| `titleSmall` | 14 / 20 | SemiBold when selected | Library tabs |
+| `titleSmall` | 14 / 20 | SemiBold when selected | Compact controls |
 | `bodyLarge` | 16 / 24 | SemiBold on profile name | Auth body, profile card |
 | `bodyMedium` | 14 / 20 | Regular | Row titles, offline banner |
 | `bodySmall` | 12 / 16 | Regular | Metadata, durations, errors |
@@ -151,16 +151,18 @@ Values from `TonezenLayout.kt` and shared components.
 
 ## Navigation Model
 
-The shell (`AppShell.kt`) uses **two bottom destinations**:
+The shell (`AppShell.kt`) uses **four bottom destinations**:
 
 | Tab | Label (`strings.xml`) | Role |
 | --- | --- | --- |
-| Library | `nav_library` → «Библиотека» | Audiobook cycles, music tracks, overlays |
+| Music | `nav_music` → «Музыка» | Music track list, local playback, music downloads |
+| Books | `nav_books` → «Книги» | Audiobook cycles, search, filter, overlays |
+| Downloads | `nav_downloads` → «Загрузки» | Active and completed download management |
 | Profile | `nav_profile` → «Профиль» | Account, sync, storage, sign-out |
 
-There is **no separate Player or Downloads tab**. Playback expands from the mini-player into a bottom sheet. Download management lives in library actions and **Profile → Storage**.
+There is **no separate Player tab**. Playback expands from the mini-player into a bottom sheet.
 
-Mini-player sits above bottom navigation when playback is active. Bottom chrome hides on library overlays (cycle detail, book detail).
+Mini-player sits above bottom navigation when playback is active. Bottom chrome hides on book overlays (cycle detail, book detail).
 
 ## Screen Inventory
 
@@ -175,16 +177,15 @@ Mini-player sits above bottom navigation when playback is active. Bottom chrome 
 - Sign-in fields in Material outlined inputs; primary button is teal gradient.
 - Footer note: expired session stays active offline.
 
-### Library
+### Music And Books
 
 `LibraryScreen.kt`
 
-- Frosted top chrome with tabs **«Аудиокниги»** / **«Музыка»** (teal underline on selected).
-- Audiobooks tab: search row + filter (audiobooks only); filter opens glass bottom sheet.
-- Audiobooks content: **2-column grid of cycle cover cards**, not single-book shelves.
+- Music section: title «Музыка», offline banner when needed, «download all» action when applicable, then **track list rows** (not cover grid).
+- Books section: title «Книги», search row + filter; filter opens glass bottom sheet.
+- Books content: **2-column grid of cycle cover cards**, not single-book shelves.
 - Each cycle card: gradient cover, uppercase title, book count, optional listen % overlay, teal check when downloaded, compact teal play button.
 - Tap card → cycle detail; tap play → cycle playback.
-- Music tab: «download all» action when applicable, then **track list rows** (not cover grid).
 - Offline banner (amber) when network unavailable.
 - Mini-player pinned above bottom nav during playback.
 
@@ -305,11 +306,7 @@ Amber tinted card with «Нет сети — синхронизация прио
 
 ### Search Row
 
-48 dp raised field (12 dp radius) + separate 48 dp filter button. Audiobooks tab only.
-
-### Segmented Tabs
-
-`TonezenTabs` — full-width labels with 2 dp bottom indicator; selected teal, inactive muted.
+48 dp raised field (12 dp radius) + separate 48 dp filter button. Books section only.
 
 ### Mini Player
 
@@ -325,7 +322,7 @@ Teal filled (`ButtonDefaults` with `TonezenTeal` / `TonezenAppBg`) for form acti
 
 ### Bottom Navigation
 
-Two items with 26 dp rounded icon box: selected teal fill + teal border; inactive muted outline. Label `labelSmall`.
+Four items with 26 dp rounded icon box: selected teal fill + teal border; inactive muted outline. Label `labelSmall`.
 
 ### Glass Chrome Bar
 
@@ -333,7 +330,7 @@ Two items with 26 dp rounded icon box: selected teal fill + teal border; inactiv
 
 ## Content Rules
 
-- Top-level content groups: **«Аудиокниги»** and **«Музыка»** (`tab_audiobooks`, `tab_music`).
+- Top-level media sections are **«Музыка»** and **«Книги»** (`nav_music`, `nav_books`).
 - Audiobook library is organized by **cycles**, not flat book shelves.
 - Use «Офлайн» for downloaded/playable-local content; teal when marking availability on items.
 - Use sync labels only for audiobook server state.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   libraryScrollPaddingTop,
-  LIBRARY_TOP_SCROLL_AUDIOBOOKS_PX,
+  LIBRARY_TOP_SCROLL_BOOKS_PX,
   LIBRARY_TOP_SCROLL_MUSIC_PX,
   LIBRARY_TOP_SCROLL_OFFLINE_EXTRA_PX,
   scrollPadBottomCss,
@@ -9,10 +9,13 @@ import {
 
 describe("layoutChrome", () => {
   it("computes library top scroll padding", () => {
-    expect(libraryScrollPaddingTop(false, false)).toBe(LIBRARY_TOP_SCROLL_MUSIC_PX);
-    expect(libraryScrollPaddingTop(true, false)).toBe(LIBRARY_TOP_SCROLL_AUDIOBOOKS_PX);
-    expect(libraryScrollPaddingTop(true, true)).toBe(
-      LIBRARY_TOP_SCROLL_AUDIOBOOKS_PX + LIBRARY_TOP_SCROLL_OFFLINE_EXTRA_PX,
+    expect(libraryScrollPaddingTop("music", false)).toBe(LIBRARY_TOP_SCROLL_MUSIC_PX);
+    expect(libraryScrollPaddingTop("books", false)).toBe(LIBRARY_TOP_SCROLL_BOOKS_PX);
+    expect(libraryScrollPaddingTop("books", true)).toBe(
+      LIBRARY_TOP_SCROLL_BOOKS_PX + LIBRARY_TOP_SCROLL_OFFLINE_EXTRA_PX,
+    );
+    expect(libraryScrollPaddingTop("music", true)).toBe(
+      LIBRARY_TOP_SCROLL_MUSIC_PX + LIBRARY_TOP_SCROLL_OFFLINE_EXTRA_PX,
     );
   });
 

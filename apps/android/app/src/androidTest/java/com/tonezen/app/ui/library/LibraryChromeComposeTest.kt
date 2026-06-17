@@ -1,22 +1,14 @@
 package com.tonezen.app.ui.library
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.tonezen.app.ui.TonezenComposeTestContent
 import com.tonezen.app.ui.components.EmptyLibrary
 import com.tonezen.app.ui.components.LibraryLoading
-import com.tonezen.app.ui.components.TonezenTabs
 import com.tonezen.app.ui.testing.TestTags
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -63,21 +55,4 @@ class LibraryChromeComposeTest {
         composeRule.onNodeWithText("Загрузка библиотеки…").assertExists()
     }
 
-    @Test
-    fun libraryTabs_switchesBetweenAudiobooksAndMusic() {
-        var selectedTab by mutableIntStateOf(0)
-        composeRule.setContent {
-            TonezenComposeTestContent {
-                TonezenTabs(selectedTab = selectedTab, onSelect = { selectedTab = it })
-            }
-        }
-
-        composeRule.onNodeWithTag(TestTags.TAB_MUSIC).performClick()
-        composeRule.runOnIdle { assertEquals(1, selectedTab) }
-
-        assertTrue(composeRule.onAllNodesWithText("Загрузки").fetchSemanticsNodes().isEmpty())
-
-        composeRule.onNodeWithTag(TestTags.TAB_AUDIOBOOKS).performClick()
-        composeRule.runOnIdle { assertEquals(0, selectedTab) }
-    }
 }

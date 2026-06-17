@@ -5,7 +5,7 @@ import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.ui.components.BottomDestination
 
 data class AppShellUiState(
-    val currentTab: BottomDestination = BottomDestination.Library,
+    val currentTab: BottomDestination = BottomDestination.Music,
     val selectedCycle: Cycle? = null,
     val selectedBook: Book? = null,
     val nowPlayingTitle: String? = null,

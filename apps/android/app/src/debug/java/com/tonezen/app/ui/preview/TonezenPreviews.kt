@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import com.tonezen.app.ui.library.CycleCardState
 import com.tonezen.app.ui.library.CyclePlaybackUi
 import com.tonezen.app.ui.library.LibraryScreen
+import com.tonezen.app.ui.library.LibrarySection
 import com.tonezen.app.ui.library.MusicPlaybackUi
 import com.tonezen.app.playback.DownloadQueueState
 import com.tonezen.app.ui.library.MusicListTrack
@@ -104,6 +105,7 @@ private fun LibraryScreenPreview() {
     TonezenTheme {
         LibraryScreen(
             hazeState = remember { HazeState() },
+            section = LibrarySection.Books,
             cycles = listOf(previewCycle),
             allCycles = listOf(previewCycle),
             books = previewBooks,

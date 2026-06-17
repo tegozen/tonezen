@@ -27,6 +27,8 @@ private enum class TonezenSvgAsset(val fileName: String) {
     MoreVertical("more-vertical.svg"),
     Queue("queue.svg"),
     Library("library.svg"),
+    Music("music.svg"),
+    Books("books.svg"),
     Player("player.svg"),
     Download("download.svg"),
     Downloads("downloads.svg"),
@@ -94,6 +96,16 @@ internal fun QueueGlyph(modifier: Modifier = Modifier, tint: Color = TonezenInk,
 @Composable
 internal fun LibraryGlyph(modifier: Modifier = Modifier, tint: Color = TonezenMuted, size: Dp = 20.dp) {
     TonezenSvgGlyph(TonezenSvgAsset.Library, modifier, tint, size)
+}
+
+@Composable
+internal fun MusicGlyph(modifier: Modifier = Modifier, tint: Color = TonezenMuted, size: Dp = 20.dp) {
+    TonezenSvgGlyph(TonezenSvgAsset.Music, modifier, tint, size)
+}
+
+@Composable
+internal fun BooksGlyph(modifier: Modifier = Modifier, tint: Color = TonezenMuted, size: Dp = 20.dp) {
+    TonezenSvgGlyph(TonezenSvgAsset.Books, modifier, tint, size)
 }
 
 @Composable

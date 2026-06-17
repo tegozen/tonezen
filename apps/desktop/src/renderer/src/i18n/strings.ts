@@ -10,10 +10,10 @@ export interface LibraryFilter {
 
 export const strings = {
   appName: "Tonezen",
-  navLibrary: "Библиотека",
+  navMusic: "Музыка",
+  navBooks: "Книги",
   navDownloads: "Загрузки",
   navProfile: "Профиль",
-  tabAudiobooks: "Аудиокниги",
   tabMusic: "Музыка",
   searchLibrary: "Поиск в библиотеке",
   filter: "Фильтр",

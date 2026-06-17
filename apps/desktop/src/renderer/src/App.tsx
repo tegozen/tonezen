@@ -57,14 +57,13 @@ export function App() {
     refreshSession,
   } = session;
 
-  const [activeTab, setActiveTab] = useState<BottomTab>("library");
+  const [activeTab, setActiveTab] = useState<BottomTab>("music");
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
   const [allTracks, setAllTracks] = useState<Track[]>([]);
   const [selectedCycle, setSelectedCycle] = useState<Cycle | null>(null);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [libraryTab, setLibraryTab] = useState(0);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<LibraryFilter>(defaultFilter);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
@@ -513,13 +512,22 @@ export function App() {
   const showMiniPlayer =
     Boolean(currentTrack) &&
     (music.musicMode || currentTrackInSelectedBook || (!selectedBook && !selectedCycle));
+  const handleMusicTabSelected = music.onMusicTabSelected;
   const handleTabSelect = useCallback(
     (tab: BottomTab) => {
       setActiveTab(tab);
+      if (tab !== "books") setShowFilterSheet(false);
+      if (tab === "music") handleMusicTabSelected();
       if (tab === "profile") void refreshSession();
     },
-    [refreshSession],
+    [handleMusicTabSelected, refreshSession],
   );
+
+  useEffect(() => {
+    if (activeTab === "music") {
+      handleMusicTabSelected();
+    }
+  }, [activeTab, handleMusicTabSelected]);
 
   const showBottomNav = !selectedBook && !selectedCycle;
   const coverSeed = currentTrack?.id ?? selectedBook?.id ?? "";
@@ -626,14 +634,14 @@ export function App() {
             void Promise.all(selectedCycle.books.map((b) => removeBookDownloads(b)))
           }
         />
-      ) : activeTab === "library" ? (
+      ) : activeTab === "music" || activeTab === "books" ? (
         <div className="library-route">
           <LibraryPage
             cycles={filteredCycles}
             cycleCardStateById={cycleCardStateById}
             musicTracks={visibleMusicTracks}
             query={query}
-            selectedTab={libraryTab}
+            section={activeTab}
             offlineBanner={sessionState === "AuthenticatedOffline"}
             isLoading={isLoading}
             downloadQueue={downloadQueue.state}
@@ -642,10 +650,6 @@ export function App() {
             cyclePlayingId={cyclePlayingId}
             cycleIsPlaying={Boolean(cyclePlayingId && isPlaying && !music.musicMode)}
             onQueryChange={setQuery}
-            onTabChange={(tab) => {
-              setLibraryTab(tab);
-              if (tab === 1) music.onMusicTabSelected();
-            }}
             onCycleClick={setSelectedCycle}
             onCyclePlay={(cycle) => void playCycle(cycle)}
             onFilterClick={() => setShowFilterSheet(true)}
@@ -655,7 +659,7 @@ export function App() {
             onDownloadAllMusic={() => void music.downloadAllMusic()}
           />
           <LibraryFilterSheet
-            visible={showFilterSheet}
+            visible={activeTab === "books" && showFilterSheet}
             filter={filter}
             onDismiss={() => setShowFilterSheet(false)}
             onApply={() => setShowFilterSheet(false)}

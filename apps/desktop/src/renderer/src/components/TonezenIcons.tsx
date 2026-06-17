@@ -10,10 +10,11 @@ import filterUrl from "../assets/icons/filter.svg";
 import forward15Url from "../assets/icons/forward-15.svg";
 import gripUrl from "../assets/icons/grip.svg";
 import heartUrl from "../assets/icons/heart.svg";
-import libraryUrl from "../assets/icons/library.svg";
+import booksUrl from "../assets/icons/books.svg";
 import lockUrl from "../assets/icons/lock.svg";
 import mailUrl from "../assets/icons/mail.svg";
 import moreVerticalUrl from "../assets/icons/more-vertical.svg";
+import musicUrl from "../assets/icons/music.svg";
 import pauseUrl from "../assets/icons/pause.svg";
 import playUrl from "../assets/icons/play.svg";
 import playerUrl from "../assets/icons/player.svg";
@@ -54,7 +55,8 @@ function createTonezenIcon(iconUrl: string) {
   };
 }
 
-export const LibraryIcon = createTonezenIcon(libraryUrl);
+export const MusicIcon = createTonezenIcon(musicUrl);
+export const BooksIcon = createTonezenIcon(booksUrl);
 export const PlayerIcon = createTonezenIcon(playerUrl);
 export const DownloadsIcon = createTonezenIcon(downloadUrl);
 export const ProfileIcon = createTonezenIcon(profileUrl);

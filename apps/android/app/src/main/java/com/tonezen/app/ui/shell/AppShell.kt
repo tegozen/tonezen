@@ -33,6 +33,7 @@ import com.tonezen.app.ui.downloads.DownloadsTabScreen
 import com.tonezen.app.ui.library.CycleCardState
 import com.tonezen.app.ui.library.CycleDetailScreen
 import com.tonezen.app.ui.library.LibraryScreen
+import com.tonezen.app.ui.library.LibrarySection
 import com.tonezen.app.ui.library.LibraryViewModel
 import com.tonezen.app.ui.library.visibleMusicTrackList
 import com.tonezen.app.ui.player.BookDetailScreen
@@ -94,6 +95,15 @@ fun AppShell(
     val visibleMusicTracks by remember {
         derivedStateOf {
             visibleMusicTrackList(libraryState.musicTrackList, libraryState.isNetworkOnline)
+        }
+    }
+
+    LaunchedEffect(shellState.currentTab) {
+        if (shellState.currentTab == BottomDestination.Music) {
+            libraryViewModel.onMusicTabSelected()
+        }
+        if (shellState.currentTab != BottomDestination.Books) {
+            libraryViewModel.setFilterSheetVisible(false)
         }
     }
 
@@ -177,42 +187,51 @@ fun AppShell(
                         )
                     }
 
-                    shellState.currentTab == BottomDestination.Library -> LibraryScreen(
-                        hazeState = hazeState,
-                        cycles = filteredCycles,
-                        allCycles = libraryState.cycles,
-                        books = filteredBooks,
-                        allBooks = libraryState.books,
-                        downloadedBookIds = libraryState.downloadedBookIds,
-                        cycleCardStateById = libraryState.cycleCardStateById,
-                        cyclePlayback = libraryState.cyclePlayback,
-                        offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
-                        isLoadingCatalog = libraryState.isLoadingCatalog,
-                        filter = libraryState.filter,
-                        showFilterSheet = libraryState.showFilterSheet,
-                        onCycleClick = shellViewModel::openCycle,
-                        onCyclePlay = libraryViewModel::toggleCyclePlay,
-                        onBookClick = shellViewModel::openBook,
-                        onSearchChange = libraryViewModel::setSearchQuery,
-                        onFilterClick = { libraryViewModel.setFilterSheetVisible(true) },
-                        onDismissFilterSheet = { libraryViewModel.setFilterSheetVisible(false) },
-                        onApplyFilter = libraryViewModel::applyFilter,
-                        onResetFilter = libraryViewModel::resetFilter,
-                        onContentFilterChange = libraryViewModel::setContentFilter,
-                        onSortOrderChange = libraryViewModel::setSortOrder,
-                        musicTrackList = visibleMusicTracks,
-                        musicPlayback = libraryState.musicPlayback,
-                        downloadQueue = downloadQueue,
-                        musicPlaybackErrorRes = libraryState.musicPlaybackErrorRes,
-                        cyclePlaybackErrorRes = libraryState.cyclePlaybackErrorRes,
-                        onMusicTrackClick = libraryViewModel::onMusicTrackClick,
-                        onDownloadMusicTrack = libraryViewModel::downloadMusicTrack,
-                        onDeleteMusicTrack = libraryViewModel::deleteMusicTrack,
-                        onDownloadAllMusic = libraryViewModel::downloadAllMusic,
-                        onMusicTabSelected = libraryViewModel::onMusicTabSelected,
-                        showMiniPlayer = shellState.showMiniPlayer,
-                        isNetworkOnline = libraryState.isNetworkOnline,
-                    )
+                    shellState.currentTab == BottomDestination.Music ||
+                        shellState.currentTab == BottomDestination.Books -> {
+                        val section = if (shellState.currentTab == BottomDestination.Music) {
+                            LibrarySection.Music
+                        } else {
+                            LibrarySection.Books
+                        }
+                        LibraryScreen(
+                            hazeState = hazeState,
+                            section = section,
+                            cycles = filteredCycles,
+                            allCycles = libraryState.cycles,
+                            books = filteredBooks,
+                            allBooks = libraryState.books,
+                            downloadedBookIds = libraryState.downloadedBookIds,
+                            cycleCardStateById = libraryState.cycleCardStateById,
+                            cyclePlayback = libraryState.cyclePlayback,
+                            offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
+                            isLoadingCatalog = libraryState.isLoadingCatalog,
+                            filter = libraryState.filter,
+                            showFilterSheet = libraryState.showFilterSheet,
+                            onCycleClick = shellViewModel::openCycle,
+                            onCyclePlay = libraryViewModel::toggleCyclePlay,
+                            onBookClick = shellViewModel::openBook,
+                            onSearchChange = libraryViewModel::setSearchQuery,
+                            onFilterClick = { libraryViewModel.setFilterSheetVisible(true) },
+                            onDismissFilterSheet = { libraryViewModel.setFilterSheetVisible(false) },
+                            onApplyFilter = libraryViewModel::applyFilter,
+                            onResetFilter = libraryViewModel::resetFilter,
+                            onContentFilterChange = libraryViewModel::setContentFilter,
+                            onSortOrderChange = libraryViewModel::setSortOrder,
+                            musicTrackList = visibleMusicTracks,
+                            musicPlayback = libraryState.musicPlayback,
+                            downloadQueue = downloadQueue,
+                            musicPlaybackErrorRes = libraryState.musicPlaybackErrorRes,
+                            cyclePlaybackErrorRes = libraryState.cyclePlaybackErrorRes,
+                            onMusicTrackClick = libraryViewModel::onMusicTrackClick,
+                            onDownloadMusicTrack = libraryViewModel::downloadMusicTrack,
+                            onDeleteMusicTrack = libraryViewModel::deleteMusicTrack,
+                            onDownloadAllMusic = libraryViewModel::downloadAllMusic,
+                            onMusicTabSelected = libraryViewModel::onMusicTabSelected,
+                            showMiniPlayer = shellState.showMiniPlayer,
+                            isNetworkOnline = libraryState.isNetworkOnline,
+                        )
+                    }
 
                     shellState.currentTab == BottomDestination.Downloads -> Box(modifier = Modifier.fillMaxSize()) {
                         DownloadsTabScreen(

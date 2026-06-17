@@ -2,11 +2,10 @@
 <resources>
     <string name="app_name">Tonezen</string>
     <string name="playback_notification_channel">Воспроизведение</string>
-    <string name="nav_library">Библиотека</string>
+    <string name="nav_music">Музыка</string>
+    <string name="nav_books">Книги</string>
     <string name="nav_downloads">Загрузки</string>
     <string name="nav_profile">Профиль</string>
-    <string name="tab_audiobooks">Аудиокниги</string>
-    <string name="tab_music">Музыка</string>
     <string name="search_library">Поиск в библиотеке</string>
     <string name="filter">Фильтр</string>
     <string name="author_placeholder">Автор не указан</string>

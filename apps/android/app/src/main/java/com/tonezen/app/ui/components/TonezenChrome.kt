@@ -36,7 +36,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -48,8 +47,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.R
-import com.tonezen.app.ui.testing.TestTags
-import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenChromeBarBackground
 import com.tonezen.app.ui.theme.TonezenChromeBarBorder
 import com.tonezen.app.ui.theme.TonezenChromeHeaderRowHeight
@@ -62,7 +59,6 @@ import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenScreenHorizontalPadding
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
-import com.tonezen.app.ui.theme.TonezenTeal
 import com.tonezen.app.ui.theme.tonezenScrollContentPadding
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
@@ -356,57 +352,6 @@ internal fun IconCircle(modifier: Modifier = Modifier, content: @Composable () -
         contentAlignment = Alignment.Center,
     ) {
         content()
-    }
-}
-
-@Composable
-internal fun TonezenTabs(selectedTab: Int, onSelect: (Int) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        TonezenTab(
-            label = stringResource(R.string.tab_audiobooks),
-            selected = selectedTab == 0,
-            testTag = TestTags.TAB_AUDIOBOOKS,
-            modifier = Modifier.weight(1f),
-            onClick = { onSelect(0) },
-        )
-        TonezenTab(
-            label = stringResource(R.string.tab_music),
-            selected = selectedTab == 1,
-            testTag = TestTags.TAB_MUSIC,
-            modifier = Modifier.weight(1f),
-            onClick = { onSelect(1) },
-        )
-    }
-}
-
-@Composable
-private fun TonezenTab(
-    label: String,
-    selected: Boolean,
-    testTag: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = modifier
-            .testTag(testTag)
-            .clickable(onClick = onClick)
-            .padding(top = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = label,
-            color = if (selected) TonezenTeal else TonezenMuted,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-        )
-        Spacer(Modifier.height(12.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(2.dp)
-                .background(if (selected) TonezenTeal else TonezenBorder.copy(alpha = 0.35f)),
-        )
     }
 }
 
