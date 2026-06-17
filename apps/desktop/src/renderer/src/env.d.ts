@@ -91,6 +91,7 @@ export interface TonezenApi {
         durationMs?: number;
         localPath?: string;
         localDownloadedAt?: number;
+        waveformPeaks?: number[];
       }>;
     }>;
     getAllTracks: () => Promise<
@@ -103,6 +104,7 @@ export interface TonezenApi {
         durationMs?: number;
         localPath?: string;
         localDownloadedAt?: number;
+        waveformPeaks?: number[];
       }>
     >;
     getAllProgress: () => Promise<
@@ -118,6 +120,7 @@ export interface TonezenApi {
         durationMs?: number;
         localPath?: string;
         localDownloadedAt?: number;
+        waveformPeaks?: number[];
       }>
     >;
   };

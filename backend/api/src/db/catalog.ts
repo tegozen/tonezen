@@ -88,12 +88,30 @@ export class CatalogRepository {
     );
     if (bookResult.rows.length === 0) return null;
     const tracksResult = await this.pool.query(
-      `SELECT t.id, t.sort_order, t.title, t.artist, t.filename, t.duration_ms
+      `SELECT t.id, t.sort_order, t.title, t.artist, t.filename, t.duration_ms, tf.waveform_peaks
        FROM tracks t
+       LEFT JOIN track_files tf ON tf.track_id = t.id
        WHERE t.book_id = $1 AND t.deleted_at IS NULL
        ORDER BY t.sort_order`,
       [bookId],
     );
-    return { ...bookResult.rows[0], tracks: tracksResult.rows };
+    const tracks = tracksResult.rows.map((row) => ({
+      id: row.id,
+      sort_order: row.sort_order,
+      title: row.title,
+      artist: row.artist,
+      filename: row.filename,
+      duration_ms: row.duration_ms,
+      waveform_peaks: sanitizeWaveformPeaks(row.waveform_peaks),
+    }));
+    return { ...bookResult.rows[0], tracks };
   }
+}
+
+function sanitizeWaveformPeaks(value: unknown): number[] | null {
+  return Array.isArray(value) &&
+    value.length === 64 &&
+    value.every((peak) => Number.isInteger(peak) && peak >= 0 && peak <= 100)
+    ? value
+    : null;
 }

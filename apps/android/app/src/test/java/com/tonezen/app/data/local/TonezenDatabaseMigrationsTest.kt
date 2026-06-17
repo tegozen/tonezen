@@ -11,7 +11,7 @@ class TonezenDatabaseMigrationsTest {
     fun migrationsCoverEveryReleasedSchemaVersion() {
         val migrations = TonezenDatabaseMigrations.ALL.map { it.startVersion to it.endVersion }
 
-        assertEquals(listOf(1 to 2, 2 to 3, 3 to 4, 4 to 5), migrations)
+        assertEquals(listOf(1 to 2, 2 to 3, 3 to 4, 4 to 5, 5 to 6), migrations)
     }
 
     @Test
@@ -63,5 +63,14 @@ class TonezenDatabaseMigrationsTest {
                 },
             )
         }
+    }
+
+    @Test
+    fun migrationFiveToSixAddsTrackWaveformColumn() {
+        val db = mockk<SupportSQLiteDatabase>(relaxed = true)
+
+        TonezenDatabaseMigrations.MIGRATION_5_6.migrate(db)
+
+        verify { db.execSQL("ALTER TABLE `tracks` ADD COLUMN `waveformPeaksJson` TEXT") }
     }
 }

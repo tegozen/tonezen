@@ -32,6 +32,7 @@ import com.tonezen.app.ui.components.SkipNextGlyph
 import com.tonezen.app.ui.components.SkipPreviousGlyph
 import com.tonezen.app.ui.components.SpectrumCoverArt
 import com.tonezen.app.ui.components.TonezenGlassModalBottomSheet
+import com.tonezen.app.ui.components.WaveformProgressBar
 import com.tonezen.app.playback.MusicDownloadState
 import com.tonezen.app.ui.shell.AppShellUiState
 import com.tonezen.app.ui.theme.TonezenInk
@@ -136,14 +137,24 @@ internal fun NowPlayingContent(
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ProgressBar(
-                progress = progress,
-                onSeek = { fraction ->
-                    if (state.durationMs > 0) {
-                        viewModel.seekTo((state.durationMs * fraction).toLong())
-                    }
-                },
-            )
+            val seekToFraction: (Float) -> Unit = { fraction ->
+                if (state.durationMs > 0) {
+                    viewModel.seekTo((state.durationMs * fraction).toLong())
+                }
+            }
+            val waveformPeaks = state.waveformPeaks
+            if (waveformPeaks != null) {
+                WaveformProgressBar(
+                    progress = progress,
+                    peaks = waveformPeaks,
+                    onSeek = seekToFraction,
+                )
+            } else {
+                ProgressBar(
+                    progress = progress,
+                    onSeek = seekToFraction,
+                )
+            }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
                     durationLabel(state.positionMs),

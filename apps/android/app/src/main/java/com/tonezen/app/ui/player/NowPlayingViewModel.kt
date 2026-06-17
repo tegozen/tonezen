@@ -40,6 +40,7 @@ data class NowPlayingUiState(
     val upNext: List<Track> = emptyList(),
     val canSkipPrevious: Boolean = true,
     val canSkipNext: Boolean = false,
+    val waveformPeaks: List<Int>? = null,
 )
 
 private data class AlbumTrackEntry(
@@ -73,6 +74,7 @@ class NowPlayingViewModel @Inject constructor(
             playbackClient.snapshot.collect { snapshot ->
                 val blocksPlaybackUi = false
                 _uiState.update {
+                    val nextCoverSeed = snapshot.trackId ?: snapshot.trackTitle
                     it.copy(
                         title = if (blocksPlaybackUi) it.title else snapshot.trackTitle,
                         subtitle = if (blocksPlaybackUi) {
@@ -83,7 +85,12 @@ class NowPlayingViewModel @Inject constructor(
                         coverSeed = if (blocksPlaybackUi) {
                             it.coverSeed
                         } else {
-                            snapshot.trackId ?: snapshot.trackTitle
+                            nextCoverSeed
+                        },
+                        waveformPeaks = if (blocksPlaybackUi || nextCoverSeed == it.coverSeed) {
+                            it.waveformPeaks
+                        } else {
+                            null
                         },
                         isPlaying = if (blocksPlaybackUi) false else snapshot.isPlaying,
                         positionMs = if (blocksPlaybackUi) it.positionMs else snapshot.positionMs,
@@ -206,6 +213,7 @@ class NowPlayingViewModel @Inject constructor(
                 title = target.title,
                 subtitle = formatSubtitle(book.author, book.title),
                 coverSeed = target.id,
+                waveformPeaks = target.waveformPeaks,
             )
         }
 
@@ -230,6 +238,7 @@ class NowPlayingViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 activeBook = book,
+                waveformPeaks = libraryTracks.getOrNull(index)?.track?.waveformPeaks,
                 upNext = when (book.contentType) {
                     ContentType.MUSIC -> musicUpNext(index, libraryTracks.size)
                     else -> libraryTracks.drop(index + 1).map { entry -> entry.track }
@@ -270,6 +279,7 @@ class NowPlayingViewModel @Inject constructor(
             it.copy(
                 activeBook = entries[index].book,
                 contentType = book.contentType,
+                waveformPeaks = entries[index].track.waveformPeaks,
                 upNext = if (book.contentType == ContentType.MUSIC) {
                     musicUpNext(index, entries.size)
                 } else {
@@ -318,7 +328,7 @@ class NowPlayingViewModel @Inject constructor(
         currentTrackIndex = -1
         preserveShuffleOrder = false
         _uiState.update {
-            it.copy(upNext = emptyList())
+            it.copy(upNext = emptyList(), waveformPeaks = null)
         }
     }
 

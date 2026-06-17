@@ -956,6 +956,32 @@
     @apply pointer-events-none absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-teal transition-[left] duration-150 ease-linear;
   }
 
+  .now-playing-waveform {
+    @apply relative isolate h-10 w-full cursor-pointer touch-none select-none;
+    --waveform-progress: 0%;
+  }
+
+  .now-playing-waveform-bars {
+    @apply pointer-events-none absolute inset-0 flex items-center gap-0.5;
+  }
+
+  .now-playing-waveform-bars-active {
+    clip-path: inset(0 calc(100% - var(--waveform-progress)) 0 0);
+  }
+
+  .now-playing-waveform-bar {
+    @apply min-w-[2px] flex-1 rounded-full;
+    height: var(--waveform-peak);
+  }
+
+  .now-playing-waveform-bars-muted .now-playing-waveform-bar {
+    @apply bg-white/15;
+  }
+
+  .now-playing-waveform-bars-active .now-playing-waveform-bar {
+    @apply bg-teal;
+  }
+
   .now-playing-sheet-controls {
     @apply flex w-full items-center justify-evenly;
   }

@@ -43,6 +43,7 @@ export interface Track {
   durationMs?: number;
   localPath?: string;
   localDownloadedAt?: number;
+  waveformPeaks?: number[];
 }
 
 export interface Cycle {

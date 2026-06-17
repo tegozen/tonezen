@@ -231,6 +231,15 @@ components:
           type: string
         duration_ms:
           type: integer
+        waveform_peaks:
+          type: array
+          nullable: true
+          minItems: 64
+          maxItems: 64
+          items:
+            type: integer
+            minimum: 0
+            maximum: 100
 
     AudiobookProgress:
       type: object

@@ -1,6 +1,7 @@
 package com.tonezen.app.data.local
 
 import com.tonezen.app.data.remote.progress.ProgressRemoteApi
+import com.tonezen.app.data.waveformPeaksFromJson
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
@@ -27,6 +28,8 @@ fun TrackEntity.toDomain() = Track(
     artist = normalizeAuthor(artist),
     durationMs = durationMs,
     localPath = localPath,
+    localDownloadedAt = localDownloadedAt,
+    waveformPeaks = waveformPeaksFromJson(waveformPeaksJson),
 )
 
 fun AudiobookProgressEntity.toDomain() = AudiobookProgress(

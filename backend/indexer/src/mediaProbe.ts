@@ -1,16 +1,19 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
 
 const execFileAsync = promisify(execFile);
+export const WAVEFORM_PEAK_COUNT = 64;
+const WAVEFORM_SAMPLE_RATE = 8000;
 
 export interface FileMetadata {
   sizeBytes: number;
   checksum: string;
   durationMs: number | null;
+  waveformPeaks: number[] | null;
 }
 
 export interface AudioTags {
@@ -25,6 +28,7 @@ export interface StoredFileMetadata {
   checksum: string | null;
   size_bytes: number | null;
   duration_ms: number | null;
+  waveform_peaks?: unknown;
 }
 
 /** Reuse DB metadata when file size is unchanged (avoids sha256/ffprobe on rescans). */
@@ -34,11 +38,63 @@ export function metadataFromStoredIfUnchanged(
 ): FileMetadata | null {
   if (!stored.checksum || stored.size_bytes == null) return null;
   if (Number(stored.size_bytes) !== fileSizeBytes) return null;
+  if (!isValidWaveformPeaks(stored.waveform_peaks)) return null;
   return {
     sizeBytes: fileSizeBytes,
     checksum: stored.checksum,
     durationMs: stored.duration_ms,
+    waveformPeaks: stored.waveform_peaks,
   };
+}
+
+export function isValidWaveformPeaks(
+  value: unknown,
+  count = WAVEFORM_PEAK_COUNT,
+): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.length === count &&
+    value.every((peak) => Number.isInteger(peak) && peak >= 0 && peak <= 100)
+  );
+}
+
+interface WaveformBucket {
+  sumSquares: number;
+  samples: number;
+}
+
+export function normalizeWaveformBuckets(buckets: readonly WaveformBucket[]): number[] | null {
+  if (buckets.length === 0) return null;
+  const rmsValues = buckets.map((bucket) =>
+    bucket.samples > 0 ? Math.sqrt(bucket.sumSquares / bucket.samples) : 0,
+  );
+  const max = Math.max(...rmsValues);
+  if (!Number.isFinite(max)) return null;
+  if (max <= 0) return buckets.map(() => 0);
+  return rmsValues.map((value) => Math.round((value / max) * 100));
+}
+
+export function waveformPeaksFromPcm16(
+  input: Buffer,
+  totalSamples: number,
+  bucketCount = WAVEFORM_PEAK_COUNT,
+): number[] | null {
+  if (input.length < 2 || totalSamples <= 0 || bucketCount <= 0) return null;
+  const buckets = Array.from({ length: bucketCount }, () => ({ sumSquares: 0, samples: 0 }));
+  let decodedSamples = 0;
+
+  for (let offset = 0; offset + 1 < input.length; offset += 2) {
+    const sample = input.readInt16LE(offset) / 32768;
+    const bucketIndex = Math.min(
+      bucketCount - 1,
+      Math.floor((decodedSamples * bucketCount) / totalSamples),
+    );
+    buckets[bucketIndex].sumSquares += sample * sample;
+    buckets[bucketIndex].samples += 1;
+    decodedSamples += 1;
+  }
+
+  return decodedSamples > 0 ? normalizeWaveformBuckets(buckets) : null;
 }
 
 function pickTag(tags: Record<string, string>, ...keys: string[]): string | null {
@@ -148,6 +204,66 @@ export async function probeDurationMs(filePath: string): Promise<number | null> 
   }
 }
 
+export async function probeWaveformPeaks(
+  filePath: string,
+  durationMs: number | null,
+  bucketCount = WAVEFORM_PEAK_COUNT,
+): Promise<number[] | null> {
+  if (durationMs == null || durationMs <= 0 || bucketCount <= 0) return null;
+  const totalSamples = Math.max(1, Math.round((durationMs / 1000) * WAVEFORM_SAMPLE_RATE));
+  const buckets = Array.from({ length: bucketCount }, () => ({ sumSquares: 0, samples: 0 }));
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let decodedSamples = 0;
+    let remainder: Buffer<ArrayBufferLike> = Buffer.alloc(0);
+    const ffmpeg = spawn("ffmpeg", [
+      "-v",
+      "error",
+      "-i",
+      filePath,
+      "-ac",
+      "1",
+      "-ar",
+      String(WAVEFORM_SAMPLE_RATE),
+      "-f",
+      "s16le",
+      "pipe:1",
+    ]);
+
+    const finish = (result: number[] | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+
+    ffmpeg.stdout.on("data", (chunk: Buffer<ArrayBufferLike>) => {
+      const input = remainder.length > 0 ? Buffer.concat([remainder, chunk]) : chunk;
+      const evenLength = input.length - (input.length % 2);
+      for (let offset = 0; offset + 1 < evenLength; offset += 2) {
+        const sample = input.readInt16LE(offset) / 32768;
+        const bucketIndex = Math.min(
+          bucketCount - 1,
+          Math.floor((decodedSamples * bucketCount) / totalSamples),
+        );
+        buckets[bucketIndex].sumSquares += sample * sample;
+        buckets[bucketIndex].samples += 1;
+        decodedSamples += 1;
+      }
+      remainder = evenLength < input.length ? input.subarray(evenLength) : Buffer.alloc(0);
+    });
+
+    ffmpeg.on("error", () => finish(null));
+    ffmpeg.on("close", (code) => {
+      if (code !== 0 || decodedSamples === 0) {
+        finish(null);
+        return;
+      }
+      finish(normalizeWaveformBuckets(buckets));
+    });
+  });
+}
+
 export async function analyzeAudioFileAtPath(
   filePath: string,
   options?: { knownDurationMs?: number | null },
@@ -159,7 +275,8 @@ export async function analyzeAudioFileAtPath(
       typeof options?.knownDurationMs === "number"
         ? options.knownDurationMs
         : await probeDurationMs(filePath);
-    return { sizeBytes: info.size, checksum, durationMs };
+    const waveformPeaks = await probeWaveformPeaks(filePath, durationMs);
+    return { sizeBytes: info.size, checksum, durationMs, waveformPeaks };
   } catch {
     return null;
   }

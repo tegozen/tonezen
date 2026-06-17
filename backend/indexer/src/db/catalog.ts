@@ -154,14 +154,21 @@ export class CatalogRepository {
     }
 
     await client.query(
-      `INSERT INTO track_files (track_id, storage_path, checksum, size_bytes, updated_at)
-       VALUES ($1, $2, $3, $4, now())
+      `INSERT INTO track_files (track_id, storage_path, checksum, size_bytes, waveform_peaks, updated_at)
+       VALUES ($1, $2, $3, $4, $5::jsonb, now())
        ON CONFLICT (track_id) DO UPDATE SET
          storage_path = EXCLUDED.storage_path,
          checksum = EXCLUDED.checksum,
          size_bytes = EXCLUDED.size_bytes,
+         waveform_peaks = EXCLUDED.waveform_peaks,
          updated_at = now()`,
-      [trackId, storagePath, meta?.checksum ?? null, meta?.sizeBytes ?? null],
+      [
+        trackId,
+        storagePath,
+        meta?.checksum ?? null,
+        meta?.sizeBytes ?? null,
+        meta?.waveformPeaks ? JSON.stringify(meta.waveformPeaks) : null,
+      ],
     );
   }
 
@@ -171,7 +178,7 @@ export class CatalogRepository {
     knownDurationMs: number | null,
   ): Promise<FileMetadata | null> {
     const existing = await client.query(
-      `SELECT tf.checksum, tf.size_bytes, t.duration_ms
+      `SELECT tf.checksum, tf.size_bytes, tf.waveform_peaks, t.duration_ms
        FROM track_files tf
        JOIN tracks t ON t.id = tf.track_id
        WHERE tf.storage_path = $1`,

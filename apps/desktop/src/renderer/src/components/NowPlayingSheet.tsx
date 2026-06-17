@@ -5,6 +5,7 @@ import { TrackSpectrumArt } from "./CoverArt";
 import { useAnimatedVisibility } from "../hooks/useAnimatedVisibility";
 import { formatMs } from "../lib/formatTime";
 import { seekFractionFromPointer } from "@shared/playbackSeek";
+import { normalizeWaveformPeaks } from "@shared/waveformPeaks";
 import { strings } from "../i18n/strings";
 
 interface NowPlayingSheetProps {
@@ -16,6 +17,7 @@ interface NowPlayingSheetProps {
   positionMs: number;
   durationMs: number;
   isMusic: boolean;
+  waveformPeaks?: number[] | null;
   downloadProgress?: number | null;
   controlsDisabled?: boolean;
   onDismiss: () => void;
@@ -37,6 +39,7 @@ export function NowPlayingSheet({
   positionMs,
   durationMs,
   isMusic,
+  waveformPeaks = null,
   downloadProgress = null,
   controlsDisabled = false,
   onDismiss,
@@ -56,6 +59,17 @@ export function NowPlayingSheet({
   const coverPlaying = isPlaying && !isDownloading;
   const volumePercent = Math.round(volume * 100);
   const progressRef = useRef<HTMLDivElement>(null);
+  const activeWaveformPeaks = normalizeWaveformPeaks(waveformPeaks);
+  const progressPercent = `${progress * 100}%`;
+
+  const renderWaveformBars = (keyPrefix: string) =>
+    activeWaveformPeaks?.map((peak, index) => (
+      <span
+        key={`${keyPrefix}-${index}`}
+        className="now-playing-waveform-bar"
+        style={{ "--waveform-peak": `${Math.max(6, peak)}%` } as CSSProperties}
+      />
+    ));
 
   const seekFromClientX = useCallback(
     (clientX: number) => {
@@ -153,7 +167,12 @@ export function NowPlayingSheet({
             <div className="now-playing-sheet-progress-block">
               <div
                 ref={progressRef}
-                className="now-playing-progress"
+                className={activeWaveformPeaks ? "now-playing-waveform" : "now-playing-progress"}
+                style={
+                  activeWaveformPeaks
+                    ? ({ "--waveform-progress": progressPercent } as CSSProperties)
+                    : undefined
+                }
                 role="slider"
                 aria-label={strings.nowPlaying}
                 aria-valuemin={0}
@@ -170,12 +189,21 @@ export function NowPlayingSheet({
                   if (event.key === "ArrowLeft") onSeek(Math.max(0, progress - 0.05));
                 }}
               >
-                <div className="now-playing-progress-fill" style={{ width: `${progress * 100}%` }} />
-                <div
-                  className="now-playing-progress-thumb"
-                  style={{ left: `${progress * 100}%` }}
-                  aria-hidden="true"
-                />
+                {activeWaveformPeaks ? (
+                  <>
+                    <div className="now-playing-waveform-bars now-playing-waveform-bars-muted" aria-hidden="true">
+                      {renderWaveformBars("muted")}
+                    </div>
+                    <div className="now-playing-waveform-bars now-playing-waveform-bars-active" aria-hidden="true">
+                      {renderWaveformBars("active")}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="now-playing-progress-fill" style={{ width: progressPercent }} />
+                    <div className="now-playing-progress-thumb" style={{ left: progressPercent }} aria-hidden="true" />
+                  </>
+                )}
               </div>
               <div className="flex justify-between text-xs text-muted">
                 <span>{formatMs(positionMs)}</span>

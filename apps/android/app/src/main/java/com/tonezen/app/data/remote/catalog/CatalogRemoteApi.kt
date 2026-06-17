@@ -1,6 +1,7 @@
 package com.tonezen.app.data.remote.catalog
 
 import com.tonezen.app.data.remote.getRemoteJson
+import com.tonezen.app.data.waveformPeaksFromJsonArray
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Cycle
@@ -45,6 +46,7 @@ class CatalogRemoteApi(
                         ),
                         durationMs = t.optLong("duration_ms").takeIf { it > 0 },
                         localPath = null,
+                        waveformPeaks = waveformPeaksFromJsonArray(t.optJSONArray("waveform_peaks")),
                     ),
                 )
             }

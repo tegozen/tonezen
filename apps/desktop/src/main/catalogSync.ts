@@ -1,6 +1,7 @@
 import type { Book, Cycle, Track } from "../shared/types.js";
 import { normalizeCycleBookOrder } from "../shared/cycleBooks.js";
 import { apiV1Url } from "../shared/serverPaths.js";
+import { normalizeWaveformPeaks } from "../shared/waveformPeaks.js";
 import { LocalDatabase } from "./database.js";
 
 interface ApiBook {
@@ -18,6 +19,7 @@ interface ApiTrack {
   filename: string;
   artist?: string | null;
   duration_ms?: number;
+  waveform_peaks?: unknown;
 }
 
 interface ApiCycle {
@@ -47,6 +49,7 @@ function mapTrack(raw: ApiTrack, bookId: string): Track {
     filename: raw.filename,
     artist: raw.artist ?? undefined,
     durationMs: raw.duration_ms,
+    waveformPeaks: normalizeWaveformPeaks(raw.waveform_peaks) ?? undefined,
   };
 }
 

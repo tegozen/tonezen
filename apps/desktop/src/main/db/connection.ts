@@ -28,7 +28,8 @@ export function initDatabase(userDataPath: string): void {
       filename TEXT NOT NULL,
       artist TEXT,
       duration_ms INTEGER,
-      local_path TEXT
+      local_path TEXT,
+      waveform_peaks_json TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_tracks_book_id ON tracks (book_id);
     CREATE TABLE IF NOT EXISTS audiobook_progress (
@@ -53,6 +54,7 @@ export function initDatabase(userDataPath: string): void {
   ensureCycleBooksColumn();
   ensureTrackArtistColumn();
   ensureLocalDownloadedAtColumn();
+  ensureWaveformPeaksColumn();
   ensureDownloadQueueTable();
 }
 
@@ -80,6 +82,15 @@ function ensureLocalDownloadedAtColumn(): void {
     .all() as Array<{ name: string }>;
   if (!columns.some((column) => column.name === "local_downloaded_at")) {
     getDb().exec(`ALTER TABLE tracks ADD COLUMN local_downloaded_at INTEGER`);
+  }
+}
+
+function ensureWaveformPeaksColumn(): void {
+  const columns = getDb()
+    .prepare("PRAGMA table_info(tracks)")
+    .all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "waveform_peaks_json")) {
+    getDb().exec(`ALTER TABLE tracks ADD COLUMN waveform_peaks_json TEXT`);
   }
 }
 

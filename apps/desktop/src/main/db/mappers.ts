@@ -1,4 +1,5 @@
 import type { Book, Track } from "../../shared/types.js";
+import { parseWaveformPeaksJson } from "../../shared/waveformPeaks.js";
 
 export interface BookRow {
   id: string;
@@ -18,6 +19,7 @@ export interface TrackRow {
   duration_ms: number | null;
   local_path: string | null;
   local_downloaded_at: number | null;
+  waveform_peaks_json: string | null;
 }
 
 export function mapBookRow(row: BookRow): Book {
@@ -41,5 +43,6 @@ export function mapTrackRow(row: TrackRow): Track {
     durationMs: row.duration_ms ?? undefined,
     localPath: row.local_path ?? undefined,
     localDownloadedAt: row.local_downloaded_at ?? undefined,
+    waveformPeaks: parseWaveformPeaksJson(row.waveform_peaks_json) ?? undefined,
   };
 }

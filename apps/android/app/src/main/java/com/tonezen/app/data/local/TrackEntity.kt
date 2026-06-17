@@ -14,4 +14,5 @@ data class TrackEntity(
     val durationMs: Long?,
     val localPath: String?,
     val localDownloadedAt: Long? = null,
+    val waveformPeaksJson: String? = null,
 )

@@ -730,6 +730,7 @@ export function App() {
         positionMs={positionMs}
         durationMs={durationMs}
         isMusic={music.musicMode}
+        waveformPeaks={currentTrack?.waveformPeaks ?? null}
         downloadProgress={miniDownloadProgress}
         controlsDisabled={miniDownloadProgress != null}
         onDismiss={() => setShowExpandedPlayer(false)}

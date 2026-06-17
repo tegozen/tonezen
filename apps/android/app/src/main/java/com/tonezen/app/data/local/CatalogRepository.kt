@@ -3,6 +3,8 @@ package com.tonezen.app.data.local
 import android.content.Context
 import android.os.StatFs
 import com.tonezen.app.data.remote.catalog.CatalogRemoteApi
+import com.tonezen.app.data.waveformPeaksFromJson
+import com.tonezen.app.data.waveformPeaksToJson
 import com.tonezen.app.domain.downloads.DownloadedBookSummary
 import com.tonezen.app.domain.downloads.StorageStats
 import com.tonezen.app.domain.model.AudiobookProgress
@@ -250,6 +252,7 @@ class CatalogRepository @Inject constructor(
                     localPath,
                     localDownloadedAt = existing?.localDownloadedAt
                         ?: localPath?.let { System.currentTimeMillis() },
+                    waveformPeaksJson = waveformPeaksToJson(track.waveformPeaks),
                 )
             },
         )
@@ -425,6 +428,7 @@ class CatalogRepository @Inject constructor(
             durationMs = durationMs,
             localPath = safePath,
             localDownloadedAt = localDownloadedAt,
+            waveformPeaks = waveformPeaksFromJson(waveformPeaksJson),
         )
     }
 }

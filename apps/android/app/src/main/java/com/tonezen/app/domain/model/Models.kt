@@ -45,6 +45,7 @@ data class Track(
     val durationMs: Long?,
     val localPath: String?,
     val localDownloadedAt: Long? = null,
+    val waveformPeaks: List<Int>? = null,
 )
 
 data class Cycle(
