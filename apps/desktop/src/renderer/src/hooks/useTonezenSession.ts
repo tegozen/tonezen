@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
+import type { SessionState } from "@shared/types";
 import { resolveLoginError } from "../lib/errorMessages";
 
+type SessionSnapshot = Awaited<ReturnType<typeof window.tonezen.session.get>>;
+
 export function useTonezenSession() {
-  const [sessionState, setSessionState] = useState("Unauthenticated");
+  const [sessionState, setSessionState] = useState<SessionState>("Unauthenticated");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -23,13 +26,7 @@ export function useTonezenSession() {
   }, []);
 
   const applySnapshot = useCallback(
-    (snap: {
-      state: string;
-      email: string | null;
-      displayName: string | null;
-      avatarUrl: string | null;
-      memberSinceEpochMs: number | null;
-    }) => {
+    (snap: SessionSnapshot) => {
       setSessionState(snap.state);
       setUserEmail(snap.email);
       setDisplayName(snap.displayName);

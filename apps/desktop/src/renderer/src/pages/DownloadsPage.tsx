@@ -60,8 +60,8 @@ export function DownloadsPage({
               <TrackListRow
                 key={`${item.bookId}:${item.trackId}`}
                 title={item.title}
-                subtitle={item.subtitle}
-                durationMs={item.durationMs ?? null}
+                subtitle={item.subtitle ?? undefined}
+                durationMs={item.durationMs}
                 isActive={false}
                 clickEnabled={false}
                 onClick={() => {}}
@@ -106,8 +106,7 @@ function DownloadsActiveRow({
   return (
     <TrackListRow
       title={item.title}
-      subtitle={subtitle}
-      durationMs={null}
+      subtitle={subtitle ?? undefined}
       isActive={item.status === "DOWNLOADING"}
       clickEnabled={false}
       onClick={() => {}}

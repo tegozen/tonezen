@@ -49,6 +49,43 @@ class RemoteHttpHandlingTest {
         assertEquals(500, error?.statusCode)
     }
 
+    @Test
+    fun pushProgress_returnsServerProgress() = runTest {
+        val api = ProgressRemoteApi(
+            apiRoot = "https://tonezen.test/api/v1",
+            httpClient = fixedStatusClient(
+                200,
+                """
+                {
+                  "skipped": true,
+                  "progress": {
+                    "book_id": "book-1",
+                    "track_id": "track-newer",
+                    "position_ms": 42000,
+                    "updated_at": "2024-06-01T00:00:00Z"
+                  }
+                }
+                """.trimIndent(),
+            ),
+        )
+
+        val progress = api.pushProgress(
+            accessToken = "token",
+            bookId = "book-1",
+            progress = com.tonezen.app.domain.model.AudiobookProgress(
+                bookId = "book-1",
+                trackId = "track-old",
+                positionMs = 10_000L,
+                updatedAtEpochMs = 1_700_000_000_000L,
+            ),
+        )
+
+        assertEquals("book-1", progress.bookId)
+        assertEquals("track-newer", progress.trackId)
+        assertEquals(42_000L, progress.positionMs)
+        assertEquals("2024-06-01T00:00:00Z", progress.updatedAt)
+    }
+
     private fun fixedStatusClient(statusCode: Int, body: String): OkHttpClient =
         OkHttpClient.Builder()
             .addInterceptor { chain ->

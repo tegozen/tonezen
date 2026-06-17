@@ -10,6 +10,7 @@
     "dist:win": "node scripts/prepare-client-env.mjs && npm run build && electron-builder --win portable",
     "preview": "electron-vite preview",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint src electron.vite.config.ts",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },

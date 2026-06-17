@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import type { Book, Track } from "@shared/types";
+import type { Book, SessionState, Track } from "@shared/types";
 import {
   buildMusicTrackListForCatalogUpdate,
   musicQueueFrom,
@@ -23,8 +23,6 @@ import {
 import type { useDownloadQueue } from "./useDownloadQueue";
 import { strings } from "../i18n/strings";
 
-type SessionState = MusicSessionState;
-
 interface UseMusicPlaybackOptions {
   books: Book[];
   allTracks: Track[];
@@ -40,6 +38,12 @@ interface UseMusicPlaybackOptions {
   seekTo: (fraction: number) => void;
   currentTrack: Track | null;
   positionMs: number;
+}
+
+function musicSessionState(sessionState: SessionState): MusicSessionState {
+  if (sessionState === "AuthenticatedOnline") return "AuthenticatedOnline";
+  if (sessionState === "Unauthenticated") return "Unauthenticated";
+  return "AuthenticatedOffline";
 }
 
 export function useMusicPlayback({
@@ -73,7 +77,7 @@ export function useMusicPlayback({
   );
 
   const isTrackPlayable = useCallback(
-    (track: MusicListTrack) => isMusicTrackPlayable(track, sessionState),
+    (track: MusicListTrack) => isMusicTrackPlayable(track, musicSessionState(sessionState)),
     [sessionState],
   );
 
@@ -92,15 +96,15 @@ export function useMusicPlayback({
       let track = bookTracks.find((item) => item.id === trackId);
       if (track?.localPath) return track as Track;
 
-      if (sessionState === "AuthenticatedOffline") {
-        if (!options?.suppressPlaybackError) {
-          setMusicError(strings.musicPlaybackErrorOffline);
-        }
-        return null;
-      }
       if (sessionState === "Unauthenticated") {
         if (!options?.suppressPlaybackError) {
           setMusicError(strings.musicPlaybackErrorLogin);
+        }
+        return null;
+      }
+      if (sessionState !== "AuthenticatedOnline") {
+        if (!options?.suppressPlaybackError) {
+          setMusicError(strings.musicPlaybackErrorOffline);
         }
         return null;
       }

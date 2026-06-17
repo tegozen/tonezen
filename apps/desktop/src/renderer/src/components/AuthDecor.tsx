@@ -1,7 +1,13 @@
+import type { CSSProperties } from "react";
 import { DownloadsIcon, SyncIcon } from "./TonezenIcons";
 import { strings } from "../i18n/strings";
 
-const COVERS = [
+const COVERS: ReadonlyArray<{
+  title: string;
+  className: string;
+  style: CSSProperties;
+  darkText?: boolean;
+}> = [
   {
     title: strings.authCoverMidnight,
     className: "auth-cover-midnight z-[1]",

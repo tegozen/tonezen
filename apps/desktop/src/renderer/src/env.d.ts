@@ -1,128 +1,45 @@
+import type { AudiobookProgress, Book, ContentType, Cycle, SessionState, Track } from "@shared/types";
+import type {
+  DownloadAwaitResult,
+  DownloadQueueState,
+  EnqueueDownloadRequest,
+} from "@shared/downloadQueueState";
+import type { DownloadPriority } from "@shared/downloadQueuePolicy";
+
+type SessionSnapshot = {
+  state: SessionState;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  memberSinceEpochMs: number | null;
+};
+
 export interface TonezenApi {
   session: {
-    get: () => Promise<{
-      state: string;
-      email: string | null;
-      displayName: string | null;
-      avatarUrl: string | null;
-      memberSinceEpochMs: number | null;
-    }>;
+    get: () => Promise<SessionSnapshot>;
     setOnline: (online: boolean) => Promise<void>;
-    login: (
-      email: string,
-      password: string,
-    ) => Promise<{
-      state: string;
-      email: string | null;
-      displayName: string | null;
-      avatarUrl: string | null;
-      memberSinceEpochMs: number | null;
-    }>;
+    login: (email: string, password: string) => Promise<SessionSnapshot>;
     logout: () => Promise<void>;
-    updateProfile: (
-      displayName: string,
-    ) => Promise<{
-      state: string;
-      email: string | null;
-      displayName: string | null;
-      avatarUrl: string | null;
-      memberSinceEpochMs: number | null;
-    }>;
-    changePassword: (
-      newPassword: string,
-    ) => Promise<{
-      state: string;
-      email: string | null;
-      displayName: string | null;
-      avatarUrl: string | null;
-      memberSinceEpochMs: number | null;
-    }>;
-    uploadAvatar: (
-      jpegBytes: Uint8Array,
-    ) => Promise<{
-      state: string;
-      email: string | null;
-      displayName: string | null;
-      avatarUrl: string | null;
-      memberSinceEpochMs: number | null;
-    }>;
-    onProfileUpdated: (
-      callback: (snap: {
-        state: string;
-        email: string | null;
-        displayName: string | null;
-        avatarUrl: string | null;
-        memberSinceEpochMs: number | null;
-      }) => void,
-    ) => () => void;
+    updateProfile: (displayName: string) => Promise<SessionSnapshot>;
+    changePassword: (newPassword: string) => Promise<SessionSnapshot>;
+    uploadAvatar: (jpegBytes: Uint8Array) => Promise<SessionSnapshot>;
+    onProfileUpdated: (callback: (snap: SessionSnapshot) => void) => () => void;
   };
   catalog: {
-    sync: () => Promise<Array<{ id: string; title: string; contentType: string; author?: string }>>;
+    sync: () => Promise<Array<{ id: string; title: string; contentType: ContentType; author?: string }>>;
     onUpdated: (callback: () => void) => () => void;
   };
   db: {
-    getBooks: () => Promise<
-      Array<{ id: string; slug: string; contentType: string; title: string; author?: string }>
-    >;
-    getCycles: () => Promise<
-      Array<{
-        id: string;
-        slug: string;
-        title: string;
-        bookOrder: string[];
-        books: Array<{ id: string; slug: string; contentType: string; title: string; author?: string }>;
-      }>
-    >;
+    getBooks: () => Promise<Book[]>;
+    getCycles: () => Promise<Cycle[]>;
     getLibrarySnapshot: () => Promise<{
-      books: Array<{ id: string; slug: string; contentType: string; title: string; author?: string }>;
-      cycles: Array<{
-        id: string;
-        slug: string;
-        title: string;
-        bookOrder: string[];
-        books: Array<{ id: string; slug: string; contentType: string; title: string; author?: string }>;
-      }>;
-      tracks: Array<{
-        id: string;
-        bookId: string;
-        sortOrder: number;
-        title: string;
-        filename: string;
-        durationMs?: number;
-        localPath?: string;
-        localDownloadedAt?: number;
-        waveformPeaks?: number[];
-      }>;
+      books: Book[];
+      cycles: Cycle[];
+      tracks: Track[];
     }>;
-    getAllTracks: () => Promise<
-      Array<{
-        id: string;
-        bookId: string;
-        sortOrder: number;
-        title: string;
-        filename: string;
-        durationMs?: number;
-        localPath?: string;
-        localDownloadedAt?: number;
-        waveformPeaks?: number[];
-      }>
-    >;
-    getAllProgress: () => Promise<
-      Array<{ bookId: string; trackId: string; positionMs: number; updatedAt: string }>
-    >;
-    getTracks: (bookId: string) => Promise<
-      Array<{
-        id: string;
-        bookId: string;
-        sortOrder: number;
-        title: string;
-        filename: string;
-        durationMs?: number;
-        localPath?: string;
-        localDownloadedAt?: number;
-        waveformPeaks?: number[];
-      }>
-    >;
+    getAllTracks: () => Promise<Track[]>;
+    getAllProgress: () => Promise<AudiobookProgress[]>;
+    getTracks: (bookId: string) => Promise<Track[]>;
   };
   download: {
     track: (bookId: string, trackId: string) => Promise<string>;
@@ -141,129 +58,32 @@ export interface TonezenApi {
     >;
     storageStats: () => Promise<{ usedBytes: number }>;
     deleteAll: () => Promise<void>;
-    enqueue: (request: {
-      bookId: string;
-      trackId: string;
-      priority: "PREFETCH" | "BULK" | "USER" | "PLAY";
-      batchId?: string | null;
-      title: string;
-      subtitle?: string | null;
-      contentType: string;
-      enqueuedAt?: number;
-    }) => Promise<void>;
-    enqueueBatch: (
-      requests: Array<{
-        bookId: string;
-        trackId: string;
-        priority: "PREFETCH" | "BULK" | "USER" | "PLAY";
-        batchId?: string | null;
-        title: string;
-        subtitle?: string | null;
-        contentType: string;
-        enqueuedAt?: number;
-      }>,
-      batchId?: string,
-    ) => Promise<void>;
+    enqueue: (request: EnqueueDownloadRequest) => Promise<void>;
+    enqueueBatch: (requests: EnqueueDownloadRequest[], batchId?: string) => Promise<void>;
     awaitTrack: (
       bookId: string,
       trackId: string,
       options?: {
-        priority?: "PREFETCH" | "BULK" | "USER" | "PLAY";
+        priority?: DownloadPriority;
         title?: string;
         subtitle?: string | null;
         contentType?: string;
       },
-    ) => Promise<"COMPLETED" | "CANCELLED" | "FAILED" | "OFFLINE">;
+    ) => Promise<DownloadAwaitResult>;
     cancelTrack: (bookId: string, trackId: string) => Promise<void>;
     cancelBatch: (batchId: string) => Promise<void>;
     cancelAll: () => Promise<void>;
-    getQueueState: () => Promise<{
-      queuedItems: Array<{
-        bookId: string;
-        trackId: string;
-        title: string;
-        subtitle: string | null;
-        contentType: string;
-        status: string;
-        progress: number | null;
-        batchId: string | null;
-        enqueuedAt: number;
-        completedAt: number | null;
-      }>;
-      completedHistory: Array<{
-        bookId: string;
-        trackId: string;
-        title: string;
-        subtitle: string | null;
-        contentType: string;
-        status: string;
-        progress: number | null;
-        batchId: string | null;
-        enqueuedAt: number;
-        completedAt: number | null;
-      }>;
-      activeBookId: string | null;
-      activeTrackId: string | null;
-      trackProgress: number | null;
-      bulkDownloaded: number;
-      bulkTotal: number;
-      activeBatchId: string | null;
-      pausedForNetwork: boolean;
-    }>;
-    onQueueState: (
-      callback: (state: {
-        queuedItems: Array<{
-          bookId: string;
-          trackId: string;
-          title: string;
-          subtitle: string | null;
-          contentType: string;
-          status: string;
-          progress: number | null;
-          batchId: string | null;
-          enqueuedAt: number;
-          completedAt: number | null;
-        }>;
-        completedHistory: Array<{
-          bookId: string;
-          trackId: string;
-          title: string;
-          subtitle: string | null;
-          contentType: string;
-          status: string;
-          progress: number | null;
-          batchId: string | null;
-          enqueuedAt: number;
-          completedAt: number | null;
-        }>;
-        activeBookId: string | null;
-        activeTrackId: string | null;
-        trackProgress: number | null;
-        bulkDownloaded: number;
-        bulkTotal: number;
-        activeBatchId: string | null;
-        pausedForNetwork: boolean;
-      }) => void,
-    ) => () => void;
+    getQueueState: () => Promise<DownloadQueueState>;
+    onQueueState: (callback: (state: DownloadQueueState) => void) => () => void;
   };
   sync: {
     status: () => Promise<{ pendingCount: number; lastSyncAtEpochMs: number | null }>;
     trigger: () => Promise<void>;
   };
   progress: {
-    get: (bookId: string) => Promise<{
-      bookId: string;
-      trackId: string;
-      positionMs: number;
-      updatedAt: string;
-    } | null>;
+    get: (bookId: string) => Promise<AudiobookProgress | null>;
     save: (bookId: string, trackId: string, positionMs: number) => Promise<void>;
-    onUpdated: (callback: (progress: {
-      bookId: string;
-      trackId: string;
-      positionMs: number;
-      updatedAt: string;
-    }) => void) => () => void;
+    onUpdated: (callback: (progress: AudiobookProgress) => void) => () => void;
   };
   playback: {
     setActive: (active: boolean) => Promise<void>;

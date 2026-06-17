@@ -80,10 +80,16 @@ export function refreshMusicTrackListDownloadState(
     buildMusicTrackList(books, tracks).map((track) => [track.trackId, track]),
   );
   return list
-    .map((item) => {
+    .map((item): MusicListTrack | null => {
       const updated = freshById.get(item.trackId);
       if (!updated) return null;
-      return { ...item, isDownloaded: updated.isDownloaded, durationMs: updated.durationMs };
+      const next: MusicListTrack = { ...item, isDownloaded: updated.isDownloaded };
+      if (updated.durationMs == null) {
+        delete next.durationMs;
+      } else {
+        next.durationMs = updated.durationMs;
+      }
+      return next;
     })
     .filter((item): item is MusicListTrack => item != null);
 }

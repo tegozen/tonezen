@@ -62,10 +62,11 @@ class TrackDownloadEnsurer @Inject constructor(
                 onProgress = onProgress ?: {},
             )
             if (!catalogRepository.markTrackDownloaded(bookId, track.id, file.absolutePath)) {
-                catalogRepository.resolveLocalTrackPath(bookId, track.id)
                 catalogRepository.reconcileLocalDownloadPaths()
             }
-            val path = catalogRepository.resolveLocalTrackPath(bookId, track.id) ?: file.absolutePath
+            val path = catalogRepository.resolveLocalTrackPath(bookId, track.id)
+                ?: file.takeIf { it.exists() }?.absolutePath
+                ?: return EnsureTrackOutcome.failed(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED)
             EnsureTrackOutcome.success(track.copy(localPath = path))
         } catch (_: Exception) {
             val path = EnsureTrackDownloadPolicy.resolveLocalPathAfterFailure(

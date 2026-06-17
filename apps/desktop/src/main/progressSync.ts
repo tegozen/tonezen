@@ -24,6 +24,11 @@ type ProgressRow = {
   user_id?: string;
 };
 
+type ProgressPushResponse = {
+  skipped?: boolean;
+  progress?: ProgressRow;
+};
+
 export class ProgressSyncService {
   private supabase: SupabaseClient | null = null;
   private channel: RealtimeChannel | null = null;
@@ -238,9 +243,14 @@ export class ProgressSyncService {
         updated_at: progress.updatedAt,
       }),
     });
-    if (res.ok) {
-      LocalDatabase.markProgressSynced(progress.bookId);
+    if (!res.ok) return;
+
+    const data = (await res.json().catch(() => null)) as ProgressPushResponse | null;
+    if (data?.progress) {
+      this.applyRemote(data.progress);
+      return;
     }
+    LocalDatabase.markProgressSynced(progress.bookId);
   }
 
   private applyRemote(row: ProgressRow): void {

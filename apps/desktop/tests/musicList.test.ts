@@ -15,8 +15,6 @@ const books: Book[] = [
     author: "Artist",
     contentType: "music",
     slug: "album",
-    coverUrl: null,
-    cycleId: null,
   },
   {
     id: "b2",
@@ -24,8 +22,6 @@ const books: Book[] = [
     author: "Miyagi",
     contentType: "music",
     slug: MUSIC_LIBRARY_SLUG,
-    coverUrl: null,
-    cycleId: null,
   },
 ];
 

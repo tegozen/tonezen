@@ -32,6 +32,7 @@ interface BookDetailPageProps {
 }
 
 export function BookDetailPage({
+  book,
   tracks,
   currentTrackId,
   playbackPositionMs,
@@ -61,9 +62,9 @@ export function BookDetailPage({
     playbackPositionMs,
   );
   const continueState = canContinueBookListening(
-    selectedBook.id,
+    book.id,
     tracks,
-    savedTrackId ? { bookId: selectedBook.id, trackId: savedTrackId, positionMs: savedPositionMs } : null,
+    savedTrackId ? { bookId: book.id, trackId: savedTrackId, positionMs: savedPositionMs } : null,
   );
   const showContinue = continueState != null;
 

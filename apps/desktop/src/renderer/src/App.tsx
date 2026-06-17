@@ -114,7 +114,11 @@ export function App() {
 
   refreshLibraryRef.current = refreshLibrary;
 
-  const musicHandlersRef = useRef({
+  const musicHandlersRef = useRef<{
+    handleSkipNext: () => boolean;
+    handleSkipPrevious: () => boolean;
+    handleTrackEnded: () => boolean;
+  }>({
     handleSkipNext: () => false,
     handleSkipPrevious: () => false,
     handleTrackEnded: () => false,
@@ -707,7 +711,7 @@ export function App() {
             setSyncing(true);
             void window.tonezen.sync
               .trigger()
-              .then(refreshLibrary)
+              .then(() => refreshLibrary())
               .finally(() => setSyncing(false));
           }}
           onCloseSyncDialog={() => setShowSyncDialog(false)}

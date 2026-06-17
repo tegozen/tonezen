@@ -104,6 +104,112 @@ describe("API routes", () => {
     expect(res.body.urls[0].url).toContain("/storage/v1/object/sign/content/");
   });
 
+  it("GET /progress/audiobooks requires auth", async () => {
+    const res = await request(app).get("/progress/audiobooks");
+
+    expect(res.status).toBe(401);
+  });
+
+  it("GET /progress/audiobooks returns user progress", async () => {
+    vi.mocked(mockPool.query).mockResolvedValueOnce({
+      rows: [
+        {
+          book_id: "book-1",
+          track_id: "track-1",
+          position_ms: 100,
+          updated_at: "2024-06-01T00:00:00Z",
+        },
+      ],
+    } as never);
+
+    const res = await request(app)
+      .get("/progress/audiobooks")
+      .set("Authorization", `Bearer ${makeToken("user-1")}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.progress).toEqual([
+      {
+        book_id: "book-1",
+        track_id: "track-1",
+        position_ms: 100,
+        updated_at: "2024-06-01T00:00:00Z",
+      },
+    ]);
+  });
+
+  it("PUT /progress/audiobooks returns updated progress", async () => {
+    vi.mocked(mockPool.query)
+      .mockResolvedValueOnce({ rows: [{ content_type: "audiobook" }] } as never)
+      .mockResolvedValueOnce({ rows: [{ "?column?": 1 }] } as never)
+      .mockResolvedValueOnce({ rows: [] } as never)
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            book_id: "book-1",
+            track_id: "track-1",
+            position_ms: 100,
+            updated_at: "2024-06-01T00:00:00Z",
+          },
+        ],
+      } as never);
+
+    const res = await request(app)
+      .put("/progress/audiobooks/book-1")
+      .set("Authorization", `Bearer ${makeToken("user-1")}`)
+      .send({
+        track_id: "track-1",
+        position_ms: 100,
+        updated_at: "2024-06-01T00:00:00Z",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      progress: {
+        book_id: "book-1",
+        track_id: "track-1",
+        position_ms: 100,
+        updated_at: "2024-06-01T00:00:00Z",
+      },
+    });
+  });
+
+  it("PUT /progress/audiobooks returns server winner for stale writes", async () => {
+    vi.mocked(mockPool.query)
+      .mockResolvedValueOnce({ rows: [{ content_type: "audiobook" }] } as never)
+      .mockResolvedValueOnce({ rows: [{ "?column?": 1 }] } as never)
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            book_id: "book-1",
+            track_id: "track-newer",
+            position_ms: 500,
+            updated_at: "2024-06-01T00:00:00Z",
+          },
+        ],
+      } as never);
+
+    const res = await request(app)
+      .put("/progress/audiobooks/book-1")
+      .set("Authorization", `Bearer ${makeToken("user-1")}`)
+      .send({
+        track_id: "track-old",
+        position_ms: 100,
+        updated_at: "2024-01-01T00:00:00Z",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      skipped: true,
+      progress: {
+        book_id: "book-1",
+        track_id: "track-newer",
+        position_ms: 500,
+        updated_at: "2024-06-01T00:00:00Z",
+      },
+    });
+    expect(vi.mocked(mockPool.query)).toHaveBeenCalledTimes(3);
+  });
+
   it("PUT /progress/audiobooks rejects music content", async () => {
     vi.mocked(mockPool.query).mockResolvedValueOnce({
       rows: [{ content_type: "music" }],

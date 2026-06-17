@@ -16,7 +16,7 @@ class ProgressRemoteApi(
     private val apiRoot: String,
     private val httpClient: OkHttpClient,
 ) {
-    suspend fun pushProgress(accessToken: String, bookId: String, progress: AudiobookProgress) =
+    suspend fun pushProgress(accessToken: String, bookId: String, progress: AudiobookProgress): RemoteProgress =
         withContext(Dispatchers.IO) {
             val body = JSONObject()
                 .put("track_id", progress.trackId)
@@ -32,6 +32,8 @@ class ProgressRemoteApi(
                 if (!response.isSuccessful) {
                     throw RemoteHttpException(response.code, "Progress push failed (${response.code})")
                 }
+                val json = JSONObject(response.body?.string().orEmpty())
+                json.getJSONObject("progress").toRemoteProgress()
             }
         }
 
@@ -41,14 +43,7 @@ class ProgressRemoteApi(
         buildList {
             for (i in 0 until arr.length()) {
                 val row = arr.getJSONObject(i)
-                add(
-                    RemoteProgress(
-                        bookId = row.getString("book_id"),
-                        trackId = row.getString("track_id"),
-                        positionMs = row.getLong("position_ms"),
-                        updatedAt = row.getString("updated_at"),
-                    ),
-                )
+                add(row.toRemoteProgress())
             }
         }
     }
@@ -58,5 +53,12 @@ class ProgressRemoteApi(
         val trackId: String,
         val positionMs: Long,
         val updatedAt: String,
+    )
+
+    private fun JSONObject.toRemoteProgress() = RemoteProgress(
+        bookId = getString("book_id"),
+        trackId = getString("track_id"),
+        positionMs = getLong("position_ms"),
+        updatedAt = getString("updated_at"),
     )
 }

@@ -34,6 +34,9 @@ export async function uploadAvatarToStorage(
     throw new Error("Invalid user id");
   }
   const bytes = coerceAvatarJpegBytes(jpegBytes);
+  const body = bytes.buffer instanceof ArrayBuffer
+    ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+    : Uint8Array.from(bytes).buffer;
   const objectPath = `${userId}/${AVATAR_FILE_NAME}`;
   const url = `${config.baseUrl.replace(/\/$/, "")}/storage/v1/object/avatars/${objectPath}`;
   const response = await fetch(url, {
@@ -44,7 +47,7 @@ export async function uploadAvatarToStorage(
       "Content-Type": "image/jpeg",
       "x-upsert": "true",
     },
-    body: bytes,
+    body,
   });
   if (!response.ok) {
     const text = await response.text();

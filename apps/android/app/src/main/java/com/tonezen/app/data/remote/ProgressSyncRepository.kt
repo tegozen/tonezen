@@ -100,12 +100,15 @@ class ProgressSyncRepository @Inject constructor(
     }
 
     suspend fun pushProgress(accessToken: String, entity: AudiobookProgressEntity) {
-        progressRemoteApi.pushProgress(
+        val serverEntity = progressRemoteApi.pushProgress(
             accessToken,
             entity.bookId,
             entity.toDomain(),
-        )
-        progressRepository.upsertProgressEntity(entity.copy(pendingSync = false))
+        ).toProgressEntity()
+        val local = progressRepository.getProgressEntity(entity.bookId)
+        if (local?.pendingSync == true && local.updatedAtEpochMs > serverEntity.updatedAtEpochMs) return
+        progressRepository.upsertProgressEntity(serverEntity.copy(pendingSync = false))
+        _updates.emit(serverEntity.toDomain())
     }
 
     suspend fun flushPending(accessToken: String) {

@@ -160,6 +160,28 @@ paths:
       responses:
         "200":
           description: Updated progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudiobookProgressUpsertResponse"
+        "400":
+          description: Invalid request or non-audiobook content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Book not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
 components:
   securitySchemes:
@@ -255,3 +277,20 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    AudiobookProgressUpsertResponse:
+      type: object
+      required: [progress]
+      properties:
+        skipped:
+          type: boolean
+          description: True when an existing newer server record won LWW conflict resolution.
+        progress:
+          $ref: "#/components/schemas/AudiobookProgress"
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
