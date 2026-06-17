@@ -9,10 +9,10 @@ Build production **Windows desktop** and **Android** clients. Run commands yours
 
 ## Outputs
 
-| Platform | Command | Artifact |
-|----------|---------|----------|
-| Android | `assembleRelease` | `apps/android/app/build/outputs/apk/release/app-release.apk` |
-| Windows | `npm run dist:win` | `apps/desktop/release/tonezen-windows.exe` |
+| Platform | Command            | Artifact                                                     |
+| -------- | ------------------ | ------------------------------------------------------------ |
+| Android  | `assembleRelease`  | `apps/android/app/build/outputs/apk/release/app-release.apk` |
+| Windows  | `npm run dist:win` | `apps/desktop/release/tonezen-windows.exe`                   |
 
 Landing page expects these names under `docker/landing/public/downloads/` (git-ignored):
 
@@ -37,7 +37,7 @@ Release build:
 - [ ] Pre-flight checks passed
 - [ ] Android release APK built
 - [ ] Windows portable EXE built
-- [ ] (Optional) Artifacts copied to landing downloads
+- [ ] Artifacts copied to landing downloads
 - [ ] Paths and sizes reported to user
 ```
 
