@@ -14,12 +14,31 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    image: postgres:15-alpine
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: supabase_admin
+      PGPASSWORD: tonezen-postgres-internal
+      PGDATABASE: ${POSTGRES_DB:-tonezen}
+      MIGRATIONS_DIR: /migrations
+    volumes:
+      - ./backend/supabase/migrations:/migrations:ro
+      - ./docker/migrate/run.sh:/run.sh:ro
+    entrypoint: ["sh", "/run.sh"]
+
   auth:
     image: supabase/gotrue:v2.151.0
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -59,6 +78,8 @@ services:
     image: node:20-alpine
     restart: "no"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       auth:
         condition: service_healthy
       storage:
@@ -81,12 +102,24 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       PGRST_DB_URI: postgres://authenticator:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
       PGRST_DB_SCHEMAS: public,storage
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
       PGRST_DB_EXTRA_SEARCH_PATH: public
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
 
   meta:
     image: supabase/postgres-meta:v0.84.2
@@ -94,6 +127,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       PG_META_PORT: 8080
       PG_META_DB_HOST: db
@@ -102,6 +137,20 @@ services:
       PG_META_DB_USER: supabase_admin
       PG_META_DB_PASSWORD: tonezen-postgres-internal
       CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:8080/health",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
 
   studio:
     image: supabase/studio:20250224-d10db0f
@@ -110,7 +159,7 @@ services:
       db:
         condition: service_healthy
       meta:
-        condition: service_started
+        condition: service_healthy
     environment:
       HOSTNAME: "0.0.0.0"
       STUDIO_PG_META_URL: http://meta:8080
@@ -126,6 +175,20 @@ services:
       AUTH_JWT_SECRET: ${JWT_SECRET}
       DEFAULT_ORGANIZATION_NAME: ${STUDIO_NAME:-Tonezen}
       DEFAULT_PROJECT_NAME: ${STUDIO_NAME:-Tonezen}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:3000/api/profile",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
   realtime:
     container_name: realtime-dev.supabase-realtime
@@ -134,6 +197,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       PORT: 4000
       DB_HOST: db
@@ -153,6 +218,20 @@ services:
       SEED_SELF_HOST: "true"
       RUN_JANITOR: "true"
       DISABLE_HEALTHCHECK_LOGGING: "true"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:4000/api/tenants/realtime/health",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
   storage:
     image: supabase/storage-api:v1.60.4
@@ -160,10 +239,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       rest:
-        condition: service_started
+        condition: service_healthy
       imgproxy:
-        condition: service_started
+        condition: service_healthy
     environment:
       ANON_KEY: ${ANON_KEY}
       SERVICE_KEY: ${SERVICE_ROLE_KEY}
@@ -207,15 +288,31 @@ services:
       IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
       IMGPROXY_USE_ETAG: "true"
       IMGPROXY_ENABLE_WEBP_DETECTION: "true"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:5001/health",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   api:
     build:
-      context: ./backend/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/api/Dockerfile
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgres://supabase_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
       JWT_SECRET: ${JWT_SECRET}
@@ -223,24 +320,65 @@ services:
       STORAGE_INTERNAL_URL: http://storage:5000
       TONEZEN_BASE_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       PORT: 3001
+      PGHOST: db
+      PGUSER: supabase_admin
+      PGPASSWORD: tonezen-postgres-internal
+      PGDATABASE: ${POSTGRES_DB:-tonezen}
+      MIGRATIONS_DIR: /migrations
+    volumes:
+      - ./backend/supabase/migrations:/migrations:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:3001/health",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
   landing:
     image: nginx:1.27-alpine
     restart: unless-stopped
     volumes:
       - ./docker/landing/public:/usr/share/nginx/html:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:80/",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   kong:
     image: kong:2.8.1
     restart: unless-stopped
     depends_on:
-      - auth
-      - rest
-      - api
-      - landing
-      - realtime
-      - storage
-      - studio
+      auth:
+        condition: service_healthy
+      rest:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+      landing:
+        condition: service_healthy
+      realtime:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+      studio:
+        condition: service_healthy
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /tmp/kong.yml
@@ -254,6 +392,12 @@ services:
       - ./docker/kong/kong.yml:/home/kong/temp.yml:ro
       - ./docker/kong/kong-entrypoint.sh:/home/kong/kong-entrypoint.sh:ro
     entrypoint: ["sh", "/home/kong/kong-entrypoint.sh"]
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   indexer:
     build:
@@ -263,18 +407,51 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       storage:
-        condition: service_started
+        condition: service_healthy
+      api:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgres://supabase_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
       STORAGE_URL: http://storage:5000
       STORAGE_BUCKET: content
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       INDEXER_INTERVAL_SECONDS: 60
+      HEALTH_PORT: 3020
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:3020/health",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 120s
 
   mail:
     image: inbucket/inbucket:3.0.3
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:9000/",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   tonezen-postgres:

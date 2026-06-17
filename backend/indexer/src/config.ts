@@ -4,6 +4,7 @@ export interface IndexerConfig {
   storageBucket: string;
   serviceRoleKey: string;
   intervalSeconds: number;
+  healthPort: number;
 }
 
 export function loadConfig(): IndexerConfig {
@@ -25,5 +26,6 @@ export function loadConfig(): IndexerConfig {
     storageBucket: process.env.STORAGE_BUCKET ?? "content",
     serviceRoleKey,
     intervalSeconds: Number(process.env.INDEXER_INTERVAL_SECONDS ?? "60"),
+    healthPort: Number(process.env.HEALTH_PORT ?? "3020"),
   };
 }

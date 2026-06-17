@@ -172,11 +172,13 @@ TDD is required for domain logic, indexer parsers, and API handlers. See AGENTS.
 
 1. Run `node scripts/gen-env.mjs` to create `.env` with random secrets.
 2. Set `S3_*` from Beget panel and `TONEZEN_BASE_URL` to your public domain (e.g. `https://your.domain`).
-3. Run `docker compose up -d --build`.
+3. Run `docker compose up -d --build` — pending SQL migrations from `backend/supabase/migrations/` apply automatically (`migrate` service + API startup). Logs: `docker compose logs migrate api`.
 4. (Optional) Restore Postgres from another server: `make postgres-import` with archive from export on the source host.
 5. Upload content via Studio (Storage → bucket `content`) — or reuse existing files in the shared S3 bucket.
 6. Sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env` (created on first startup).
 7. Configure client apps — desktop reads root `.env` automatically; Android uses `build.gradle.kts`.
+
+For manual migration run (dev): `make db-migrate`.
 
 ### Client configuration
 

@@ -32,6 +32,7 @@ describe("API routes", () => {
   });
 
   it("GET /health returns ok", async () => {
+    vi.mocked(mockPool.query).mockResolvedValueOnce({ rows: [{ "?column?": 1 }] } as never);
     const res = await request(app).get("/health");
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("ok");
@@ -61,6 +62,13 @@ describe("API routes", () => {
   it("GET /catalog/cycles rejects invalid updated_since", async () => {
     const res = await request(app).get("/catalog/cycles?updated_since=not-a-date");
     expect(res.status).toBe(400);
+  });
+
+  it("GET /catalog/cycles returns 500 when db fails", async () => {
+    vi.mocked(mockPool.query).mockRejectedValueOnce(new Error("db down"));
+    const res = await request(app).get("/catalog/cycles");
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe("Internal server error");
   });
 
   it("rejects JWT signed with none algorithm", async () => {

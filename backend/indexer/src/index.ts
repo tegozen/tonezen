@@ -1,5 +1,6 @@
 import { loadConfig } from "./config.js";
 import { createPool, CatalogRepository } from "./db/index.js";
+import { createHealthServer, type IndexerHealthState } from "./healthServer.js";
 import { probeAudioTags } from "./mediaProbe.js";
 import { scanStorageObjects } from "./scanner.js";
 import { downloadObjectToTemp, removeTempFile } from "./storage/download.js";
@@ -13,6 +14,13 @@ const storageConfig = {
   serviceRoleKey: config.serviceRoleKey,
 };
 const repo = new CatalogRepository(pool, storageConfig);
+
+const healthState: IndexerHealthState = {
+  lastSuccessAt: null,
+  lastFailureAt: null,
+};
+
+createHealthServer(config.healthPort, config.intervalSeconds * 2000, () => healthState);
 
 async function probeTagsFromStorage(storagePath: string) {
   let tempPath: string | null = null;
@@ -39,16 +47,21 @@ async function runOnce(): Promise<void> {
   console.log(
     `[indexer] Done: ${cycles.length} cycles, ${musicAlbums.length} music albums (${objects.length} objects)`,
   );
+  healthState.lastSuccessAt = Date.now();
 }
 
 async function main(): Promise<void> {
   await runOnce();
   setInterval(() => {
-    runOnce().catch((err) => console.error("[indexer] Error:", err));
+    runOnce().catch((err) => {
+      healthState.lastFailureAt = Date.now();
+      console.error("[indexer] Error:", err);
+    });
   }, config.intervalSeconds * 1000);
 }
 
 main().catch((err) => {
+  healthState.lastFailureAt = Date.now();
   console.error(err);
   process.exit(1);
 });

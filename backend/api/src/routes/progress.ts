@@ -1,13 +1,14 @@
 import type { Express } from "express";
+import { asyncRoute } from "../lib/http.js";
 import type { RouteDeps } from "./deps.js";
 
 export function registerProgressRoutes(app: Express, deps: RouteDeps): void {
-  app.get("/progress/audiobooks", ...deps.requiredAuth, async (req, res) => {
+  app.get("/progress/audiobooks", ...deps.requiredAuth, asyncRoute(async (req, res) => {
     const progress = await deps.progress.getAudiobookProgress(req.user!.id);
     res.json({ progress });
-  });
+  }));
 
-  app.put("/progress/audiobooks/:bookId", ...deps.requiredAuth, async (req, res) => {
+  app.put("/progress/audiobooks/:bookId", ...deps.requiredAuth, asyncRoute(async (req, res) => {
     const { track_id, position_ms, updated_at } = req.body ?? {};
     if (!track_id || position_ms == null || !updated_at) {
       res.status(400).json({ error: "track_id, position_ms, updated_at required" });
@@ -33,5 +34,5 @@ export function registerProgressRoutes(app: Express, deps: RouteDeps): void {
       return;
     }
     res.json(result);
-  });
+  }));
 }

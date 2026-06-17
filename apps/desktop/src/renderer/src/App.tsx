@@ -239,6 +239,8 @@ export function App() {
     try {
       await window.tonezen.catalog.sync();
       await refreshLibrary({ rebuildMusic: true });
+    } catch {
+      await refreshLibrary({ rebuildMusic: true });
     } finally {
       setIsLoading(false);
     }
@@ -248,7 +250,6 @@ export function App() {
     const ok = await login();
     if (ok) {
       await syncCatalog();
-      await refreshLibrary();
     }
   };
 

@@ -353,9 +353,8 @@ class LibraryViewModel @Inject constructor(
         rebuildMusic: Boolean = false,
     ) {
         try {
-            val remoteBooks = catalogRepository.syncFromRemote(accessToken)
-            val remoteCycles = catalogRepository.getAllCycles()
-            updateCatalog(remoteBooks, remoteCycles, rebuildMusic)
+            val (books, cycles) = loadCatalogFromRemoteWithLocalFallback(catalogRepository, accessToken)
+            updateCatalog(books, cycles, rebuildMusic)
         } finally {
             _uiState.update { it.copy(isLoadingCatalog = false) }
         }
