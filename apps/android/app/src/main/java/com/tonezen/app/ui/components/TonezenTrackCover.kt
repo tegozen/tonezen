@@ -70,7 +70,7 @@ internal fun TrackCoverArt(
 }
 
 @Composable
-private fun CoverDownloadProgress(progress: Float) {
+internal fun CoverDownloadProgress(progress: Float) {
     val sweep = 360f * progress.coerceIn(0f, 1f)
     val showIndeterminate = progress <= 0f
     Box(contentAlignment = Alignment.Center) {

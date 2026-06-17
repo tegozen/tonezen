@@ -1,7 +1,7 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useRef } from "react";
 import { PauseIcon, PlayIcon, SkipBackIcon, SkipForwardIcon } from "./TonezenIcons";
-import { TrackCoverArt } from "./CoverArt";
+import { TrackSpectrumArt } from "./CoverArt";
 import { useAnimatedVisibility } from "../hooks/useAnimatedVisibility";
 import { formatMs } from "../lib/formatTime";
 import { seekFractionFromPointer } from "@shared/playbackSeek";
@@ -112,10 +112,9 @@ export function NowPlayingSheet({
           <div className="now-playing-sheet-content">
             <div className="now-playing-sheet-hero">
               <div className="now-playing-sheet-cover-row">
-                <TrackCoverArt
+                <TrackSpectrumArt
                   seed={coverSeed}
                   title={title}
-                  showInitial
                   isPlaying={coverPlaying}
                   className="now-playing-sheet-cover h-[168px] w-[168px] rounded-[24px]"
                 >
@@ -124,7 +123,7 @@ export function NowPlayingSheet({
                       {showDownloadLabel ? `${Math.round(downloadProgress * 100)}%` : "…"}
                     </div>
                   ) : null}
-                </TrackCoverArt>
+                </TrackSpectrumArt>
                 <div className="now-playing-volume">
                   <div className="now-playing-volume-slider-wrap">
                     <input

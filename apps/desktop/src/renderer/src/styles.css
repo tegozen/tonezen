@@ -993,6 +993,113 @@
     @apply text-white/45;
   }
 
+  .track-spectrum-glow {
+    @apply pointer-events-none absolute inset-0;
+    background:
+      radial-gradient(circle at 50% 58%, rgb(94 234 212 / 0.18), transparent 38%),
+      radial-gradient(circle at 24% 22%, rgb(255 255 255 / 0.07), transparent 28%);
+  }
+
+  .track-spectrum-bars {
+    @apply absolute inset-x-[18px] inset-y-6 flex items-center justify-center gap-[3px];
+  }
+
+  .track-spectrum-bar {
+    @apply block w-1 rounded-full bg-teal/80;
+    animation: track-spectrum-pulse 1.05s ease-in-out infinite alternate;
+    transform-origin: center;
+  }
+
+  .track-spectrum-art-idle .track-spectrum-bar {
+    animation-play-state: paused;
+    opacity: 0.68;
+    transform: scaleY(0.82);
+  }
+
+  .track-spectrum-art-playing .track-spectrum-bar {
+    animation-play-state: running;
+  }
+
+  .track-spectrum-bar:nth-child(4n) {
+    @apply bg-white/60;
+  }
+
+  .track-spectrum-bar-level-2 {
+    height: 24%;
+  }
+
+  .track-spectrum-bar-level-3 {
+    height: 32%;
+  }
+
+  .track-spectrum-bar-level-4 {
+    height: 40%;
+  }
+
+  .track-spectrum-bar-level-5 {
+    height: 50%;
+  }
+
+  .track-spectrum-bar-level-6 {
+    height: 60%;
+  }
+
+  .track-spectrum-bar-level-7 {
+    height: 70%;
+  }
+
+  .track-spectrum-bar-level-8 {
+    height: 80%;
+  }
+
+  .track-spectrum-bar-level-9 {
+    height: 90%;
+  }
+
+  .track-spectrum-bar-delay-0 {
+    animation-delay: 0ms;
+  }
+
+  .track-spectrum-bar-delay-1 {
+    animation-delay: -130ms;
+  }
+
+  .track-spectrum-bar-delay-2 {
+    animation-delay: -260ms;
+  }
+
+  .track-spectrum-bar-delay-3 {
+    animation-delay: -390ms;
+  }
+
+  .track-spectrum-bar-delay-4 {
+    animation-delay: -520ms;
+  }
+
+  .track-spectrum-bar-delay-5 {
+    animation-delay: -650ms;
+  }
+
+  .track-spectrum-bar-delay-6 {
+    animation-delay: -780ms;
+  }
+
+  .track-spectrum-bar-delay-7 {
+    animation-delay: -910ms;
+  }
+
+  @keyframes track-spectrum-pulse {
+    from {
+      opacity: 0.56;
+      transform: scaleY(0.62);
+    }
+
+    to {
+      opacity: 0.96;
+      transform: scaleY(1.08);
+    }
+  }
+
   .seek-slider {
     @apply h-1 cursor-pointer appearance-none rounded-full bg-white/15 outline-none accent-teal focus:outline-none;
   }

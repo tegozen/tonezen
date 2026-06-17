@@ -30,8 +30,8 @@ import com.tonezen.app.ui.components.RoundControl
 import com.tonezen.app.ui.components.RoundIconControl
 import com.tonezen.app.ui.components.SkipNextGlyph
 import com.tonezen.app.ui.components.SkipPreviousGlyph
+import com.tonezen.app.ui.components.SpectrumCoverArt
 import com.tonezen.app.ui.components.TonezenGlassModalBottomSheet
-import com.tonezen.app.ui.components.TrackCoverArt
 import com.tonezen.app.playback.MusicDownloadState
 import com.tonezen.app.ui.shell.AppShellUiState
 import com.tonezen.app.ui.theme.TonezenInk
@@ -103,12 +103,10 @@ internal fun NowPlayingContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            TrackCoverArt(
+            SpectrumCoverArt(
                 seed = coverSeed,
-                title = title,
                 isPlaying = state.isPlaying && !isDownloading,
                 downloadProgress = downloadProgress,
-                modifier = Modifier.size(168.dp),
                 cornerRadius = 24,
             )
             Column(
