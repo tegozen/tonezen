@@ -5,28 +5,41 @@ export interface IndexerHealthState {
   lastFailureAt: number | null;
 }
 
+function isReady(state: IndexerHealthState, maxAgeMs: number): boolean {
+  const { lastSuccessAt, lastFailureAt } = state;
+  if (lastSuccessAt == null) {
+    return false;
+  }
+
+  const now = Date.now();
+  return (
+    now - lastSuccessAt <= maxAgeMs && (lastFailureAt == null || lastSuccessAt >= lastFailureAt)
+  );
+}
+
 export function createHealthServer(
   port: number,
   maxAgeMs: number,
   getState: () => IndexerHealthState,
 ): http.Server {
   return http.createServer((req, res) => {
-    if (req.url !== "/health") {
-      res.statusCode = 404;
-      res.end();
+    res.setHeader("Content-Type", "application/json");
+
+    if (req.url === "/health") {
+      res.statusCode = 200;
+      res.end(JSON.stringify({ status: "ok" }));
       return;
     }
 
-    const { lastSuccessAt, lastFailureAt } = getState();
-    const now = Date.now();
-    const healthy =
-      lastSuccessAt != null &&
-      now - lastSuccessAt <= maxAgeMs &&
-      (lastFailureAt == null || lastSuccessAt >= lastFailureAt);
+    if (req.url === "/ready") {
+      const ready = isReady(getState(), maxAgeMs);
+      res.statusCode = ready ? 200 : 503;
+      res.end(JSON.stringify({ status: ready ? "ok" : "not_ready" }));
+      return;
+    }
 
-    res.statusCode = healthy ? 200 : 503;
-    res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ status: healthy ? "ok" : "unhealthy" }));
+    res.statusCode = 404;
+    res.end();
   }).listen(port, "0.0.0.0", () => {
     console.log(`[indexer] health on :${port}`);
   });

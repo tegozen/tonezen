@@ -17,12 +17,25 @@ async function listenPort(server: ReturnType<typeof createHealthServer>): Promis
 }
 
 describe("indexer health server", () => {
-  it("returns 503 before first successful run", async () => {
+  it("returns 200 on /health before first successful run", async () => {
     const state: IndexerHealthState = { lastSuccessAt: null, lastFailureAt: null };
     const server = createHealthServer(0, 60_000, () => state);
     const port = await listenPort(server);
 
     const res = await fetch(`http://127.0.0.1:${port}/health`);
+    expect(res.status).toBe(200);
+
+    await new Promise<void>((resolve, reject) => {
+      server.close((err) => (err ? reject(err) : resolve()));
+    });
+  });
+
+  it("returns 503 on /ready before first successful run", async () => {
+    const state: IndexerHealthState = { lastSuccessAt: null, lastFailureAt: null };
+    const server = createHealthServer(0, 60_000, () => state);
+    const port = await listenPort(server);
+
+    const res = await fetch(`http://127.0.0.1:${port}/ready`);
     expect(res.status).toBe(503);
 
     await new Promise<void>((resolve, reject) => {
@@ -30,12 +43,12 @@ describe("indexer health server", () => {
     });
   });
 
-  it("returns 200 after successful run within max age", async () => {
+  it("returns 200 on /ready after successful run within max age", async () => {
     const state: IndexerHealthState = { lastSuccessAt: Date.now(), lastFailureAt: null };
     const server = createHealthServer(0, 60_000, () => state);
     const port = await listenPort(server);
 
-    const res = await fetch(`http://127.0.0.1:${port}/health`);
+    const res = await fetch(`http://127.0.0.1:${port}/ready`);
     expect(res.status).toBe(200);
 
     await new Promise<void>((resolve, reject) => {
