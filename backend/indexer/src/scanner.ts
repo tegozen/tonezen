@@ -19,7 +19,7 @@ export interface ScanStorageOptions {
   probeTags?: (storagePath: string) => Promise<AudioTags | null>;
 }
 
-function isIndexableAudioPath(name: string): boolean {
+export function isIndexableAudioPath(name: string): boolean {
   if (name.endsWith("/")) return false;
   const basename = name.split("/").pop() ?? "";
   if (!basename || basename === ".gitkeep") return false;

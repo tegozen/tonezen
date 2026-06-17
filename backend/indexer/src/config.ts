@@ -5,6 +5,7 @@ export interface IndexerConfig {
   serviceRoleKey: string;
   intervalSeconds: number;
   healthPort: number;
+  probeConcurrency: number;
 }
 
 export function loadConfig(): IndexerConfig {
@@ -27,5 +28,6 @@ export function loadConfig(): IndexerConfig {
     serviceRoleKey,
     intervalSeconds: Number(process.env.INDEXER_INTERVAL_SECONDS ?? "60"),
     healthPort: Number(process.env.HEALTH_PORT ?? "3020"),
+    probeConcurrency: Number(process.env.INDEXER_PROBE_CONCURRENCY ?? "4"),
   };
 }

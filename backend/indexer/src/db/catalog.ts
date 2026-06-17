@@ -1,10 +1,10 @@
 import type pg from "pg";
 import type { ParsedBook, ParsedCycle } from "../parsers.js";
 import { storagePathForAudiobook, storagePathForMusic } from "../parsers.js";
+import type { FileMetadata } from "../mediaProbe.js";
 import {
   analyzeAudioFileAtPath,
   metadataFromStoredIfUnchanged,
-  type FileMetadata,
 } from "../mediaProbe.js";
 import {
   downloadObjectToTemp,
@@ -13,8 +13,14 @@ import {
 } from "../storage/download.js";
 import type { StorageObjectRow } from "../storage/listObjects.js";
 
+export interface UpsertCatalogOptions {
+  getMetadata: (storagePath: string, knownDurationMs: number | null) => Promise<FileMetadata | null>;
+  objectUpdatedAtByPath: Map<string, Date | null>;
+}
+
 export class CatalogRepository {
   private objectSizes = new Map<string, number>();
+  private objectUpdatedAtByPath = new Map<string, Date | null>();
 
   constructor(
     private pool: pg.Pool,
@@ -27,9 +33,45 @@ export class CatalogRepository {
         .filter((object) => object.sizeBytes != null)
         .map((object) => [object.name, object.sizeBytes as number]),
     );
+    this.objectUpdatedAtByPath = new Map(
+      objects.map((object) => [object.name, object.updatedAt]),
+    );
   }
 
   async upsertCatalog(cycles: ParsedCycle[], musicAlbums: ParsedBook[]): Promise<void> {
+    await this.upsertParsedCatalog(cycles, musicAlbums, null);
+  }
+
+  async upsertPartialCatalog(
+    changedObjects: StorageObjectRow[],
+    cycles: ParsedCycle[],
+    musicAlbums: ParsedBook[],
+    options: UpsertCatalogOptions,
+  ): Promise<void> {
+    this.setObjectSizes(changedObjects);
+    this.objectUpdatedAtByPath = options.objectUpdatedAtByPath;
+    await this.upsertParsedCatalog(cycles, musicAlbums, options);
+  }
+
+  async reconcileDeletions(): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await this.reconcileDeletionsInTransaction(client);
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  private async upsertParsedCatalog(
+    cycles: ParsedCycle[],
+    musicAlbums: ParsedBook[],
+    options: UpsertCatalogOptions | null,
+  ): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -53,7 +95,7 @@ export class CatalogRepository {
           );
           for (const track of book.tracks) {
             const storagePath = storagePathForAudiobook(cycle.slug, book.slug, track.filename);
-            await this.upsertTrack(client, bookId, track, storagePath, null);
+            await this.upsertTrack(client, bookId, track, storagePath, options);
           }
         }
       }
@@ -63,11 +105,14 @@ export class CatalogRepository {
         const bookId = await this.upsertBook(client, album);
         for (const track of album.tracks) {
           const storagePath = storagePathForMusic(track.filename);
-          await this.upsertTrack(client, bookId, track, storagePath, null);
+          await this.upsertTrack(client, bookId, track, storagePath, options);
         }
       }
 
-      await this.softDeleteMissing(client, activeCycleSlugs, activeBookSlugs);
+      if (options == null) {
+        await this.softDeleteMissing(client, activeCycleSlugs, activeBookSlugs);
+      }
+
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK");
@@ -100,7 +145,7 @@ export class CatalogRepository {
        ON CONFLICT (slug) DO UPDATE SET
          content_type = EXCLUDED.content_type,
          title = EXCLUDED.title,
-         author = EXCLUDED.author,
+         author = COALESCE(EXCLUDED.author, books.author),
          cover_path = EXCLUDED.cover_path,
          updated_at = now(),
          deleted_at = NULL
@@ -121,11 +166,12 @@ export class CatalogRepository {
       durationMs?: number | null;
     },
     storagePath: string,
-    metadata: FileMetadata | null,
+    options: UpsertCatalogOptions | null,
   ): Promise<void> {
-    const meta =
-      metadata ??
-      (await this.resolveFileMetadata(client, storagePath, track.durationMs ?? null));
+    const meta = options
+      ? await options.getMetadata(storagePath, track.durationMs ?? null)
+      : await this.resolveFileMetadata(client, storagePath, track.durationMs ?? null);
+
     const trackResult = await client.query(
       `INSERT INTO tracks (book_id, sort_order, title, filename, artist, updated_at, deleted_at)
        VALUES ($1, $2, $3, $4, $5, now(), NULL)
@@ -139,28 +185,53 @@ export class CatalogRepository {
       trackId = trackResult.rows[0].id as string;
     } else {
       const existing = await client.query(
-        `SELECT id FROM tracks WHERE book_id = $1 AND filename = $2`,
+        `SELECT id, title, artist FROM tracks WHERE book_id = $1 AND filename = $2`,
         [bookId, track.filename],
       );
       trackId = existing.rows[0].id as string;
+      const existingTitle = existing.rows[0].title as string;
+      const existingArtist = existing.rows[0].artist as string | null;
       await client.query(
-        `UPDATE tracks SET sort_order = $2, title = $3, artist = $4, updated_at = now(), deleted_at = NULL WHERE id = $1`,
-        [trackId, track.sortOrder, track.title, track.artist ?? null],
+        `UPDATE tracks SET
+           sort_order = $2,
+           title = COALESCE(NULLIF($3, ''), $5),
+           artist = COALESCE($4, $6),
+           updated_at = now(),
+           deleted_at = NULL
+         WHERE id = $1`,
+        [
+          trackId,
+          track.sortOrder,
+          track.title,
+          track.artist ?? null,
+          existingTitle,
+          existingArtist,
+        ],
       );
     }
 
-    if (meta?.durationMs != null) {
-      await client.query(`UPDATE tracks SET duration_ms = $2 WHERE id = $1`, [trackId, meta.durationMs]);
+    const durationMs = meta?.durationMs ?? track.durationMs ?? null;
+    if (durationMs != null) {
+      await client.query(`UPDATE tracks SET duration_ms = $2 WHERE id = $1`, [trackId, durationMs]);
     }
 
+    const storageObjectUpdatedAt =
+      this.objectUpdatedAtByPath.get(storagePath) ??
+      options?.objectUpdatedAtByPath.get(storagePath) ??
+      null;
+
     await client.query(
-      `INSERT INTO track_files (track_id, storage_path, checksum, size_bytes, waveform_peaks, updated_at)
-       VALUES ($1, $2, $3, $4, $5::jsonb, now())
+      `INSERT INTO track_files (
+         track_id, storage_path, checksum, size_bytes, waveform_peaks,
+         storage_object_updated_at, updated_at
+       )
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, now())
        ON CONFLICT (track_id) DO UPDATE SET
          storage_path = EXCLUDED.storage_path,
          checksum = EXCLUDED.checksum,
          size_bytes = EXCLUDED.size_bytes,
          waveform_peaks = EXCLUDED.waveform_peaks,
+         storage_object_updated_at = EXCLUDED.storage_object_updated_at,
          updated_at = now()`,
       [
         trackId,
@@ -168,6 +239,7 @@ export class CatalogRepository {
         meta?.checksum ?? null,
         meta?.sizeBytes ?? null,
         meta?.waveformPeaks ? JSON.stringify(meta.waveformPeaks) : null,
+        storageObjectUpdatedAt,
       ],
     );
   }
@@ -208,6 +280,42 @@ export class CatalogRepository {
         await removeTempFile(tempPath);
       }
     }
+  }
+
+  private async reconcileDeletionsInTransaction(client: pg.PoolClient): Promise<void> {
+    await client.query(
+      `UPDATE tracks t
+       SET deleted_at = now(), updated_at = now()
+       FROM track_files tf
+       WHERE t.id = tf.track_id
+         AND (tf.storage_path LIKE 'cycles/%' OR tf.storage_path LIKE 'music/%')
+         AND t.deleted_at IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM storage.objects o
+           WHERE o.bucket_id = 'content' AND o.name = tf.storage_path
+         )`,
+    );
+
+    await client.query(
+      `UPDATE books b
+       SET deleted_at = now(), updated_at = now()
+       WHERE b.deleted_at IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM tracks t
+           WHERE t.book_id = b.id AND t.deleted_at IS NULL
+         )`,
+    );
+
+    await client.query(
+      `UPDATE cycles c
+       SET deleted_at = now(), updated_at = now()
+       WHERE c.deleted_at IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM cycle_books cb
+           JOIN books b ON b.id = cb.book_id
+           WHERE cb.cycle_id = c.id AND b.deleted_at IS NULL
+         )`,
+    );
   }
 
   private async softDeleteMissing(
