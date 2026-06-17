@@ -1,5 +1,5 @@
 import type pg from "pg";
-import type { Express, RequestHandler } from "express";
+import type { ErrorRequestHandler, Express, RequestHandler } from "express";
 
 type AsyncRequestHandler = (
   req: Parameters<RequestHandler>[0],
@@ -14,12 +14,13 @@ export function asyncRoute(handler: AsyncRequestHandler): RequestHandler {
 }
 
 export function registerErrorHandler(app: Express): void {
-  app.use((err: unknown, _req, res, next) => {
+  const handler: ErrorRequestHandler = (err, _req, res, next) => {
     console.error("[api] unhandled error:", err);
     if (res.headersSent) return;
     void next;
     res.status(500).json({ error: "Internal server error" });
-  });
+  };
+  app.use(handler);
 }
 
 export async function healthHandler(pool: pg.Pool, _req: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }): Promise<void> {
