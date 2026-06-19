@@ -1,7 +1,9 @@
 import {
+  audiobookBookSlug,
   buildAudiobookTracks,
   buildMusicLibrary,
   isAudioFilename,
+  naturalCompare,
   pickAudiobookAuthor,
   titleFromSlug,
   type AudiobookFileScan,
@@ -74,17 +76,18 @@ export async function scanStorageObjects(
 
   const cycles: ParsedCycle[] = [];
   for (const [cycleSlug, booksMap] of cycleBooks) {
-    const bookSlugs = [...booksMap.keys()].sort((a, b) => a.localeCompare(b));
+    const bookSlugs = [...booksMap.keys()].sort(naturalCompare);
     const books: ParsedBook[] = [];
 
     for (const bookSlug of bookSlugs) {
       const scannedFiles = [...(booksMap.get(bookSlug) ?? [])].sort((a, b) =>
-        a.filename.localeCompare(b.filename),
+        naturalCompare(a.filename, b.filename),
       );
       if (scannedFiles.length === 0) continue;
 
       books.push({
-        slug: bookSlug,
+        slug: audiobookBookSlug(cycleSlug, bookSlug),
+        storageSlug: bookSlug,
         contentType: "audiobook",
         title: titleFromSlug(bookSlug),
         author: pickAudiobookAuthor(scannedFiles),
@@ -103,8 +106,8 @@ export async function scanStorageObjects(
     });
   }
 
-  cycles.sort((a, b) => a.slug.localeCompare(b.slug));
-  musicFiles.sort((a, b) => a.filename.localeCompare(b.filename));
+  cycles.sort((a, b) => naturalCompare(a.slug, b.slug));
+  musicFiles.sort((a, b) => naturalCompare(a.filename, b.filename));
 
   return {
     cycles,

@@ -94,7 +94,11 @@ export class CatalogRepository {
             [cycleId, bookId, i],
           );
           for (const track of book.tracks) {
-            const storagePath = storagePathForAudiobook(cycle.slug, book.slug, track.filename);
+            const storagePath = storagePathForAudiobook(
+              cycle.slug,
+              book.storageSlug ?? book.slug,
+              track.filename,
+            );
             await this.upsertTrack(client, bookId, track, storagePath, options);
           }
         }

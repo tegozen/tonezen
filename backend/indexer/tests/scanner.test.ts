@@ -14,7 +14,9 @@ describe("scanStorageObjects", () => {
     expect(cycles).toHaveLength(1);
     expect(cycles[0].slug).toBe("test-cycle");
     expect(cycles[0].title).toBe("test cycle");
-    expect(cycles[0].bookOrder).toEqual(["book-one", "book-two"]);
+    expect(cycles[0].bookOrder).toEqual(["test-cycle--book-one", "test-cycle--book-two"]);
+    expect(cycles[0].books[0].slug).toBe("test-cycle--book-one");
+    expect(cycles[0].books[0].storageSlug).toBe("book-one");
     expect(cycles[0].books[0].title).toBe("book one");
     expect(cycles[0].books[0].tracks[0].filename).toBe("001-intro.mp3");
     expect(cycles[0].books[1].tracks[0].filename).toBe("002-part.mp3");
@@ -58,6 +60,35 @@ describe("scanStorageObjects", () => {
     expect(cycles[0].books[0].tracks[0].durationMs).toBe(120_000);
     expect(musicAlbums[0].tracks[0].title).toBe("Song Tag");
     expect(musicAlbums[0].tracks[0].sortOrder).toBe(0);
+  });
+
+  it("keeps numbered book folders unique per cycle", async () => {
+    const { cycles } = await scanStorageObjects([
+      { name: "cycles/defender/1/01.mp3" },
+      { name: "cycles/status/1/01.mp3" },
+    ]);
+
+    expect(cycles.map((cycle) => cycle.books[0]?.slug)).toEqual(["defender--1", "status--1"]);
+    expect(cycles.map((cycle) => cycle.books[0]?.title)).toEqual(["1", "1"]);
+    expect(cycles.map((cycle) => cycle.books[0]?.storageSlug)).toEqual(["1", "1"]);
+  });
+
+  it("sorts numbered book folders and track files naturally", async () => {
+    const { cycles } = await scanStorageObjects([
+      { name: "cycles/saga/10/10.mp3" },
+      { name: "cycles/saga/2/2.mp3" },
+      { name: "cycles/saga/1/1.mp3" },
+      { name: "cycles/saga/10/2.mp3" },
+      { name: "cycles/saga/10/1.mp3" },
+    ]);
+
+    expect(cycles[0].bookOrder).toEqual(["saga--1", "saga--2", "saga--10"]);
+    expect(cycles[0].books.map((book) => book.storageSlug)).toEqual(["1", "2", "10"]);
+    expect(cycles[0].books[2].tracks.map((track) => track.filename)).toEqual([
+      "1.mp3",
+      "2.mp3",
+      "10.mp3",
+    ]);
   });
 
   it("ignores nested music paths and malformed cycle paths", async () => {

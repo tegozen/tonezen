@@ -8,6 +8,7 @@ export interface ParsedTrack {
 
 export interface ParsedBook {
   slug: string;
+  storageSlug?: string;
   contentType: "audiobook" | "music";
   title: string;
   author: string | null;
@@ -33,11 +34,20 @@ export interface MusicFileScan {
 }
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".ogg", ".opus", ".wav", ".aac"]);
+const NATURAL_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 export function isAudioFilename(filename: string): boolean {
   const dot = filename.lastIndexOf(".");
   if (dot < 0) return false;
   return AUDIO_EXTENSIONS.has(filename.slice(dot).toLowerCase());
+}
+
+export function naturalCompare(a: string, b: string): number {
+  return NATURAL_COLLATOR.compare(a, b);
+}
+
+export function audiobookBookSlug(cycleSlug: string, bookSlug: string): string {
+  return `${cycleSlug}--${bookSlug}`;
 }
 
 export function slugify(text: string): string {
