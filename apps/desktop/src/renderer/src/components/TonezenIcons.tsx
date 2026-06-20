@@ -36,8 +36,8 @@ type IconProps = HTMLAttributes<HTMLSpanElement> & {
 function createTonezenIcon(iconUrl: string) {
   return function TonezenIcon({ title, className, style, ...props }: IconProps) {
     const maskStyle: CSSProperties = {
-      WebkitMask: `url(${iconUrl}) center / contain no-repeat`,
-      mask: `url(${iconUrl}) center / contain no-repeat`,
+      WebkitMask: `url("${iconUrl}") center / contain no-repeat`,
+      mask: `url("${iconUrl}") center / contain no-repeat`,
       backgroundColor: "currentColor",
       ...style,
     };
