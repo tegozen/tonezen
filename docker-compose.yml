@@ -266,6 +266,34 @@ services:
       retries: 18
       start_period: 30s
 
+  storage-path-proxy:
+    image: node:22-alpine
+    restart: unless-stopped
+    depends_on:
+      storage:
+        condition: service_healthy
+    working_dir: /app/docker/storage-path-proxy
+    volumes:
+      - ./:/app:ro
+    environment:
+      STORAGE_UPSTREAM: http://storage:5000
+      PORT: "5050"
+    command: ["node", "server.mjs"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:5050/status",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
   imgproxy:
     image: darthsim/imgproxy:v3.8.0
     restart: unless-stopped
@@ -355,6 +383,8 @@ services:
       realtime:
         condition: service_healthy
       storage:
+        condition: service_healthy
+      storage-path-proxy:
         condition: service_healthy
       studio:
         condition: service_healthy

@@ -1,3 +1,5 @@
+import { transliterateRu } from "./transliterateRu.js";
+
 export interface ParsedTrack {
   filename: string;
   sortOrder: number;
@@ -52,7 +54,7 @@ export function audiobookBookSlug(cycleSlug: string, bookSlug: string): string {
 
 export function slugify(text: string): string {
   return (
-    text
+    transliterateRu(text)
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")

@@ -35,7 +35,7 @@ services:
           - /api/v1
 
   - name: storage-v1
-    url: http://storage:5000/
+    url: http://storage-path-proxy:5050/
     routes:
       - name: storage
         strip_path: true
@@ -77,7 +77,7 @@ services:
 
   # TUS resumable uploads: storage returns Location without /storage/v1 prefix
   - name: storage-tus
-    url: http://storage:5000/
+    url: http://storage-path-proxy:5050/
     routes:
       - name: storage-tus-all
         strip_path: false

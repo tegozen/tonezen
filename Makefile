@@ -1,6 +1,6 @@
-.PHONY: test lint up down seed db-migrate indexer-test api-test desktop-test landing-test postgres-export postgres-import gen-env check-eol
+.PHONY: test lint up down seed db-migrate indexer-test api-test desktop-test landing-test storage-path-test postgres-export postgres-import gen-env check-eol
 
-test: check-eol landing-test indexer-test api-test desktop-test
+test: check-eol landing-test storage-path-test indexer-test api-test desktop-test
 	@echo "All unit tests passed"
 
 lint: check-eol
@@ -38,6 +38,9 @@ desktop-test:
 
 landing-test:
 	node ci/check-landing.mjs
+
+storage-path-test:
+	node --test scripts/lib/storagePathSlug.test.mjs
 
 indexer-run:
 	cd backend/indexer && npm run start

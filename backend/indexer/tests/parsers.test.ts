@@ -89,6 +89,10 @@ describe("slugify", () => {
   it("normalizes text into slugs", () => {
     expect(slugify("Artist Name - Album!")).toBe("artist-name-album");
   });
+
+  it("transliterates Cyrillic before slugifying", () => {
+    expect(slugify("Рыцарь системы")).toBe("rytsar-sistemy");
+  });
 });
 
 describe("parseTrackNumber", () => {

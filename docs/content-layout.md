@@ -61,6 +61,8 @@ The indexer reads tags from each file (title, artist, track number). All files b
 3. Indexer picks up new files on the next scan
 4. Clients download via Storage signed URLs from `POST /api/v1/downloads/sign`
 
+Folder and file names may contain **Cyrillic and spaces** — Kong routes uploads through `storage-path-proxy`, which transliterates paths automatically (e.g. `cycles/Рыцарь системы/1/01-01.mp3` → `cycles/rytsar-sistemy/1/01-01.mp3`). After changing proxy or Kong config, run `docker compose up -d storage storage-path-proxy kong`.
+
 ### Large files (> ~6 MB)
 
 Studio switches to **TUS** (resumable upload) for bigger files. Requires `storage-api` **v1.60+** with `REQUEST_ALLOW_X_FORWARDED_PATH=true` and `STORAGE_PUBLIC_URL` set to the public HTTPS URL (see `docker-compose.yml` and `TONEZEN_BASE_URL` in `.env`).
