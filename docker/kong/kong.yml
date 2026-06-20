@@ -138,6 +138,11 @@ services:
   - name: landing
     url: http://landing:80/
     routes:
+      - name: landing-favicon
+        strip_path: false
+        paths:
+          - /favicon.ico
+          - /favicon.png
       - name: landing-root
         strip_path: false
         paths:

@@ -46,6 +46,9 @@ assertIncludes(kong, "name: studio-api", "kong studio routes");
 assertIncludes(kong, "- /api", "kong studio routes");
 assertIncludes(kong, "name: landing-root", "kong landing route");
 assertIncludes(kong, "- /", "kong landing route");
+assertIncludes(kong, "name: landing-favicon", "kong landing favicon route");
+assertIncludes(kong, "- /favicon.ico", "kong landing favicon route");
+assertIncludes(kong, "- /favicon.png", "kong landing favicon route");
 
 const index = read("docker/landing/public/index.html");
 assertIncludes(index, 'lang="ru"', "landing page");
