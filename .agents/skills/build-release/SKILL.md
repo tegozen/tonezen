@@ -87,31 +87,39 @@ npm run dist:mac
 
 `dist:mac` runs: `prepare-client-env.mjs` -> `electron-vite build` -> `electron-builder --mac dmg`. The package config sets `mac.identity: null`, `mac.notarize: false`, and `dmg.sign: false`; do not add signing or notarization unless the user explicitly asks.
 
-### 4. Copy to landing (optional)
+### 4. Copy to landing (always)
 
-Only when user wants local landing downloads updated:
+**Always run this step** after all requested builds succeed — do not ask the user and do not leave copy instructions for them to run manually.
+
+From **repo root**. Ensure the folder exists, then copy every artifact that was built in this run:
 
 ```powershell
-Copy-Item -Force apps/android/app/build/outputs/apk/release/app-release.apk docker/landing/public/downloads/tonezen-android.apk
-Copy-Item -Force apps/desktop/release/tonezen-windows.exe docker/landing/public/downloads/tonezen-windows.exe
+$dest = "docker/landing/public/downloads"
+New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
+Copy-Item -Force apps/android/app/build/outputs/apk/release/app-release.apk "$dest/tonezen-android.apk"
+Copy-Item -Force apps/desktop/release/tonezen-windows.exe "$dest/tonezen-windows.exe"
 ```
 
 If the macOS step ran and produced a DMG, also copy:
 
 ```powershell
-Copy-Item -Force apps/desktop/release/tonezen-macos.dmg docker/landing/public/downloads/tonezen-macos.dmg
+Copy-Item -Force apps/desktop/release/tonezen-macos.dmg "$dest/tonezen-macos.dmg"
 ```
 
-Restart or refresh landing container if already running (`docker compose up -d` serves static files from that folder).
+Copy only files that exist — skip missing platform outputs (e.g. no DMG on Windows hosts).
+
+If landing is already running locally, refreshed static files are served from that folder (`docker compose up -d`); no container restart required for file swaps.
 
 ## After build
 
 Report to the user:
 
-- Full paths to all built artifacts
+- Full paths to all built artifacts (source + landing copy)
 - File sizes
 - App version from `build.gradle.kts` / `package.json`
-- Reminder: binaries are not in git; upload or copy to server manually for production landing
+- Confirm landing copies under `docker/landing/public/downloads/`
+- Reminder: binaries are not in git; for production VPS, upload landing downloads separately if not deploying from this machine
 
 ## Do not
 
@@ -122,4 +130,4 @@ Report to the user:
 
 ## Parallel builds
 
-Android Gradle and desktop npm can run in parallel on separate terminals when CPU/disk allow. On macOS, the Windows and macOS desktop builds can also run sequentially from `apps/desktop`; wait for all requested host-supported artifacts before copying to landing.
+Android Gradle and desktop npm can run in parallel on separate terminals when CPU/disk allow. On macOS, the Windows and macOS desktop builds can also run sequentially from `apps/desktop`. **Wait for all builds to finish, then run step 4 once** to copy every produced artifact to landing downloads.
