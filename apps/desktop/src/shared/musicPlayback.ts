@@ -11,6 +11,13 @@ export function isMusicTrackPlayable(track: { isDownloaded: boolean }, sessionSt
   return sessionState === "AuthenticatedOnline";
 }
 
+export function findFirstPlayableMusicTrack<T extends { isDownloaded: boolean }>(
+  tracks: T[],
+  sessionState: MusicSessionState,
+): T | null {
+  return tracks.find((track) => isMusicTrackPlayable(track, sessionState)) ?? null;
+}
+
 export function findNextPlayableIndex<T>(
   items: T[],
   currentIndex: number,
@@ -41,4 +48,16 @@ export function findPreviousPlayableIndex<T>(
     if (isPlayable(items[index])) return index;
   }
   return null;
+}
+
+export function findActiveMusicTrack<T extends { trackId: string }>(
+  visibleQueue: T[],
+  fullQueue: T[],
+  activeTrackId: string | null | undefined,
+): T | undefined {
+  if (!activeTrackId) return undefined;
+  return (
+    visibleQueue.find((track) => track.trackId === activeTrackId) ??
+    fullQueue.find((track) => track.trackId === activeTrackId)
+  );
 }

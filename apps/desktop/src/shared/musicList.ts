@@ -12,6 +12,10 @@ export interface MusicListTrack {
   isDownloaded: boolean;
 }
 
+export const MUSIC_QUEUE_INITIAL_WINDOW_SIZE = 24;
+export const MUSIC_QUEUE_APPEND_WINDOW_SIZE = 12;
+export const MUSIC_QUEUE_APPEND_TRIGGER_REMAINING = 4;
+
 export function resolveMusicLibraryBooks(books: Book[]): Book[] {
   const musicBooks = books.filter((book) => book.contentType === "music");
   const libraryBooks = musicBooks.filter((book) => book.slug === MUSIC_LIBRARY_SLUG);
@@ -117,6 +121,7 @@ export function buildMusicTrackListForCatalogUpdate(
   books: Book[],
   tracks: Track[],
   musicStartedInSession: boolean,
+  shuffleNewTracks: (tracks: MusicListTrack[]) => MusicListTrack[] = shuffleMusicTracks,
 ): MusicListTrack[] {
   const built = buildMusicTrackList(books, tracks);
   if (existing.length === 0) {
@@ -141,7 +146,7 @@ export function buildMusicTrackListForCatalogUpdate(
     .filter((item): item is MusicListTrack => item != null);
   const keptIds = new Set(kept.map((track) => track.trackId));
   const appended = built.filter((track) => !keptIds.has(track.trackId));
-  return [...kept, ...appended];
+  return [...kept, ...shuffleNewTracks(appended)];
 }
 
 export function visibleMusicTrackList(
@@ -159,6 +164,48 @@ export function musicQueueFrom(
   const index = tracks.findIndex((t) => t.trackId === startTrackId);
   if (index < 0) return tracks;
   return [...tracks.slice(index), ...tracks.slice(0, index)];
+}
+
+export function musicQueueWindowFrom(
+  tracks: MusicListTrack[],
+  startTrackId: string,
+  size = MUSIC_QUEUE_INITIAL_WINDOW_SIZE,
+): MusicListTrack[] {
+  if (size <= 0) return [];
+  return musicQueueFrom(tracks, startTrackId).slice(0, size);
+}
+
+export function nextMusicQueueWindow(
+  tracks: MusicListTrack[],
+  lastMaterializedTrackId: string,
+  materializedTrackIds: Set<string>,
+  size = MUSIC_QUEUE_APPEND_WINDOW_SIZE,
+): MusicListTrack[] {
+  if (tracks.length === 0 || size <= 0 || materializedTrackIds.size >= tracks.length) {
+    return [];
+  }
+  const tailIndex = tracks.findIndex((track) => track.trackId === lastMaterializedTrackId);
+  if (tailIndex < 0) return [];
+  const result: MusicListTrack[] = [];
+  let index = (tailIndex + 1) % tracks.length;
+  for (let step = 0; step < tracks.length; step += 1) {
+    const track = tracks[index];
+    if (track && !materializedTrackIds.has(track.trackId)) {
+      result.push(track);
+      if (result.length === size) return result;
+    }
+    index = (index + 1) % tracks.length;
+  }
+  return result;
+}
+
+export function shouldAppendMusicQueueWindow(
+  currentIndex: number,
+  queueSize: number,
+  remainingThreshold = MUSIC_QUEUE_APPEND_TRIGGER_REMAINING,
+): boolean {
+  if (queueSize <= 0 || currentIndex < 0 || currentIndex >= queueSize) return false;
+  return queueSize - currentIndex - 1 <= remainingThreshold;
 }
 
 export function nextMusicIndex(currentIndex: number, size: number): number {

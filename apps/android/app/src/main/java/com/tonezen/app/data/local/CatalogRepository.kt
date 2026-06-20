@@ -98,6 +98,16 @@ class CatalogRepository @Inject constructor(
         ids
     }
 
+    suspend fun getDownloadedTrackIdsFromCatalog(): Set<String> = withContext(Dispatchers.IO) {
+        catalogDao.getTracksWithLocalPath()
+            .asSequence()
+            .mapNotNull { entity ->
+                SafeLocalStorage.sanitizeStoredLocalPath(context.filesDir, entity.localPath)
+                    ?.let { entity.id }
+            }
+            .toSet()
+    }
+
     /** Backfill DB localPath from files on disk (e.g. after mark failed or offline reopen). */
     suspend fun reconcileLocalDownloadPaths() = withContext(Dispatchers.IO) {
         val updates = mutableListOf<TrackEntity>()

@@ -30,6 +30,7 @@ internal fun buildMusicTrackListForCatalogUpdate(
     candidates: List<Pair<Book, Track>>,
     musicStartedInSession: Boolean,
     downloadedTrackIds: Set<String>,
+    shuffleNewTracks: (List<MusicListTrack>) -> List<MusicListTrack> = { it.shuffled() },
 ): List<MusicListTrack> {
     if (candidates.isEmpty()) return emptyList()
     val built = buildMusicTrackListFromCandidates(
@@ -67,7 +68,7 @@ internal fun buildMusicTrackListForCatalogUpdate(
     val kept = existing.mapNotNull { freshById[it.trackId] }
     val keptIds = kept.map { it.trackId }.toSet()
     val appended = built.filter { it.trackId !in keptIds }
-    return kept + appended
+    return kept + shuffleNewTracks(appended)
 }
 
 internal fun buildMusicTrackListFromCandidates(

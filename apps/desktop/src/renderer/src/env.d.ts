@@ -41,7 +41,7 @@ export interface TonezenApi {
   db: {
     getBooks: () => Promise<Book[]>;
     getCycles: () => Promise<Cycle[]>;
-    getLibrarySnapshot: () => Promise<{
+    getLibrarySnapshot: (options?: { reconcileLocalPaths?: boolean }) => Promise<{
       books: Book[];
       cycles: Cycle[];
       tracks: Track[];

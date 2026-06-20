@@ -34,6 +34,8 @@ import com.tonezen.app.playback.PlaybackSnapshot
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -247,6 +249,8 @@ class LibraryViewModel @Inject constructor(
 
     fun onMiniPlayerPlayPause() = musicHandler.onMiniPlayerPlayPause()
 
+    fun playMusicWave() = musicHandler.playMusicWave()
+
     fun onMusicTrackClick(track: MusicListTrack) = musicHandler.onMusicTrackClick(track)
 
     fun toggleCyclePlay(cycle: Cycle) {
@@ -273,10 +277,10 @@ class LibraryViewModel @Inject constructor(
 
     fun refreshCycleMenu(cycle: Cycle) = cycleHandler.refreshCycleMenu(cycle)
 
-    fun refreshDownloads() {
+    fun refreshDownloads(reconcileLocalPaths: Boolean = true) {
         viewModelScope.launch {
             val books = _uiState.value.books
-            val downloadedTrackIds = musicHandler.resolveDownloadedTrackIdsForUi()
+            val downloadedTrackIds = musicHandler.resolveDownloadedTrackIdsForUi(reconcileLocalPaths)
             val trackList = musicHandler.refreshMusicTrackListWithDownloadedIds(downloadedTrackIds)
             val downloaded = withContext(Dispatchers.IO) {
                 catalogRepository.downloadedBookIds(books)
@@ -314,29 +318,59 @@ class LibraryViewModel @Inject constructor(
             }
             return
         }
-        withContext(Dispatchers.IO) {
-            catalogRepository.reconcileLocalDownloadPaths()
-            val refreshed = sessionRepository.refreshIfNeeded(sessionData)
-            withContext(Dispatchers.Main) {
-                refreshSessionState(refreshed)
-            }
-            refreshed?.let {
-                progressSyncRepository.start(it)
-                profileSyncRepository.start(it)
-                catalogSyncRepository.start(it)
-            } ?: catalogSyncRepository.stop()
+        val refreshed = withContext(Dispatchers.IO) {
+            sessionRepository.refreshIfNeeded(sessionData)
+        }
+        refreshSessionState(refreshed)
+        refreshed?.let {
+            progressSyncRepository.start(it)
+            profileSyncRepository.start(it)
+            catalogSyncRepository.start(it)
+        } ?: catalogSyncRepository.stop()
 
-            if (networkMonitor.isOnline()) {
-                withContext(Dispatchers.Main) {
-                    _uiState.update { it.copy(isLoadingCatalog = true) }
+        if (networkMonitor.isOnline()) {
+            _uiState.update { it.copy(isLoadingCatalog = true) }
+            coroutineScope {
+                val remote = async(Dispatchers.IO) {
+                    loadCatalogFromRemoteWithLocalFallback(catalogRepository, refreshed?.accessToken)
                 }
-                refreshCatalogFromRemote(refreshed?.accessToken, rebuildMusic = true)
-            } else {
-                val local = catalogRepository.getAllBooks()
-                val localCycles = catalogRepository.getAllCycles()
-                withContext(Dispatchers.Main) {
-                    updateCatalog(local, localCycles)
+                val localBooks = async(Dispatchers.IO) { catalogRepository.getAllBooks() }
+                val localCycles = async(Dispatchers.IO) { catalogRepository.getAllCycles() }
+                updateCatalog(
+                    books = localBooks.await(),
+                    cycles = localCycles.await(),
+                    rebuildMusic = true,
+                    reconcileLocalPaths = false,
+                )
+                if (_uiState.value.books.isNotEmpty() || _uiState.value.cycles.isNotEmpty()) {
                     _uiState.update { it.copy(isLoadingCatalog = false) }
+                }
+                try {
+                    val (books, cycles) = remote.await()
+                    updateCatalog(
+                        books = books,
+                        cycles = cycles,
+                        rebuildMusic = true,
+                        reconcileLocalPaths = true,
+                    )
+                } finally {
+                    _uiState.update { it.copy(isLoadingCatalog = false) }
+                }
+            }
+        } else {
+            val local = withContext(Dispatchers.IO) { catalogRepository.getAllBooks() }
+            val localCycles = withContext(Dispatchers.IO) { catalogRepository.getAllCycles() }
+            updateCatalog(
+                books = local,
+                cycles = localCycles,
+                rebuildMusic = true,
+                reconcileLocalPaths = false,
+            )
+            _uiState.update { it.copy(isLoadingCatalog = false) }
+            viewModelScope.launch(Dispatchers.IO) {
+                catalogRepository.reconcileLocalDownloadPaths()
+                withContext(Dispatchers.Main) {
+                    refreshDownloads(reconcileLocalPaths = false)
                 }
             }
         }
@@ -364,15 +398,23 @@ class LibraryViewModel @Inject constructor(
         books: List<Book>,
         cycles: List<Cycle>,
         rebuildMusic: Boolean = false,
+        reconcileLocalPaths: Boolean = true,
     ) {
-        updateBooks(books, rebuildMusic)
+        updateBooks(books, rebuildMusic, reconcileLocalPaths)
         _uiState.update { it.copy(cycles = cycles) }
         cycleHandler.refreshCycleCardStates(cycles, _uiState.value.downloadedBookIds)
     }
 
-    private suspend fun updateBooks(books: List<Book>, rebuildMusic: Boolean = false) {
+    private suspend fun updateBooks(
+        books: List<Book>,
+        rebuildMusic: Boolean = false,
+        reconcileLocalPaths: Boolean = true,
+    ) {
         musicHandler.reloadMusicCatalogData()
-        val trackList = musicHandler.buildMusicTrackListForCatalogUpdate(rebuildMusic = rebuildMusic)
+        val trackList = musicHandler.buildMusicTrackListForCatalogUpdate(
+            rebuildMusic = rebuildMusic,
+            reconcileLocalPaths = reconcileLocalPaths,
+        )
         val downloaded = withContext(Dispatchers.IO) {
             catalogRepository.downloadedBookIds(books)
         }

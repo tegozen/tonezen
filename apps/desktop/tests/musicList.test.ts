@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildMusicTrackList,
   buildMusicTrackListForCatalogUpdate,
+  musicQueueWindowFrom,
   MUSIC_LIBRARY_SLUG,
+  MUSIC_QUEUE_INITIAL_WINDOW_SIZE,
+  nextMusicQueueWindow,
   refreshMusicTrackListDownloadState,
   resolveMusicLibraryBooks,
 } from "../src/shared/musicList.js";
@@ -32,6 +35,10 @@ const tracks: Track[] = [
 ];
 
 describe("buildMusicTrackListForCatalogUpdate", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("prefers music-library slug books", () => {
     const list = buildMusicTrackList(books, tracks);
     expect(list.map((track) => track.trackId)).toEqual(["t3", "t1"]);
@@ -72,6 +79,42 @@ describe("buildMusicTrackListForCatalogUpdate", () => {
     expect(updated).toHaveLength(2);
   });
 
+  it("appends backend tracks as a separately shuffled suffix", () => {
+    vi.spyOn(Math, "random")
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0);
+    const newTracks: Track[] = [
+      ...tracks,
+      { id: "t4", bookId: "b2", sortOrder: 2, title: "Three", filename: "3.mp3" },
+      { id: "t5", bookId: "b2", sortOrder: 3, title: "Four", filename: "4.mp3" },
+      { id: "t6", bookId: "b2", sortOrder: 4, title: "Five", filename: "5.mp3" },
+    ];
+    const existing = [
+      {
+        trackId: "t1",
+        trackTitle: "Two",
+        artist: "Miyagi",
+        albumTitle: "Library",
+        bookId: "b2",
+        durationMs: 2000,
+        isDownloaded: false,
+      },
+      {
+        trackId: "t3",
+        trackTitle: "Zero",
+        artist: "Miyagi",
+        albumTitle: "Library",
+        bookId: "b2",
+        durationMs: 3000,
+        isDownloaded: true,
+      },
+    ];
+
+    const updated = buildMusicTrackListForCatalogUpdate(existing, books, newTracks, false);
+
+    expect(updated.map((track) => track.trackId)).toEqual(["t1", "t3", "t5", "t6", "t4"]);
+  });
+
   it("rebuilds list when track metadata changes", () => {
     const stale = [
       {
@@ -107,5 +150,29 @@ describe("refreshMusicTrackListDownloadState", () => {
     const refreshed = refreshMusicTrackListDownloadState(list, books, tracks);
     expect(refreshed.map((track) => track.trackId)).toEqual(list.map((track) => track.trackId));
     expect(refreshed.find((track) => track.trackId === "t3")?.isDownloaded).toBe(true);
+  });
+});
+
+describe("music queue windows", () => {
+  const queueTracks = Array.from({ length: 30 }, (_, index) => ({
+    trackId: `t${index}`,
+    trackTitle: `Track ${index}`,
+    artist: "Artist",
+    albumTitle: "Album",
+    bookId: "b2",
+    isDownloaded: index % 2 === 0,
+  }));
+
+  it("starts at selected track, wraps, and caps the visible queue", () => {
+    const window = musicQueueWindowFrom(queueTracks, "t10");
+    expect(window).toHaveLength(MUSIC_QUEUE_INITIAL_WINDOW_SIZE);
+    expect(window[0]?.trackId).toBe("t10");
+    expect(window.at(-1)?.trackId).toBe("t3");
+  });
+
+  it("returns the next append window without materialized duplicates", () => {
+    const materializedIds = new Set(Array.from({ length: 24 }, (_, offset) => `t${offset + 6}`));
+    const window = nextMusicQueueWindow(queueTracks, "t29", materializedIds);
+    expect(window.map((track) => track.trackId)).toEqual(["t0", "t1", "t2", "t3", "t4", "t5"]);
   });
 });

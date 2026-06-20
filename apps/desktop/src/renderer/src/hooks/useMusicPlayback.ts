@@ -3,6 +3,7 @@ import type { Book, SessionState, Track } from "@shared/types";
 import {
   buildMusicTrackListForCatalogUpdate,
   musicQueueFrom,
+  musicQueueWindowFrom,
   nextMusicIndex,
   previousMusicIndex,
   visibleMusicTrackList,
@@ -14,6 +15,7 @@ import {
   progressForTrack as downloadProgressForTrack,
 } from "@shared/downloadQueueState";
 import {
+  findFirstPlayableMusicTrack,
   findNextPlayableIndex,
   findPreviousPlayableIndex,
   isMusicTrackPlayable,
@@ -212,7 +214,7 @@ export function useMusicPlayback({
 
       const queue = musicQueueFrom(playbackMusicTracks, listTrack.trackId);
       musicQueueRef.current = queue;
-      setMusicQueue(queue);
+      setMusicQueue(musicQueueWindowFrom(playbackMusicTracks, listTrack.trackId));
       setTracks([local]);
       playTrack(local, 0, book);
       prefetchNextTrack(queue, listTrack.trackId);
@@ -240,6 +242,33 @@ export function useMusicPlayback({
       buildMusicTrackListForCatalogUpdate(current, books, allTracks, false),
     );
   }, [allTracks, books, setMusicTracks]);
+
+  const playMusicWave = useCallback(() => {
+    if (musicMode && currentTrack) {
+      pauseOrResume();
+      return;
+    }
+    const firstPlayable = findFirstPlayableMusicTrack(
+      playbackMusicTracks,
+      musicSessionState(sessionState),
+    );
+    if (!firstPlayable) {
+      if (sessionState === "Unauthenticated") {
+        setMusicError(strings.musicPlaybackErrorLogin);
+      } else if (sessionState !== "AuthenticatedOnline") {
+        setMusicError(strings.musicPlaybackErrorOffline);
+      }
+      return;
+    }
+    void playMusicTrackInternal(firstPlayable);
+  }, [
+    currentTrack,
+    musicMode,
+    pauseOrResume,
+    playMusicTrackInternal,
+    playbackMusicTracks,
+    sessionState,
+  ]);
 
   const advanceToPlayableTrack = useCallback(
     async (
@@ -417,6 +446,7 @@ export function useMusicPlayback({
     musicStartedInSessionRef,
     musicQueueRef,
     playMusicTrack: playMusicTrackInternal,
+    playMusicWave,
     downloadAllMusic,
     downloadMusicTrack,
     deleteMusicTrack,

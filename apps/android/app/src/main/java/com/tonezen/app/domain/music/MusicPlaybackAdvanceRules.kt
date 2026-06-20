@@ -1,6 +1,14 @@
 package com.tonezen.app.domain.music
 
 object MusicPlaybackAdvanceRules {
+    fun <T> findFirstPlayable(
+        items: List<T>,
+        isPlayable: (T) -> Boolean,
+    ): Int? {
+        if (items.isEmpty()) return null
+        return items.indexOfFirst(isPlayable).takeIf { it >= 0 }
+    }
+
     fun <T> findNextPlayable(
         items: List<T>,
         currentIndex: Int,

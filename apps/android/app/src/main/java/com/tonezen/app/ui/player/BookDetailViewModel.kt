@@ -17,6 +17,7 @@ import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.downloads.DownloadPriority
 import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
 import com.tonezen.app.domain.music.MusicShuffleQueue
+import com.tonezen.app.domain.music.MusicQueueWindow
 import com.tonezen.app.playback.TrackDownloadQueueController
 import com.tonezen.app.domain.progress.isBookFullyListened
 import com.tonezen.app.domain.progress.resolveAudiobookPlaybackStartMs
@@ -153,8 +154,13 @@ class BookDetailViewModel @Inject constructor(
                         }
                         return@launch
                     }
+                    val queueWindow = MusicQueueWindow.initialWindow(
+                        items = libraryTracks,
+                        startTrackId = localTrack.id,
+                        idOf = { it.track.id },
+                    )
                     val queue = withContext(Dispatchers.IO) {
-                        playbackQueueBuilder.buildLocalMusicLibraryQueue(libraryTracks) { entry ->
+                        playbackQueueBuilder.buildLocalMusicLibraryQueue(queueWindow) { entry ->
                             if (entry.track.id == localTrack.id) {
                                 localTrack
                             } else {

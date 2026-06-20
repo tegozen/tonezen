@@ -51,6 +51,30 @@ class MusicPlaybackAdvanceRulesTest {
     }
 
     @Test
+    fun findFirstPlayableReturnsFirstAvailableTrack() {
+        val items = listOf(
+            Item("a", false),
+            Item("b", true),
+            Item("c", true),
+        )
+        val first = MusicPlaybackAdvanceRules.findFirstPlayable(
+            items = items,
+            isPlayable = { it.downloaded },
+        )
+        assertEquals(1, first)
+    }
+
+    @Test
+    fun findFirstPlayableReturnsNullWhenOfflineQueueHasNoDownloads() {
+        val items = listOf(Item("a", false), Item("b", false))
+        val first = MusicPlaybackAdvanceRules.findFirstPlayable(
+            items = items,
+            isPlayable = { it.downloaded },
+        )
+        assertNull(first)
+    }
+
+    @Test
     fun isTrackPlayableRequiresDownloadWhenOffline() {
         assertTrue(MusicPlaybackAdvanceRules.isTrackPlayable(isDownloaded = true, isNetworkOnline = false))
         assertFalse(MusicPlaybackAdvanceRules.isTrackPlayable(isDownloaded = false, isNetworkOnline = false))

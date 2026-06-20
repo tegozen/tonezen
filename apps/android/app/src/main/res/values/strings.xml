@@ -162,5 +162,9 @@
     <string name="music_download_stop">Остановить загрузку</string>
     <string name="music_download_stop_all">Остановить все загрузки</string>
     <string name="music_download_all_progress">%1$d из %2$d</string>
+    <string name="music_wave_title">Моя волна</string>
+    <string name="music_wave_play">Запустить волну</string>
+    <string name="music_wave_tracks_count">%1$d треков доступно</string>
+    <string name="music_all_tracks">Все треки</string>
     <string name="music_delete_track">Удалить трек</string>
 </resources>

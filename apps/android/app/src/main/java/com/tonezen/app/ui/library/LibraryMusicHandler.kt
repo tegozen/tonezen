@@ -10,6 +10,7 @@ import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.music.MusicLibraryTrack
 import com.tonezen.app.domain.music.MusicPlaybackAdvanceRules
+import com.tonezen.app.domain.music.MusicQueueWindow
 import com.tonezen.app.domain.downloads.DownloadAwaitResult
 import com.tonezen.app.domain.downloads.DownloadPriority
 import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
@@ -20,6 +21,7 @@ import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackQueueBuilder
 import com.tonezen.app.playback.PlaybackSnapshot
+import com.tonezen.app.playback.QueuePlayItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -124,6 +126,34 @@ internal class LibraryMusicHandler(
         }
     }
 
+    fun playMusicWave() {
+        val playback = uiState.value.musicPlayback
+        if (playback.isActive && playback.trackId != null) {
+            onMiniPlayerPlayPause()
+            return
+        }
+        val list = visibleMusicTrackList()
+        val index = MusicPlaybackAdvanceRules.findFirstPlayable(
+            items = list,
+            isPlayable = { track ->
+                MusicPlaybackAdvanceRules.isTrackPlayable(
+                    isDownloaded = track.isDownloaded,
+                    isNetworkOnline = uiState.value.isNetworkOnline,
+                )
+            },
+        )
+        if (index == null) {
+            if (!uiState.value.isNetworkOnline) {
+                uiState.update {
+                    it.copy(musicPlaybackErrorRes = playbackErrorRes(EnsureTrackOutcome.Failure.OFFLINE))
+                }
+            }
+            return
+        }
+        onMusicTrackClick(list[index])
+    }
+
+
     fun downloadMusicTrack(track: MusicListTrack) {
         if (!uiState.value.isNetworkOnline) return
         scope.launch {
@@ -204,11 +234,16 @@ internal class LibraryMusicHandler(
     suspend fun onMusicSnapshot(snapshot: PlaybackSnapshot) {
         val trackId = snapshot.trackId ?: return
         session.musicStartedInSession = true
-        if (session.musicLibraryTracks.isNotEmpty() && trackId != session.lastPrefetchSourceTrackId) {
+        val libraryTracks = activeMusicLibraryTracks()
+        if (libraryTracks.isNotEmpty() && trackId != session.lastPrefetchSourceTrackId) {
+            if (session.musicLibraryTracks.isEmpty()) {
+                session.musicLibraryTracks = libraryTracks
+            }
             session.lastPrefetchSourceTrackId = trackId
-            val index = session.musicLibraryTracks.indexOfFirst { it.track.id == trackId }
+            val index = libraryTracks.indexOfFirst { it.track.id == trackId }
             if (index >= 0) {
                 scheduleMusicPrefetch(index + 1)
+                appendMusicQueueWindowIfNeeded(libraryTracks)
             }
         }
     }
@@ -341,9 +376,15 @@ internal class LibraryMusicHandler(
         return session.musicBookIdByTrackId
     }
 
-    suspend fun resolveDownloadedTrackIdsForUi(): Set<String> = withContext(Dispatchers.IO) {
-        catalogRepository.reconcileLocalDownloadPaths()
-        val ids = catalogRepository.getDownloadedTrackIds().toMutableSet()
+    suspend fun resolveDownloadedTrackIdsForUi(
+        reconcileLocalPaths: Boolean = true,
+    ): Set<String> = withContext(Dispatchers.IO) {
+        val ids = if (reconcileLocalPaths) {
+            catalogRepository.reconcileLocalDownloadPaths()
+            catalogRepository.getDownloadedTrackIds()
+        } else {
+            catalogRepository.getDownloadedTrackIdsFromCatalog()
+        }.toMutableSet()
         ids.addAll(localPlaybackDownloadedTrackIds())
         ids
     }
@@ -359,8 +400,11 @@ internal class LibraryMusicHandler(
         return if (trackDownloadEnsurer.isTrackLocal(bookId, trackId)) setOf(trackId) else emptySet()
     }
 
-    suspend fun buildMusicTrackListForCatalogUpdate(rebuildMusic: Boolean = false): List<MusicListTrack> {
-        val downloadedTrackIds = resolveDownloadedTrackIdsForUi()
+    suspend fun buildMusicTrackListForCatalogUpdate(
+        rebuildMusic: Boolean = false,
+        reconcileLocalPaths: Boolean = true,
+    ): List<MusicListTrack> {
+        val downloadedTrackIds = resolveDownloadedTrackIdsForUi(reconcileLocalPaths)
         return buildMusicTrackListForCatalogUpdate(
             existing = uiState.value.musicTrackList,
             candidates = session.musicCandidates,
@@ -442,6 +486,9 @@ internal class LibraryMusicHandler(
     private fun visibleMusicTrackList(): List<MusicListTrack> =
         visibleMusicTrackList(uiState.value.musicTrackList, uiState.value.isNetworkOnline)
 
+    private fun activeMusicLibraryTracks(): List<MusicLibraryTrack> =
+        session.musicLibraryTracks.ifEmpty { musicPlaybackQueue.get() }
+
     private fun scheduleMusicPrefetch(fromIndex: Int) {
         if (!uiState.value.isNetworkOnline) return
         if (fromIndex !in session.musicLibraryTracks.indices) return
@@ -519,6 +566,32 @@ internal class LibraryMusicHandler(
         }
     }
 
+    private suspend fun appendMusicQueueWindowIfNeeded(libraryTracks: List<MusicLibraryTrack>) {
+        val shouldAppend = withContext(Dispatchers.Main.immediate) {
+            playbackClient.shouldAppendQueueItems()
+        }
+        if (!shouldAppend) return
+        val queuedIds = withContext(Dispatchers.Main.immediate) {
+            playbackClient.queuedTrackIds()
+        }
+        val lastQueuedTrackId = withContext(Dispatchers.Main.immediate) {
+            playbackClient.lastQueuedTrackId()
+        } ?: return
+        val windowEntries = MusicQueueWindow.appendWindow(
+            items = libraryTracks,
+            lastMaterializedTrackId = lastQueuedTrackId,
+            materializedTrackIds = queuedIds,
+            idOf = { it.track.id },
+        )
+        if (windowEntries.isEmpty()) return
+        val queueItems = withContext(Dispatchers.IO) {
+            buildLocalMusicQueueItems(libraryTracks, windowEntries)
+        }
+        withContext(Dispatchers.Main.immediate) {
+            playbackClient.appendQueueItems(queueItems)
+        }
+    }
+
     private suspend fun buildMusicLibraryTracksFromList(): List<MusicLibraryTrack> {
         val list = visibleMusicTrackList()
         if (list.isEmpty()) {
@@ -593,14 +666,17 @@ internal class LibraryMusicHandler(
             }
             return
         }
+        val queueWindow = MusicQueueWindow.initialWindow(
+            items = libraryTracks,
+            startTrackId = localTrack.id,
+            idOf = { it.track.id },
+        )
         val queue = withContext(Dispatchers.IO) {
-            playbackQueueBuilder.buildLocalMusicLibraryQueue(libraryTracks) { entry ->
-                if (entry.track.id == localTrack.id) {
-                    localTrack
-                } else {
-                    trackDownloadEnsurer.resolveLocalTrack(entry.book.id, entry.track)
-                }
-            }
+            buildLocalMusicQueueItems(
+                libraryTracks = libraryTracks,
+                windowEntries = queueWindow,
+                forcedLocalTrack = localTrack,
+            )
         }
         if (queue.isEmpty()) {
             uiState.update {
@@ -628,6 +704,28 @@ internal class LibraryMusicHandler(
         scheduleMusicPrefetch(libraryStartIndex + 1)
         refreshDownloadedBooks()
         localLibraryNotifier.notifyLocalLibraryChanged()
+    }
+
+    private suspend fun buildLocalMusicQueueItems(
+        libraryTracks: List<MusicLibraryTrack>,
+        windowEntries: List<MusicLibraryTrack>,
+        forcedLocalTrack: Track? = null,
+    ): List<QueuePlayItem> {
+        if (windowEntries.isEmpty()) return emptyList()
+        return windowEntries.mapNotNull { entry ->
+            val localTrack = if (entry.track.id == forcedLocalTrack?.id) {
+                forcedLocalTrack
+            } else {
+                trackDownloadEnsurer.resolveLocalTrack(entry.book.id, entry.track)
+            } ?: return@mapNotNull null
+            val index = libraryTracks.indexOfFirst { it.track.id == entry.track.id }.coerceAtLeast(0)
+            playbackQueueBuilder.itemForMusicLibraryTrack(
+                entry = entry,
+                localTrack = localTrack,
+                indexInLibrary = index,
+                librarySize = libraryTracks.size,
+            )
+        }
     }
 
     private suspend fun refreshDownloadedBooks() {

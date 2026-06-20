@@ -35,6 +35,26 @@ class LibraryMusicTrackListBuilderTest {
         localPath = null,
     )
 
+    private val trackC = Track(
+        id = "t3",
+        bookId = "b1",
+        sortOrder = 2,
+        title = "Three",
+        filename = "3.mp3",
+        durationMs = 3000,
+        localPath = null,
+    )
+
+    private val trackD = Track(
+        id = "t4",
+        bookId = "b1",
+        sortOrder = 3,
+        title = "Four",
+        filename = "4.mp3",
+        durationMs = 4000,
+        localPath = null,
+    )
+
     @Test
     fun keepsOrderWhenCatalogGainsTracks() {
         val stale = listOf(toMusicListTrack(book, trackB, emptySet()), toMusicListTrack(book, trackA, emptySet()))
@@ -58,6 +78,20 @@ class LibraryMusicTrackListBuilderTest {
         )
         assertEquals(2, updated.size)
         assertEquals(setOf("t1", "t2"), updated.map { it.trackId }.toSet())
+    }
+
+    @Test
+    fun appendsBackendTracksAsSeparatelyShuffledSuffix() {
+        val localShuffle = listOf(toMusicListTrack(book, trackB, emptySet()), toMusicListTrack(book, trackA, emptySet()))
+        val updated = buildMusicTrackListForCatalogUpdate(
+            existing = localShuffle,
+            candidates = listOf(book to trackA, book to trackB, book to trackC, book to trackD),
+            musicStartedInSession = false,
+            downloadedTrackIds = emptySet(),
+            shuffleNewTracks = { it.asReversed() },
+        )
+
+        assertEquals(listOf("t2", "t1", "t4", "t3"), updated.map { it.trackId })
     }
 
     @Test

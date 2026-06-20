@@ -11,6 +11,7 @@ import androidx.media3.common.MediaMetadata
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.tonezen.app.domain.model.ContentType
+import com.tonezen.app.domain.music.MusicQueueWindow
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -160,6 +161,22 @@ class PlaybackClient @Inject constructor(
                 mediaController.getMediaItemAt(index).mediaId?.takeIf { it.isNotEmpty() }
             }
             .toSet()
+    }
+
+    fun lastQueuedTrackId(): String? {
+        val mediaController = controller ?: return null
+        if (mediaController.mediaItemCount <= 0) return null
+        return mediaController.getMediaItemAt(mediaController.mediaItemCount - 1)
+            .mediaId
+            ?.takeIf { it.isNotEmpty() }
+    }
+
+    fun shouldAppendQueueItems(): Boolean {
+        val mediaController = controller ?: return false
+        return MusicQueueWindow.shouldAppend(
+            currentIndex = mediaController.currentMediaItemIndex,
+            queueSize = mediaController.mediaItemCount,
+        )
     }
 
     fun appendQueueItems(items: List<QueuePlayItem>) {

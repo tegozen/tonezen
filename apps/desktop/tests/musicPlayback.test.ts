@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { nextMusicIndex } from "../src/shared/musicList.js";
 import {
+  findActiveMusicTrack,
+  findFirstPlayableMusicTrack,
   findNextPlayableIndex,
   findPreviousPlayableIndex,
   isMusicTrackPlayable,
@@ -44,5 +46,34 @@ describe("music playback advance", () => {
     const isPlayable = (track: { isDownloaded: boolean }) =>
       isMusicTrackPlayable(track, "AuthenticatedOffline");
     expect(findPreviousPlayableIndex(tracks, 0, isPlayable, (current, size) => (current - 1 + size) % size)).toBe(2);
+  });
+
+  it("finds the first playable wave track", () => {
+    const waveTracks = [
+      { trackId: "a", isDownloaded: false },
+      { trackId: "b", isDownloaded: true },
+      { trackId: "c", isDownloaded: true },
+    ];
+    expect(findFirstPlayableMusicTrack(waveTracks, "AuthenticatedOffline")?.trackId).toBe("b");
+  });
+
+  it("returns no wave track offline when nothing is downloaded", () => {
+    const waveTracks = [
+      { trackId: "a", isDownloaded: false },
+      { trackId: "b", isDownloaded: false },
+    ];
+    expect(findFirstPlayableMusicTrack(waveTracks, "AuthenticatedOffline")).toBeNull();
+  });
+});
+
+describe("findActiveMusicTrack", () => {
+  const fullQueue = Array.from({ length: 30 }, (_, index) => ({
+    trackId: `t${index}`,
+    isDownloaded: true,
+  }));
+
+  it("falls back to the full queue when the visible window does not contain the active track", () => {
+    const visibleWindow = fullQueue.slice(0, 24);
+    expect(findActiveMusicTrack(visibleWindow, fullQueue, "t27")?.trackId).toBe("t27");
   });
 });

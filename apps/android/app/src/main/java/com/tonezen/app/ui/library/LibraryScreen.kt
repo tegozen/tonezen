@@ -20,7 +20,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -92,6 +96,7 @@ internal fun LibraryScreen(
     downloadQueue: DownloadQueueState,
     musicPlaybackErrorRes: Int?,
     cyclePlaybackErrorRes: Int?,
+    onMusicWavePlay: () -> Unit,
     onMusicTrackClick: (MusicListTrack) -> Unit,
     onDownloadMusicTrack: (MusicListTrack) -> Unit,
     onDeleteMusicTrack: (MusicListTrack) -> Unit,
@@ -103,6 +108,7 @@ internal fun LibraryScreen(
     val music = allBooks.filter { it.contentType == ContentType.MUSIC }
     val isBooksSection = section == LibrarySection.Books
     val isMusicSection = section == LibrarySection.Music
+    var showAllMusicTracks by rememberSaveable { mutableStateOf(false) }
     val musicDownload = remember(downloadQueue) { downloadQueue.toMusicDownloadState() }
     val topChromeScrollPadding = remember(offlineBanner, section) {
         val base = if (isBooksSection) {
@@ -193,6 +199,14 @@ internal fun LibraryScreen(
                 item { EmptyLibrary(offline = offlineBanner || !isNetworkOnline) }
             } else if (isMusicSection) {
                 item {
+                    MusicWaveCard(
+                        tracks = musicTrackList,
+                        musicPlayback = musicPlayback,
+                        isNetworkOnline = isNetworkOnline,
+                        onClick = onMusicWavePlay,
+                    )
+                }
+                item {
                     MusicDownloadAllButton(
                         tracks = musicTrackList,
                         musicDownload = musicDownload,
@@ -209,21 +223,30 @@ internal fun LibraryScreen(
                         )
                     }
                 }
-                items(musicTrackList, key = { it.trackId }) { track ->
-                    val isActive = musicPlayback.trackId == track.trackId
-                    val trackDownloadProgress = downloadQueue.progressForTrack(track.trackId)
-                    val isDownloading = trackDownloadProgress != null
-                    val isQueued = downloadQueue.isTrackQueued(track.trackId)
-                    MusicTrackRow(
-                        track = track,
-                        isActive = isActive,
-                        isQueued = isQueued,
-                        isDownloading = isDownloading,
-                        downloadProgress = trackDownloadProgress,
-                        onClick = { onMusicTrackClick(track) },
-                        onDownloadClick = { onDownloadMusicTrack(track) },
-                        onDeleteClick = { onDeleteMusicTrack(track) },
+                item {
+                    MusicAllTracksToggle(
+                        count = musicTrackList.size,
+                        expanded = showAllMusicTracks,
+                        onClick = { showAllMusicTracks = !showAllMusicTracks },
                     )
+                }
+                if (showAllMusicTracks) {
+                    items(musicTrackList, key = { it.trackId }) { track ->
+                        val isActive = musicPlayback.trackId == track.trackId
+                        val trackDownloadProgress = downloadQueue.progressForTrack(track.trackId)
+                        val isDownloading = trackDownloadProgress != null
+                        val isQueued = downloadQueue.isTrackQueued(track.trackId)
+                        MusicTrackRow(
+                            track = track,
+                            isActive = isActive,
+                            isQueued = isQueued,
+                            isDownloading = isDownloading,
+                            downloadProgress = trackDownloadProgress,
+                            onClick = { onMusicTrackClick(track) },
+                            onDownloadClick = { onDownloadMusicTrack(track) },
+                            onDeleteClick = { onDeleteMusicTrack(track) },
+                        )
+                    }
                 }
             }
         }

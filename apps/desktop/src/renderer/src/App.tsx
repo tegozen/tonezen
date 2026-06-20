@@ -8,6 +8,7 @@ import {
 import { completedDownloadItems } from "@shared/downloadsPageState";
 import { progressForTrack } from "@shared/downloadQueueState";
 import { CyclePlaybackResolver } from "@shared/cyclePlayback";
+import { findActiveMusicTrack } from "@shared/musicPlayback";
 import { AppShell } from "./components/AppShell";
 import { LibraryFilterSheet } from "./components/LibraryFilterSheet";
 import { LoginView } from "./components/LoginView";
@@ -33,6 +34,7 @@ import { ProfilePage } from "./pages/ProfilePage";
 
 const cycleResolver = new CyclePlaybackResolver();
 const defaultFilter: LibraryFilter = { contentFilter: "all", sortOrder: "recent" };
+type RefreshLibraryOptions = { rebuildMusic?: boolean; reconcileLocalPaths?: boolean };
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -85,12 +87,13 @@ export function App() {
 
   const downloadQueue = useDownloadQueue();
   const musicStartedInSessionRef = useRef(false);
-  const refreshLibraryRef = useRef<() => Promise<void>>(async () => {});
+  const refreshLibraryRef = useRef<(options?: RefreshLibraryOptions) => Promise<void>>(async () => {});
 
-  const refreshLibrary = useCallback(async (options?: { rebuildMusic?: boolean }) => {
+  const refreshLibrary = useCallback(async (options?: RefreshLibraryOptions) => {
     const rebuildMusic = options?.rebuildMusic ?? true;
+    const reconcileLocalPaths = options?.reconcileLocalPaths ?? true;
     const [library, stats, sync, progress] = await Promise.all([
-      window.tonezen.db.getLibrarySnapshot(),
+      window.tonezen.db.getLibrarySnapshot({ reconcileLocalPaths }),
       window.tonezen.download.storageStats(),
       window.tonezen.sync.status(),
       window.tonezen.db.getAllProgress(),
@@ -208,14 +211,20 @@ export function App() {
   useEffect(() => {
     if (sessionState === "Unauthenticated") return;
     if (sessionState === "AuthenticatedOffline") {
-      void refreshLibrary();
+      void refreshLibrary({ rebuildMusic: true, reconcileLocalPaths: false }).then(() =>
+        refreshLibrary({ rebuildMusic: true, reconcileLocalPaths: true }),
+      );
       return;
     }
     setIsLoading(true);
-    void window.tonezen.catalog
-      .sync()
-      .then(() => refreshLibrary({ rebuildMusic: true }))
-      .catch(() => refreshLibrary());
+    const sync = window.tonezen.catalog.sync().then(
+      () => true,
+      () => false,
+    );
+    void refreshLibrary({ rebuildMusic: true, reconcileLocalPaths: false })
+      .then(() => sync)
+      .then(() => refreshLibrary({ rebuildMusic: true, reconcileLocalPaths: true }))
+      .catch(() => refreshLibrary({ rebuildMusic: true, reconcileLocalPaths: true }));
   }, [sessionState, refreshLibrary]);
 
   useEffect(() => {
@@ -495,7 +504,11 @@ export function App() {
   const savedBookProgress = selectedBook ? progressByBook.get(selectedBook.id) : undefined;
 
   const miniTitle = currentTrack?.title ?? null;
-  const activeMusicTrack = music.musicQueue.find((track) => track.trackId === currentTrack?.id);
+  const activeMusicTrack = findActiveMusicTrack(
+    music.musicQueue,
+    music.musicQueueRef.current,
+    currentTrack?.id,
+  );
   const visibleMusicTracks = useMemo(
     () => visibleMusicTrackList(musicTracks, sessionState === "AuthenticatedOnline"),
     [musicTracks, sessionState],
@@ -657,6 +670,9 @@ export function App() {
             isLoading={isLoading}
             downloadQueue={downloadQueue.state}
             activeMusicTrackId={music.musicMode ? (currentTrack?.id ?? null) : null}
+            musicWaveTitle={music.musicMode ? miniTitle : null}
+            musicWaveSubtitle={music.musicMode ? miniSubtitle : null}
+            musicWaveIsPlaying={music.musicMode && isPlaying}
             musicError={music.musicError}
             cyclePlayingId={cyclePlayingId}
             cycleIsPlaying={Boolean(cyclePlayingId && isPlaying && !music.musicMode)}
@@ -664,6 +680,7 @@ export function App() {
             onCycleClick={setSelectedCycle}
             onCyclePlay={(cycle) => void playCycle(cycle)}
             onFilterClick={() => setShowFilterSheet(true)}
+            onMusicWavePlay={music.playMusicWave}
             onMusicTrackClick={(track) => void music.playMusicTrack(track)}
             onMusicTrackDownload={(track) => void music.downloadMusicTrack(track)}
             onMusicTrackDelete={(track) => void music.deleteMusicTrack(track)}

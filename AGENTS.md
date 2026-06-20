@@ -94,6 +94,8 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 - **Conventional Commits:** `feat:`, `fix:`, `test:`, `refactor:`, `docs:`, `chore:`, `ci:`
 - Optional scope: `feat(android):`, `fix(indexer):`
 - Branches: `feat/…`, `fix/…`, `chore/…` from `main`
+- Codex/local chat workflow: do **not** create or switch to a new branch or git worktree
+  unless the user explicitly asks for it. Work in the current checkout/branch by default.
 - Atomic commits: one feature + its tests per PR
 - Commit messages and code comments: **English**
 - UI strings: **Russian only** — externalized in `strings.xml` (Android) and `i18n/strings.ts` (desktop); no English user-facing copy in clients

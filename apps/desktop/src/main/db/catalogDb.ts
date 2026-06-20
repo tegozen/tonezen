@@ -11,6 +11,10 @@ import { serializeWaveformPeaks } from "../../shared/waveformPeaks.js";
 import { getDb } from "./connection.js";
 import { mapBookRow, mapTrackRow, type BookRow, type TrackRow } from "./mappers.js";
 
+export interface LibrarySnapshotOptions {
+  reconcileLocalPaths?: boolean;
+}
+
 export const CatalogDb = {
   hydrateCycleBooks(storedBooks: Book[], catalog: Book[]): Book[] {
     const bookById = new Map(catalog.map((book) => [book.id, book]));
@@ -162,8 +166,13 @@ export const CatalogDb = {
     return this.buildCycles(allBooks ?? this.getBooks());
   },
 
-  getLibrarySnapshot(downloadsRoot: string): { books: Book[]; cycles: Cycle[]; tracks: Track[] } {
-    this.reconcileLocalDownloadPaths(downloadsRoot);
+  getLibrarySnapshot(
+    downloadsRoot: string,
+    options: LibrarySnapshotOptions = {},
+  ): { books: Book[]; cycles: Cycle[]; tracks: Track[] } {
+    if (options.reconcileLocalPaths !== false) {
+      this.reconcileLocalDownloadPaths(downloadsRoot);
+    }
     const books = this.getBooks();
     return {
       books,

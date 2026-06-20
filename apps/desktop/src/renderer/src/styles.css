@@ -771,6 +771,43 @@
     @apply flex flex-col gap-4;
   }
 
+  .music-wave-card {
+    @apply flex w-full cursor-pointer items-center gap-3.5 rounded-[18px] border border-border/55 bg-white/[0.05] p-3.5 text-left outline-none transition hover:border-teal/35 focus:outline-none;
+  }
+
+  .music-wave-cover {
+    @apply h-[84px] w-[84px] shrink-0 rounded-[16px];
+  }
+
+  .music-wave-copy {
+    @apply min-w-0 flex-1;
+  }
+
+  .music-wave-eyebrow {
+    @apply mb-1 text-sm font-semibold text-teal;
+  }
+
+  .music-wave-copy h2 {
+    @apply line-clamp-2 text-base font-bold leading-snug text-ink;
+  }
+
+  .music-wave-copy p:not(.music-wave-eyebrow) {
+    @apply mt-1 truncate text-sm text-muted;
+  }
+
+  .music-wave-copy span {
+    @apply mt-1 block text-xs text-muted/70;
+  }
+
+  .music-wave-play {
+    @apply flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-full border-2 border-white/[0.22] text-app;
+    background: linear-gradient(135deg, #5eead4, #14b8a6, #0d9488);
+  }
+
+  .music-wave-play-active {
+    background: linear-gradient(135deg, #14b8a6, #0d9488, #0f766e);
+  }
+
   .music-download-all-card {
     @apply flex w-full cursor-pointer flex-col gap-2 rounded-xl border border-border/50 bg-white/[0.04] px-3.5 py-3 text-left outline-none focus:outline-none disabled:cursor-default disabled:opacity-60;
   }
@@ -789,6 +826,18 @@
 
   .music-track-list {
     @apply flex flex-col gap-4;
+  }
+
+  .music-all-tracks-toggle {
+    @apply flex w-full cursor-pointer items-center justify-between rounded-xl px-1 py-2 text-left outline-none focus:outline-none;
+  }
+
+  .music-all-tracks-toggle span:first-child {
+    @apply text-sm font-semibold text-ink;
+  }
+
+  .music-all-tracks-toggle span:last-child {
+    @apply text-sm font-semibold text-muted;
   }
 
   .track-download-btn {

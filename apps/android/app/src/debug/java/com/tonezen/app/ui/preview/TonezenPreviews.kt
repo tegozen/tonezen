@@ -156,6 +156,7 @@ private fun LibraryScreenPreview() {
             downloadQueue = DownloadQueueState(),
             musicPlaybackErrorRes = null,
             cyclePlaybackErrorRes = null,
+            onMusicWavePlay = {},
             onMusicTrackClick = {},
             onDownloadMusicTrack = {},
             onDeleteMusicTrack = {},
