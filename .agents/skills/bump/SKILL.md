@@ -45,7 +45,7 @@ Bump release:
 - [ ] Changes since latest tag inspected and SemVer bump selected
 - [ ] Versions bumped in all client files
 - [ ] Commit created
-- [ ] build-release executed (read `.cursor/skills/build-release/SKILL.md`)
+- [ ] build-release executed (read `.agents/skills/build-release/SKILL.md`; include macOS DMG when running on macOS)
 - [ ] Artifacts copied to landing downloads
 - [ ] Version tag created on the release commit
 - [ ] Summary reported
@@ -164,8 +164,9 @@ Read and execute **[build-release](../build-release/SKILL.md)** in full:
 
 1. `apps/android` → `.\gradlew.bat assembleRelease`
 2. `apps/desktop` → `npm install` (if needed) → `npm run dist:win`
+3. If the current host is macOS, `apps/desktop` → `npm run dist:mac`
 
-Run Android and Windows builds in parallel when possible.
+Run Android and Windows builds in parallel when possible. On macOS, run the Windows and macOS desktop packaging steps from `apps/desktop` and wait for both before copying artifacts.
 
 ### 6. Copy to landing (default for bump)
 
@@ -174,6 +175,12 @@ Unlike standalone build-release, **always copy** after successful builds:
 ```powershell
 Copy-Item -Force apps/android/app/build/outputs/apk/release/app-release.apk docker/landing/public/downloads/tonezen-android.apk
 Copy-Item -Force apps/desktop/release/tonezen-windows.exe docker/landing/public/downloads/tonezen-windows.exe
+```
+
+If the bump workflow is running on macOS and `dist:mac` produced a DMG, also copy:
+
+```powershell
+Copy-Item -Force apps/desktop/release/tonezen-macos.dmg docker/landing/public/downloads/tonezen-macos.dmg
 ```
 
 ### 7. Tag release
@@ -198,6 +205,7 @@ Tell the user:
 - Tag name
 - Artifact paths and file sizes
 - Landing copy paths
+- macOS DMG path and landing copy path when built
 - Reminder: push commit + tag and upload binaries to prod server if needed
 
 ## Do not

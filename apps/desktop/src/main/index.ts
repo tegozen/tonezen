@@ -17,6 +17,7 @@ import { createAppTray } from "./tray.js";
 import { PlaybackPowerBlocker } from "./playbackPowerBlocker.js";
 import { registerIpcHandlers } from "./ipcHandlers.js";
 import { TrackDownloadQueue } from "./trackDownloadQueue.js";
+import { AppUiReferences } from "./appUiReferences.js";
 
 loadAppEnv();
 registerLocalAudioScheme();
@@ -25,6 +26,7 @@ app.setAppUserModelId("com.tonezen.desktop");
 const lifecycle = new WindowLifecycleManager();
 const sessionService = new SessionService();
 const powerBlocker = new PlaybackPowerBlocker();
+const appUiReferences = new AppUiReferences();
 
 let catalogSync: CatalogSyncService;
 let catalogRealtimeSync: CatalogRealtimeSyncService;
@@ -33,73 +35,88 @@ let trackDownloadQueue: TrackDownloadQueue;
 let profileSync: ProfileSyncService;
 let progressSync: ProgressSyncService;
 
-app.whenReady().then(async () => {
-  Menu.setApplicationMenu(null);
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
-  const splashWindow = createSplashWindow();
-  if (app.isPackaged) {
-    loadPackagedEnv(process.execPath);
-  }
-  const runtimeConfig = getClientConfig();
-  const userData = app.getPath("userData");
-  const downloadsRoot = path.join(userData, "downloads");
-  setupLocalAudioProtocol([downloadsRoot]);
-  LocalDatabase.init(userData);
-  sessionService.init(userData, {
-    baseUrl: runtimeConfig.baseUrl,
-    anonKey: runtimeConfig.supabaseAnonKey,
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    const didShowMainWindow = appUiReferences.showMainWindow();
+    if (didShowMainWindow && process.platform === "darwin") app.dock?.show();
   });
-  catalogSync = new CatalogSyncService(runtimeConfig.baseUrl, () => sessionService.getAccessToken());
-  catalogRealtimeSync = new CatalogRealtimeSyncService(
-    catalogSync,
-    {
+
+  app.whenReady().then(async () => {
+    Menu.setApplicationMenu(null);
+
+    const splashWindow = createSplashWindow();
+    appUiReferences.setSplashWindow(splashWindow);
+    if (app.isPackaged) {
+      loadPackagedEnv(process.execPath);
+    }
+    const runtimeConfig = getClientConfig();
+    const userData = app.getPath("userData");
+    const downloadsRoot = path.join(userData, "downloads");
+    setupLocalAudioProtocol([downloadsRoot]);
+    LocalDatabase.init(userData);
+    sessionService.init(userData, {
       baseUrl: runtimeConfig.baseUrl,
       anonKey: runtimeConfig.supabaseAnonKey,
-    },
-    () => sessionService.getAccessToken(),
-    () => sessionService.refreshIfNeeded(),
-    () => sessionService.isAccessTokenUsable(),
-  );
-  downloadManager = new DownloadManager(
-    downloadsRoot,
-    runtimeConfig.baseUrl,
-    () => sessionService.getAccessToken(),
-  );
-  trackDownloadQueue = new TrackDownloadQueue(downloadsRoot, downloadManager, sessionService);
-  await trackDownloadQueue.restoreFromDb();
-  profileSync = new ProfileSyncService(sessionService, {
-    baseUrl: runtimeConfig.baseUrl,
-    anonKey: runtimeConfig.supabaseAnonKey,
-  });
-  progressSync = new ProgressSyncService(
-    () => sessionService.getAccessToken(),
-    () => sessionService.refreshIfNeeded(),
-    () => sessionService.isAccessTokenUsable(),
-    {
+    });
+    catalogSync = new CatalogSyncService(runtimeConfig.baseUrl, () =>
+      sessionService.getAccessToken(),
+    );
+    catalogRealtimeSync = new CatalogRealtimeSyncService(
+      catalogSync,
+      {
+        baseUrl: runtimeConfig.baseUrl,
+        anonKey: runtimeConfig.supabaseAnonKey,
+      },
+      () => sessionService.getAccessToken(),
+      () => sessionService.refreshIfNeeded(),
+      () => sessionService.isAccessTokenUsable(),
+    );
+    downloadManager = new DownloadManager(
+      downloadsRoot,
+      runtimeConfig.baseUrl,
+      () => sessionService.getAccessToken(),
+    );
+    trackDownloadQueue = new TrackDownloadQueue(downloadsRoot, downloadManager, sessionService);
+    await trackDownloadQueue.restoreFromDb();
+    profileSync = new ProfileSyncService(sessionService, {
       baseUrl: runtimeConfig.baseUrl,
       anonKey: runtimeConfig.supabaseAnonKey,
-    },
-  );
+    });
+    progressSync = new ProgressSyncService(
+      () => sessionService.getAccessToken(),
+      () => sessionService.refreshIfNeeded(),
+      () => sessionService.isAccessTokenUsable(),
+      {
+        baseUrl: runtimeConfig.baseUrl,
+        anonKey: runtimeConfig.supabaseAnonKey,
+      },
+    );
 
-  const mainWindow = createMainWindow(lifecycle, () => closeSplashWindow(splashWindow));
-  trackDownloadQueue.setMainWindow(mainWindow);
-  createAppTray(mainWindow, lifecycle);
-  profileSync.setMainWindow(mainWindow);
-  progressSync.setMainWindow(mainWindow);
-  catalogRealtimeSync.setMainWindow(mainWindow);
-  void startRealtimeSyncIfNeeded(mainWindow);
-  registerIpcHandlers({
-    sessionService,
-    catalogSync,
-    catalogRealtimeSync,
-    downloadManager,
-    trackDownloadQueue,
-    profileSync,
-    progressSync,
-    powerBlocker,
-    downloadsRoot,
+    const mainWindow = createMainWindow(lifecycle, () => closeSplashWindow(splashWindow));
+    appUiReferences.setMainWindow(mainWindow);
+    trackDownloadQueue.setMainWindow(mainWindow);
+    appUiReferences.setTray(createAppTray(mainWindow, lifecycle));
+    profileSync.setMainWindow(mainWindow);
+    progressSync.setMainWindow(mainWindow);
+    catalogRealtimeSync.setMainWindow(mainWindow);
+    void startRealtimeSyncIfNeeded(mainWindow);
+    registerIpcHandlers({
+      sessionService,
+      catalogSync,
+      catalogRealtimeSync,
+      downloadManager,
+      trackDownloadQueue,
+      profileSync,
+      progressSync,
+      powerBlocker,
+      downloadsRoot,
+    });
   });
-});
+}
 
 async function startRealtimeSyncIfNeeded(mainWindow: BrowserWindow): Promise<void> {
   await sessionService.refreshIfNeeded();

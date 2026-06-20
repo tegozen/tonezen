@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "dist:win": "node scripts/prepare-client-env.mjs && npm run build && electron-builder --win portable",
+    "dist:win": "node scripts/prepare-client-env.mjs && npm run build && electron-builder --win nsis",
+    "dist:mac": "node scripts/prepare-client-env.mjs && npm run build && electron-builder --mac dmg",
     "preview": "electron-vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
@@ -22,6 +23,7 @@
     },
     "files": [
       "out/**/*",
+      "resources/**/*",
       "package.json"
     ],
     "asarUnpack": [
@@ -33,16 +35,41 @@
         "to": ".env"
       }
     ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "artifactName": "tonezen-macos.${ext}",
+      "icon": "resources/app-icon.icns",
+      "identity": null,
+      "notarize": false
+    },
+    "dmg": {
+      "artifactName": "tonezen-macos.${ext}",
+      "sign": false
+    },
     "win": {
       "target": [
         {
-          "target": "portable",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
         }
       ],
-      "artifactName": "tonezen-windows.${ext}"
+      "artifactName": "tonezen-windows.${ext}",
+      "icon": "resources/app-icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Tonezen",
+      "installerIcon": "resources/app-icon.ico",
+      "uninstallerIcon": "resources/app-icon.ico"
     }
   },
   "dependencies": {
