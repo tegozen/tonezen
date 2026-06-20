@@ -33,11 +33,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -75,6 +77,8 @@ internal fun AccountSettingsScreen(
     passwordSaving: Boolean,
     profileError: String?,
     passwordError: String?,
+    referralCode: String?,
+    referralCodeError: String?,
     passwordFormNonce: Int,
     onBack: () -> Unit,
     onSaveProfile: (displayName: String) -> Unit,
@@ -86,7 +90,9 @@ internal fun AccountSettingsScreen(
     var confirmPassword by remember(passwordFormNonce) { mutableStateOf("") }
     var passwordVisible by remember(passwordFormNonce) { mutableStateOf(false) }
     var confirmVisible by remember(passwordFormNonce) { mutableStateOf(false) }
+    var referralCopied by remember(referralCode) { mutableStateOf(false) }
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val pickAvatarLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -193,6 +199,44 @@ internal fun AccountSettingsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = TonezenTeal, contentColor = TonezenAppBg),
                 ) {
                     Text(stringResource(R.string.settings_account_save))
+                }
+            }
+        }
+        item {
+            AccountFormSection(title = stringResource(R.string.settings_account_referral_section)) {
+                Text(
+                    stringResource(R.string.settings_account_referral_desc),
+                    color = TonezenMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                AccountLabeledField(
+                    value = referralCode.orEmpty(),
+                    onValueChange = {},
+                    label = stringResource(R.string.invite_code),
+                    keyboardType = KeyboardType.Text,
+                    enabled = false,
+                )
+                referralCodeError?.let { message ->
+                    Text(message, color = TonezenError, style = MaterialTheme.typography.bodySmall)
+                }
+                Button(
+                    onClick = {
+                        referralCode?.let {
+                            clipboard.setText(AnnotatedString(it))
+                            referralCopied = true
+                        }
+                    },
+                    enabled = !referralCode.isNullOrBlank(),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = TonezenTeal, contentColor = TonezenAppBg),
+                ) {
+                    Text(
+                        if (referralCopied) {
+                            stringResource(R.string.settings_account_referral_copied)
+                        } else {
+                            stringResource(R.string.settings_account_referral_copy)
+                        },
+                    )
                 }
             }
         }
@@ -311,6 +355,7 @@ internal fun resolveAccountError(error: String?): String? = when (error) {
     ProfileViewModel.PASSWORD_TOO_SHORT_ERROR -> stringResource(R.string.settings_account_password_too_short)
     ProfileViewModel.PROFILE_UPDATE_FAILED_ERROR -> stringResource(R.string.settings_account_update_failed)
     ProfileViewModel.PASSWORD_CHANGE_FAILED_ERROR -> stringResource(R.string.settings_account_password_change_failed)
+    ProfileViewModel.REFERRAL_CODE_FAILED_ERROR -> stringResource(R.string.settings_account_referral_load_failed)
     else -> null
 }
 

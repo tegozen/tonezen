@@ -62,6 +62,34 @@ export function useTonezenSession() {
     }
   }, [email, password, refreshSession]);
 
+  const verifyInviteCode = useCallback(async (code: string) => {
+    return window.tonezen.session.verifyInviteCode(code);
+  }, []);
+
+  const registerWithInvite = useCallback(
+    async (input: {
+      inviteCode: string;
+      email: string;
+      password: string;
+      displayName?: string;
+    }) => {
+      try {
+        setError(null);
+        await window.tonezen.session.register(input);
+        await refreshSession();
+        return true;
+      } catch (e) {
+        setError(resolveLoginError(e instanceof Error ? e.message : ""));
+        return false;
+      }
+    },
+    [refreshSession],
+  );
+
+  const requestPasswordRecovery = useCallback(async (emailAddress: string) => {
+    await window.tonezen.session.requestPasswordRecovery(emailAddress);
+  }, []);
+
   const logout = useCallback(async () => {
     await window.tonezen.session.logout();
     await refreshSession();
@@ -81,6 +109,9 @@ export function useTonezenSession() {
     setError,
     refreshSession,
     login,
+    verifyInviteCode,
+    registerWithInvite,
+    requestPasswordRecovery,
     logout,
   };
 }

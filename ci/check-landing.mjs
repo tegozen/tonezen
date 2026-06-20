@@ -76,6 +76,12 @@ assertIncludes(index, 'class="device-column"', "landing device columns");
 assertIncludes(index, 'class="windows-frame"', "landing screenshots");
 assertIncludes(index, 'class="windows-controls"', "landing screenshots");
 
+const resetPassword = read("docker/landing/public/reset-password.html");
+assertIncludes(resetPassword, 'lang="ru"', "reset password page");
+assertIncludes(resetPassword, "Сохранить новый пароль", "reset password page copy");
+assertIncludes(resetPassword, "/api/v1/auth/password/update", "reset password API");
+assertIncludes(resetPassword, "access_token", "reset password token handling");
+
 const styles = read("docker/landing/public/styles.css");
 assertIncludes(styles, "#5eead4", "landing CSS");
 assertIncludes(styles, "@media", "landing CSS");

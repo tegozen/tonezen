@@ -97,7 +97,11 @@ class ProfileViewModel @Inject constructor(
                 activeSettingsScreen = action,
                 profileError = if (action == ProfileSettingsAction.Account) null else it.profileError,
                 passwordError = if (action == ProfileSettingsAction.Account) null else it.passwordError,
+                referralCodeError = if (action == ProfileSettingsAction.Account) null else it.referralCodeError,
             )
+        }
+        if (action == ProfileSettingsAction.Account) {
+            loadReferralCode()
         }
     }
 
@@ -181,6 +185,24 @@ class ProfileViewModel @Inject constructor(
                 _uiState.update { it.copy(passwordError = PASSWORD_CHANGE_FAILED_ERROR) }
             } finally {
                 _uiState.update { it.copy(passwordSaving = false) }
+            }
+        }
+    }
+
+    fun loadReferralCode() {
+        if (!networkMonitor.isOnline()) {
+            _uiState.update { it.copy(referralCodeError = ACCOUNT_OFFLINE_ERROR) }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(referralCodeError = null) }
+            try {
+                val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
+                    ?: throw IllegalStateException(NOT_SIGNED_IN_ERROR)
+                val code = authRepository.getReferralCode(session.accessToken)
+                _uiState.update { it.copy(referralCode = code) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(referralCodeError = REFERRAL_CODE_FAILED_ERROR) }
             }
         }
     }
@@ -285,6 +307,7 @@ class ProfileViewModel @Inject constructor(
         const val PROFILE_UPDATE_FAILED_ERROR = "__profile_update_failed__"
         const val PASSWORD_CHANGE_FAILED_ERROR = "__password_change_failed__"
         const val AVATAR_UPLOAD_FAILED_ERROR = "__avatar_upload_failed__"
+        const val REFERRAL_CODE_FAILED_ERROR = "__referral_code_failed__"
         const val NOT_SIGNED_IN_ERROR = "__not_signed_in__"
         private const val MIN_PASSWORD_LENGTH = 6
     }

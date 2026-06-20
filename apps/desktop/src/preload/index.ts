@@ -5,6 +5,16 @@ contextBridge.exposeInMainWorld("tonezen", {
     get: () => ipcRenderer.invoke("session:get"),
     setOnline: (online: boolean) => ipcRenderer.invoke("session:setOnline", online),
     login: (email: string, password: string) => ipcRenderer.invoke("session:login", email, password),
+    verifyInviteCode: (code: string) => ipcRenderer.invoke("session:verifyInviteCode", code),
+    register: (input: {
+      inviteCode: string;
+      email: string;
+      password: string;
+      displayName?: string;
+    }) => ipcRenderer.invoke("session:register", input),
+    requestPasswordRecovery: (email: string) =>
+      ipcRenderer.invoke("session:requestPasswordRecovery", email),
+    getReferralCode: () => ipcRenderer.invoke("session:getReferralCode"),
     logout: () => ipcRenderer.invoke("session:logout"),
     updateProfile: (displayName: string) => ipcRenderer.invoke("session:updateProfile", displayName),
     changePassword: (newPassword: string) => ipcRenderer.invoke("session:changePassword", newPassword),

@@ -19,6 +19,8 @@ data class ProfileUiState(
     val passwordSaving: Boolean = false,
     val profileError: String? = null,
     val passwordError: String? = null,
+    val referralCode: String? = null,
+    val referralCodeError: String? = null,
     val passwordFormNonce: Int = 0,
     val avatarCropUri: Uri? = null,
     val avatarUploading: Boolean = false,

@@ -54,6 +54,52 @@ export class SupabaseAuthClient {
     return this.tokenRequest({ grant_type: "password", email, password });
   }
 
+  async verifyInviteCode(code: string): Promise<boolean> {
+    await this.tonezenApiRequest("/auth/invite/verify", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+    return true;
+  }
+
+  async signUpWithInvite(input: {
+    inviteCode: string;
+    email: string;
+    password: string;
+    displayName?: string;
+  }): Promise<void> {
+    await this.tonezenApiRequest("/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({
+        invite_code: input.inviteCode,
+        email: input.email,
+        password: input.password,
+        display_name: input.displayName,
+      }),
+    });
+  }
+
+  async requestPasswordRecovery(email: string): Promise<void> {
+    await this.tonezenApiRequest("/auth/password/recovery", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async getReferralCode(accessToken: string): Promise<string> {
+    const result = await this.tonezenApiRequest("/auth/referral-code", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    const json = (await result.json()) as { code?: unknown };
+    if (typeof json.code !== "string") {
+      throw new Error("Referral code response missing code");
+    }
+    return json.code;
+  }
+
   async refreshSession(refreshToken: string): Promise<GoTrueSession> {
     return this.tokenRequest({ grant_type: "refresh_token", refresh_token: refreshToken });
   }
@@ -135,6 +181,22 @@ export class SupabaseAuthClient {
       throw new Error(`Auth failed (${response.status}): ${text}`);
     }
     return (await response.json()) as GoTrueSession;
+  }
+
+  private async tonezenApiRequest(path: string, init: RequestInit): Promise<Response> {
+    const url = `${this.config.baseUrl.replace(/\/$/, "")}/api/v1${path}`;
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init.headers ?? {}),
+      },
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Tonezen auth request failed (${response.status}): ${text}`);
+    }
+    return response;
   }
 }
 

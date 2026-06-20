@@ -71,6 +71,35 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     ]);
     return sessionService.getSnapshot();
   });
+  ipcMain.handle("session:verifyInviteCode", async (_e, code: string) => (
+    sessionService.verifyInviteCode(code)
+  ));
+  ipcMain.handle(
+    "session:register",
+    async (
+      _e,
+      input: {
+        inviteCode: string;
+        email: string;
+        password: string;
+        displayName?: string;
+      },
+    ) => {
+      const session = await sessionService.registerWithInvite(input);
+      await Promise.all([
+        profileSync.start(session),
+        progressSync.start(session),
+        catalogRealtimeSync.start(session),
+      ]);
+      return sessionService.getSnapshot();
+    },
+  );
+  ipcMain.handle("session:requestPasswordRecovery", async (_e, email: string) => {
+    await sessionService.requestPasswordRecovery(email);
+  });
+  ipcMain.handle("session:getReferralCode", async () => (
+    sessionService.getReferralCode()
+  ));
   ipcMain.handle("session:logout", () => {
     profileSync.stop();
     progressSync.stop();

@@ -27,6 +27,11 @@ fun TonezenApp(
             libraryState.sessionState == SessionState.UNAUTHENTICATED -> AuthScreen(
                 padding = PaddingValues(0.dp),
                 onLogin = authViewModel::login,
+                onVerifyInviteCode = authViewModel::verifyInviteCode,
+                onSignup = authViewModel::registerWithInvite,
+                onPasswordRecovery = authViewModel::requestPasswordRecovery,
+                inviteCodeVerified = authState.inviteCodeVerified,
+                passwordRecoverySent = authState.passwordRecoverySent,
                 error = authState.error,
             )
 

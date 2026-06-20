@@ -114,6 +114,33 @@ export class SessionService {
     return this.session;
   }
 
+  async verifyInviteCode(code: string): Promise<boolean> {
+    if (!this.authClient) throw new Error("SessionService not initialized");
+    return this.authClient.verifyInviteCode(code);
+  }
+
+  async registerWithInvite(input: {
+    inviteCode: string;
+    email: string;
+    password: string;
+    displayName?: string;
+  }): Promise<StoredSession> {
+    if (!this.authClient) throw new Error("SessionService not initialized");
+    await this.authClient.signUpWithInvite(input);
+    return this.login(input.email, input.password);
+  }
+
+  async requestPasswordRecovery(email: string): Promise<void> {
+    if (!this.authClient) throw new Error("SessionService not initialized");
+    await this.authClient.requestPasswordRecovery(email);
+  }
+
+  async getReferralCode(): Promise<string> {
+    await this.refreshIfNeeded();
+    if (!this.session || !this.authClient) throw new Error("__not_signed_in__");
+    return this.authClient.getReferralCode(this.session.accessToken);
+  }
+
   logout(): void {
     this.session = null;
     if (fs.existsSync(this.sessionPath)) fs.unlinkSync(this.sessionPath);

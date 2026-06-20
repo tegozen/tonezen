@@ -61,7 +61,7 @@ services:
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}?search_path=auth
       GOTRUE_SITE_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-}
-      GOTRUE_DISABLE_SIGNUP: ${GOTRUE_DISABLE_SIGNUP:-false}
+      GOTRUE_DISABLE_SIGNUP: "true"
       GOTRUE_JWT_SECRET: ${JWT_SECRET}
       GOTRUE_JWT_EXP: 3600
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
@@ -69,10 +69,13 @@ services:
       GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED: "false"
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_MAILER_AUTOCONFIRM: "true"
-      GOTRUE_SMTP_ADMIN_EMAIL: admin@tonezen.local
-      GOTRUE_SMTP_HOST: mail
-      GOTRUE_SMTP_PORT: 2500
-      GOTRUE_SMTP_SENDER_NAME: Tonezen
+      GOTRUE_MAILER_URLPATHS_RECOVERY: /reset-password
+      GOTRUE_SMTP_ADMIN_EMAIL: ${GOTRUE_SMTP_ADMIN_EMAIL:-admin@tonezen.local}
+      GOTRUE_SMTP_HOST: ${GOTRUE_SMTP_HOST:-mail}
+      GOTRUE_SMTP_PORT: ${GOTRUE_SMTP_PORT:-2500}
+      GOTRUE_SMTP_USER: ${GOTRUE_SMTP_USER:-}
+      GOTRUE_SMTP_PASS: ${GOTRUE_SMTP_PASS:-}
+      GOTRUE_SMTP_SENDER_NAME: ${GOTRUE_SMTP_SENDER_NAME:-Tonezen}
 
   seed:
     image: node:20-alpine
@@ -292,6 +295,7 @@ services:
       DATABASE_URL: postgres://supabase_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
       JWT_SECRET: ${JWT_SECRET}
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      AUTH_INTERNAL_URL: http://auth:9999
       STORAGE_INTERNAL_URL: http://storage:5000
       TONEZEN_BASE_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       PORT: 3001

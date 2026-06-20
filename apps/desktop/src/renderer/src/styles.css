@@ -1266,6 +1266,31 @@
     @apply text-app/70;
   }
 
+  .auth-inline-actions {
+    @apply flex items-center justify-between gap-3 px-0.5 text-sm text-teal;
+  }
+
+  .auth-inline-actions button,
+  .auth-text-button {
+    @apply cursor-pointer text-sm font-medium text-teal transition hover:text-teal-strong disabled:cursor-not-allowed disabled:text-muted;
+  }
+
+  .auth-text-button {
+    @apply w-full text-center;
+  }
+
+  .auth-mode-title {
+    @apply px-0.5 text-lg font-semibold text-ink;
+  }
+
+  .auth-mode-copy {
+    @apply px-0.5 text-sm leading-relaxed text-muted;
+  }
+
+  .success-text {
+    @apply text-green;
+  }
+
   .auth-footer-note {
     @apply px-2.5 pt-1 text-center text-sm leading-relaxed text-muted;
   }

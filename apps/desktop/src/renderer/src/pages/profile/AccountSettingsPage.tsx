@@ -56,6 +56,9 @@ export function AccountSettingsPage({
   const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarUploadError, setAvatarUploadError] = useState<string | null>(null);
+  const [referralCode, setReferralCode] = useState("");
+  const [referralError, setReferralError] = useState<string | null>(null);
+  const [referralCopied, setReferralCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -68,6 +71,23 @@ export function AccountSettingsPage({
     },
     [cropImageUrl],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    window.tonezen.session.getReferralCode()
+      .then((code) => {
+        if (cancelled) return;
+        setReferralCode(code);
+        setReferralError(null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setReferralError(strings.settingsAccountReferralLoadFailed);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const openAvatarPicker = () => {
     if (avatarUploading) return;
@@ -141,6 +161,16 @@ export function AccountSettingsPage({
 
   const avatarBusy = avatarUploading;
 
+  const copyReferralCode = async () => {
+    if (!referralCode) return;
+    try {
+      await navigator.clipboard.writeText(referralCode);
+      setReferralCopied(true);
+    } catch {
+      setReferralError(strings.settingsAccountReferralLoadFailed);
+    }
+  };
+
   return (
     <>
       <SettingsPageLayout title={strings.settingsAccountPageTitle} onBack={onBack}>
@@ -189,6 +219,24 @@ export function AccountSettingsPage({
               onClick={() => void saveProfile()}
             >
               {strings.settingsAccountSave}
+            </button>
+          </AccountFormSection>
+
+          <AccountFormSection title={strings.settingsAccountReferralSection}>
+            <p className="text-sm leading-relaxed text-muted">{strings.settingsAccountReferralDesc}</p>
+            <AccountLabeledField
+              label={strings.inviteCode}
+              value={referralCode || "............"}
+              disabled
+            />
+            {referralError && <p className="text-sm text-error">{referralError}</p>}
+            <button
+              type="button"
+              className="account-primary-btn"
+              disabled={!referralCode}
+              onClick={() => void copyReferralCode()}
+            >
+              {referralCopied ? strings.settingsAccountReferralCopied : strings.settingsAccountReferralCopy}
             </button>
           </AccountFormSection>
 

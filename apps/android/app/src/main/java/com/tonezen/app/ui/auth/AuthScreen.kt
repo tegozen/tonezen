@@ -55,12 +55,32 @@ import com.tonezen.app.ui.theme.TonezenTealStrong
 fun AuthScreen(
     padding: PaddingValues,
     onLogin: (String, String) -> Unit,
+    onVerifyInviteCode: (String) -> Unit = {},
+    onSignup: (String, String, String, String, String) -> Unit = { _, _, _, _, _ -> },
+    onPasswordRecovery: (String) -> Unit = {},
+    inviteCodeVerified: Boolean = false,
+    passwordRecoverySent: Boolean = false,
     error: String?,
 ) {
+    var mode by remember { mutableStateOf(AuthFormMode.Login) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var inviteCode by remember { mutableStateOf("") }
+    var signupEmail by remember { mutableStateOf("") }
+    var signupName by remember { mutableStateOf("") }
+    var signupPassword by remember { mutableStateOf("") }
+    var signupConfirmPassword by remember { mutableStateOf("") }
+    var signupPasswordVisible by remember { mutableStateOf(false) }
+    var recoveryEmail by remember { mutableStateOf("") }
     val canSubmit = email.isNotBlank() && password.isNotBlank()
+    val canVerifyInvite = inviteCode.isNotBlank()
+    val canSignup = inviteCodeVerified &&
+        signupEmail.isNotBlank() &&
+        signupName.isNotBlank() &&
+        signupPassword.length >= 6 &&
+        signupPassword == signupConfirmPassword
+    val canRecover = recoveryEmail.isNotBlank()
 
     Box(
         modifier = Modifier
@@ -79,61 +99,240 @@ fun AuthScreen(
             }
             item {
                 AuthSignInForm(
+                    mode = mode,
                     email = email,
                     password = password,
                     passwordVisible = passwordVisible,
+                    inviteCode = inviteCode,
+                    inviteCodeVerified = inviteCodeVerified,
+                    signupEmail = signupEmail,
+                    signupName = signupName,
+                    signupPassword = signupPassword,
+                    signupConfirmPassword = signupConfirmPassword,
+                    signupPasswordVisible = signupPasswordVisible,
+                    recoveryEmail = recoveryEmail,
+                    passwordRecoverySent = passwordRecoverySent,
                     error = error,
                     canSubmit = canSubmit,
+                    canVerifyInvite = canVerifyInvite,
+                    canSignup = canSignup,
+                    canRecover = canRecover,
+                    onModeChange = { mode = it },
                     onEmailChange = { email = it },
                     onPasswordChange = { password = it },
                     onTogglePasswordVisible = { passwordVisible = !passwordVisible },
                     onSubmit = { onLogin(email.trim(), password) },
+                    onInviteCodeChange = { inviteCode = it },
+                    onVerifyInviteCode = { onVerifyInviteCode(inviteCode.trim()) },
+                    onSignupEmailChange = { signupEmail = it },
+                    onSignupNameChange = { signupName = it },
+                    onSignupPasswordChange = { signupPassword = it },
+                    onSignupConfirmPasswordChange = { signupConfirmPassword = it },
+                    onToggleSignupPasswordVisible = { signupPasswordVisible = !signupPasswordVisible },
+                    onSignup = {
+                        onSignup(
+                            inviteCode.trim(),
+                            signupEmail.trim(),
+                            signupName.trim(),
+                            signupPassword,
+                            signupConfirmPassword,
+                        )
+                    },
+                    onRecoveryEmailChange = { recoveryEmail = it },
+                    onPasswordRecovery = { onPasswordRecovery(recoveryEmail.trim()) },
                 )
             }
         }
     }
 }
 
+private enum class AuthFormMode {
+    Login,
+    Signup,
+    Recovery,
+}
+
 @Composable
 private fun AuthSignInForm(
+    mode: AuthFormMode,
     email: String,
     password: String,
     passwordVisible: Boolean,
+    inviteCode: String,
+    inviteCodeVerified: Boolean,
+    signupEmail: String,
+    signupName: String,
+    signupPassword: String,
+    signupConfirmPassword: String,
+    signupPasswordVisible: Boolean,
+    recoveryEmail: String,
+    passwordRecoverySent: Boolean,
     error: String?,
     canSubmit: Boolean,
+    canVerifyInvite: Boolean,
+    canSignup: Boolean,
+    canRecover: Boolean,
+    onModeChange: (AuthFormMode) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onTogglePasswordVisible: () -> Unit,
     onSubmit: () -> Unit,
+    onInviteCodeChange: (String) -> Unit,
+    onVerifyInviteCode: () -> Unit,
+    onSignupEmailChange: (String) -> Unit,
+    onSignupNameChange: (String) -> Unit,
+    onSignupPasswordChange: (String) -> Unit,
+    onSignupConfirmPasswordChange: (String) -> Unit,
+    onToggleSignupPasswordVisible: () -> Unit,
+    onSignup: () -> Unit,
+    onRecoveryEmailChange: (String) -> Unit,
+    onPasswordRecovery: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(13.dp),
     ) {
-        TonezenAuthField(
-            value = email,
-            onValueChange = onEmailChange,
-            label = stringResource(R.string.email),
-            keyboardType = KeyboardType.Email,
-            icon = AuthFieldIcon.Email,
-            modifier = Modifier.testTag(TestTags.AUTH_EMAIL),
-        )
-        TonezenAuthField(
-            value = password,
-            onValueChange = onPasswordChange,
-            label = stringResource(R.string.password),
-            keyboardType = KeyboardType.Password,
-            icon = AuthFieldIcon.Password,
-            hidden = !passwordVisible,
-            showPasswordToggle = true,
-            passwordVisible = passwordVisible,
-            onTogglePasswordVisible = onTogglePasswordVisible,
-            modifier = Modifier.testTag(TestTags.AUTH_PASSWORD),
-        )
-        AuthSignInButton(
-            enabled = canSubmit,
-            onClick = onSubmit,
-        )
+        when (mode) {
+            AuthFormMode.Login -> {
+                TonezenAuthField(
+                    value = email,
+                    onValueChange = onEmailChange,
+                    label = stringResource(R.string.email),
+                    keyboardType = KeyboardType.Email,
+                    icon = AuthFieldIcon.Email,
+                    modifier = Modifier.testTag(TestTags.AUTH_EMAIL),
+                )
+                TonezenAuthField(
+                    value = password,
+                    onValueChange = onPasswordChange,
+                    label = stringResource(R.string.password),
+                    keyboardType = KeyboardType.Password,
+                    icon = AuthFieldIcon.Password,
+                    hidden = !passwordVisible,
+                    showPasswordToggle = true,
+                    passwordVisible = passwordVisible,
+                    onTogglePasswordVisible = onTogglePasswordVisible,
+                    modifier = Modifier.testTag(TestTags.AUTH_PASSWORD),
+                )
+                AuthPrimaryButton(
+                    text = stringResource(R.string.sign_in),
+                    enabled = canSubmit,
+                    onClick = onSubmit,
+                    modifier = Modifier.testTag(TestTags.AUTH_SIGN_IN),
+                )
+                AuthModeActions(
+                    primaryText = stringResource(R.string.forgot_password),
+                    primaryTag = TestTags.AUTH_SHOW_RECOVERY,
+                    onPrimary = { onModeChange(AuthFormMode.Recovery) },
+                    secondaryText = stringResource(R.string.no_account_yet),
+                    secondaryTag = TestTags.AUTH_SHOW_SIGN_UP,
+                    onSecondary = { onModeChange(AuthFormMode.Signup) },
+                )
+            }
+            AuthFormMode.Signup -> {
+                TonezenAuthField(
+                    value = inviteCode,
+                    onValueChange = onInviteCodeChange,
+                    label = stringResource(R.string.invite_code),
+                    keyboardType = KeyboardType.Text,
+                    icon = AuthFieldIcon.Password,
+                    modifier = Modifier.testTag(TestTags.AUTH_INVITE_CODE),
+                )
+                if (!inviteCodeVerified) {
+                    AuthPrimaryButton(
+                        text = stringResource(R.string.check_invite_code),
+                        enabled = canVerifyInvite,
+                        onClick = onVerifyInviteCode,
+                        modifier = Modifier.testTag(TestTags.AUTH_VERIFY_INVITE),
+                    )
+                } else {
+                    TonezenAuthField(
+                        value = signupEmail,
+                        onValueChange = onSignupEmailChange,
+                        label = stringResource(R.string.email),
+                        keyboardType = KeyboardType.Email,
+                        icon = AuthFieldIcon.Email,
+                        modifier = Modifier.testTag(TestTags.AUTH_SIGNUP_EMAIL),
+                    )
+                    TonezenAuthField(
+                        value = signupName,
+                        onValueChange = onSignupNameChange,
+                        label = stringResource(R.string.auth_display_name),
+                        keyboardType = KeyboardType.Text,
+                        icon = AuthFieldIcon.Email,
+                        modifier = Modifier.testTag(TestTags.AUTH_SIGNUP_NAME),
+                    )
+                    TonezenAuthField(
+                        value = signupPassword,
+                        onValueChange = onSignupPasswordChange,
+                        label = stringResource(R.string.password),
+                        keyboardType = KeyboardType.Password,
+                        icon = AuthFieldIcon.Password,
+                        hidden = !signupPasswordVisible,
+                        showPasswordToggle = true,
+                        passwordVisible = signupPasswordVisible,
+                        onTogglePasswordVisible = onToggleSignupPasswordVisible,
+                        modifier = Modifier.testTag(TestTags.AUTH_SIGNUP_PASSWORD),
+                    )
+                    TonezenAuthField(
+                        value = signupConfirmPassword,
+                        onValueChange = onSignupConfirmPasswordChange,
+                        label = stringResource(R.string.confirm_password),
+                        keyboardType = KeyboardType.Password,
+                        icon = AuthFieldIcon.Password,
+                        hidden = !signupPasswordVisible,
+                        modifier = Modifier.testTag(TestTags.AUTH_SIGNUP_CONFIRM),
+                    )
+                    AuthPrimaryButton(
+                        text = stringResource(R.string.create_account),
+                        enabled = canSignup,
+                        onClick = onSignup,
+                        modifier = Modifier.testTag(TestTags.AUTH_SIGN_UP),
+                    )
+                }
+                AuthTextButton(
+                    text = stringResource(R.string.already_have_account),
+                    onClick = { onModeChange(AuthFormMode.Login) },
+                )
+            }
+            AuthFormMode.Recovery -> {
+                Text(
+                    stringResource(R.string.auth_recovery_title),
+                    color = TonezenInk,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    stringResource(R.string.auth_recovery_body),
+                    color = TonezenMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                TonezenAuthField(
+                    value = recoveryEmail,
+                    onValueChange = onRecoveryEmailChange,
+                    label = stringResource(R.string.email),
+                    keyboardType = KeyboardType.Email,
+                    icon = AuthFieldIcon.Email,
+                    modifier = Modifier.testTag(TestTags.AUTH_RECOVERY_EMAIL),
+                )
+                AuthPrimaryButton(
+                    text = stringResource(R.string.auth_recovery_submit),
+                    enabled = canRecover,
+                    onClick = onPasswordRecovery,
+                    modifier = Modifier.testTag(TestTags.AUTH_RECOVERY_SUBMIT),
+                )
+                if (passwordRecoverySent) {
+                    Text(
+                        stringResource(R.string.auth_recovery_sent),
+                        color = TonezenTeal,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                AuthTextButton(
+                    text = stringResource(R.string.back_to_sign_in),
+                    onClick = { onModeChange(AuthFormMode.Login) },
+                )
+            }
+        }
         error?.let {
             Text(
                 resolveAuthError(it),
@@ -157,9 +356,11 @@ private fun AuthSignInForm(
 }
 
 @Composable
-private fun AuthSignInButton(
+private fun AuthPrimaryButton(
+    text: String,
     enabled: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val gradient = Brush.verticalGradient(
         colors = if (enabled) {
@@ -174,16 +375,50 @@ private fun AuthSignInButton(
             .height(54.dp)
             .clip(RoundedCornerShape(17.dp))
             .background(gradient)
-            .testTag(TestTags.AUTH_SIGN_IN)
+            .then(modifier)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            stringResource(R.string.sign_in),
+            text,
             color = TonezenAppBg.copy(alpha = if (enabled) 1f else 0.72f),
             fontWeight = FontWeight.SemiBold,
         )
     }
+}
+
+@Composable
+private fun AuthModeActions(
+    primaryText: String,
+    primaryTag: String,
+    onPrimary: () -> Unit,
+    secondaryText: String,
+    secondaryTag: String,
+    onSecondary: () -> Unit,
+) {
+    androidx.compose.foundation.layout.Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        AuthTextButton(text = primaryText, onClick = onPrimary, modifier = Modifier.testTag(primaryTag))
+        AuthTextButton(text = secondaryText, onClick = onSecondary, modifier = Modifier.testTag(secondaryTag))
+    }
+}
+
+@Composable
+private fun AuthTextButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text,
+        color = TonezenTeal,
+        style = MaterialTheme.typography.bodySmall,
+        modifier = modifier
+            .padding(horizontal = 2.dp, vertical = 4.dp)
+            .clickable(onClick = onClick),
+    )
 }
 
 private enum class AuthFieldIcon {
@@ -246,6 +481,11 @@ private fun TonezenAuthField(
 @Composable
 internal fun resolveAuthError(error: String): String = when (error) {
     AuthViewModel.AUTH_LOGIN_FAILED_ERROR -> stringResource(R.string.auth_login_failed)
+    AuthViewModel.AUTH_INVITE_CODE_INVALID_ERROR -> stringResource(R.string.auth_invite_code_invalid)
+    AuthViewModel.AUTH_SIGNUP_FAILED_ERROR -> stringResource(R.string.auth_signup_failed)
+    AuthViewModel.AUTH_PASSWORD_MISMATCH_ERROR -> stringResource(R.string.auth_password_mismatch)
+    AuthViewModel.AUTH_PASSWORD_TOO_SHORT_ERROR -> stringResource(R.string.auth_password_too_short)
+    AuthViewModel.AUTH_RECOVERY_FAILED_ERROR -> stringResource(R.string.auth_recovery_failed)
     else -> stringResource(R.string.auth_login_failed)
 }
 

@@ -42,6 +42,113 @@ describe("SupabaseAuthClient", () => {
     expect(session.displayName).toBe("Alex Mercer");
   });
 
+  it("verifies invite codes through Tonezen API", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ valid: true }),
+      }),
+    );
+
+    const client = new SupabaseAuthClient({
+      baseUrl: "http://localhost:8000",
+      anonKey: "anon-key",
+    });
+
+    await expect(client.verifyInviteCode("ABCD1234EFGH")).resolves.toBe(true);
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/auth/invite/verify",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ code: "ABCD1234EFGH" }),
+      }),
+    );
+  });
+
+  it("creates invite signups through Tonezen API", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ user: { id: "user-1", email: "new@example.com" } }),
+      }),
+    );
+
+    const client = new SupabaseAuthClient({
+      baseUrl: "http://localhost:8000",
+      anonKey: "anon-key",
+    });
+
+    await client.signUpWithInvite({
+      inviteCode: "ABCD1234EFGH",
+      email: "new@example.com",
+      password: "secret123",
+      displayName: "New User",
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/auth/signup",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          invite_code: "ABCD1234EFGH",
+          email: "new@example.com",
+          password: "secret123",
+          display_name: "New User",
+        }),
+      }),
+    );
+  });
+
+  it("requests password recovery through Tonezen API", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ sent: true }),
+      }),
+    );
+
+    const client = new SupabaseAuthClient({
+      baseUrl: "http://localhost:8000",
+      anonKey: "anon-key",
+    });
+
+    await client.requestPasswordRecovery("user@example.com");
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/auth/password/recovery",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ email: "user@example.com" }),
+      }),
+    );
+  });
+
+  it("fetches referral code with the access token", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ code: "CURRENT12345" }),
+      }),
+    );
+
+    const client = new SupabaseAuthClient({
+      baseUrl: "http://localhost:8000",
+      anonKey: "anon-key",
+    });
+
+    await expect(client.getReferralCode("access-token")).resolves.toBe("CURRENT12345");
+    expect(fetch).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/auth/referral-code",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({ Authorization: "Bearer access-token" }),
+      }),
+    );
+  });
+
   it("falls back to email local part when display name is missing", () => {
     expect(displayNameFromUser({ id: "u1", email: "admin@tonezen.local" })).toBe("Admin");
   });

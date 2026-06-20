@@ -114,6 +114,8 @@ internal fun ProfileScreen(
             passwordSaving = state.passwordSaving,
             profileError = resolveAccountError(state.profileError),
             passwordError = resolveAccountError(state.passwordError),
+            referralCode = state.referralCode,
+            referralCodeError = resolveAccountError(state.referralCodeError),
             passwordFormNonce = state.passwordFormNonce,
             onBack = viewModel::closeSettingsScreen,
             onSaveProfile = viewModel::saveProfile,
@@ -412,4 +414,3 @@ private data class SettingsItem(
     val subtitleRes: Int,
     val icon: @Composable () -> Unit,
 )
-

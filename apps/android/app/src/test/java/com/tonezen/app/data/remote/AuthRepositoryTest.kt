@@ -18,6 +18,101 @@ import org.junit.Test
 
 class AuthRepositoryTest {
     @Test
+    fun verifyInviteCode_postsToTonezenApi() = runTest {
+        val capturedRequest = slot<Request>()
+        val response = Response.Builder()
+            .request(Request.Builder().url("http://localhost:8000/api/v1/auth/invite/verify").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .body("""{"valid":true}""".toResponseBody("application/json".toMediaType()))
+            .build()
+        val call = mockk<Call>()
+        every { call.execute() } returns response
+        val httpClient = mockk<OkHttpClient>()
+        every { httpClient.newCall(capture(capturedRequest)) } returns call
+        val repository = AuthRepository("http://localhost:8000", "anon", httpClient)
+
+        repository.verifyInviteCode("CODE12345678")
+
+        assertEquals("http://localhost:8000/api/v1/auth/invite/verify", capturedRequest.captured.url.toString())
+    }
+
+    @Test
+    fun signUpWithInvite_postsRegistrationPayload() = runTest {
+        val capturedRequest = slot<Request>()
+        val response = Response.Builder()
+            .request(Request.Builder().url("http://localhost:8000/api/v1/auth/signup").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(201)
+            .message("Created")
+            .body("""{"user":{"id":"user-1","email":"user@example.com"}}""".toResponseBody("application/json".toMediaType()))
+            .build()
+        val call = mockk<Call>()
+        every { call.execute() } returns response
+        val httpClient = mockk<OkHttpClient>()
+        every { httpClient.newCall(capture(capturedRequest)) } returns call
+        val repository = AuthRepository("http://localhost:8000", "anon", httpClient)
+
+        repository.signUpWithInvite(
+            inviteCode = "CODE12345678",
+            email = "user@example.com",
+            password = "secret123",
+            displayName = "User",
+        )
+
+        val buffer = Buffer()
+        checkNotNull(capturedRequest.captured.body).writeTo(buffer)
+        val body = JSONObject(buffer.readUtf8())
+        assertEquals("CODE12345678", body.getString("invite_code"))
+        assertEquals("user@example.com", body.getString("email"))
+        assertEquals("secret123", body.getString("password"))
+        assertEquals("User", body.getString("display_name"))
+    }
+
+    @Test
+    fun requestPasswordRecovery_postsEmail() = runTest {
+        val capturedRequest = slot<Request>()
+        val response = Response.Builder()
+            .request(Request.Builder().url("http://localhost:8000/api/v1/auth/password/recovery").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .body("""{"sent":true}""".toResponseBody("application/json".toMediaType()))
+            .build()
+        val call = mockk<Call>()
+        every { call.execute() } returns response
+        val httpClient = mockk<OkHttpClient>()
+        every { httpClient.newCall(capture(capturedRequest)) } returns call
+        val repository = AuthRepository("http://localhost:8000", "anon", httpClient)
+
+        repository.requestPasswordRecovery("user@example.com")
+
+        val buffer = Buffer()
+        checkNotNull(capturedRequest.captured.body).writeTo(buffer)
+        val body = JSONObject(buffer.readUtf8())
+        assertEquals("user@example.com", body.getString("email"))
+    }
+
+    @Test
+    fun getReferralCode_returnsCode() = runTest {
+        val response = Response.Builder()
+            .request(Request.Builder().url("http://localhost:8000/api/v1/auth/referral-code").build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .body("""{"code":"CURRENT12345"}""".toResponseBody("application/json".toMediaType()))
+            .build()
+        val call = mockk<Call>()
+        every { call.execute() } returns response
+        val httpClient = mockk<OkHttpClient>()
+        every { httpClient.newCall(any()) } returns call
+        val repository = AuthRepository("http://localhost:8000", "anon", httpClient)
+
+        assertEquals("CURRENT12345", repository.getReferralCode("access-token"))
+    }
+
+    @Test
     fun updateUser_stripsAvatarCacheBustFromMetadata() = runTest {
         val capturedRequest = slot<Request>()
         val response = Response.Builder()

@@ -19,6 +19,15 @@ export interface TonezenApi {
     get: () => Promise<SessionSnapshot>;
     setOnline: (online: boolean) => Promise<void>;
     login: (email: string, password: string) => Promise<SessionSnapshot>;
+    verifyInviteCode: (code: string) => Promise<boolean>;
+    register: (input: {
+      inviteCode: string;
+      email: string;
+      password: string;
+      displayName?: string;
+    }) => Promise<SessionSnapshot>;
+    requestPasswordRecovery: (email: string) => Promise<void>;
+    getReferralCode: () => Promise<string>;
     logout: () => Promise<void>;
     updateProfile: (displayName: string) => Promise<SessionSnapshot>;
     changePassword: (newPassword: string) => Promise<SessionSnapshot>;

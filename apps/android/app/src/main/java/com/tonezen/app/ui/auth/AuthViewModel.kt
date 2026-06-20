@@ -31,7 +31,75 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    fun verifyInviteCode(code: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(busy = true, error = null, inviteCodeVerified = false) }
+            try {
+                val verified = authRepository.verifyInviteCode(code)
+                _uiState.update { it.copy(inviteCodeVerified = verified) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(error = AUTH_INVITE_CODE_INVALID_ERROR) }
+            } finally {
+                _uiState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun registerWithInvite(
+        inviteCode: String,
+        email: String,
+        displayName: String,
+        password: String,
+        confirmPassword: String,
+    ) {
+        if (password != confirmPassword) {
+            _uiState.update { it.copy(error = AUTH_PASSWORD_MISMATCH_ERROR) }
+            return
+        }
+        if (password.length < MIN_PASSWORD_LENGTH) {
+            _uiState.update { it.copy(error = AUTH_PASSWORD_TOO_SHORT_ERROR) }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(busy = true, error = null) }
+            try {
+                authRepository.signUpWithInvite(
+                    inviteCode = inviteCode,
+                    email = email,
+                    password = password,
+                    displayName = displayName.ifBlank { null },
+                )
+                val signedIn = authRepository.signInWithPassword(email, password)
+                sessionRepository.saveSession(signedIn)
+            } catch (_: Exception) {
+                _uiState.update { it.copy(error = AUTH_SIGNUP_FAILED_ERROR) }
+            } finally {
+                _uiState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
+    fun requestPasswordRecovery(email: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(busy = true, error = null, passwordRecoverySent = false) }
+            try {
+                authRepository.requestPasswordRecovery(email)
+                _uiState.update { it.copy(passwordRecoverySent = true) }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(error = AUTH_RECOVERY_FAILED_ERROR) }
+            } finally {
+                _uiState.update { it.copy(busy = false) }
+            }
+        }
+    }
+
     companion object {
+        private const val MIN_PASSWORD_LENGTH = 6
         const val AUTH_LOGIN_FAILED_ERROR = "__auth_login_failed__"
+        const val AUTH_INVITE_CODE_INVALID_ERROR = "__auth_invite_code_invalid__"
+        const val AUTH_SIGNUP_FAILED_ERROR = "__auth_signup_failed__"
+        const val AUTH_PASSWORD_MISMATCH_ERROR = "__auth_password_mismatch__"
+        const val AUTH_PASSWORD_TOO_SHORT_ERROR = "__auth_password_too_short__"
+        const val AUTH_RECOVERY_FAILED_ERROR = "__auth_recovery_failed__"
     }
 }

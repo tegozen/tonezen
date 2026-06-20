@@ -88,4 +88,83 @@ class AuthScreenComposeTest {
 
         assertTrue(composeRule.onAllNodesWithTag(TestTags.AUTH_ERROR).fetchSemanticsNodes().isEmpty())
     }
+
+    @Test
+    fun signUp_hidesRegistrationFormUntilInviteVerified() {
+        composeRule.setContent {
+            TonezenComposeTestContent {
+                AuthScreen(
+                    padding = PaddingValues(),
+                    onLogin = { _, _ -> },
+                    onVerifyInviteCode = {},
+                    onSignup = { _, _, _, _, _ -> },
+                    onPasswordRecovery = {},
+                    inviteCodeVerified = false,
+                    error = null,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(TestTags.AUTH_SHOW_SIGN_UP).performClick()
+
+        composeRule.onNodeWithTag(TestTags.AUTH_INVITE_CODE).assertIsDisplayed()
+        assertTrue(composeRule.onAllNodesWithTag(TestTags.AUTH_SIGN_UP).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun signUp_submitsWhenInviteVerified() {
+        var submitted: List<String>? = null
+        composeRule.setContent {
+            TonezenComposeTestContent {
+                AuthScreen(
+                    padding = PaddingValues(),
+                    onLogin = { _, _ -> },
+                    onVerifyInviteCode = {},
+                    onSignup = { invite, email, name, password, confirm ->
+                        submitted = listOf(invite, email, name, password, confirm)
+                    },
+                    onPasswordRecovery = {},
+                    inviteCodeVerified = true,
+                    error = null,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(TestTags.AUTH_SHOW_SIGN_UP).performClick()
+        composeRule.onNodeWithTag(TestTags.AUTH_INVITE_CODE).performTextInput("CODE12345678")
+        composeRule.onNodeWithTag(TestTags.AUTH_SIGNUP_EMAIL).performTextInput("user@example.com")
+        composeRule.onNodeWithTag(TestTags.AUTH_SIGNUP_NAME).performTextInput("User")
+        composeRule.onNodeWithTag(TestTags.AUTH_SIGNUP_PASSWORD).performTextInput("secret123")
+        composeRule.onNodeWithTag(TestTags.AUTH_SIGNUP_CONFIRM).performTextInput("secret123")
+        composeRule.onNodeWithTag(TestTags.AUTH_SIGN_UP).performClick()
+
+        assertEquals(
+            listOf("CODE12345678", "user@example.com", "User", "secret123", "secret123"),
+            submitted,
+        )
+    }
+
+    @Test
+    fun passwordRecovery_submitsEmail() {
+        var submitted: String? = null
+        composeRule.setContent {
+            TonezenComposeTestContent {
+                AuthScreen(
+                    padding = PaddingValues(),
+                    onLogin = { _, _ -> },
+                    onVerifyInviteCode = {},
+                    onSignup = { _, _, _, _, _ -> },
+                    onPasswordRecovery = { submitted = it },
+                    inviteCodeVerified = false,
+                    error = null,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(TestTags.AUTH_SHOW_RECOVERY).performClick()
+        composeRule.onNodeWithTag(TestTags.AUTH_RECOVERY_EMAIL).performTextInput("user@example.com")
+        composeRule.onNodeWithTag(TestTags.AUTH_RECOVERY_SUBMIT).performClick()
+
+        assertEquals("user@example.com", submitted)
+    }
 }

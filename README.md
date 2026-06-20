@@ -196,4 +196,4 @@ Then `cd apps/desktop && npm run dev` — no manual `set`/`export` needed.
 - [ ] Run `node scripts/gen-env.mjs --force` if rotating secrets (updates clients too)
 - [ ] Expose only Kong (`KONG_HTTP_PORT`) to the public internet
 - [ ] Use HTTPS reverse proxy in front of Kong (Caddy/Traefik)
-- [ ] Set `GOTRUE_DISABLE_SIGNUP=true` if you want invite-only registration
+- [ ] Configure `GOTRUE_SMTP_*` for password recovery emails in production

@@ -53,6 +53,9 @@ export function App() {
     error,
     setError,
     login,
+    verifyInviteCode,
+    registerWithInvite,
+    requestPasswordRecovery,
     logout,
     refreshSession,
   } = session;
@@ -547,6 +550,9 @@ export function App() {
           onEmailChange={setEmail}
           onPasswordChange={setPassword}
           onLogin={() => void handleLogin()}
+          onVerifyInviteCode={verifyInviteCode}
+          onSignup={registerWithInvite}
+          onPasswordRecovery={requestPasswordRecovery}
         />
         <audio ref={audioRef} className="hidden" onEnded={handleTrackEnded} onTimeUpdate={onTimeUpdate} />
       </>

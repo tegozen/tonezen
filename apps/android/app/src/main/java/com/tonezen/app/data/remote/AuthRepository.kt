@@ -15,6 +15,54 @@ class AuthRepository(
     private val anonKey: String,
     private val httpClient: OkHttpClient = OkHttpClient(),
 ) {
+    suspend fun verifyInviteCode(code: String): Boolean =
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().put("code", code).toString()
+            val response = apiPost("/auth/invite/verify", body)
+            response.optBoolean("valid", false)
+        }
+
+    suspend fun signUpWithInvite(
+        inviteCode: String,
+        email: String,
+        password: String,
+        displayName: String? = null,
+    ) {
+        withContext(Dispatchers.IO) {
+            val body = JSONObject()
+                .put("invite_code", inviteCode)
+                .put("email", email)
+                .put("password", password)
+            if (!displayName.isNullOrBlank()) {
+                body.put("display_name", displayName)
+            }
+            apiPost("/auth/signup", body.toString())
+        }
+    }
+
+    suspend fun requestPasswordRecovery(email: String) {
+        withContext(Dispatchers.IO) {
+            val body = JSONObject().put("email", email).toString()
+            apiPost("/auth/password/recovery", body)
+        }
+    }
+
+    suspend fun getReferralCode(accessToken: String): String =
+        withContext(Dispatchers.IO) {
+            val url = "${supabaseUrl.trimEnd('/')}/api/v1/auth/referral-code"
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .header("Authorization", "Bearer $accessToken")
+                .build()
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw RemoteHttpException(response.code, "Referral code request failed (${response.code})")
+                }
+                JSONObject(response.body?.string().orEmpty()).getString("code")
+            }
+        }
+
     suspend fun signInWithPassword(email: String, password: String): StoredSession =
         withContext(Dispatchers.IO) {
             val body = JSONObject()
@@ -74,6 +122,20 @@ class AuthRepository(
                 memberSinceEpochMs = memberSinceFromUser(user),
                 avatarUrl = avatarUrlFromUser(user),
             )
+        }
+    }
+
+    private fun apiPost(path: String, jsonBody: String): JSONObject {
+        val url = "${supabaseUrl.trimEnd('/')}/api/v1$path"
+        val request = Request.Builder()
+            .url(url)
+            .post(jsonBody.toRequestBody("application/json".toMediaType()))
+            .build()
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw RemoteHttpException(response.code, "Tonezen auth request failed (${response.code})")
+            }
+            return JSONObject(response.body?.string().orEmpty())
         }
     }
 
