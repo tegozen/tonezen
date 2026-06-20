@@ -89,6 +89,11 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 - Close (X) and minimize → hide to system tray
 - `app.quit()` only from tray context menu «Exit» with explicit quit flag
 
+## Agent Skills
+
+- Create shared skills under `.agents/skills/<skill-name>/SKILL.md` so Codex and Cursor can both discover them.
+- Do not add new skills under agent-specific directories such as `.cursor/skills` or `.codex/skills` unless the user explicitly asks for that location.
+
 ## Git Style
 
 - **Conventional Commits:** `feat:`, `fix:`, `test:`, `refactor:`, `docs:`, `chore:`, `ci:`
