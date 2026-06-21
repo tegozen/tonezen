@@ -43,6 +43,39 @@ function displaySegment(parts: string[] | null, index: number): string | null {
   return value || null;
 }
 
+function audiobookBookPrefix(name: string): string | null {
+  if (!isIndexableAudioPath(name) || !name.startsWith("cycles/")) return null;
+  const parts = name.split("/");
+  if (parts.length !== 4 || !parts[1] || !parts[2] || !parts[3]) return null;
+  return `cycles/${parts[1]}/${parts[2]}/`;
+}
+
+export function expandChangedAudiobookBookObjects<T extends StorageObjectInput>(
+  changedObjects: T[],
+  allObjects: T[],
+): T[] {
+  const audiobookPrefixes = new Set<string>();
+  for (const object of changedObjects) {
+    const prefix = audiobookBookPrefix(object.name);
+    if (prefix) audiobookPrefixes.add(prefix);
+  }
+
+  if (audiobookPrefixes.size === 0) return changedObjects;
+
+  const scopedByName = new Map<string, T>();
+  for (const object of changedObjects) {
+    scopedByName.set(object.name, object);
+  }
+  for (const object of allObjects) {
+    const prefix = audiobookBookPrefix(object.name);
+    if (prefix && audiobookPrefixes.has(prefix) && !scopedByName.has(object.name)) {
+      scopedByName.set(object.name, object);
+    }
+  }
+
+  return [...scopedByName.values()];
+}
+
 export async function scanStorageObjects(
   objects: StorageObjectInput[],
   options: ScanStorageOptions = {},
@@ -101,6 +134,7 @@ export async function scanStorageObjects(
     const bookFiles = book.files;
     bookFiles.push({
       filename,
+      orderName: displayFilename ?? filename,
       title: tags?.title ?? displayTitle,
       artist: tags?.artist ?? null,
       durationMs: tags?.durationMs ?? null,
@@ -116,9 +150,10 @@ export async function scanStorageObjects(
 
     for (const bookSlug of bookSlugs) {
       const bookScan = cycleScan.books.get(bookSlug);
-      const scannedFiles = [...(bookScan?.files ?? [])].sort((a, b) =>
-        naturalCompare(a.filename, b.filename),
-      );
+      const scannedFiles = [...(bookScan?.files ?? [])].sort((a, b) => {
+        const order = naturalCompare(a.orderName ?? a.filename, b.orderName ?? b.filename);
+        return order || naturalCompare(a.filename, b.filename);
+      });
       if (scannedFiles.length === 0) continue;
 
       books.push({

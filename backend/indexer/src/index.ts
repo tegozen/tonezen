@@ -9,8 +9,12 @@ import {
 } from "./db/index.js";
 import { createHealthServer, type IndexerHealthState } from "./healthServer.js";
 import { createFileProber, warmUpProber } from "./fileProber.js";
-import { isIndexableAudioPath, scanStorageObjects } from "./scanner.js";
-import { listChangedObjects } from "./storage/listObjects.js";
+import {
+  expandChangedAudiobookBookObjects,
+  isIndexableAudioPath,
+  scanStorageObjects,
+} from "./scanner.js";
+import { listChangedObjects, listContentObjects } from "./storage/listObjects.js";
 
 const config = loadConfig();
 const pool = createPool(config.databaseUrl);
@@ -40,9 +44,13 @@ async function runOnce(): Promise<void> {
   }
 
   console.log(`[indexer] ${changed.length} changed object(s) since watermark`);
+  const scopedObjects = expandChangedAudiobookBookObjects(
+    changed,
+    await listContentObjects(pool),
+  );
   const indexed = await loadIndexedTracks(pool);
   const prober = createFileProber({
-    objects: changed,
+    objects: scopedObjects,
     indexed,
     storage: storageConfig,
     concurrency: config.probeConcurrency,
@@ -51,12 +59,14 @@ async function runOnce(): Promise<void> {
   const indexablePaths = changed.filter((object) => isIndexableAudioPath(object.name)).map((o) => o.name);
   await warmUpProber(prober, indexablePaths, config.probeConcurrency);
 
-  const { cycles, musicAlbums } = await scanStorageObjects(changed, {
+  const { cycles, musicAlbums } = await scanStorageObjects(scopedObjects, {
     probeTags: (path) => prober.probe(path).then((result) => result.tags),
   });
 
-  const objectUpdatedAtByPath = new Map(changed.map((object) => [object.name, object.updatedAt]));
-  await repo.upsertPartialCatalog(changed, cycles, musicAlbums, {
+  const objectUpdatedAtByPath = new Map(
+    scopedObjects.map((object) => [object.name, object.updatedAt]),
+  );
+  await repo.upsertPartialCatalog(scopedObjects, cycles, musicAlbums, {
     getMetadata: (path) => prober.probe(path).then((result) => result.metadata ?? null),
     objectUpdatedAtByPath,
   });

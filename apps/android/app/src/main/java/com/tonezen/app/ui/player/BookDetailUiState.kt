@@ -51,3 +51,5 @@ fun resolveBookDetailPlaybackState(
         isActiveForBook = true,
     )
 }
+
+fun bookDetailTracksForDisplay(tracks: List<Track>): List<Track> = tracks.sortedBy { it.sortOrder }

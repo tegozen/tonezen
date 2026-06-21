@@ -55,6 +55,19 @@ class BookDetailPlaybackStateTest {
         assertFalse(state.isActiveForBook)
     }
 
+    @Test
+    fun bookDetailTracksForDisplay_ordersBySortOrder() {
+        val displayTracks = bookDetailTracksForDisplay(
+            listOf(
+                track("track-015", 14),
+                track("track-001", 0),
+                track("track-002", 1),
+            ),
+        )
+
+        assertEquals(listOf("track-001", "track-002", "track-015"), displayTracks.map { it.id })
+    }
+
     private fun track(id: String, sortOrder: Int) = Track(
         id = id,
         bookId = "book-1",

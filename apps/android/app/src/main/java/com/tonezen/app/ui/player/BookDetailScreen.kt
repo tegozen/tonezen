@@ -77,7 +77,7 @@ internal fun BookDetailScreen(
 ) {
     val tracks = uiState.tracks
     val activeTrackId = uiState.activeTrackId
-    val sortedTracks = tracks.sortedBy { it.sortOrder }
+    val sortedTracks = bookDetailTracksForDisplay(tracks)
     val showDownload = tracks.any { it.localPath.isNullOrBlank() }
     val showRemoveDownload = tracks.any { !it.localPath.isNullOrBlank() }
     val activeTrack = sortedTracks.find { it.id == activeTrackId }
@@ -179,7 +179,7 @@ internal fun BookDetailScreen(
                 }
             }
         }
-        items(tracks, key = { it.id }) { track ->
+        items(sortedTracks, key = { it.id }) { track ->
             ChapterTrackRow(
                 track = track,
                 sortedTracks = sortedTracks,

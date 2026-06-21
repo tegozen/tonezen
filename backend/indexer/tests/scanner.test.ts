@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { scanStorageObjects } from "../src/scanner.js";
+import {
+  expandChangedAudiobookBookObjects,
+  scanStorageObjects,
+} from "../src/scanner.js";
 
 describe("scanStorageObjects", () => {
   it("builds cycles and music library from flat storage object paths", async () => {
@@ -78,6 +81,44 @@ describe("scanStorageObjects", () => {
     expect(cycles[0].books[0].title).toBe("Книга 1");
     expect(cycles[0].books[0].tracks[0].filename).toBe("01-glava.mp3");
     expect(cycles[0].books[0].tracks[0].title).toBe("01 глава");
+  });
+
+  it("sorts audiobook tracks by visible audio filename", async () => {
+    const { cycles } = await scanStorageObjects([
+      {
+        name: "cycles/saga/book-a/storage-b.mp3",
+        displayPath: "cycles/Saga/Book A/001.mp3",
+      },
+      {
+        name: "cycles/saga/book-a/storage-a.mp3",
+        displayPath: "cycles/Saga/Book A/002.mp3",
+      },
+    ]);
+
+    expect(cycles[0].books[0].tracks.map((track) => track.title)).toEqual(["001", "002"]);
+    expect(cycles[0].books[0].tracks.map((track) => track.sortOrder)).toEqual([0, 1]);
+  });
+
+  it("expands changed audiobook tracks to the full book before assigning order", async () => {
+    const changed = [{ name: "cycles/saga/book-a/015.mp3" }];
+    const allObjects = [
+      { name: "cycles/saga/book-a/001.mp3" },
+      { name: "cycles/saga/book-a/002.mp3" },
+      { name: "cycles/saga/book-a/015.mp3" },
+      { name: "cycles/saga/book-b/001.mp3" },
+      { name: "music/changed.mp3" },
+    ];
+
+    const scoped = expandChangedAudiobookBookObjects(changed, allObjects);
+    const { cycles } = await scanStorageObjects(scoped);
+
+    expect(cycles[0].books).toHaveLength(1);
+    expect(cycles[0].books[0].tracks.map((track) => track.filename)).toEqual([
+      "001.mp3",
+      "002.mp3",
+      "015.mp3",
+    ]);
+    expect(cycles[0].books[0].tracks.map((track) => track.sortOrder)).toEqual([0, 1, 2]);
   });
 
   it("keeps numbered book folders unique per cycle", async () => {

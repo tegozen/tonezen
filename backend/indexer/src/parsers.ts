@@ -97,6 +97,7 @@ export function trackTitleFromMusicFilename(filename: string): string | null {
 
 export interface AudiobookFileScan {
   filename: string;
+  orderName?: string | null;
   title: string | null;
   artist: string | null;
   durationMs?: number | null;
