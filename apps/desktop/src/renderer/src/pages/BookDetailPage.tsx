@@ -66,7 +66,7 @@ export function BookDetailPage({
     tracks,
     savedTrackId ? { bookId: book.id, trackId: savedTrackId, positionMs: savedPositionMs } : null,
   );
-  const showContinue = continueState != null;
+  const showContinue = continueState != null && currentTrackId == null;
 
   return (
     <div className="overlay-page">
