@@ -11,7 +11,7 @@ export interface CatalogRealtimeSyncConfig {
 }
 
 const SYNC_DEBOUNCE_MS = 2000;
-const AUTH_RECOVERY_DELAY_MS = 2000;
+const SUBSCRIPTION_RECOVERY_DELAY_MS = 2000;
 const ERROR_LOG_COOLDOWN_MS = 10_000;
 
 export function isAuthSubscriptionError(err: unknown): boolean {
@@ -89,7 +89,7 @@ export class CatalogRealtimeSyncService {
     if (!this.storedSession) return;
     if (!this.isAccessTokenUsable()) {
       this.logDeferredOnce();
-      this.scheduleAuthRecovery();
+      this.scheduleSubscriptionRecovery();
       return;
     }
     const token = this.getAccessToken();
@@ -135,9 +135,7 @@ export class CatalogRealtimeSyncService {
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           this.subscribed = false;
           this.logSubscriptionError(status, err);
-          if (isAuthSubscriptionError(err)) {
-            this.scheduleAuthRecovery();
-          }
+          this.scheduleSubscriptionRecovery();
         }
       });
   }
@@ -156,12 +154,12 @@ export class CatalogRealtimeSyncService {
     console.error("[catalog-realtime] subscription failed:", status, err);
   }
 
-  private scheduleAuthRecovery(): void {
+  private scheduleSubscriptionRecovery(): void {
     if (this.recoveryTimer || this.recoveryInFlight) return;
     this.recoveryTimer = setTimeout(() => {
       this.recoveryTimer = null;
       void this.recoverSubscription();
-    }, AUTH_RECOVERY_DELAY_MS);
+    }, SUBSCRIPTION_RECOVERY_DELAY_MS);
   }
 
   private async recoverSubscription(): Promise<void> {
@@ -174,8 +172,8 @@ export class CatalogRealtimeSyncService {
         return;
       }
       if (!this.isAccessTokenUsable()) {
-        console.warn("[catalog-realtime] auth recovery waiting for a valid access token");
-        this.scheduleAuthRecovery();
+        console.warn("[catalog-realtime] subscription recovery waiting for a valid access token");
+        this.scheduleSubscriptionRecovery();
         return;
       }
       await this.ensureSubscribed();
