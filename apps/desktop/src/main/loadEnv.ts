@@ -27,10 +27,23 @@ export function loadAppEnv(): void {
   }
 }
 
+/** Candidate .env paths for packaged Electron apps (platform-specific layout). */
+export function packagedEnvCandidates(execPath: string): string[] {
+  const binaryDir = path.dirname(execPath);
+  return [
+    path.join(binaryDir, ".env"),
+    // macOS: electron-builder extraFiles land in Contents/, binary in Contents/MacOS/
+    path.join(binaryDir, "..", ".env"),
+  ];
+}
+
 export function loadPackagedEnv(execPath: string): void {
-  const besideBinary = path.join(path.dirname(execPath), ".env");
-  if (fs.existsSync(besideBinary)) {
-    dotenv.config({ path: besideBinary, override: true });
+  for (const envPath of packagedEnvCandidates(execPath)) {
+    const resolved = path.resolve(envPath);
+    if (fs.existsSync(resolved)) {
+      dotenv.config({ path: resolved, override: true });
+      return;
+    }
   }
 }
 
