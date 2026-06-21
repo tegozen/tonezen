@@ -272,11 +272,15 @@ services:
     depends_on:
       storage:
         condition: service_healthy
+      rest:
+        condition: service_healthy
     working_dir: /app/docker/storage-path-proxy
     volumes:
       - ./:/app:ro
     environment:
       STORAGE_UPSTREAM: http://storage:5000
+      POSTGREST_URL: http://rest:3000
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       PORT: "5050"
     command: ["node", "server.mjs"]
     healthcheck:

@@ -18,6 +18,23 @@ export interface UpsertCatalogOptions {
   objectUpdatedAtByPath: Map<string, Date | null>;
 }
 
+export function mergePartialBookOrder(existingOrder: unknown, partialOrder: string[]): string[] {
+  const merged = Array.isArray(existingOrder)
+    ? existingOrder.filter((value): value is string => typeof value === "string")
+    : [];
+  for (const slug of partialOrder) {
+    if (!merged.includes(slug)) {
+      merged.push(slug);
+    }
+  }
+  return merged;
+}
+
+interface CycleUpsertResult {
+  id: string;
+  bookOrder: string[];
+}
+
 export class CatalogRepository {
   private objectSizes = new Map<string, number>();
   private objectUpdatedAtByPath = new Map<string, Date | null>();
@@ -80,9 +97,9 @@ export class CatalogRepository {
 
       for (const cycle of cycles) {
         activeCycleSlugs.add(cycle.slug);
-        const cycleId = await this.upsertCycle(client, cycle);
-        for (let i = 0; i < cycle.bookOrder.length; i++) {
-          const bookSlug = cycle.bookOrder[i];
+        const cycleRow = await this.upsertCycle(client, cycle, options != null);
+        for (let i = 0; i < cycleRow.bookOrder.length; i++) {
+          const bookSlug = cycleRow.bookOrder[i];
           const book = cycle.books.find((b) => b.slug === bookSlug);
           if (!book) continue;
           activeBookSlugs.add(book.slug);
@@ -91,7 +108,7 @@ export class CatalogRepository {
             `INSERT INTO cycle_books (cycle_id, book_id, sort_order)
              VALUES ($1, $2, $3)
              ON CONFLICT (cycle_id, book_id) DO UPDATE SET sort_order = EXCLUDED.sort_order`,
-            [cycleId, bookId, i],
+            [cycleRow.id, bookId, i],
           );
           for (const track of book.tracks) {
             const storagePath = storagePathForAudiobook(
@@ -126,7 +143,37 @@ export class CatalogRepository {
     }
   }
 
-  private async upsertCycle(client: pg.PoolClient, cycle: ParsedCycle): Promise<string> {
+  private async upsertCycle(
+    client: pg.PoolClient,
+    cycle: ParsedCycle,
+    partial: boolean,
+  ): Promise<CycleUpsertResult> {
+    if (partial) {
+      const existing = await client.query<{ id: string; book_order: unknown }>(
+        `SELECT id, book_order FROM cycles WHERE slug = $1 FOR UPDATE`,
+        [cycle.slug],
+      );
+      if (existing.rows.length > 0) {
+        const mergedBookOrder = mergePartialBookOrder(existing.rows[0].book_order, cycle.bookOrder);
+        await client.query(
+          `UPDATE cycles SET
+             title = $2,
+             description = $3,
+             book_order = $4,
+             updated_at = now(),
+             deleted_at = NULL
+           WHERE id = $1`,
+          [
+            existing.rows[0].id,
+            cycle.title,
+            cycle.description,
+            JSON.stringify(mergedBookOrder),
+          ],
+        );
+        return { id: existing.rows[0].id, bookOrder: mergedBookOrder };
+      }
+    }
+
     const result = await client.query(
       `INSERT INTO cycles (slug, title, description, book_order, updated_at, deleted_at)
        VALUES ($1, $2, $3, $4, now(), NULL)
@@ -139,7 +186,7 @@ export class CatalogRepository {
        RETURNING id`,
       [cycle.slug, cycle.title, cycle.description, JSON.stringify(cycle.bookOrder)],
     );
-    return result.rows[0].id as string;
+    return { id: result.rows[0].id as string, bookOrder: cycle.bookOrder };
   }
 
   private async upsertBook(client: pg.PoolClient, book: ParsedBook): Promise<string> {

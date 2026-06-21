@@ -40,7 +40,7 @@ landing-test:
 	node ci/check-landing.mjs
 
 storage-path-test:
-	node --test scripts/lib/storagePathSlug.test.mjs
+	node --test scripts/lib/storagePathSlug.test.mjs docker/storage-path-proxy/displayNames.test.mjs
 
 indexer-run:
 	cd backend/indexer && npm run start

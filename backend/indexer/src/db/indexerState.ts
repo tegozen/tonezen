@@ -36,11 +36,14 @@ export async function writeWatermark(pool: pg.Pool, watermark: Date): Promise<vo
   );
 }
 
-export function maxUpdatedAt(objects: { updatedAt: Date | null }[]): Date {
+export function maxUpdatedAt(
+  objects: { updatedAt: Date | null; catalogUpdatedAt?: Date | null }[],
+): Date {
   let max = EPOCH;
   for (const object of objects) {
-    if (object.updatedAt != null && object.updatedAt > max) {
-      max = object.updatedAt;
+    const updatedAt = object.catalogUpdatedAt ?? object.updatedAt;
+    if (updatedAt != null && updatedAt > max) {
+      max = updatedAt;
     }
   }
   return max > EPOCH ? max : new Date();

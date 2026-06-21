@@ -8,6 +8,7 @@ describe("listChangedObjects", () => {
       rows: [
         {
           name: "music/new.mp3",
+          display_path: "music/Новая песня.mp3",
           metadata: { size: 100 },
           updated_at: new Date("2025-02-01T00:00:00.000Z"),
         },
@@ -19,9 +20,11 @@ describe("listChangedObjects", () => {
 
     expect(query).toHaveBeenCalledWith(expect.stringContaining("o.updated_at > $1"), [watermark]);
     expect(query).toHaveBeenCalledWith(expect.stringContaining("NOT EXISTS"), [watermark]);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("content_display_names"), [watermark]);
     expect(rows).toEqual([
       {
         name: "music/new.mp3",
+        displayPath: "music/Новая песня.mp3",
         sizeBytes: 100,
         updatedAt: new Date("2025-02-01T00:00:00.000Z"),
       },

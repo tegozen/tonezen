@@ -55,6 +55,18 @@ describe("shouldProbe", () => {
     ).toBe(true);
   });
 
+  it("returns true when display-name mapping is newer than indexed storage object", () => {
+    expect(
+      shouldProbe(
+        storageObject({
+          updatedAt: new Date("2025-02-01T00:00:00.000Z"),
+          catalogUpdatedAt: new Date("2025-03-01T00:00:00.000Z"),
+        }),
+        indexedRow({ storageObjectUpdatedAt: new Date("2025-02-01T00:00:00.000Z") }),
+      ),
+    ).toBe(true);
+  });
+
   it("returns true when waveform peaks are invalid", () => {
     expect(shouldProbe(storageObject(), indexedRow({ waveformPeaks: [1, 2, 3] }))).toBe(true);
   });

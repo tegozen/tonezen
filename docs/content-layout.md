@@ -61,7 +61,20 @@ The indexer reads tags from each file (title, artist, track number). All files b
 3. Indexer picks up new files on the next scan
 4. Clients download via Storage signed URLs from `POST /api/v1/downloads/sign`
 
-Folder and file names may contain **Cyrillic and spaces** — Kong routes uploads through `storage-path-proxy`, which transliterates paths automatically (e.g. `cycles/Рыцарь системы/1/01-01.mp3` → `cycles/rytsar-sistemy/1/01-01.mp3`). After changing proxy or Kong config, run `docker compose up -d storage storage-path-proxy kong`.
+Folder and file names may contain **Cyrillic and spaces** — Kong routes uploads through `storage-path-proxy`, which transliterates storage paths automatically and stores the original display path for the indexer (e.g. `cycles/Рыцарь системы/Книга 1/01 глава.mp3` is stored as `cycles/rytsar-sistemy/kniga-1/01-glava.mp3`, while apps display «Рыцарь системы» / «Книга 1» / «01 глава»). After changing proxy or Kong config, run `docker compose up -d storage storage-path-proxy kong`.
+
+For content uploaded before display-name mapping existed, add the mapping manually and wait for the next indexer scan:
+
+```sql
+INSERT INTO content_display_names (storage_path, display_path)
+VALUES (
+  'cycles/rytsar-sistemy/kniga-1/01-glava.mp3',
+  'cycles/Рыцарь системы/Книга 1/01 глава.mp3'
+)
+ON CONFLICT (storage_path) DO UPDATE
+SET display_path = EXCLUDED.display_path,
+    updated_at = now();
+```
 
 ### Large files (> ~6 MB)
 

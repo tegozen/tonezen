@@ -6,6 +6,7 @@ import {
   naturalCompare,
   pickAudiobookAuthor,
   titleFromSlug,
+  trackTitleFromFilename,
   type AudiobookFileScan,
   type MusicFileScan,
   type ParsedBook,
@@ -15,6 +16,7 @@ import type { AudioTags } from "./mediaProbe.js";
 
 export interface StorageObjectInput {
   name: string;
+  displayPath?: string | null;
 }
 
 export interface ScanStorageOptions {
@@ -28,11 +30,30 @@ export function isIndexableAudioPath(name: string): boolean {
   return isAudioFilename(basename);
 }
 
+function displayPathParts(name: string, displayPath: string | null | undefined): string[] | null {
+  if (!displayPath || displayPath === name) return null;
+  const nameParts = name.split("/");
+  const parts = displayPath.split("/");
+  if (parts.length !== nameParts.length || parts[0] !== nameParts[0]) return null;
+  return parts;
+}
+
+function displaySegment(parts: string[] | null, index: number): string | null {
+  const value = parts?.[index]?.trim();
+  return value || null;
+}
+
 export async function scanStorageObjects(
   objects: StorageObjectInput[],
   options: ScanStorageOptions = {},
 ): Promise<{ cycles: ParsedCycle[]; musicAlbums: ParsedBook[] }> {
-  const cycleBooks = new Map<string, Map<string, AudiobookFileScan[]>>();
+  const cycleBooks = new Map<
+    string,
+    {
+      title: string | null;
+      books: Map<string, { title: string | null; files: AudiobookFileScan[] }>;
+    }
+  >();
   const musicFiles: MusicFileScan[] = [];
 
   for (const object of objects) {
@@ -43,9 +64,11 @@ export async function scanStorageObjects(
       const filename = name.slice("music/".length);
       if (!filename || filename.includes("/")) continue;
       const tags = options.probeTags ? await options.probeTags(name) : null;
+      const parts = displayPathParts(name, object.displayPath);
+      const displayFilename = displaySegment(parts, 1);
       musicFiles.push({
         filename,
-        title: tags?.title ?? null,
+        title: tags?.title ?? (displayFilename ? trackTitleFromFilename(displayFilename) : null),
         artist: tags?.artist ?? null,
         album: tags?.album ?? null,
         trackNumber: tags?.trackNumber ?? null,
@@ -62,25 +85,38 @@ export async function scanStorageObjects(
     if (!cycleSlug || !bookSlug || !filename) continue;
 
     const tags = options.probeTags ? await options.probeTags(name) : null;
-    const files = cycleBooks.get(cycleSlug) ?? new Map<string, AudiobookFileScan[]>();
-    const bookFiles = files.get(bookSlug) ?? [];
+    const displayParts = displayPathParts(name, object.displayPath);
+    const cycle = cycleBooks.get(cycleSlug) ?? {
+      title: displaySegment(displayParts, 1),
+      books: new Map<string, { title: string | null; files: AudiobookFileScan[] }>(),
+    };
+    cycle.title ??= displaySegment(displayParts, 1);
+    const book = cycle.books.get(bookSlug) ?? {
+      title: displaySegment(displayParts, 2),
+      files: [],
+    };
+    book.title ??= displaySegment(displayParts, 2);
+    const displayFilename = displaySegment(displayParts, 3);
+    const displayTitle = displayFilename ? trackTitleFromFilename(displayFilename) : null;
+    const bookFiles = book.files;
     bookFiles.push({
       filename,
-      title: tags?.title ?? null,
+      title: tags?.title ?? displayTitle,
       artist: tags?.artist ?? null,
       durationMs: tags?.durationMs ?? null,
     });
-    files.set(bookSlug, bookFiles);
-    cycleBooks.set(cycleSlug, files);
+    cycle.books.set(bookSlug, book);
+    cycleBooks.set(cycleSlug, cycle);
   }
 
   const cycles: ParsedCycle[] = [];
-  for (const [cycleSlug, booksMap] of cycleBooks) {
-    const bookSlugs = [...booksMap.keys()].sort(naturalCompare);
+  for (const [cycleSlug, cycleScan] of cycleBooks) {
+    const bookSlugs = [...cycleScan.books.keys()].sort(naturalCompare);
     const books: ParsedBook[] = [];
 
     for (const bookSlug of bookSlugs) {
-      const scannedFiles = [...(booksMap.get(bookSlug) ?? [])].sort((a, b) =>
+      const bookScan = cycleScan.books.get(bookSlug);
+      const scannedFiles = [...(bookScan?.files ?? [])].sort((a, b) =>
         naturalCompare(a.filename, b.filename),
       );
       if (scannedFiles.length === 0) continue;
@@ -89,7 +125,7 @@ export async function scanStorageObjects(
         slug: audiobookBookSlug(cycleSlug, bookSlug),
         storageSlug: bookSlug,
         contentType: "audiobook",
-        title: titleFromSlug(bookSlug),
+        title: bookScan?.title ?? titleFromSlug(bookSlug),
         author: pickAudiobookAuthor(scannedFiles),
         coverPath: null,
         tracks: buildAudiobookTracks(scannedFiles),
@@ -99,7 +135,7 @@ export async function scanStorageObjects(
     if (books.length === 0) continue;
     cycles.push({
       slug: cycleSlug,
-      title: titleFromSlug(cycleSlug),
+      title: cycleScan.title ?? titleFromSlug(cycleSlug),
       description: null,
       bookOrder: books.map((book) => book.slug),
       books,

@@ -60,6 +60,10 @@ export function transliterateRu(text) {
 
 const STORAGE_SEGMENT_SAFE = /[a-z0-9._\-+!*'()&$@=;:+,?]/;
 
+/**
+ * @typedef {{ storagePath: string, displayPath: string }} DisplayPathMapping
+ */
+
 /** @param {string} segment */
 function sanitizeDirectorySegment(segment) {
   const transliterated = transliterateRu(segment).replace(/\s+/g, "-").toLowerCase();
@@ -112,11 +116,33 @@ export function sanitizeStoragePath(path) {
 }
 
 /**
+ * @param {string} storagePath
+ * @param {string} displayPath
+ * @returns {DisplayPathMapping | null}
+ */
+function displayMapping(storagePath, displayPath) {
+  if (!storagePath || !displayPath || storagePath === displayPath) {
+    return null;
+  }
+  return { storagePath, displayPath };
+}
+
+/**
  * @param {string | undefined | null} header
  * @returns {string | undefined}
  */
 export function rewriteUploadMetadataHeader(header) {
-  if (!header) return header ?? undefined;
+  return rewriteUploadMetadataHeaderWithMapping(header).header;
+}
+
+/**
+ * @param {string | undefined | null} header
+ * @returns {{ header: string | undefined, mapping: DisplayPathMapping | null }}
+ */
+export function rewriteUploadMetadataHeaderWithMapping(header) {
+  if (!header) return { header: header ?? undefined, mapping: null };
+
+  let mapping = null;
 
   const rewritten = header
     .split(",")
@@ -136,11 +162,12 @@ export function rewriteUploadMetadataHeader(header) {
       if (sanitized === decoded) {
         return `${key} ${value}`;
       }
+      mapping ??= displayMapping(sanitized, decoded);
       return `${key} ${Buffer.from(sanitized, "utf8").toString("base64")}`;
     })
     .join(",");
 
-  return rewritten;
+  return { header: rewritten, mapping };
 }
 
 /**
@@ -148,8 +175,16 @@ export function rewriteUploadMetadataHeader(header) {
  * @returns {string}
  */
 export function rewriteObjectPathname(pathname) {
+  return rewriteObjectPathnameWithMapping(pathname).pathname;
+}
+
+/**
+ * @param {string} pathname Request pathname such as /object/content/cycles/foo/bar.mp3
+ * @returns {{ pathname: string, mapping: DisplayPathMapping | null }}
+ */
+export function rewriteObjectPathnameWithMapping(pathname) {
   const match = pathname.match(/^(\/object\/(?:sign\/)?[^/]+\/)(.+)$/);
-  if (!match) return pathname;
+  if (!match) return { pathname, mapping: null };
 
   const [, prefix, rawPath] = match;
   const decodedPath = rawPath
@@ -165,12 +200,15 @@ export function rewriteObjectPathname(pathname) {
 
   const sanitizedPath = sanitizeStoragePath(decodedPath);
   if (sanitizedPath === decodedPath) {
-    return pathname;
+    return { pathname, mapping: null };
   }
 
   const encodedPath = sanitizedPath
     .split("/")
     .map((segment) => encodeURIComponent(segment))
     .join("/");
-  return `${prefix}${encodedPath}`;
+  return {
+    pathname: `${prefix}${encodedPath}`,
+    mapping: displayMapping(sanitizedPath, decodedPath),
+  };
 }

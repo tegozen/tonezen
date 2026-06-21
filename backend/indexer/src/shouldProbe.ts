@@ -19,6 +19,10 @@ export function shouldProbe(object: StorageObjectRow, dbRow: IndexedTrackRow | u
     return true;
   }
 
+  if (object.catalogUpdatedAt != null && object.catalogUpdatedAt > dbRow.storageObjectUpdatedAt) {
+    return true;
+  }
+
   if (!isValidWaveformPeaks(dbRow.waveformPeaks)) {
     return true;
   }

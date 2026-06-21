@@ -62,6 +62,24 @@ describe("scanStorageObjects", () => {
     expect(musicAlbums[0].tracks[0].sortOrder).toBe(0);
   });
 
+  it("uses display paths for Russian cycle, book, and track titles", async () => {
+    const { cycles } = await scanStorageObjects([
+      {
+        name: "cycles/rytsar-sistemy/kniga-1/01-glava.mp3",
+        displayPath: "cycles/Рыцарь системы/Книга 1/01 глава.mp3",
+      },
+    ]);
+
+    expect(cycles).toHaveLength(1);
+    expect(cycles[0].slug).toBe("rytsar-sistemy");
+    expect(cycles[0].title).toBe("Рыцарь системы");
+    expect(cycles[0].books[0].slug).toBe("rytsar-sistemy--kniga-1");
+    expect(cycles[0].books[0].storageSlug).toBe("kniga-1");
+    expect(cycles[0].books[0].title).toBe("Книга 1");
+    expect(cycles[0].books[0].tracks[0].filename).toBe("01-glava.mp3");
+    expect(cycles[0].books[0].tracks[0].title).toBe("01 глава");
+  });
+
   it("keeps numbered book folders unique per cycle", async () => {
     const { cycles } = await scanStorageObjects([
       { name: "cycles/defender/1/01.mp3" },
