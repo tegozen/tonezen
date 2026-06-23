@@ -6,19 +6,15 @@ import { OverlayTopChrome } from "../components/OverlayTopChrome";
 import { OVERLAY_BACK_TOP_SCROLL_PX } from "../lib/layoutChrome";
 import { buildBookTrackProgress, canContinueBookListening, resolveChapterTrackState } from "../lib/bookTrackUtils";
 import { strings } from "../i18n/strings";
-import { CloseIcon, DownloadsIcon } from "../components/TonezenIcons";
 
 interface BookDetailPageProps {
   book: Book;
   tracks: Track[];
   currentTrackId: string | null;
   playbackPositionMs: number;
-  showDownloadSheet: boolean;
   onBack: () => void;
   onTrackClick: (track: Track) => void;
   onDownloadRequest: () => void;
-  onDownloadConfirm: () => void;
-  onDownloadDismiss: () => void;
   onToggleBookListened: () => void;
   onRemoveBookDownloads: () => void;
   onMarkTrackListened: (track: Track, listened: boolean) => void;
@@ -36,12 +32,9 @@ export function BookDetailPage({
   tracks,
   currentTrackId,
   playbackPositionMs,
-  showDownloadSheet,
   onBack,
   onTrackClick,
   onDownloadRequest,
-  onDownloadConfirm,
-  onDownloadDismiss,
   onToggleBookListened,
   onRemoveBookDownloads,
   onMarkTrackListened,
@@ -118,26 +111,6 @@ export function BookDetailPage({
           />
         }
       />
-      {showDownloadSheet && (
-        <div className="sheet-overlay">
-          <div className="sheet-panel glass-panel">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-semibold">{strings.downloadConfirmTitle}</h3>
-              <button type="button" className="icon-button h-9 w-9 text-[0]" onClick={onDownloadDismiss} aria-label={strings.cancel}>
-                <CloseIcon className="h-5 w-5 text-base" />
-              </button>
-            </div>
-            <p className="text-sm text-muted">{strings.downloadConfirmBody}</p>
-            <button type="button" className="btn-primary mt-4 flex w-full items-center justify-center gap-2" onClick={onDownloadConfirm}>
-              <DownloadsIcon className="h-5 w-5" />
-              {strings.downloadOffline}
-            </button>
-            <button type="button" className="btn-secondary mt-3 w-full" onClick={onDownloadDismiss}>
-              {strings.cancel}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

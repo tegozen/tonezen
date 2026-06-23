@@ -7,6 +7,7 @@ import {
 } from "@shared/musicList";
 import { completedDownloadItems } from "@shared/downloadsPageState";
 import { progressForTrack } from "@shared/downloadQueueState";
+import { nextAudiobookDownloadRequest } from "@shared/audiobookDownloadTarget";
 import { CyclePlaybackResolver } from "@shared/cyclePlayback";
 import { findActiveMusicTrack } from "@shared/musicPlayback";
 import { AppShell } from "./components/AppShell";
@@ -73,7 +74,6 @@ export function App() {
   const [filter, setFilter] = useState<LibraryFilter>(defaultFilter);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [showExpandedPlayer, setShowExpandedPlayer] = useState(false);
-  const [showDownloadSheet, setShowDownloadSheet] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [storageUsed, setStorageUsed] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
@@ -320,7 +320,7 @@ export function App() {
       playTrack(local, 0, selectedBook);
       setShowExpandedPlayer(false);
     } else if (!track.localPath) {
-      setShowDownloadSheet(true);
+      setError(strings.downloadFailed);
     }
   };
 
@@ -349,25 +349,19 @@ export function App() {
     }
   };
 
-  const downloadBook = async (book: Book) => {
-    setShowDownloadSheet(false);
+  const downloadNextBookTrack = async (book: Book) => {
     const bookTracks = await window.tonezen.db.getTracks(book.id);
-    const pending = bookTracks.filter((track) => !track.localPath);
-    if (pending.length === 0) return;
-    const batchId = crypto.randomUUID();
+    const activeTrackId =
+      !music.musicMode && currentTrack && currentTrack.bookId === book.id ? currentTrack.id : null;
+    const request = nextAudiobookDownloadRequest({
+      book,
+      tracks: bookTracks as Track[],
+      currentTrackId: activeTrackId,
+      savedTrackId: progressByBook.get(book.id)?.trackId ?? null,
+    });
+    if (!request) return;
     try {
-      await downloadQueue.enqueueBatch(
-        pending.map((track) => ({
-          bookId: book.id,
-          trackId: track.id,
-          priority: "BULK" as const,
-          batchId,
-          title: track.title,
-          subtitle: book.title,
-          contentType: book.contentType,
-        })),
-        batchId,
-      );
+      await downloadQueue.enqueue(request);
     } catch (e) {
       setError(resolveDownloadError(e instanceof Error ? e.message : ""));
     }
@@ -600,15 +594,11 @@ export function App() {
               : null
           }
           playbackPositionMs={positionMs}
-          showDownloadSheet={showDownloadSheet}
           onBack={() => {
             setSelectedBook(null);
-            setShowDownloadSheet(false);
           }}
           onTrackClick={(track) => void playBookTrack(track)}
-          onDownloadRequest={() => setShowDownloadSheet(true)}
-          onDownloadConfirm={() => void downloadBook(selectedBook)}
-          onDownloadDismiss={() => setShowDownloadSheet(false)}
+          onDownloadRequest={() => void downloadNextBookTrack(selectedBook)}
           onToggleBookListened={() => {
             const listened = tracks.length > 0 && tracks.every((track) => {
               const saved = progressByBook.get(selectedBook.id);

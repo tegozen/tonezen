@@ -119,8 +119,6 @@ export const strings = {
   reset: "Сбросить",
   apply: "Применить",
   downloadOffline: "Скачать офлайн",
-  downloadConfirmTitle: "Скачать аудиокнигу?",
-  downloadConfirmBody: "Будет загружено несколько аудиофайлов на это устройство.",
   syncPausedTitle: "Синхронизация приостановлена",
   syncPausedBody: "Вы офлайн. Прогресс аудиокниг синхронизируется, когда появится сеть.",
   keepListening: "Продолжить слушать",

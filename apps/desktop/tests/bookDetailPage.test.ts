@@ -33,12 +33,9 @@ describe("BookDetailPage", () => {
         tracks,
         currentTrackId: "track-1",
         playbackPositionMs: 8_000,
-        showDownloadSheet: false,
         onBack: noop,
         onTrackClick: noop,
         onDownloadRequest: noop,
-        onDownloadConfirm: noop,
-        onDownloadDismiss: noop,
         onToggleBookListened: noop,
         onRemoveBookDownloads: noop,
         onMarkTrackListened: noop,
@@ -53,5 +50,34 @@ describe("BookDetailPage", () => {
     );
 
     expect(html).not.toContain(strings.resume);
+  });
+
+  it("does not render a confirmation sheet before downloading a book", () => {
+    const noop = vi.fn();
+
+    const html = renderToStaticMarkup(
+      BookDetailPage({
+        book,
+        tracks,
+        currentTrackId: null,
+        playbackPositionMs: 0,
+        onBack: noop,
+        onTrackClick: noop,
+        onDownloadRequest: noop,
+        onToggleBookListened: noop,
+        onRemoveBookDownloads: noop,
+        onMarkTrackListened: noop,
+        onRemoveTrackDownload: noop,
+        onContinue: noop,
+        savedTrackId: null,
+        savedPositionMs: 0,
+        isBookListened: false,
+        hasDownloads: false,
+        allDownloaded: false,
+      }),
+    );
+
+    expect(html).not.toContain("Скачать аудиокнигу?");
+    expect(html).not.toContain("Будет загружено несколько аудиофайлов на это устройство.");
   });
 });
