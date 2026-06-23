@@ -5,6 +5,7 @@ import {
   visibleMusicTrackList,
   type MusicListTrack,
 } from "@shared/musicList";
+import { completedAudiobookProgress, upsertAudiobookProgress } from "@shared/audiobookProgress";
 import { completedDownloadItems } from "@shared/downloadsPageState";
 import { progressForTrack } from "@shared/downloadQueueState";
 import { nextAudiobookDownloadRequest } from "@shared/audiobookDownloadTarget";
@@ -506,6 +507,16 @@ export function App() {
   };
 
   const handleTrackEnded = () => {
+    const completedProgress = completedAudiobookProgress(selectedBook, currentTrack, durationMs);
+    if (completedProgress) {
+      setProgressList((current) => upsertAudiobookProgress(current, completedProgress));
+      void window.tonezen.progress.save(
+        completedProgress.bookId,
+        completedProgress.trackId,
+        completedProgress.positionMs,
+      );
+    }
+
     if (music.handleTrackEnded()) return;
     if (!currentTrack || !selectedBook) return;
 
