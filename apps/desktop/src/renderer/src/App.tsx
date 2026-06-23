@@ -14,6 +14,7 @@ import { AppShell } from "./components/AppShell";
 import { LibraryFilterSheet } from "./components/LibraryFilterSheet";
 import { LoginView } from "./components/LoginView";
 import { NowPlayingSheet } from "./components/NowPlayingSheet";
+import { ToastMessage } from "./components/ToastMessage";
 import { useDownloadQueue } from "./hooks/useDownloadQueue";
 import { useMusicPlayback } from "./hooks/useMusicPlayback";
 import { usePlayback } from "./hooks/usePlayback";
@@ -54,7 +55,6 @@ export function App() {
     password,
     setPassword,
     error,
-    setError,
     login,
     verifyInviteCode,
     registerWithInvite,
@@ -84,10 +84,47 @@ export function App() {
   const [musicTracks, setMusicTracks] = useState<MusicListTrack[]>([]);
   const [cyclePlayingId, setCyclePlayingId] = useState<string | null>(null);
   const [progressList, setProgressList] = useState<Array<{ bookId: string; trackId: string; positionMs: number; updatedAt: string }>>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const downloadQueue = useDownloadQueue();
   const musicStartedInSessionRef = useRef(false);
   const refreshLibraryRef = useRef<(options?: RefreshLibraryOptions) => Promise<void>>(async () => {});
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastMessage(message);
+    toastTimerRef.current = setTimeout(() => {
+      setToastMessage(null);
+      toastTimerRef.current = null;
+    }, 3_500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  const logDownloadFailure = useCallback(
+    (input: {
+      code: string;
+      bookId: string;
+      trackId: string;
+      bookTitle?: string;
+      trackTitle?: string;
+      details?: string;
+    }) => {
+      void window.tonezen.diagnostics
+        .logError({
+          area: "download",
+          message: strings.downloadFailed,
+          ...input,
+        })
+        .catch(() => {});
+    },
+    [],
+  );
 
   const refreshLibrary = useCallback(async (options?: RefreshLibraryOptions) => {
     const rebuildMusic = options?.rebuildMusic ?? true;
@@ -250,6 +287,12 @@ export function App() {
     };
   }, [refreshLibrary]);
 
+  useEffect(() => {
+    return window.tonezen.download.onFailed(() => {
+      showToast(strings.downloadFailed);
+    });
+  }, [showToast]);
+
   const syncCatalog = async () => {
     setIsLoading(true);
     try {
@@ -282,24 +325,49 @@ export function App() {
     let bookTracks = await window.tonezen.db.getTracks(bookId);
     let track = bookTracks.find((item) => item.id === trackId);
     if (track?.localPath) return track as Track;
+    const book = books.find((item) => item.id === bookId);
+    const trackMeta = bookTracks.find((item) => item.id === trackId);
     if (sessionState === "AuthenticatedOffline" || sessionState === "Unauthenticated") {
+      logDownloadFailure({
+        code: sessionState === "AuthenticatedOffline" ? "OFFLINE" : "UNAUTHENTICATED",
+        bookId,
+        trackId,
+        bookTitle: book?.title,
+        trackTitle: trackMeta?.title,
+      });
       return null;
     }
     try {
-      const book = books.find((item) => item.id === bookId);
-      const trackMeta = bookTracks.find((item) => item.id === trackId);
       const result = await downloadQueue.awaitTrack(bookId, trackId, {
         priority: "PLAY",
         title: trackMeta?.title ?? trackId,
         subtitle: book?.title ?? null,
         contentType: book?.contentType ?? "audiobook",
       });
-      if (result !== "COMPLETED") return null;
+      if (result !== "COMPLETED") {
+        if (result !== "FAILED") {
+          logDownloadFailure({
+            code: result,
+            bookId,
+            trackId,
+            bookTitle: book?.title,
+            trackTitle: trackMeta?.title,
+          });
+        }
+        return null;
+      }
       bookTracks = await window.tonezen.db.getTracks(bookId);
       track = bookTracks.find((item) => item.id === trackId);
       await refreshLibrary();
       return (track as Track) ?? null;
-    } catch {
+    } catch (e) {
+      logDownloadFailure({
+        code: e instanceof Error ? e.message : "UNKNOWN",
+        bookId,
+        trackId,
+        bookTitle: book?.title,
+        trackTitle: trackMeta?.title,
+      });
       return null;
     }
   };
@@ -320,7 +388,7 @@ export function App() {
       playTrack(local, 0, selectedBook);
       setShowExpandedPlayer(false);
     } else if (!track.localPath) {
-      setError(strings.downloadFailed);
+      showToast(strings.downloadFailed);
     }
   };
 
@@ -363,7 +431,14 @@ export function App() {
     try {
       await downloadQueue.enqueue(request);
     } catch (e) {
-      setError(resolveDownloadError(e instanceof Error ? e.message : ""));
+      showToast(resolveDownloadError(e instanceof Error ? e.message : ""));
+      logDownloadFailure({
+        code: e instanceof Error ? e.message : "UNKNOWN",
+        bookId: request.bookId,
+        trackId: request.trackId,
+        bookTitle: request.subtitle ?? undefined,
+        trackTitle: request.title,
+      });
     }
   };
 
@@ -690,6 +765,8 @@ export function App() {
         <DownloadsPage
           downloadQueue={downloadQueue.state}
           completedItems={completedDownloads}
+          books={books}
+          cycles={cycles}
           onCancelTrack={(bookId, trackId) => void downloadQueue.cancelTrack(bookId, trackId)}
           onCancelAll={() => void downloadQueue.cancelAll()}
           onDeleteCompleted={(bookId, trackId) => {
@@ -739,6 +816,7 @@ export function App() {
   return (
     <>
       {shell}
+      {toastMessage && <ToastMessage message={toastMessage} />}
       <NowPlayingSheet
         visible={showExpandedPlayer && Boolean(currentTrack)}
         title={miniTitle ?? ""}

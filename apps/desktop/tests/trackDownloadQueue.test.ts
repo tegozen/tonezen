@@ -159,10 +159,12 @@ describe("TrackDownloadQueue", () => {
       deleteLocalTrack: vi.fn(async () => {}),
     } as unknown as DownloadManager;
 
+    const logDownloadFailure = vi.fn();
     const queue = new TrackDownloadQueue(
       downloadsRoot,
       downloadManager,
       createSessionService(),
+      logDownloadFailure,
     );
 
     try {
@@ -187,6 +189,16 @@ describe("TrackDownloadQueue", () => {
       expect(db.LocalDatabase.get("book-1", "track-1")).toBeNull();
       expect(attempts.filter((trackId) => trackId === "track-1")).toHaveLength(3);
       expect(attempts).toContain("track-2");
+      expect(logDownloadFailure).toHaveBeenCalledWith(
+        expect.objectContaining({
+          area: "download",
+          code: "FAILED",
+          bookId: "book-1",
+          trackId: "track-1",
+          trackTitle: "001",
+          bookTitle: "Book",
+        }),
+      );
     } finally {
       await queue.cancelAll();
     }

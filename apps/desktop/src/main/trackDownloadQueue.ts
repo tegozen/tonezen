@@ -21,6 +21,7 @@ import { isSafeStorageId, resolveTrackPartPath } from "../shared/safeLocalPaths.
 import { DownloadCancelledError, type DownloadManager } from "./downloadManager.js";
 import { LocalDatabase } from "./database.js";
 import type { SessionService } from "./sessionService.js";
+import type { DiagnosticErrorEntry } from "./diagnosticsLog.js";
 
 const STATUS_QUEUED = "queued";
 const MAX_DOWNLOAD_FAILURES = 3;
@@ -42,6 +43,8 @@ type Awaiter = {
   resolve: (result: DownloadAwaitResult) => void;
 };
 
+type DownloadFailureLogger = (entry: DiagnosticErrorEntry) => void | Promise<unknown>;
+
 export class TrackDownloadQueue {
   private readonly mutex = new AsyncMutex();
   private state: DownloadQueueState = emptyDownloadQueueState();
@@ -59,6 +62,7 @@ export class TrackDownloadQueue {
     private readonly downloadsRoot: string,
     private readonly downloadManager: DownloadManager,
     private readonly sessionService: SessionService,
+    private readonly logDownloadFailure?: DownloadFailureLogger,
   ) {}
 
   setMainWindow(window: BrowserWindow | null): void {
@@ -330,6 +334,7 @@ export class TrackDownloadQueue {
               const attempts = (this.failureCounts.get(key) ?? 0) + 1;
               if (attempts >= MAX_DOWNLOAD_FAILURES) {
                 this.failureCounts.delete(key);
+                this.reportDownloadFailure(next, result);
                 LocalDatabase.delete(next.bookId, next.trackId);
               } else {
                 this.failureCounts.set(key, attempts);
@@ -602,6 +607,26 @@ export class TrackDownloadQueue {
     const window = this.mainWindow;
     if (!window || window.isDestroyed()) return;
     window.webContents.send("catalog:updated");
+  }
+
+  private reportDownloadFailure(entity: DownloadQueueRow, code: DownloadAwaitResult): void {
+    const entry: DiagnosticErrorEntry = {
+      area: "download",
+      message: "Не удалось скачать",
+      code,
+      bookId: entity.bookId,
+      trackId: entity.trackId,
+      bookTitle: entity.subtitle ?? undefined,
+      trackTitle: entity.title,
+    };
+    try {
+      void Promise.resolve(this.logDownloadFailure?.(entry)).catch(() => {});
+    } catch {
+      // Diagnostics must never block the download worker.
+    }
+    const window = this.mainWindow;
+    if (!window || window.isDestroyed()) return;
+    window.webContents.send("download:failed", entry);
   }
 }
 

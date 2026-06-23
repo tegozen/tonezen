@@ -11,6 +11,7 @@ import type { EnqueueDownloadRequest } from "../shared/downloadQueueState.js";
 import type { DownloadPriority } from "../shared/downloadQueuePolicy.js";
 import type { SessionService } from "./sessionService.js";
 import { isSafeStorageId } from "../shared/safeLocalPaths.js";
+import { appendDiagnosticError, type DiagnosticErrorEntry } from "./diagnosticsLog.js";
 
 function assertSafeDownloadIds(bookId: string, trackId: string): boolean {
   return isSafeStorageId(bookId) && isSafeStorageId(trackId);
@@ -26,6 +27,7 @@ export interface IpcHandlerDeps {
   progressSync: ProgressSyncService;
   powerBlocker: PlaybackPowerBlocker;
   downloadsRoot: string;
+  documentsPath: string;
 }
 
 export function registerIpcHandlers(deps: IpcHandlerDeps): void {
@@ -39,6 +41,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     progressSync,
     powerBlocker,
     downloadsRoot,
+    documentsPath,
   } = deps;
 
   ipcMain.handle("session:get", async () => {
@@ -184,6 +187,9 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   });
   ipcMain.handle("download:cancelAll", () => trackDownloadQueue.cancelAll());
   ipcMain.handle("download:getQueueState", () => trackDownloadQueue.getQueueState());
+  ipcMain.handle("diagnostics:logError", (_e, entry: DiagnosticErrorEntry) =>
+    appendDiagnosticError(documentsPath, entry),
+  );
   ipcMain.handle("sync:status", () => progressSync.getSyncStatus());
   ipcMain.handle("sync:trigger", () => progressSync.triggerSync());
   ipcMain.handle("progress:get", (_e, bookId: string) => LocalDatabase.getProgress(bookId));

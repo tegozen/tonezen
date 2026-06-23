@@ -146,6 +146,37 @@ contextBridge.exposeInMainWorld("tonezen", {
       ipcRenderer.on("download:queueState", listener);
       return () => ipcRenderer.removeListener("download:queueState", listener);
     },
+    onFailed: (
+      callback: (entry: {
+        area: "download";
+        message: string;
+        code?: string;
+        bookId?: string;
+        trackId?: string;
+        bookTitle?: string;
+        trackTitle?: string;
+        details?: string;
+      }) => void,
+    ) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        entry: Parameters<typeof callback>[0],
+      ) => callback(entry);
+      ipcRenderer.on("download:failed", listener);
+      return () => ipcRenderer.removeListener("download:failed", listener);
+    },
+  },
+  diagnostics: {
+    logError: (entry: {
+      area: "download" | "playback" | "sync" | "app";
+      message: string;
+      code?: string;
+      bookId?: string;
+      trackId?: string;
+      bookTitle?: string;
+      trackTitle?: string;
+      details?: string;
+    }) => ipcRenderer.invoke("diagnostics:logError", entry),
   },
   sync: {
     status: () => ipcRenderer.invoke("sync:status"),

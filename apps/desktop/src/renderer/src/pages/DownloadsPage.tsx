@@ -1,8 +1,11 @@
 import {
-  activeDownloadItems,
+  groupDownloadsForPage,
   type CompletedDownloadItem,
+  type DownloadsBookGroup,
+  type DownloadsPageItem,
 } from "@shared/downloadsPageState";
-import type { DownloadQueueItem, DownloadQueueState } from "@shared/downloadQueueState";
+import type { Book, Cycle } from "@shared/types";
+import type { DownloadQueueState } from "@shared/downloadQueueState";
 import { PAGE_TITLE_TOP_SCROLL_PX } from "../lib/layoutChrome";
 import { TitleTopChrome } from "../components/TitleTopChrome";
 import { TrackDownloadButton } from "../components/TrackDownloadButton";
@@ -12,6 +15,8 @@ import { strings } from "../i18n/strings";
 interface DownloadsPageProps {
   downloadQueue: DownloadQueueState;
   completedItems: CompletedDownloadItem[];
+  books: Book[];
+  cycles: Cycle[];
   onCancelTrack: (bookId: string, trackId: string) => void;
   onCancelAll: () => void;
   onDeleteCompleted: (bookId: string, trackId: string) => void;
@@ -20,12 +25,18 @@ interface DownloadsPageProps {
 export function DownloadsPage({
   downloadQueue,
   completedItems,
+  books,
+  cycles,
   onCancelTrack,
   onCancelAll,
   onDeleteCompleted,
 }: DownloadsPageProps) {
-  const activeItems = activeDownloadItems(downloadQueue);
-  const isEmpty = activeItems.length === 0 && completedItems.length === 0;
+  const groups = groupDownloadsForPage({ downloadQueue, completedItems, books, cycles });
+  const hasAudiobooks =
+    groups.audiobookCycles.length > 0 || groups.audiobookStandaloneBooks.length > 0;
+  const hasMusic = groups.music.length > 0;
+  const hasActiveItems = downloadQueue.queuedItems.length > 0;
+  const isEmpty = !hasAudiobooks && !hasMusic;
 
   return (
     <div className="profile-page">
@@ -36,44 +47,48 @@ export function DownloadsPage({
         {downloadQueue.pausedForNetwork && (
           <p className="text-sm text-muted">{strings.downloadPausedOffline}</p>
         )}
-        {activeItems.length > 0 && (
+        {hasActiveItems && (
+          <div className="flex justify-end">
+            <button type="button" className="text-sm text-teal" onClick={onCancelAll}>
+              {strings.musicDownloadStopAll}
+            </button>
+          </div>
+        )}
+        {hasAudiobooks && (
           <section className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-muted">{strings.downloadsSectionActive}</h2>
-              <button type="button" className="text-sm text-teal" onClick={onCancelAll}>
-                {strings.musicDownloadStopAll}
-              </button>
-            </div>
-            {activeItems.map((item) => (
-              <DownloadsActiveRow
-                key={`${item.bookId}:${item.trackId}`}
-                item={item}
-                onCancel={() => onCancelTrack(item.bookId, item.trackId)}
+            <h2 className="text-sm font-semibold text-muted">{strings.downloadsSectionAudiobooks}</h2>
+            {groups.audiobookCycles.map((cycle) => (
+              <div key={cycle.cycleId} className="space-y-3">
+                <h3 className="px-1 text-base font-semibold text-ink">{cycle.title}</h3>
+                {cycle.books.map((book) => (
+                  <DownloadsBookGroupView
+                    key={book.bookId}
+                    book={book}
+                    onCancelTrack={onCancelTrack}
+                    onDeleteCompleted={onDeleteCompleted}
+                  />
+                ))}
+              </div>
+            ))}
+            {groups.audiobookStandaloneBooks.map((book) => (
+              <DownloadsBookGroupView
+                key={book.bookId}
+                book={book}
+                onCancelTrack={onCancelTrack}
+                onDeleteCompleted={onDeleteCompleted}
               />
             ))}
           </section>
         )}
-        {completedItems.length > 0 && (
+        {hasMusic && (
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-muted">{strings.downloadsSectionCompleted}</h2>
-            {completedItems.map((item) => (
-              <TrackListRow
+            <h2 className="text-sm font-semibold text-muted">{strings.downloadsSectionMusic}</h2>
+            {groups.music.map((item) => (
+              <DownloadsItemRow
                 key={`${item.bookId}:${item.trackId}`}
-                title={item.title}
-                subtitle={item.subtitle ?? undefined}
-                durationMs={item.durationMs}
-                isActive={false}
-                clickEnabled={false}
-                onClick={() => {}}
-                trailing={
-                  <button
-                    type="button"
-                    className="text-sm text-muted"
-                    onClick={() => onDeleteCompleted(item.bookId, item.trackId)}
-                  >
-                    {strings.removeDownload}
-                  </button>
-                }
+                item={item}
+                onCancel={() => onCancelTrack(item.bookId, item.trackId)}
+                onDelete={() => onDeleteCompleted(item.bookId, item.trackId)}
               />
             ))}
           </section>
@@ -89,34 +104,83 @@ export function DownloadsPage({
   );
 }
 
-function DownloadsActiveRow({
+function DownloadsBookGroupView({
+  book,
+  onCancelTrack,
+  onDeleteCompleted,
+}: {
+  book: DownloadsBookGroup;
+  onCancelTrack: (bookId: string, trackId: string) => void;
+  onDeleteCompleted: (bookId: string, trackId: string) => void;
+}) {
+  const activeCount = book.items.filter((item) => item.status !== "COMPLETED").length;
+  const completedCount = book.items.length - activeCount;
+
+  return (
+    <div className="space-y-2">
+      <div className="px-1">
+        <h4 className="text-sm font-semibold text-teal">{book.title}</h4>
+        <p className="text-xs text-muted">
+          {strings.downloadsBookStatus(activeCount, completedCount)}
+        </p>
+      </div>
+      {book.items.map((item) => (
+        <DownloadsItemRow
+          key={`${item.bookId}:${item.trackId}`}
+          item={item}
+          onCancel={() => onCancelTrack(item.bookId, item.trackId)}
+          onDelete={() => onDeleteCompleted(item.bookId, item.trackId)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function DownloadsItemRow({
   item,
   onCancel,
+  onDelete,
 }: {
-  item: DownloadQueueItem;
+  item: DownloadsPageItem;
   onCancel: () => void;
+  onDelete: () => void;
 }) {
-  const subtitle =
-    item.status === "PAUSED_OFFLINE"
-      ? strings.downloadPausedOffline
-      : item.status === "QUEUED"
-        ? strings.downloadStatusQueued
-        : item.subtitle;
+  const isCompleted = item.status === "COMPLETED";
+  const subtitle = downloadItemSubtitle(item);
 
   return (
     <TrackListRow
       title={item.title}
       subtitle={subtitle ?? undefined}
+      durationMs={item.durationMs}
       isActive={item.status === "DOWNLOADING"}
       clickEnabled={false}
       onClick={() => {}}
       trailing={
-        <TrackDownloadButton
-          downloading={item.status === "DOWNLOADING"}
-          progress={item.progress}
-          onClick={onCancel}
-        />
+        isCompleted ? (
+          <button type="button" className="text-sm text-muted" onClick={onDelete}>
+            {strings.removeDownload}
+          </button>
+        ) : (
+          <TrackDownloadButton
+            downloading={item.status === "DOWNLOADING"}
+            progress={item.progress}
+            onClick={onCancel}
+          />
+        )
       }
     />
   );
+}
+
+function downloadItemSubtitle(item: DownloadsPageItem): string | null {
+  if (item.status === "PAUSED_OFFLINE") return strings.downloadPausedOffline;
+  if (item.status === "QUEUED") return strings.downloadStatusQueued;
+  if (item.status === "DOWNLOADING") return strings.downloading;
+  if (item.status === "COMPLETED") {
+    return item.contentType === "audiobook"
+      ? strings.downloadsSectionCompleted
+      : item.subtitle ?? strings.downloadsSectionCompleted;
+  }
+  return item.subtitle;
 }

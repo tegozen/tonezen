@@ -155,6 +155,10 @@ export const strings = {
   musicAllTracks: "Все треки",
   downloadsSectionActive: "Сейчас",
   downloadsSectionCompleted: "Загружено",
+  downloadsSectionAudiobooks: "Аудиокниги",
+  downloadsSectionMusic: "Музыка",
+  downloadsBookStatus: (active: number, completed: number) =>
+    active > 0 ? `Сейчас: ${active} · Загружено: ${completed}` : `Загружено: ${completed}`,
   downloadsEmpty: "Нет загрузок",
   downloadStatusQueued: "В очереди",
   downloadPausedOffline: "Ожидание сети",

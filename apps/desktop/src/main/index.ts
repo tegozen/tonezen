@@ -18,6 +18,7 @@ import { PlaybackPowerBlocker } from "./playbackPowerBlocker.js";
 import { registerIpcHandlers } from "./ipcHandlers.js";
 import { TrackDownloadQueue } from "./trackDownloadQueue.js";
 import { AppUiReferences } from "./appUiReferences.js";
+import { appendDiagnosticError } from "./diagnosticsLog.js";
 
 loadAppEnv();
 registerLocalAudioScheme();
@@ -55,6 +56,7 @@ if (!hasSingleInstanceLock) {
     }
     const runtimeConfig = getClientConfig();
     const userData = app.getPath("userData");
+    const documentsPath = app.getPath("documents");
     const downloadsRoot = path.join(userData, "downloads");
     setupLocalAudioProtocol([downloadsRoot]);
     LocalDatabase.init(userData);
@@ -80,7 +82,12 @@ if (!hasSingleInstanceLock) {
       runtimeConfig.baseUrl,
       () => sessionService.getAccessToken(),
     );
-    trackDownloadQueue = new TrackDownloadQueue(downloadsRoot, downloadManager, sessionService);
+    trackDownloadQueue = new TrackDownloadQueue(
+      downloadsRoot,
+      downloadManager,
+      sessionService,
+      (entry) => appendDiagnosticError(documentsPath, entry),
+    );
     await trackDownloadQueue.restoreFromDb();
     profileSync = new ProfileSyncService(sessionService, {
       baseUrl: runtimeConfig.baseUrl,
@@ -114,6 +121,7 @@ if (!hasSingleInstanceLock) {
       progressSync,
       powerBlocker,
       downloadsRoot,
+      documentsPath,
     });
   });
 }

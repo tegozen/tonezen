@@ -6,6 +6,17 @@ import type {
 } from "@shared/downloadQueueState";
 import type { DownloadPriority } from "@shared/downloadQueuePolicy";
 
+type DiagnosticErrorEntry = {
+  area: "download" | "playback" | "sync" | "app";
+  message: string;
+  code?: string;
+  bookId?: string;
+  trackId?: string;
+  bookTitle?: string;
+  trackTitle?: string;
+  details?: string;
+};
+
 type SessionSnapshot = {
   state: SessionState;
   email: string | null;
@@ -84,6 +95,10 @@ export interface TonezenApi {
     cancelAll: () => Promise<void>;
     getQueueState: () => Promise<DownloadQueueState>;
     onQueueState: (callback: (state: DownloadQueueState) => void) => () => void;
+    onFailed: (callback: (entry: DiagnosticErrorEntry) => void) => () => void;
+  };
+  diagnostics: {
+    logError: (entry: DiagnosticErrorEntry) => Promise<string>;
   };
   sync: {
     status: () => Promise<{ pendingCount: number; lastSyncAtEpochMs: number | null }>;
