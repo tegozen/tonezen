@@ -23,6 +23,7 @@ import { LocalDatabase } from "./database.js";
 import type { SessionService } from "./sessionService.js";
 
 const STATUS_QUEUED = "queued";
+const MAX_DOWNLOAD_FAILURES = 3;
 
 class AsyncMutex {
   private chain: Promise<void> = Promise.resolve();
@@ -47,6 +48,7 @@ export class TrackDownloadQueue {
   private workerRunning = false;
   private pausedForNetwork = false;
   private readonly userCancelledKeys = new Set<string>();
+  private readonly failureCounts = new Map<string, number>();
   private readonly awaiters = new Map<string, Awaiter>();
   private bulkBatchId: string | null = null;
   private bulkTotal = 0;
@@ -143,6 +145,7 @@ export class TrackDownloadQueue {
     return this.mutex.run(async () => {
       const key = queueKey(bookId, trackId);
       this.userCancelledKeys.add(key);
+      this.failureCounts.delete(key);
       LocalDatabase.delete(bookId, trackId);
       this.downloadManager.cancelActiveDownload();
       await this.downloadManager.deleteLocalTrack(bookId, trackId);
@@ -175,6 +178,7 @@ export class TrackDownloadQueue {
       for (const item of items) {
         await this.cancelTrackLocked(item.bookId, item.trackId);
       }
+      this.failureCounts.clear();
       LocalDatabase.deleteAll();
       this.bulkBatchId = null;
       this.bulkTotal = 0;
@@ -221,6 +225,7 @@ export class TrackDownloadQueue {
     if (!isSafeStorageId(request.bookId) || !isSafeStorageId(request.trackId)) return;
     const key = queueKey(request.bookId, request.trackId);
     if (LocalDatabase.resolveLocalTrackPath(request.bookId, request.trackId, this.downloadsRoot)) {
+      this.failureCounts.delete(key);
       this.completeAwaiter(key, "COMPLETED");
       return;
     }
@@ -270,10 +275,14 @@ export class TrackDownloadQueue {
         if (!next) break;
 
         const key = queueKey(next.bookId, next.trackId);
-        if (this.userCancelledKeys.delete(key)) continue;
+        if (this.userCancelledKeys.delete(key)) {
+          this.failureCounts.delete(key);
+          continue;
+        }
 
         if (LocalDatabase.resolveLocalTrackPath(next.bookId, next.trackId, this.downloadsRoot)) {
           await this.mutex.run(async () => {
+            this.failureCounts.delete(key);
             LocalDatabase.delete(next.bookId, next.trackId);
             if (next.batchId != null && next.batchId === this.bulkBatchId) {
               this.addCompletedHistory(next);
@@ -297,23 +306,40 @@ export class TrackDownloadQueue {
         const result = await this.downloadOne(next, key);
 
         let effectiveResult: DownloadAwaitResult = result;
+        let completeAwaiter = true;
         await this.mutex.run(async () => {
           if (result === "COMPLETED") {
+            this.failureCounts.delete(key);
             LocalDatabase.delete(next.bookId, next.trackId);
             this.addCompletedHistory(next);
           } else if (result === "CANCELLED") {
+            this.failureCounts.delete(key);
             LocalDatabase.delete(next.bookId, next.trackId);
           } else {
-            await this.persistPartProgress(next.bookId, next.trackId);
             if (LocalDatabase.resolveLocalTrackPath(next.bookId, next.trackId, this.downloadsRoot)) {
+              this.failureCounts.delete(key);
               LocalDatabase.delete(next.bookId, next.trackId);
               if (next.batchId != null && next.batchId === this.bulkBatchId) {
                 this.addCompletedHistory(next);
               }
               effectiveResult = "COMPLETED";
+            } else if (result === "OFFLINE") {
+              await this.persistPartProgress(next.bookId, next.trackId);
+            } else {
+              await this.persistPartProgress(next.bookId, next.trackId);
+              const attempts = (this.failureCounts.get(key) ?? 0) + 1;
+              if (attempts >= MAX_DOWNLOAD_FAILURES) {
+                this.failureCounts.delete(key);
+                LocalDatabase.delete(next.bookId, next.trackId);
+              } else {
+                this.failureCounts.set(key, attempts);
+                completeAwaiter = false;
+              }
             }
           }
-          this.completeAwaiter(key, effectiveResult);
+          if (completeAwaiter) {
+            this.completeAwaiter(key, effectiveResult);
+          }
           this.refreshNotifierFromDb();
         });
 
@@ -437,6 +463,7 @@ export class TrackDownloadQueue {
   private async cancelTrackLocked(bookId: string, trackId: string): Promise<void> {
     const key = queueKey(bookId, trackId);
     this.userCancelledKeys.add(key);
+    this.failureCounts.delete(key);
     LocalDatabase.delete(bookId, trackId);
     await this.downloadManager.deleteLocalTrack(bookId, trackId);
     this.completeAwaiter(key, "CANCELLED");
