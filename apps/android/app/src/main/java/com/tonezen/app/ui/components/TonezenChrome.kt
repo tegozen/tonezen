@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -312,6 +314,7 @@ internal fun TonezenFixedHeaderScreen(
     trailing: (@Composable () -> Unit)? = null,
     verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(16.dp),
     bottomScrollPadding: Dp = 24.dp,
+    listState: LazyListState = rememberLazyListState(),
     content: LazyListScope.() -> Unit,
 ) {
     Box(
@@ -321,6 +324,7 @@ internal fun TonezenFixedHeaderScreen(
             .padding(padding),
     ) {
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .haze(state = hazeState),

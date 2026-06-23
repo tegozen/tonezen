@@ -24,7 +24,6 @@ import com.tonezen.app.domain.progress.resolveTrackListenState
 import com.tonezen.app.ui.components.ContinueResumeMeta
 import com.tonezen.app.ui.components.ContinueResumeVariant
 import com.tonezen.app.ui.components.DetailHeaderOverflowMenu
-import com.tonezen.app.ui.components.DownloadConfirmSheet
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.components.TonezenTrackListRow
 import com.tonezen.app.ui.components.TrackDownloadedIndicator
@@ -43,11 +42,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalDensity
 import com.tonezen.app.ui.components.PlayButton
 import com.tonezen.app.ui.components.ProgressBar
 import com.tonezen.app.ui.components.RoundControl
+import com.tonezen.app.ui.components.animateItemAboveBottomPadding
 import com.tonezen.app.ui.theme.durationLabel
 import dev.chrisbanes.haze.HazeState
 
@@ -59,8 +61,6 @@ internal fun BookDetailScreen(
     uiState: BookDetailUiState,
     onBack: () -> Unit,
     onTrackClick: (Track) -> Unit,
-    onConfirmDownload: () -> Unit,
-    onDismissDownloadSheet: () -> Unit,
     onMarkTrackListened: (Track) -> Unit,
     onMarkTrackUnlistened: (Track) -> Unit,
     onRemoveTrackDownload: (Track) -> Unit,
@@ -81,6 +81,7 @@ internal fun BookDetailScreen(
     val showDownload = tracks.any { it.localPath.isNullOrBlank() }
     val showRemoveDownload = tracks.any { !it.localPath.isNullOrBlank() }
     val activeTrack = sortedTracks.find { it.id == activeTrackId }
+    val playbackTrack = activeTrack?.takeIf { uiState.isPlaybackActiveForBook }
     val isBookListened = isBookFullyListened(sortedTracks, uiState.audiobookProgress)
     val continueState = canContinueBookListening(
         bookId = book.id,
@@ -88,6 +89,10 @@ internal fun BookDetailScreen(
         progress = uiState.audiobookProgress,
     )
     val snackbarHostState = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val hasPlaybackControls = playbackTrack != null
+    val hasContinueButton = continueState != null && !isBookListened
     val playbackErrorMessage = uiState.playbackErrorRes?.let { stringResource(it) }
     val downloadErrorMessage = if (uiState.error == BookDetailViewModel.DOWNLOAD_FAILED_ERROR) {
         stringResource(R.string.music_playback_error_download)
@@ -109,20 +114,20 @@ internal fun BookDetailScreen(
         }
     }
 
-    BackHandler {
-        when {
-            uiState.showDownloadSheet -> onDismissDownloadSheet()
-            else -> onBack()
-        }
+    LaunchedEffect(activeTrackId, sortedTracks, hasPlaybackControls, hasContinueButton) {
+        val trackId = activeTrackId ?: return@LaunchedEffect
+        val trackIndex = sortedTracks.indexOfFirst { it.id == trackId }
+        if (trackIndex < 0) return@LaunchedEffect
+        val listIndex = bookDetailTrackListIndex(
+            trackIndex = trackIndex,
+            hasPlaybackControls = hasPlaybackControls,
+            hasContinueButton = hasContinueButton,
+        )
+        val bottomPaddingPx = with(density) { bottomScrollPadding.roundToPx() }
+        listState.animateItemAboveBottomPadding(listIndex, bottomPaddingPx)
     }
 
-    DownloadConfirmSheet(
-        visible = uiState.showDownloadSheet,
-        hazeState = hazeState,
-        estimatedBytes = uiState.estimatedDownloadBytes,
-        onDismiss = onDismissDownloadSheet,
-        onConfirm = onConfirmDownload,
-    )
+    BackHandler(onBack = onBack)
 
     Box(modifier = Modifier.fillMaxSize()) {
     TonezenFixedHeaderScreen(
@@ -130,6 +135,7 @@ internal fun BookDetailScreen(
         padding = padding,
         onBack = onBack,
         bottomScrollPadding = bottomScrollPadding,
+        listState = listState,
         title = {
             Text(
                 text = stringResource(R.string.chapters),
@@ -149,13 +155,13 @@ internal fun BookDetailScreen(
             )
         },
     ) {
-        if (uiState.isPlaybackActiveForBook && activeTrack != null) {
+        if (playbackTrack != null) {
             item(key = "book-detail-playback") {
                 BookDetailPlaybackControls(
-                    track = activeTrack,
+                    track = playbackTrack,
                     positionMs = uiState.playbackPositionMs,
                     durationMs = uiState.playbackDurationMs.takeIf { it > 0L }
-                        ?: activeTrack.durationMs
+                        ?: playbackTrack.durationMs
                         ?: 0L,
                     isPlaying = uiState.isPlaying,
                     onPlayPause = onPlaybackPlayPause,
@@ -164,7 +170,7 @@ internal fun BookDetailScreen(
                 )
             }
         }
-        continueState?.takeIf { !isBookListened }?.let { state ->
+        continueState?.takeIf { hasContinueButton }?.let { state ->
             item(key = "continue-listening") {
                 Button(
                     onClick = onContinueListening,

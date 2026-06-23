@@ -147,8 +147,6 @@ fun AppShell(
                             uiState = detailState,
                             onBack = shellViewModel::closeBook,
                             onTrackClick = bookDetailViewModel::playTrack,
-                            onConfirmDownload = bookDetailViewModel::downloadBook,
-                            onDismissDownloadSheet = bookDetailViewModel::dismissDownloadSheet,
                             onMarkTrackListened = bookDetailViewModel::markTrackListened,
                             onMarkTrackUnlistened = bookDetailViewModel::markTrackUnlistened,
                             onRemoveTrackDownload = bookDetailViewModel::removeTrackDownload,

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { Book, Track } from "@shared/types";
 import { ChapterTrackRow } from "../components/ChapterTrackRow";
 import { ContinueResumeMeta } from "../components/ContinueResumeMeta";
@@ -5,6 +6,7 @@ import { DetailHeaderMenu } from "../components/DetailHeaderMenu";
 import { OverlayTopChrome } from "../components/OverlayTopChrome";
 import { OVERLAY_BACK_TOP_SCROLL_PX } from "../lib/layoutChrome";
 import { buildBookTrackProgress, canContinueBookListening, resolveChapterTrackState } from "../lib/bookTrackUtils";
+import { scrollActiveRowAboveBottomPadding } from "../lib/scrollActiveRow";
 import { strings } from "../i18n/strings";
 
 interface BookDetailPageProps {
@@ -60,10 +62,28 @@ export function BookDetailPage({
     savedTrackId ? { bookId: book.id, trackId: savedTrackId, positionMs: savedPositionMs } : null,
   );
   const showContinue = continueState != null && currentTrackId == null;
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!currentTrackId) return;
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+    const rowEl = scrollEl.querySelector<HTMLElement>("[data-active-chapter-track]");
+    if (!rowEl) return;
+
+    const frame = requestAnimationFrame(() => {
+      scrollActiveRowAboveBottomPadding(scrollEl, rowEl);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [currentTrackId]);
 
   return (
     <div className="overlay-page">
-      <div className="scroll-under-chrome" style={{ paddingTop: OVERLAY_BACK_TOP_SCROLL_PX }}>
+      <div
+        ref={scrollRef}
+        className="scroll-under-chrome"
+        style={{ paddingTop: OVERLAY_BACK_TOP_SCROLL_PX }}
+      >
       {showContinue && continueState && (
         <button
           type="button"
@@ -81,18 +101,19 @@ export function BookDetailPage({
             progressByTrack.get(track.id),
           );
           return (
-            <ChapterTrackRow
-              key={track.id}
-              track={track}
-              trackNumber={track.sortOrder + 1}
-              isActive={isActive}
-              listenProgress={listenProgress}
-              listenPercent={listenPercent}
-              isDownloaded={Boolean(track.localPath)}
-              onClick={() => onTrackClick(track)}
-              onToggleListened={() => onMarkTrackListened(track, listenPercent !== 100)}
-              onRemoveDownload={() => onRemoveTrackDownload(track)}
-            />
+            <div key={track.id} data-active-chapter-track={isActive || undefined}>
+              <ChapterTrackRow
+                track={track}
+                trackNumber={track.sortOrder + 1}
+                isActive={isActive}
+                listenProgress={listenProgress}
+                listenPercent={listenPercent}
+                isDownloaded={Boolean(track.localPath)}
+                onClick={() => onTrackClick(track)}
+                onToggleListened={() => onMarkTrackListened(track, listenPercent !== 100)}
+                onRemoveDownload={() => onRemoveTrackDownload(track)}
+              />
+            </div>
           );
         })}
       </div>

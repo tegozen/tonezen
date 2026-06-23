@@ -14,10 +14,11 @@ import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
-import com.tonezen.app.domain.downloads.DownloadPriority
-import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
+import com.tonezen.app.domain.downloads.nextAudiobookDownloadRequest
+import com.tonezen.app.domain.progress.completedAudiobookProgress
 import com.tonezen.app.domain.music.MusicShuffleQueue
 import com.tonezen.app.domain.music.MusicQueueWindow
+import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.TrackDownloadQueueController
 import com.tonezen.app.domain.progress.isBookFullyListened
 import com.tonezen.app.domain.progress.resolveAudiobookPlaybackStartMs
@@ -47,6 +48,7 @@ class BookDetailViewModel @Inject constructor(
     private val downloadQueueController: TrackDownloadQueueController,
     private val localLibraryNotifier: LocalLibraryNotifier,
     private val musicPlaybackQueue: MusicPlaybackQueue,
+    private val playbackEvents: PlaybackEvents,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BookDetailUiState())
     val uiState: StateFlow<BookDetailUiState> = _uiState.asStateFlow()
@@ -75,6 +77,22 @@ class BookDetailViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            playbackEvents.trackEnded.collect {
+                val state = _uiState.value
+                val book = state.book ?: return@collect
+                if (book.contentType != ContentType.AUDIOBOOK) return@collect
+                val endedTrackId = state.activeTrackId ?: return@collect
+                val endedTrack = state.tracks.find { it.id == endedTrackId } ?: return@collect
+                val completed = completedAudiobookProgress(
+                    bookId = book.id,
+                    contentType = book.contentType,
+                    track = endedTrack,
+                    fallbackDurationMs = state.playbackDurationMs,
+                ) ?: return@collect
+                persistAudiobookProgress(book.id, completed.trackId, completed.positionMs)
+            }
+        }
     }
 
     fun loadBook(book: Book) {
@@ -90,7 +108,6 @@ class BookDetailViewModel @Inject constructor(
                     tracks = tracks,
                     audiobookProgress = progress,
                     syncStatus = syncStatus,
-                    estimatedDownloadBytes = estimateDownloadBytes(tracks.size),
                 )
             }
         }
@@ -117,10 +134,7 @@ class BookDetailViewModel @Inject constructor(
                         _uiState.update { it.copy(downloadProgress = null) }
                         if (outcome.track == null) {
                             _uiState.update {
-                                it.copy(
-                                    playbackErrorRes = playbackErrorRes(outcome.failure),
-                                    showDownloadSheet = outcome.failure == EnsureTrackOutcome.Failure.DOWNLOAD_FAILED,
-                                )
+                                it.copy(playbackErrorRes = playbackErrorRes(outcome.failure))
                             }
                             return@launch
                         }
@@ -185,11 +199,7 @@ class BookDetailViewModel @Inject constructor(
     }
 
     fun requestDownload() {
-        _uiState.update { it.copy(showDownloadSheet = true) }
-    }
-
-    fun dismissDownloadSheet() {
-        _uiState.update { it.copy(showDownloadSheet = false) }
+        downloadNextTrack()
     }
 
     fun clearPlaybackError() {
@@ -226,39 +236,15 @@ class BookDetailViewModel @Inject constructor(
         playbackClient.seekTo((durationMs * fraction.coerceIn(0f, 1f)).toLong())
     }
 
-    private var downloadBatchId: String? = null
-
-    fun downloadBook() {
+    private fun downloadNextTrack() {
         val book = _uiState.value.book ?: return
-        val snapshotBatchId = downloadBatchId
-        _uiState.update { it.copy(showDownloadSheet = false) }
-        if (_uiState.value.downloadProgress != null && snapshotBatchId != null) {
-            downloadQueueController.cancelBatch(snapshotBatchId)
-            downloadBatchId = null
-            _uiState.update { it.copy(downloadProgress = null) }
-            return
-        }
-        val batchId = java.util.UUID.randomUUID().toString()
-        downloadBatchId = batchId
-        viewModelScope.launch {
-            val tracks = catalogRepository.getTracksForBook(book.id)
-                .filter { it.localPath.isNullOrBlank() }
-            if (tracks.isEmpty()) return@launch
-            downloadQueueController.enqueueBatch(
-                tracks.map { track ->
-                    EnqueueDownloadRequest(
-                        bookId = book.id,
-                        trackId = track.id,
-                        priority = DownloadPriority.BULK,
-                        batchId = batchId,
-                        title = track.title,
-                        subtitle = book.title,
-                        contentType = book.contentType.name.lowercase(),
-                    )
-                },
-                batchId,
-            )
-        }
+        val request = nextAudiobookDownloadRequest(
+            book = book,
+            tracks = _uiState.value.tracks,
+            currentTrackId = _uiState.value.activeTrackId,
+            savedTrackId = _uiState.value.audiobookProgress?.trackId,
+        ) ?: return
+        downloadQueueController.enqueue(request)
     }
 
     fun deleteLocalDownloads() {
@@ -377,8 +363,6 @@ class BookDetailViewModel @Inject constructor(
         EnsureTrackOutcome.Failure.NO_SESSION -> R.string.music_playback_error_login
         EnsureTrackOutcome.Failure.DOWNLOAD_FAILED, null -> R.string.music_playback_error_download
     }
-
-    private fun estimateDownloadBytes(trackCount: Int): Long = trackCount * 32L * 1024L * 1024L
 
     companion object {
         const val DOWNLOAD_FAILED_ERROR = "__book_download_failed__"

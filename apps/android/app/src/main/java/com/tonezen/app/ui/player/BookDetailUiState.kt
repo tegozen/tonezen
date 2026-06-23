@@ -22,8 +22,6 @@ data class BookDetailUiState(
     val isPlaybackActiveForBook: Boolean = false,
     val downloadProgress: Float? = null,
     val syncStatus: SyncDisplayStatus = SyncDisplayStatus.NONE,
-    val showDownloadSheet: Boolean = false,
-    val estimatedDownloadBytes: Long = 0L,
     val error: String? = null,
     val playbackErrorRes: Int? = null,
 )
