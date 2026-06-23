@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import {
   libraryScrollPaddingTop,
   LIBRARY_TOP_SCROLL_BOOKS_PX,
@@ -23,5 +25,12 @@ describe("layoutChrome", () => {
     expect(scrollPadBottomCss(false, true)).toBe("calc(5.5rem + 1rem)");
     expect(scrollPadBottomCss(true, true)).toBe("calc(10.5rem + 1rem)");
     expect(scrollPadBottomCss(true, false)).toBe("calc(6rem + 1rem)");
+  });
+
+  it("keeps overlay chrome menus visible outside the header shell", () => {
+    const css = fs.readFileSync(path.resolve("src/renderer/src/styles.css"), "utf-8");
+    const rule = css.match(/\.overlay-chrome-wrap\s+\.library-chrome-shell\s*\{(?<body>[^}]*)\}/);
+
+    expect(rule?.groups?.body ?? "").toContain("overflow-visible");
   });
 });
