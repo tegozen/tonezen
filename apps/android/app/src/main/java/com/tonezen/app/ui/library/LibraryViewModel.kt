@@ -334,17 +334,8 @@ class LibraryViewModel @Inject constructor(
                 val remote = async(Dispatchers.IO) {
                     loadCatalogFromRemoteWithLocalFallback(catalogRepository, refreshed?.accessToken)
                 }
-                val loadLimit = 100
-                val localBooks = async(Dispatchers.IO) {
-                    catalogRepository.getAllBooks(loadLimit)
-                        .takeUnless { it.isEmpty() } // Пропускаем, если локальная база пуста
-                        ?: emptyList()
-                }
-                val localCycles = async(Dispatchers.IO) {
-                    catalogRepository.getAllCycles(limit = loadLimit)
-                        .takeUnless { it.isEmpty() } // Пропускаем, если локальная база пуста
-                        ?: emptyList()
-                }
+                val localBooks = async(Dispatchers.IO) { catalogRepository.getAllBooks() }
+                val localCycles = async(Dispatchers.IO) { catalogRepository.getAllCycles() }
                 updateCatalog(
                     books = localBooks.await(),
                     cycles = localCycles.await(),
@@ -367,13 +358,8 @@ class LibraryViewModel @Inject constructor(
                 }
             }
         } else {
-            val loadLimit = 100
-            val local = withContext(Dispatchers.IO) {
-                catalogRepository.getAllBooks(loadLimit).orEmpty()
-            }
-            val localCycles = withContext(Dispatchers.IO) {
-                catalogRepository.getAllCycles(limit = loadLimit).orEmpty()
-            }
+            val local = withContext(Dispatchers.IO) { catalogRepository.getAllBooks() }
+            val localCycles = withContext(Dispatchers.IO) { catalogRepository.getAllCycles() }
             updateCatalog(
                 books = local,
                 cycles = localCycles,
@@ -391,13 +377,8 @@ class LibraryViewModel @Inject constructor(
     }
 
     private suspend fun reloadCatalogFromLocal() {
-        val loadLimit = 100
-        val books = withContext(Dispatchers.IO) {
-            catalogRepository.getAllBooks(limit = loadLimit).orEmpty()
-        }
-        val cycles = withContext(Dispatchers.IO) {
-            catalogRepository.getAllCycles(limit = loadLimit).orEmpty()
-        }
+        val books = withContext(Dispatchers.IO) { catalogRepository.getAllBooks() }
+        val cycles = withContext(Dispatchers.IO) { catalogRepository.getAllCycles() }
         updateCatalog(books, cycles, rebuildMusic = true)
     }
 

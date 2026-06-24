@@ -10,6 +10,9 @@ interface CatalogDao {
     @Query("SELECT * FROM books ORDER BY title")
     suspend fun getAllBooks(): List<BookEntity>
 
+    @Query("SELECT * FROM books ORDER BY title LIMIT :limit")
+    suspend fun getAllBooksLimited(limit: Int): List<BookEntity>
+
     @Query("SELECT * FROM books WHERE id = :bookId LIMIT 1")
     suspend fun getBook(bookId: String): BookEntity?
 
@@ -27,6 +30,9 @@ interface CatalogDao {
 
     @Query("SELECT * FROM tracks ORDER BY bookId, sortOrder")
     suspend fun getAllTracks(): List<TrackEntity>
+
+    @Query("SELECT * FROM tracks ORDER BY bookId, sortOrder LIMIT :limit")
+    suspend fun getAllTracksLimited(limit: Int): List<TrackEntity>
 
     @Query("SELECT * FROM tracks WHERE bookId IN (:bookIds) ORDER BY bookId, sortOrder")
     suspend fun getTracksForBooks(bookIds: List<String>): List<TrackEntity>

@@ -46,13 +46,12 @@ class CatalogRepository @Inject constructor(
     private var downloadedTrackIdsCacheGeneration: Long = 0
 
     suspend fun getAllBooks(limit: Int? = null): List<Book> {
-        val queryBuilder = "SELECT * FROM books WHERE content_type = 'audiobook'"
-            .takeIf { limit != null }?.let {
-                "$it LIMIT ?1 OFFSET ?2".formatted("$limit", 0)
-            }
-
-        val allBooks = catalogDao.getAllBooks(limit)?.map { it.toDomain() }.orEmpty()
-        return allBooks
+        val entities = if (limit != null) {
+            catalogDao.getAllBooksLimited(limit)
+        } else {
+            catalogDao.getAllBooks()
+        }
+        return entities.map { it.toDomain() }
     }
 
     suspend fun findBookForTrack(trackId: String): Book? {
@@ -69,8 +68,12 @@ class CatalogRepository @Inject constructor(
     }
 
     suspend fun getAllTracksByBookId(limit: Int? = null): Map<String, List<Track>> {
-        val allTracks = catalogDao.getAllTracks(limit)?.map { it.toDomainTrack() }.orEmpty()
-        return allTracks.groupBy { it.bookId }
+        val entities = if (limit != null) {
+            catalogDao.getAllTracksLimited(limit)
+        } else {
+            catalogDao.getAllTracks()
+        }
+        return entities.map { it.toDomainTrack() }.groupBy { it.bookId }
     }
 
     suspend fun getTracksByBookIds(bookIds: Collection<String>): Map<String, List<Track>> {
@@ -173,10 +176,9 @@ class CatalogRepository @Inject constructor(
         return books.asSequence().map { it.id }.filter { it in withDownloads }.toSet()
     }
 
-    suspend fun getAllCycles(limit: Int? = null): List<Cycle> {
-        val allBooks = getAllBooks(limit)
-        val booksById = allBooks.associate { it.id to it.toDomain() }
-        return catalogDao.getAllCycles().mapNotNull { it.toDomain(booksById) }
+    suspend fun getAllCycles(limit: Int? = null): List<Cycle> = withContext(Dispatchers.IO) {
+        val booksById = getAllBooks(limit).associateBy { it.id }
+        catalogDao.getAllCycles().mapNotNull { it.toDomain(booksById) }
     }
 
     suspend fun syncFromRemote(accessToken: String?): List<Book> = coroutineScope {

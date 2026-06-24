@@ -74,17 +74,8 @@ class DownloadRepository @Inject constructor(
             ?: throw IllegalArgumentException("Invalid download target")
         partFile.parentFile?.mkdirs()
 
-        // Use Dispatchers.Main for progress callbacks to avoid blocking IO thread
         SafeLocalStorage.findDownloadedTrack(context.filesDir, trackId, bookId)?.let { existing ->
-            withContext(Dispatchers.Default) {
-                launch(Dispatchers.Default) {
-                    try {
-                        onProgress(1f)
-                    } catch (_: Exception) {
-                        // Ignore callback exceptions
-                    }
-                }
-            }
+            onProgress(1f)
             return@withContext ResumableDownloadOutcome(
                 finalFile = existing.file,
                 bytesDownloaded = existing.file.length(),
@@ -153,42 +144,23 @@ class DownloadRepository @Inject constructor(
                                 if (total != null && total > 0) {
                                     val bucket = ((downloaded * 50) / total).toInt()
                                     if (bucket > lastBucket) {
-                                        // Use delayed callback to avoid blocking IO thread
-                                        try {
-                                            withContext(Dispatchers.Default) {
-                                                launch(Dispatchers.Main) {
-                                                    onProgress(
-                                                        DownloadResumePolicy.progressFraction(downloaded, total) ?: 0f,
-                                                    )
-                                                }
-                                            }
-                                        } catch (_: Exception) {
-                                            // Ignore callback exceptions during download
-                                        }
                                         lastBucket = bucket
+                                        onProgress(
+                                            DownloadResumePolicy.progressFraction(downloaded, total) ?: 0f,
+                                        )
                                     }
                                 }
                             }
                             attemptOffset = downloaded
                         }
                     }
-                }
-                // Final progress callback after download completes
-                try {
-                    withContext(Dispatchers.Default) {
-                        launch(Dispatchers.Main) {
-                            onProgress(1f)
-                        }
+                    if (partFile.length() <= 0L) throw IOException("Download empty")
+                    if (finalFile.exists()) finalFile.delete()
+                    if (!partFile.renameTo(finalFile)) {
+                        partFile.copyTo(finalFile, overwrite = true)
+                        partFile.delete()
                     }
-                } catch (_: Exception) {
-                    // Ignore callback exceptions during download completion
-                }
-                if (partFile.length() <= 0L) throw IOException("Download empty")
-                if (finalFile.exists()) finalFile.delete()
-                if (!partFile.renameTo(finalFile)) {
-                    partFile.copyTo(finalFile, overwrite = true)
-                    partFile.delete()
-                }
+                    onProgress(1f)
                     return@withContext ResumableDownloadOutcome(
                         finalFile = finalFile,
                         bytesDownloaded = finalFile.length(),

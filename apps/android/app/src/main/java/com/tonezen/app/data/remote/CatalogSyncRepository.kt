@@ -47,6 +47,7 @@ class CatalogSyncRepository @Inject constructor(
     val catalogUpdated: SharedFlow<Unit> = _catalogUpdated.asSharedFlow()
 
     private var debounceJob: Job? = null
+    private var lastSyncAtMs: Long = 0L
 
     fun start(session: StoredSession) {
         scope.launch {
@@ -78,12 +79,13 @@ class CatalogSyncRepository @Inject constructor(
             val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession()) ?: return@launch
             if (!sessionRepository.isAccessTokenUsable(session)) return@launch
             try {
-                // Add rate limiting: 5 requests per minute minimum between sync attempts
-                delay(60_000) // Rate limit: 1 sync every 60 seconds minimum
-                val result = catalogRepository.syncFromRemote(session.accessToken)
-                if (result.isNotEmpty()) { // Only emit if sync was successful and resulted in updates
-                    _catalogUpdated.emit(Unit)
+                val elapsed = System.currentTimeMillis() - lastSyncAtMs
+                if (elapsed < RATE_LIMIT_MS) {
+                    delay(RATE_LIMIT_MS - elapsed)
                 }
+                catalogRepository.syncFromRemote(session.accessToken)
+                lastSyncAtMs = System.currentTimeMillis()
+                _catalogUpdated.emit(Unit)
             } catch (_: Exception) {
                 // Best-effort; local cache remains authoritative offline.
             }
