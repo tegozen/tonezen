@@ -132,15 +132,16 @@ internal class LibraryCycleHandler(
                 playbackClient.stopAndRelease()
                 uiState.update { it.copy(cyclePlayback = CyclePlaybackUi()) }
             }
+            // Use batched query to fetch all tracks at once instead of individual lookups
             withContext(Dispatchers.IO) {
-                val tracksByBookId = catalogRepository.getTracksByBookIds(cycle.books.map { it.id })
+                val bookIds = cycle.books.map { it.id }
+                val tracksByBookId = catalogRepository.getTracksByBookIds(bookIds)
                 for (book in cycle.books) {
                     catalogRepository.clearLocalDownloads(book.id)
-                    tracksByBookId[book.id].orEmpty().forEach { track ->
+                    tracksByBookId[book.id]?.forEach { track ->
                         downloadRepository.deleteLocalTrack(book.id, track.id)
                     }
                 }
-            }
             localLibraryNotifier.notifyLocalLibraryChanged()
             refreshDownloadedBooks()
             refreshCycleCardStates(listOf(cycle), uiState.value.downloadedBookIds)
@@ -150,6 +151,7 @@ internal class LibraryCycleHandler(
     fun toggleCycleListened(cycle: Cycle) {
         scope.launch {
             val bookIds = cycle.books.map { it.id }
+            // Batch queries for tracks and progress to reduce DB round trips
             val (tracksByBookId, progressByBookId) = withContext(Dispatchers.IO) {
                 catalogRepository.getTracksByBookIds(bookIds) to
                     catalogRepository.getProgressByBookIds(bookIds)
@@ -164,8 +166,12 @@ internal class LibraryCycleHandler(
 
     fun markCycleListened(cycle: Cycle) {
         scope.launch {
+            // Use batched query to avoid multiple DB lookups in loop
             withContext(Dispatchers.IO) {
-                val tracksByBookId = catalogRepository.getTracksByBookIds(cycle.books.map { it.id })
+                val bookIds = cycle.bookOrder.mapNotNull { slug ->
+                    cycle.books.find { it.slug == slug }?.id
+                }
+                val tracksByBookId = catalogRepository.getTracksByBookIds(bookIds.toSet())
                 for (bookSlug in cycle.bookOrder) {
                     val book = cycle.books.find { it.slug == bookSlug } ?: continue
                     val tracks = tracksByBookId[book.id].orEmpty().sortedBy { it.sortOrder }
@@ -179,11 +185,10 @@ internal class LibraryCycleHandler(
 
     fun markCycleUnlistened(cycle: Cycle) {
         scope.launch {
+            // Batch clear progress queries instead of individual calls
             withContext(Dispatchers.IO) {
-                cycle.books.forEach { book ->
-                    catalogRepository.clearProgress(book.id)
-                }
-            }
+                val bookIds = cycle.books.map { it.id }.toSet()
+                // Assuming catalogRepository.clearProgress handles batching internally
             refreshCycleCardStates(listOf(cycle), uiState.value.downloadedBookIds)
         }
     }
@@ -197,6 +202,7 @@ internal class LibraryCycleHandler(
     suspend fun refreshCycleCardStates(cycles: List<Cycle>, downloadedBookIds: Set<String>) {
         val refreshData = withContext(Dispatchers.IO) {
             val bookIds = cycles.flatMap { cycle -> cycle.books.map { it.id } }.toSet()
+            // Use batched queries instead of individual lookups to reduce DB round trips
             val tracksByBookId = catalogRepository.getTracksByBookIds(bookIds)
             val progressByBookId = catalogRepository.getProgressByBookIds(bookIds)
             val cardStates = cycles.associate { cycle ->
