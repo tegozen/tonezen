@@ -95,7 +95,9 @@ internal fun BookDetailScreen(
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     val hasPlaybackControls = playbackTrack != null
-    val hasContinueButton = continueState != null && !isBookListened
+    // Показываем кнопку "Продолжить" только если есть не прослушанный контент И книга сейчас НЕ играет.
+    // Когда книга играет, кнопка излишня — плеер уже доступен внутри активного трека.
+    val hasContinueButton = continueState != null && !isBookListened && !hasPlaybackControls
     val playbackErrorMessage = uiState.playbackErrorRes?.let { stringResource(it) }
     val downloadErrorMessage = if (uiState.error == BookDetailViewModel.DOWNLOAD_FAILED_ERROR) {
         stringResource(R.string.music_playback_error_download)
@@ -158,21 +160,9 @@ internal fun BookDetailScreen(
             )
         },
     ) {
-        if (playbackTrack != null) {
-            item(key = "book-detail-playback") {
-                BookDetailPlaybackControls(
-                    track = playbackTrack,
-                    positionMs = uiState.playbackPositionMs,
-                    durationMs = uiState.playbackDurationMs.takeIf { it > 0L }
-                        ?: playbackTrack.durationMs
-                        ?: 0L,
-                    isPlaying = uiState.isPlaying,
-                    onPlayPause = onPlaybackPlayPause,
-                    onSeekBy = onPlaybackSeekBy,
-                    onSeekToFraction = onPlaybackSeekToFraction,
-                )
-            }
-        }
+        // Плеер вверху экрана показываем только когда:
+        // 1. Книга не полностью прослушана И
+        // 2. Кнопка "Продолжить" должна быть видна (офлайн-режим)
         continueState?.takeIf { hasContinueButton }?.let { state ->
             item(key = "continue-listening") {
                 Button(
