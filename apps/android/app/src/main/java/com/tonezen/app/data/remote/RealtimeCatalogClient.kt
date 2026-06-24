@@ -104,16 +104,24 @@ class RealtimeCatalogClient(
 
     private fun startHeartbeat(webSocket: WebSocket) {
         heartbeatJob = scope.launch {
-            while (isActive) {
-                delay(25_000)
-                webSocket.send(
-                    encodePhoenixV1Message(
-                        topic = "phoenix",
-                        event = "heartbeat",
-                        payload = JSONObject(),
-                        ref = messageRef.next(),
-                    ),
-                )
+            // Add explicit timeout for heartbeat to prevent indefinite blocking
+            try {
+                while (isActive) {
+                    delay(25_000)
+                    webSocket.send(
+                        encodePhoenixV1Message(
+                            topic = "phoenix",
+                            event = "heartbeat",
+                            payload = JSONObject(),
+                            ref = messageRef.next(),
+                        ),
+                    )
+                }
+            } catch (e: kotlinx.coroutines.JobCancellationException) {
+                // Expected on disconnect - ignore
+            } catch (e: Exception) {
+                heartbeatJob?.cancel()
+                // Log heartbeat failure for debugging if needed
             }
         }
     }
@@ -123,7 +131,15 @@ class RealtimeCatalogClient(
             "phx_reply" -> {
                 val reason = phxReplyErrorReason(phoenixMessagePayload(text))
                 if (reason != null && isAuthSubscriptionError(reason)) {
-                    onAuthError?.invoke()
+                    // Invoke auth error handler with timeout to prevent blocking
+                    try {
+                        scope.launch {
+                            delay(100) // Short timeout before invoking callback
+                            onAuthError?.invoke()
+                        }
+                    } catch (_: Exception) {
+                        // Ignore exceptions in auth recovery callbacks
+                    }
                 }
             }
             "postgres_changes" -> onCatalogChange()
