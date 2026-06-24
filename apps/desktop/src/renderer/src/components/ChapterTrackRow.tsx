@@ -1,5 +1,11 @@
 import type { Track } from "@shared/types";
-import { CheckCircleIcon } from "./TonezenIcons";
+import {
+  isTrackQueued,
+  progressForTrack,
+  type DownloadQueueState,
+} from "@shared/downloadQueueState";
+import { TrackDownloadButton } from "./TrackDownloadButton";
+import { TrackDownloadedIndicator } from "./TrackDownloadedIndicator";
 import { TrackListRow } from "./TrackListRow";
 import { TrackRowOverflowMenu } from "./TrackRowOverflowMenu";
 import { strings } from "../i18n/strings";
@@ -11,9 +17,11 @@ interface ChapterTrackRowProps {
   listenProgress: number | null;
   listenPercent: number | null;
   isDownloaded: boolean;
+  downloadQueue: DownloadQueueState;
   onClick: () => void;
   onToggleListened: () => void;
   onRemoveDownload: () => void;
+  onDownloadTrack: () => void;
 }
 
 export function ChapterTrackRow({
@@ -23,11 +31,16 @@ export function ChapterTrackRow({
   listenProgress,
   listenPercent,
   isDownloaded,
+  downloadQueue,
   onClick,
   onToggleListened,
   onRemoveDownload,
+  onDownloadTrack,
 }: ChapterTrackRowProps) {
   const isListened = listenPercent === 100;
+  const downloadProgress = progressForTrack(downloadQueue, track.id);
+  const isDownloading = downloadProgress != null;
+  const isQueued = isTrackQueued(downloadQueue, track.id);
 
   return (
     <TrackListRow
@@ -54,7 +67,17 @@ export function ChapterTrackRow({
       }
       trailing={
         <>
-          {isDownloaded && <CheckCircleIcon className="h-[18px] w-[18px] shrink-0 text-teal" aria-label={strings.offline} />}
+          {isDownloading || isQueued ? (
+            <TrackDownloadButton
+              downloading={isDownloading}
+              progress={downloadProgress}
+              onClick={onDownloadTrack}
+            />
+          ) : isDownloaded ? (
+            <TrackDownloadedIndicator />
+          ) : (
+            <TrackDownloadButton onClick={onDownloadTrack} />
+          )}
           <TrackRowOverflowMenu
             showDelete={isDownloaded}
             isListened={isListened}

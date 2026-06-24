@@ -15,11 +15,14 @@ import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.downloads.nextAudiobookDownloadRequest
+import com.tonezen.app.domain.downloads.DownloadPriority
+import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
 import com.tonezen.app.domain.progress.completedAudiobookProgress
 import com.tonezen.app.domain.music.MusicShuffleQueue
 import com.tonezen.app.domain.music.MusicQueueWindow
 import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.TrackDownloadQueueController
+import com.tonezen.app.playback.DownloadQueueNotifier
 import com.tonezen.app.domain.progress.isBookFullyListened
 import com.tonezen.app.domain.progress.resolveAudiobookPlaybackStartMs
 import com.tonezen.app.playback.MusicPlaybackQueue
@@ -46,6 +49,7 @@ class BookDetailViewModel @Inject constructor(
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val trackDownloadEnsurer: TrackDownloadEnsurer,
     private val downloadQueueController: TrackDownloadQueueController,
+    private val downloadQueueNotifier: DownloadQueueNotifier,
     private val localLibraryNotifier: LocalLibraryNotifier,
     private val musicPlaybackQueue: MusicPlaybackQueue,
     private val playbackEvents: PlaybackEvents,
@@ -75,6 +79,11 @@ class BookDetailViewModel @Inject constructor(
                         isPlaybackActiveForBook = playbackState.isActiveForBook,
                     )
                 }
+            }
+        }
+        viewModelScope.launch {
+            downloadQueueNotifier.state.collect { queueState ->
+                _uiState.update { it.copy(downloadQueueState = queueState) }
             }
         }
         viewModelScope.launch {
@@ -200,6 +209,21 @@ class BookDetailViewModel @Inject constructor(
 
     fun requestDownload() {
         downloadNextTrack()
+    }
+
+    fun requestTrackDownload(track: Track) {
+        val book = _uiState.value.book ?: return
+        if (!track.localPath.isNullOrBlank()) return
+        downloadQueueController.enqueue(
+            EnqueueDownloadRequest(
+                bookId = book.id,
+                trackId = track.id,
+                priority = DownloadPriority.USER,
+                title = track.title,
+                subtitle = book.title,
+                contentType = book.contentType.name.lowercase(),
+            ),
+        )
     }
 
     fun clearPlaybackError() {

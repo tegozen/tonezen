@@ -443,6 +443,22 @@ export function App() {
     }
   };
 
+  const downloadBookTrack = async (book: Book, track: Track) => {
+    if (track.localPath) return;
+    try {
+      await downloadQueue.enqueue({
+        bookId: book.id,
+        trackId: track.id,
+        priority: "USER",
+        title: track.title,
+        subtitle: book.title,
+        contentType: book.contentType,
+      });
+    } catch (e) {
+      showToast(resolveDownloadError(e instanceof Error ? e.message : ""));
+    }
+  };
+
   const downloadCycle = async (cycle: Cycle) => {
     const batchId = crypto.randomUUID();
     const requests = [];
@@ -680,11 +696,13 @@ export function App() {
               : null
           }
           playbackPositionMs={positionMs}
+          downloadQueue={downloadQueue.state}
           onBack={() => {
             setSelectedBook(null);
           }}
           onTrackClick={(track) => void playBookTrack(track)}
           onDownloadRequest={() => void downloadNextBookTrack(selectedBook)}
+          onDownloadTrack={(track) => void downloadBookTrack(selectedBook, track)}
           onToggleBookListened={() => {
             const listened = tracks.length > 0 && tracks.every((track) => {
               const saved = progressByBook.get(selectedBook.id);

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Book, Track } from "@shared/types";
+import type { DownloadQueueState } from "@shared/downloadQueueState";
 import { ChapterTrackRow } from "../components/ChapterTrackRow";
 import { ContinueResumeMeta } from "../components/ContinueResumeMeta";
 import { DetailHeaderMenu } from "../components/DetailHeaderMenu";
@@ -14,9 +15,11 @@ interface BookDetailPageProps {
   tracks: Track[];
   currentTrackId: string | null;
   playbackPositionMs: number;
+  downloadQueue: DownloadQueueState;
   onBack: () => void;
   onTrackClick: (track: Track) => void;
   onDownloadRequest: () => void;
+  onDownloadTrack: (track: Track) => void;
   onToggleBookListened: () => void;
   onRemoveBookDownloads: () => void;
   onMarkTrackListened: (track: Track, listened: boolean) => void;
@@ -34,9 +37,11 @@ export function BookDetailPage({
   tracks,
   currentTrackId,
   playbackPositionMs,
+  downloadQueue,
   onBack,
   onTrackClick,
   onDownloadRequest,
+  onDownloadTrack,
   onToggleBookListened,
   onRemoveBookDownloads,
   onMarkTrackListened,
@@ -109,9 +114,11 @@ export function BookDetailPage({
                 listenProgress={listenProgress}
                 listenPercent={listenPercent}
                 isDownloaded={Boolean(track.localPath)}
+                downloadQueue={downloadQueue}
                 onClick={() => onTrackClick(track)}
                 onToggleListened={() => onMarkTrackListened(track, listenPercent !== 100)}
                 onRemoveDownload={() => onRemoveTrackDownload(track)}
+                onDownloadTrack={() => onDownloadTrack(track)}
               />
             </div>
           );

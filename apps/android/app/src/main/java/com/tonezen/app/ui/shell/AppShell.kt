@@ -150,6 +150,7 @@ fun AppShell(
                             onMarkTrackListened = bookDetailViewModel::markTrackListened,
                             onMarkTrackUnlistened = bookDetailViewModel::markTrackUnlistened,
                             onRemoveTrackDownload = bookDetailViewModel::removeTrackDownload,
+                            onDownloadTrack = bookDetailViewModel::requestTrackDownload,
                             onDownloadBook = bookDetailViewModel::requestDownload,
                             onToggleBookListened = bookDetailViewModel::toggleBookListened,
                             onRemoveBookDownloads = bookDetailViewModel::deleteLocalDownloads,

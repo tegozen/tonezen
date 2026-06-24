@@ -26,8 +26,10 @@ import com.tonezen.app.ui.components.ContinueResumeVariant
 import com.tonezen.app.ui.components.DetailHeaderOverflowMenu
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.components.TonezenTrackListRow
+import com.tonezen.app.ui.components.TrackDownloadButton
 import com.tonezen.app.ui.components.TrackDownloadedIndicator
 import com.tonezen.app.ui.components.TrackRowOverflowMenu
+import com.tonezen.app.playback.DownloadQueueState
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
@@ -64,6 +66,7 @@ internal fun BookDetailScreen(
     onMarkTrackListened: (Track) -> Unit,
     onMarkTrackUnlistened: (Track) -> Unit,
     onRemoveTrackDownload: (Track) -> Unit,
+    onDownloadTrack: (Track) -> Unit,
     onDownloadBook: () -> Unit,
     onToggleBookListened: () -> Unit,
     onRemoveBookDownloads: () -> Unit,
@@ -192,10 +195,12 @@ internal fun BookDetailScreen(
                 audiobookProgress = uiState.audiobookProgress,
                 isActive = track.id == activeTrackId,
                 livePositionMs = if (track.id == activeTrackId) uiState.playbackPositionMs else null,
+                downloadQueueState = uiState.downloadQueueState,
                 onClick = { onTrackClick(track) },
                 onMarkTrackListened = { onMarkTrackListened(track) },
                 onMarkTrackUnlistened = { onMarkTrackUnlistened(track) },
                 onRemoveDownload = { onRemoveTrackDownload(track) },
+                onDownloadTrack = { onDownloadTrack(track) },
             )
         }
     }
@@ -286,10 +291,12 @@ internal fun ChapterTrackRow(
     audiobookProgress: AudiobookProgress?,
     isActive: Boolean,
     livePositionMs: Long?,
+    downloadQueueState: DownloadQueueState,
     onClick: () -> Unit,
     onMarkTrackListened: () -> Unit,
     onMarkTrackUnlistened: () -> Unit,
     onRemoveDownload: () -> Unit,
+    onDownloadTrack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val listenState = resolveTrackListenState(
@@ -299,6 +306,9 @@ internal fun ChapterTrackRow(
         livePositionMs = livePositionMs,
     )
     val isDownloaded = !track.localPath.isNullOrBlank()
+    val isDownloading = downloadQueueState.progressForTrack(track.id) != null
+    val isQueued = downloadQueueState.isTrackQueued(track.id)
+    val downloadProgress = downloadQueueState.progressForTrack(track.id)
     val listenPercent = when (listenState.status) {
         TrackListenStatus.COMPLETED -> 100
         TrackListenStatus.IN_PROGRESS -> (listenState.fraction * 100).toInt().coerceIn(1, 99)
@@ -330,8 +340,20 @@ internal fun ChapterTrackRow(
             )
         },
         trailing = {
-            if (isDownloaded) {
-                TrackDownloadedIndicator()
+            when {
+                isDownloading || isQueued -> {
+                    TrackDownloadButton(
+                        progress = downloadProgress,
+                        onClick = onDownloadTrack,
+                    )
+                }
+                isDownloaded -> TrackDownloadedIndicator()
+                else -> {
+                    TrackDownloadButton(
+                        progress = null,
+                        onClick = onDownloadTrack,
+                    )
+                }
             }
             TrackRowOverflowMenu(
                 onDelete = onRemoveDownload,
