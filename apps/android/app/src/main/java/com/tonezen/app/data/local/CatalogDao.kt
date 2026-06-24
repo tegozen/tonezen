@@ -13,6 +13,9 @@ interface CatalogDao {
     @Query("SELECT * FROM books ORDER BY title LIMIT :limit")
     suspend fun getAllBooksLimited(limit: Int): List<BookEntity>
 
+    @Query("SELECT * FROM books ORDER BY title LIMIT :limit OFFSET :offset")
+    suspend fun getBooksPage(limit: Int, offset: Int): List<BookEntity>
+
     @Query("SELECT * FROM books WHERE id = :bookId LIMIT 1")
     suspend fun getBook(bookId: String): BookEntity?
 

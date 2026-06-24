@@ -4,14 +4,17 @@ import android.content.Context
 import android.net.Uri
 import com.tonezen.app.data.local.SafeLocalStorage
 import com.tonezen.app.data.remote.downloads.DownloadsRemoteApi
+import com.tonezen.app.ui.MainDispatcherRule
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import java.nio.file.Files
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import okhttp3.Call
+import org.junit.Rule
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
@@ -25,6 +28,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DownloadRepositoryTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
     @Test
     fun freshDownloadWritesPartFileBeforePromotingFinalFile() = runTest {
         withMockedDownloadUri {
@@ -82,6 +88,7 @@ class DownloadRepositoryTest {
             assertFalse(partFile.exists())
             assertArrayEquals(bodyBytes, finalFile.readBytes())
             assertEquals(bodyBytes.size.toLong(), outcome.bytesDownloaded)
+            advanceUntilIdle()
             assertTrue(progress.last() == 1f)
         }
     }

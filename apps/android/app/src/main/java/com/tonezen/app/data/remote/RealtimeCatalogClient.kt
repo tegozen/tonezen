@@ -1,5 +1,6 @@
 package com.tonezen.app.data.remote
 
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -104,18 +105,30 @@ class RealtimeCatalogClient(
 
     private fun startHeartbeat(webSocket: WebSocket) {
         heartbeatJob = scope.launch {
-            while (isActive) {
-                delay(25_000)
-                webSocket.send(
-                    encodePhoenixV1Message(
-                        topic = "phoenix",
-                        event = "heartbeat",
-                        payload = JSONObject(),
-                        ref = messageRef.next(),
-                    ),
-                )
+            try {
+                while (isActive) {
+                    delay(HEARTBEAT_INTERVAL_MS)
+                    val sent = webSocket.send(
+                        encodePhoenixV1Message(
+                            topic = "phoenix",
+                            event = "heartbeat",
+                            payload = JSONObject(),
+                            ref = messageRef.next(),
+                        ),
+                    )
+                    if (!sent) break
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Connection dropped; disconnect() runs on the next reconnect.
             }
         }
+    }
+
+    private fun dispatchAuthError() {
+        val handler = onAuthError ?: return
+        scope.launch { handler() }
     }
 
     private suspend fun handleMessage(text: String) {
@@ -123,10 +136,14 @@ class RealtimeCatalogClient(
             "phx_reply" -> {
                 val reason = phxReplyErrorReason(phoenixMessagePayload(text))
                 if (reason != null && isAuthSubscriptionError(reason)) {
-                    onAuthError?.invoke()
+                    dispatchAuthError()
                 }
             }
             "postgres_changes" -> onCatalogChange()
         }
+    }
+
+    private companion object {
+        const val HEARTBEAT_INTERVAL_MS = 25_000L
     }
 }

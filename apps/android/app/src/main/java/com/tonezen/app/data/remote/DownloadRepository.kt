@@ -15,6 +15,9 @@ import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Call
 import okhttp3.OkHttpClient
@@ -75,7 +78,7 @@ class DownloadRepository @Inject constructor(
         partFile.parentFile?.mkdirs()
 
         SafeLocalStorage.findDownloadedTrack(context.filesDir, trackId, bookId)?.let { existing ->
-            onProgress(1f)
+            reportDownloadProgress(onProgress, 1f, awaitDelivery = true)
             return@withContext ResumableDownloadOutcome(
                 finalFile = existing.file,
                 bytesDownloaded = existing.file.length(),
@@ -145,7 +148,8 @@ class DownloadRepository @Inject constructor(
                                     val bucket = ((downloaded * 50) / total).toInt()
                                     if (bucket > lastBucket) {
                                         lastBucket = bucket
-                                        onProgress(
+                                        reportDownloadProgress(
+                                            onProgress,
                                             DownloadResumePolicy.progressFraction(downloaded, total) ?: 0f,
                                         )
                                     }
@@ -160,7 +164,7 @@ class DownloadRepository @Inject constructor(
                         partFile.copyTo(finalFile, overwrite = true)
                         partFile.delete()
                     }
-                    onProgress(1f)
+                    reportDownloadProgress(onProgress, 1f, awaitDelivery = true)
                     return@withContext ResumableDownloadOutcome(
                         finalFile = finalFile,
                         bytesDownloaded = finalFile.length(),
@@ -172,6 +176,19 @@ class DownloadRepository @Inject constructor(
             }
         }
         throw IOException("Download failed after retry")
+    }
+
+    private suspend fun reportDownloadProgress(
+        onProgress: (Float) -> Unit,
+        fraction: Float,
+        awaitDelivery: Boolean = false,
+    ) {
+        val deliver = { runCatching { onProgress(fraction) } }
+        if (awaitDelivery) {
+            withContext(Dispatchers.Main.immediate) { deliver() }
+        } else {
+            CoroutineScope(currentCoroutineContext()).launch(Dispatchers.Main.immediate) { deliver() }
+        }
     }
 
     suspend fun deleteLocalTrack(bookId: String, trackId: String) = withContext(Dispatchers.IO) {

@@ -334,11 +334,17 @@ class LibraryViewModel @Inject constructor(
                 val remote = async(Dispatchers.IO) {
                     loadCatalogFromRemoteWithLocalFallback(catalogRepository, refreshed?.accessToken)
                 }
-                val localBooks = async(Dispatchers.IO) { catalogRepository.getAllBooks() }
-                val localCycles = async(Dispatchers.IO) { catalogRepository.getAllCycles() }
+                val localCatalog = async(Dispatchers.IO) {
+                    loadLocalCatalogProgressively(catalogRepository) { partialBooks ->
+                        withContext(Dispatchers.Main.immediate) {
+                            _uiState.update { it.copy(books = partialBooks) }
+                        }
+                    }
+                }
+                val (localBooks, localCycles) = localCatalog.await()
                 updateCatalog(
-                    books = localBooks.await(),
-                    cycles = localCycles.await(),
+                    books = localBooks,
+                    cycles = localCycles,
                     rebuildMusic = true,
                     reconcileLocalPaths = false,
                 )
@@ -358,8 +364,13 @@ class LibraryViewModel @Inject constructor(
                 }
             }
         } else {
-            val local = withContext(Dispatchers.IO) { catalogRepository.getAllBooks() }
-            val localCycles = withContext(Dispatchers.IO) { catalogRepository.getAllCycles() }
+            val (local, localCycles) = withContext(Dispatchers.IO) {
+                loadLocalCatalogProgressively(catalogRepository) { partialBooks ->
+                    withContext(Dispatchers.Main.immediate) {
+                        _uiState.update { it.copy(books = partialBooks) }
+                    }
+                }
+            }
             updateCatalog(
                 books = local,
                 cycles = localCycles,
@@ -377,8 +388,13 @@ class LibraryViewModel @Inject constructor(
     }
 
     private suspend fun reloadCatalogFromLocal() {
-        val books = withContext(Dispatchers.IO) { catalogRepository.getAllBooks() }
-        val cycles = withContext(Dispatchers.IO) { catalogRepository.getAllCycles() }
+        val (books, cycles) = withContext(Dispatchers.IO) {
+            loadLocalCatalogProgressively(catalogRepository) { partialBooks ->
+                withContext(Dispatchers.Main.immediate) {
+                    _uiState.update { it.copy(books = partialBooks) }
+                }
+            }
+        }
         updateCatalog(books, cycles, rebuildMusic = true)
     }
 

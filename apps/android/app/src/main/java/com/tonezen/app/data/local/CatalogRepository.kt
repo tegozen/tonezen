@@ -54,6 +54,23 @@ class CatalogRepository @Inject constructor(
         return entities.map { it.toDomain() }
     }
 
+    suspend fun loadAllBooksPaged(
+        pageSize: Int,
+        onPage: suspend (List<Book>) -> Unit = {},
+    ): List<Book> = withContext(Dispatchers.IO) {
+        val accumulated = mutableListOf<Book>()
+        var offset = 0
+        while (true) {
+            val page = catalogDao.getBooksPage(pageSize, offset).map { it.toDomain() }
+            if (page.isEmpty()) break
+            accumulated.addAll(page)
+            onPage(accumulated.toList())
+            offset += page.size
+            if (page.size < pageSize) break
+        }
+        accumulated
+    }
+
     suspend fun findBookForTrack(trackId: String): Book? {
         val bookId = catalogDao.getBookIdForTrack(trackId) ?: return null
         return catalogDao.getBook(bookId)?.toDomain()
@@ -176,9 +193,9 @@ class CatalogRepository @Inject constructor(
         return books.asSequence().map { it.id }.filter { it in withDownloads }.toSet()
     }
 
-    suspend fun getAllCycles(limit: Int? = null): List<Cycle> = withContext(Dispatchers.IO) {
-        val booksById = getAllBooks(limit).associateBy { it.id }
-        catalogDao.getAllCycles().mapNotNull { it.toDomain(booksById) }
+    suspend fun getAllCycles(booksById: Map<String, Book>? = null): List<Cycle> = withContext(Dispatchers.IO) {
+        val resolvedBooksById = booksById ?: getAllBooks().associateBy { it.id }
+        catalogDao.getAllCycles().mapNotNull { it.toDomain(resolvedBooksById) }
     }
 
     suspend fun syncFromRemote(accessToken: String?): List<Book> = coroutineScope {
