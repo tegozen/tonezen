@@ -5,7 +5,7 @@ description: Use when bumping Tonezen client app versions, cutting release build
 
 # Bump & Release (Tonezen)
 
-End-to-end release cut: **infer SemVer bump from git history → bump versions → commit → build-release → tag**.
+End-to-end release cut: **infer SemVer bump from git history → write Russian release changelog → bump versions → create release migration → commit → build-release → tag**.
 
 Explicit `/bump` invocation **includes the commit** (overrides git-commit “only when asked” for this workflow only).
 
@@ -42,8 +42,9 @@ If the SemVer decision is ambiguous, **stop and ask**. Do not silently default t
 ```
 Bump release:
 - [ ] Pre-flight (clean tree, latest release tag found, versions aligned, .env exists)
-- [ ] Changes since latest tag inspected and SemVer bump selected
+- [ ] Changes since latest tag inspected, SemVer bump selected, Russian release changelog written
 - [ ] Versions bumped in all client files
+- [ ] Release migration created for `app_versions`
 - [ ] Commit created
 - [ ] build-release executed (read `.agents/skills/build-release/SKILL.md`; include macOS DMG when running on macOS)
 - [ ] Artifacts copied to landing downloads
@@ -84,7 +85,7 @@ if ($lastRelease) {
 - Confirm root `.env` has `TONEZEN_BASE_URL` and `ANON_KEY` (needed for build-release).
 - If `HEAD` already points at `$lastTag` and there are no changes since it: **stop**; there is nothing to release.
 
-### 2. Infer SemVer bump
+### 2. Infer SemVer bump and changelog
 
 Inspect both commit messages and touched paths:
 
@@ -111,6 +112,22 @@ Rules:
 - If an exact requested version is `<= $lastVersion`, stop; never reuse or move a release tag.
 - For stable `X.Y.Z` tags, compare versions as `[version]` values in PowerShell, not as strings.
 
+Create a **Russian release changelog** from the same commits and touched paths used for the SemVer decision:
+
+- Write concise user-facing Russian entries, not commit hashes.
+- Group related commits into one entry when that reads better.
+- Every entry must contain Cyrillic text; do not leave English-only release notes.
+- The same changelog text must be used for the migration and tag.
+
+Keep it in a PowerShell array for later steps:
+
+```powershell
+$releaseChangelog = @(
+  "Добавлено ...",
+  "Исправлено ..."
+)
+```
+
 ### 3. Bump versions
 
 **Desktop** (from repo root):
@@ -126,7 +143,11 @@ Replace `patch` with the inferred `minor` or `major` when required. For an expli
 npm version 0.2.0 --no-git-tag-version
 ```
 
-Note the new version from `package.json`.
+Note the new version from `package.json`:
+
+```powershell
+$newVersion = (Get-Content apps/desktop/package.json | ConvertFrom-Json).version
+```
 
 **Android** — edit `apps/android/app/build.gradle.kts`:
 
@@ -142,14 +163,33 @@ git rev-parse -q --verify "refs/tags/$newTag"
 
 If it exists, **stop**. Do not delete, move, or overwrite release tags.
 
-### 4. Commit
+### 4. Create release migration
+
+Create an append-only migration under `backend/supabase/migrations` that inserts the new version into `app_versions`.
+
+```powershell
+$changelogFile = New-TemporaryFile
+try {
+  $releaseChangelog | Set-Content -LiteralPath $changelogFile -Encoding UTF8
+  $releaseMigrationPath = node scripts/create-release-migration.mjs $newVersion --changelog-file $changelogFile --migrations-dir backend/supabase/migrations
+  if ($LASTEXITCODE -ne 0) {
+    throw "release migration generation failed"
+  }
+} finally {
+  Remove-Item -LiteralPath $changelogFile -Force
+}
+```
+
+The generator refuses empty changelogs, non-SemVer versions, English-only changelog entries, and duplicate release versions. Do not manually edit an already committed or applied migration; if a release migration is wrong before commit, delete only the new uncommitted file and regenerate it.
+
+### 5. Commit
 
 Follow [git-commit](../git-commit/SKILL.md) safety rules (no secrets, no `--no-verify`).
 
-Stage only version files:
+Stage only version files and the new release migration:
 
 ```powershell
-git add apps/android/app/build.gradle.kts apps/desktop/package.json apps/desktop/package-lock.json
+git add apps/android/app/build.gradle.kts apps/desktop/package.json apps/desktop/package-lock.json $releaseMigrationPath
 git commit -m @'
 chore(release): bump app versions to X.Y.Z
 '@
@@ -158,7 +198,7 @@ git status
 
 Replace `X.Y.Z` with the actual new version. Do **not** push unless user asks.
 
-### 5. Build release
+### 6. Build release
 
 Read and execute **[build-release](../build-release/SKILL.md)** in full:
 
@@ -168,7 +208,7 @@ Read and execute **[build-release](../build-release/SKILL.md)** in full:
 
 Run Android and Windows builds in parallel when possible. On macOS, run the Windows and macOS desktop packaging steps from `apps/desktop` and wait for both before copying artifacts.
 
-### 6. Copy to landing (default for bump)
+### 7. Copy to landing (default for bump)
 
 Unlike standalone build-release, **always copy** after successful builds:
 
@@ -183,26 +223,35 @@ If the bump workflow is running on macOS and `dist:mac` produced a DMG, also cop
 Copy-Item -Force apps/desktop/release/tonezen-macos.dmg docker/landing/public/downloads/tonezen-macos.dmg
 ```
 
-### 7. Tag release
+### 8. Tag release
 
 Create the tag only after successful builds and landing copies:
 
 ```powershell
 $newTag = "vX.Y.Z"
-git tag -a $newTag -m $newTag
+$tagMessageFile = New-TemporaryFile
+try {
+  @($newTag, "", ($releaseChangelog | ForEach-Object { "- $_" })) |
+    Set-Content -LiteralPath $tagMessageFile -Encoding UTF8
+  git tag -a $newTag -F $tagMessageFile
+} finally {
+  Remove-Item -LiteralPath $tagMessageFile -Force
+}
 git describe --tags --exact-match HEAD
 ```
 
 The tag must point at the release bump commit. Do **not** push the commit or tag unless the user explicitly asks.
 
-### 8. Report
+### 9. Report
 
 Tell the user:
 
 - Old → new version
 - Inferred SemVer bump and the evidence used
+- Russian changelog used for the release migration and tag
 - Commit hash
 - Tag name
+- Release migration path
 - Artifact paths and file sizes
 - Landing copy paths
 - macOS DMG path and landing copy path when built
@@ -211,6 +260,8 @@ Tell the user:
 ## Do not
 
 - Commit `.env`, `client.env`, APK/EXE, or `docker/landing/public/downloads/*`
+- Write different changelog text into the release migration and tag
+- Manually edit committed or applied release migrations
 - Bump without committing then building — all three steps are one workflow
 - Push commit or tags to remote unless user explicitly asks
 - Move, delete, or overwrite an existing release tag
@@ -226,6 +277,7 @@ Tell the user:
 | SemVer classification is ambiguous | Stop and ask user to choose patch/minor/major/exact |
 | Requested bump is lower than inferred bump | Stop and ask for explicit confirmation |
 | New version tag already exists | Stop; do not move or overwrite the tag |
+| Release migration generation fails | Fix the changelog/version input, then regenerate before committing |
 | Commit hook fails | Fix, new commit — do not amend failed commit |
 | Build fails after commit | Report commit hash; do not create tag; user fixes code and re-runs build-release only |
 | Tag creation fails after successful build | Report commit hash and artifacts; do not push anything |

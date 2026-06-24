@@ -78,6 +78,13 @@ assertNotIncludes(index, '<nav class="main-nav"', "landing header");
 assertIncludes(index, 'class="device-column"', "landing device columns");
 assertIncludes(index, 'class="windows-frame"', "landing screenshots");
 assertIncludes(index, 'class="windows-controls"', "landing screenshots");
+assertIncludes(index, '<script src="/release.js" defer></script>', "landing release script");
+assertIncludes(index, 'class="download-version"', "landing download versions");
+assertIncludes(index, 'data-release-version', "landing release version placeholders");
+assertIncludes(index, 'id="release"', "landing release screen");
+assertIncludes(index, 'class="release-screen"', "landing release screen");
+assertIncludes(index, 'data-release-changelog', "landing release changelog");
+assertIncludes(index, "Версия недоступна", "landing release unavailable copy");
 
 const resetPassword = read("docker/landing/public/reset-password.html");
 assertIncludes(resetPassword, 'lang="ru"', "reset password page");
@@ -90,10 +97,10 @@ assertIncludes(styles, "#5eead4", "landing CSS");
 assertIncludes(styles, "@media", "landing CSS");
 assertIncludes(styles, "--header-height: 64px;", "one-screen landing CSS");
 assertIncludes(styles, "--feature-strip-height: 108px;", "one-screen landing CSS");
-assertIncludes(styles, "height: 100vh;", "one-screen landing CSS");
-assertIncludes(styles, "overflow: hidden;", "one-screen landing CSS");
-assertIncludes(styles, "height: calc(100vh - var(--header-height));", "landing main CSS");
-assertIncludes(styles, "grid-template-rows: minmax(0, 1fr) var(--feature-strip-height);", "landing main CSS");
+assertIncludes(styles, ".landing-screen", "landing first screen CSS");
+assertIncludes(styles, ".release-screen", "landing release screen CSS");
+assertIncludes(styles, ".download-version", "landing download version CSS");
+assertIncludes(styles, ".release-changelog", "landing release changelog CSS");
 assertIncludes(styles, "--device-preview-width", "landing CSS");
 assertIncludes(styles, "--device-preview-width: clamp(230px, 13.5vw, 280px);", "larger device preview CSS");
 assertIncludes(styles, "--device-preview-height", "landing CSS");
@@ -105,6 +112,16 @@ assertIncludes(styles, ".device-column", "device column CSS");
 assertIncludes(styles, "justify-content: center;", "centered hero CSS");
 assertIncludes(styles, ".brand-icon", "landing CSS");
 assertIncludes(styles, ".feature-icon img", "landing feature icon CSS");
+
+const releaseScript = read("docker/landing/public/release.js");
+assertIncludes(
+  releaseScript,
+  "/rest/v1/app_versions?select=version,changelog_ru,released_at&order=released_at.desc&limit=1",
+  "landing release fetch",
+);
+assertIncludes(releaseScript, "data-release-version", "landing release script");
+assertIncludes(releaseScript, "data-release-changelog", "landing release script");
+assertNotIncludes(releaseScript, "0.2.0", "landing release script fallback");
 
 assertFile("docker/landing/public/favicon.ico");
 assertFile("docker/landing/public/favicon.png");
