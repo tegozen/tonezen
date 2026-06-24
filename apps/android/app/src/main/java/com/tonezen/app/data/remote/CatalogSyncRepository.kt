@@ -78,8 +78,12 @@ class CatalogSyncRepository @Inject constructor(
             val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession()) ?: return@launch
             if (!sessionRepository.isAccessTokenUsable(session)) return@launch
             try {
-                catalogRepository.syncFromRemote(session.accessToken)
-                _catalogUpdated.emit(Unit)
+                // Add rate limiting: 5 requests per minute minimum between sync attempts
+                delay(60_000) // Rate limit: 1 sync every 60 seconds minimum
+                val result = catalogRepository.syncFromRemote(session.accessToken)
+                if (result.isNotEmpty()) { // Only emit if sync was successful and resulted in updates
+                    _catalogUpdated.emit(Unit)
+                }
             } catch (_: Exception) {
                 // Best-effort; local cache remains authoritative offline.
             }
@@ -88,5 +92,7 @@ class CatalogSyncRepository @Inject constructor(
 
     private companion object {
         const val SYNC_DEBOUNCE_MS = 2_000L
+        // Rate limiting: sync operations should be spaced out to avoid overwhelming network thread
+        const val RATE_LIMIT_MS = 60_000L
     }
 }
