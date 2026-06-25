@@ -74,6 +74,32 @@ class DownloadQueueStateMappingTest {
     }
 
     @Test
+    fun forMusic_keepsActiveMusicDownloadWhileQueuedStatus() {
+        val state = DownloadQueueState(
+            queuedItems = listOf(
+                queueItem(
+                    trackId = "track-1",
+                    contentType = MUSIC_DOWNLOAD_CONTENT_TYPE,
+                    status = DownloadQueueItemStatus.QUEUED,
+                    batchId = "music-batch",
+                    bookId = "album-1",
+                ),
+            ),
+            activeBookId = "album-1",
+            activeTrackId = "track-1",
+            activeProgress = 0.35f,
+            bulkTotal = 3,
+            bulkDownloaded = 0,
+            activeBatchId = "music-batch",
+        )
+
+        val music = state.forMusic()
+
+        assertEquals("track-1", music.activeTrackId)
+        assertEquals(0.35f, music.activeProgress)
+    }
+
+    @Test
     fun toMusicDownloadState_usesMusicOnlyQueue() {
         val state = DownloadQueueState(
             queuedItems = listOf(

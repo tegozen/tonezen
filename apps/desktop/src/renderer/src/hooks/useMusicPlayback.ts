@@ -348,7 +348,7 @@ export function useMusicPlayback({
       pending.map((track) => ({
         bookId: track.bookId,
         trackId: track.trackId,
-        priority: "BULK" as const,
+        priority: "USER" as const,
         batchId,
         title: track.trackTitle,
         subtitle: track.artist,

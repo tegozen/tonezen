@@ -7,11 +7,10 @@ fun DownloadQueueState.forMusic(): DownloadQueueState {
     val musicHistory = completedHistory.filter { it.contentType == MUSIC_DOWNLOAD_CONTENT_TYPE }
     val activeIsMusic = activeTrackId != null &&
         activeBookId != null &&
-        musicQueued.any { item ->
+        queuedItems.any { item ->
             item.trackId == activeTrackId &&
                 item.bookId == activeBookId &&
-                (item.status == DownloadQueueItemStatus.DOWNLOADING ||
-                    item.status == DownloadQueueItemStatus.PAUSED_OFFLINE)
+                item.contentType == MUSIC_DOWNLOAD_CONTENT_TYPE
         }
     val musicBatchActive = activeBatchId != null &&
         (musicQueued + musicHistory).any { it.batchId == activeBatchId }

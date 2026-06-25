@@ -257,12 +257,18 @@ internal class LibraryMusicHandler(
         val pending = uiState.value.musicTrackList.filter { !it.isDownloaded }
         if (pending.isEmpty()) return
         scope.launch {
+            val tracksToDownload = withContext(Dispatchers.IO) {
+                pending.filter { track ->
+                    !trackDownloadEnsurer.isTrackLocal(track.bookId, track.trackId)
+                }
+            }
+            if (tracksToDownload.isEmpty()) return@launch
             pauseMusicForBulkDownload()
             downloadQueueController.cancelMusicPlaybackDownloadsAwait()
             val batchId = java.util.UUID.randomUUID().toString()
             lastBulkBatchId = batchId
             downloadQueueController.enqueueBatch(
-                pending.map { it.toEnqueueRequest(DownloadPriority.BULK, batchId) },
+                tracksToDownload.map { it.toEnqueueRequest(DownloadPriority.USER, batchId) },
                 batchId,
             )
         }

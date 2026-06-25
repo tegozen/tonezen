@@ -125,9 +125,17 @@ class DownloadRepository @Inject constructor(
                     }
                     val body = response.body ?: throw IOException("Empty body")
                     val contentLength = body.contentLength()
+                    val headerLength = response.header("Content-Length")?.toLongOrNull()
                     totalBytes = when {
-                        response.code == 206 -> attemptOffset + contentLength.coerceAtLeast(0L)
+                        response.code == 206 -> {
+                            val rangeTotal = response.header("Content-Range")
+                                ?.substringAfterLast('/')
+                                ?.toLongOrNull()
+                            rangeTotal?.takeIf { it > 0L }
+                                ?: (attemptOffset + contentLength.coerceAtLeast(0L)).takeIf { contentLength > 0 }
+                        }
                         contentLength > 0 -> contentLength
+                        headerLength != null && headerLength > 0 -> headerLength
                         totalBytes != null -> totalBytes
                         else -> null
                     }
@@ -151,6 +159,15 @@ class DownloadRepository @Inject constructor(
                                         reportDownloadProgress(
                                             onProgress,
                                             DownloadResumePolicy.progressFraction(downloaded, total) ?: 0f,
+                                        )
+                                    }
+                                } else if (downloaded > 0L) {
+                                    val bucket = (downloaded / (512 * 1024)).toInt()
+                                    if (bucket > lastBucket) {
+                                        lastBucket = bucket
+                                        reportDownloadProgress(
+                                            onProgress,
+                                            (0.05f + bucket * 0.05f).coerceAtMost(0.95f),
                                         )
                                     }
                                 }

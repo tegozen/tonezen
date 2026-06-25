@@ -42,6 +42,18 @@ class DownloadQueuePolicyTest {
     }
 
     @Test
+    fun sortPendingUsesStableTieBreakerForSameEnqueueTime() {
+        val sorted = DownloadQueuePolicy.sortPending(
+            listOf(
+                DownloadQueueSortable(keyB, DownloadPriority.BULK, 1L),
+                DownloadQueueSortable(DownloadQueueKey("b1", "t1"), DownloadPriority.BULK, 1L),
+            ),
+        )
+        assertEquals(DownloadQueueKey("b1", "t1"), sorted[0].key)
+        assertEquals(keyB, sorted[1].key)
+    }
+
+    @Test
     fun computeBulkDownloadedIncludesSkippedAtEnqueue() {
         assertEquals(5, DownloadQueuePolicy.computeBulkDownloaded(3, "batch-1", 2))
         assertEquals(0, DownloadQueuePolicy.computeBulkDownloaded(0, null, 0))

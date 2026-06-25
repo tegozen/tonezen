@@ -81,14 +81,14 @@ flowchart TD
 
 **Expected behavior:**
 
-1. Enqueue all missing tracks as `BULK` batch.
+1. Enqueue all missing tracks as `USER` batch (same priority as audiobook «скачать все» in book detail).
 2. Show batch progress (`bulkDownloaded` / `bulkTotal`) on the button/card.
 3. Each track row and Downloads tab shows % **only while that track is actively downloading**.
 4. Queued tracks show download icon without % until active.
 
 **UI signals:** Batch progress bar; per-row % or checkmark; Downloads tab mirrors active item.
 
-**Domain anchors:** `TrackDownloadQueue.enqueueBatch`, `DownloadPriority.BULK`.
+**Domain anchors:** `TrackDownloadQueue.enqueueBatch`, `DownloadPriority.USER` (batch).
 
 ---
 

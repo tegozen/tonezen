@@ -86,8 +86,12 @@ class TrackDownloadQueueController @Inject constructor(
                 bulkBatchId = batchId
                 bulkTotal = requests.size
                 var skipped = 0
+                var enqueueSequence = System.currentTimeMillis()
                 requests.forEach { request ->
-                    val req = request.copy(batchId = batchId)
+                    val req = request.copy(
+                        batchId = batchId,
+                        enqueuedAt = enqueueSequence++,
+                    )
                     if (!SafeLocalStorage.isSafeId(req.bookId) || !SafeLocalStorage.isSafeId(req.trackId)) {
                         return@forEach
                     }
@@ -319,7 +323,7 @@ class TrackDownloadQueueController @Inject constructor(
             if (pausedForNetwork || !networkMonitor.isOnline()) break
             val next = mutex.withLock { pickNextLocked() } ?: break
             val key = DownloadQueueKey(next.bookId, next.trackId)
-            if (userCancelledKeys.remove(key)) continue
+            if (mutex.withLock { userCancelledKeys.remove(key) }) continue
             val disk = isTrackAlreadyOnDisk(next.bookId, next.trackId)
             if (disk != null) {
                 val (diskBookId, path) = disk
@@ -336,65 +340,70 @@ class TrackDownloadQueueController @Inject constructor(
                 }
                 continue
             }
-            mutex.withLock {
-                notifier.update { state ->
-                    state.copy(
-                        activeBookId = next.bookId,
-                        activeTrackId = next.trackId,
-                        activeProgress = 0f,
-                        pausedForNetwork = false,
-                    )
+            var result: DownloadAwaitResult
+            do {
+                mutex.withLock {
+                    notifier.update { state ->
+                        state.copy(
+                            activeBookId = next.bookId,
+                            activeTrackId = next.trackId,
+                            activeProgress = 0f,
+                            pausedForNetwork = false,
+                        )
+                    }
+                    refreshNotifierFromDb()
                 }
-            }
-            val result = downloadOne(next, key)
-            mutex.withLock {
-                when (result) {
-                    DownloadAwaitResult.COMPLETED -> {
-                        failureCounts.remove(key)
-                        purgeQueueForTrackId(next.trackId)
-                        addCompletedHistory(next)
-                        localLibraryNotifier.notifyLocalLibraryChanged()
-                    }
-                    DownloadAwaitResult.CANCELLED -> {
-                        failureCounts.remove(key)
-                        downloadQueueDao.delete(next.bookId, next.trackId)
-                    }
-                    DownloadAwaitResult.FAILED, DownloadAwaitResult.OFFLINE -> {
-                        val diskAfter = isTrackAlreadyOnDisk(next.bookId, next.trackId)
-                        if (diskAfter != null) {
-                            val (diskBookId, path) = diskAfter
-                            catalogRepository.markTrackDownloaded(diskBookId, next.trackId, path)
+                result = downloadOne(next, key)
+                mutex.withLock {
+                    when (result) {
+                        DownloadAwaitResult.COMPLETED -> {
                             failureCounts.remove(key)
                             purgeQueueForTrackId(next.trackId)
-                            if (next.batchId != null && next.batchId == bulkBatchId) {
-                                addCompletedHistory(next)
-                            }
-                            completeAwaiter(key, DownloadAwaitResult.COMPLETED)
+                            addCompletedHistory(next)
                             localLibraryNotifier.notifyLocalLibraryChanged()
-                        } else when (result) {
-                            DownloadAwaitResult.OFFLINE -> {
-                                persistPartProgress(next.bookId, next.trackId)
-                                completeAwaiter(key, DownloadAwaitResult.OFFLINE)
-                            }
-                            else -> {
-                                val attempts = (failureCounts[key] ?: 0) + 1
-                                failureCounts[key] = attempts
-                                if (attempts >= MAX_DOWNLOAD_FAILURES) {
-                                    failureCounts.remove(key)
-                                    downloadQueueDao.delete(next.bookId, next.trackId)
-                                    completeAwaiter(key, DownloadAwaitResult.FAILED)
-                                } else {
+                        }
+                        DownloadAwaitResult.CANCELLED -> {
+                            failureCounts.remove(key)
+                            downloadQueueDao.delete(next.bookId, next.trackId)
+                        }
+                        DownloadAwaitResult.FAILED, DownloadAwaitResult.OFFLINE -> {
+                            val diskAfter = isTrackAlreadyOnDisk(next.bookId, next.trackId)
+                            if (diskAfter != null) {
+                                val (diskBookId, path) = diskAfter
+                                catalogRepository.markTrackDownloaded(diskBookId, next.trackId, path)
+                                failureCounts.remove(key)
+                                purgeQueueForTrackId(next.trackId)
+                                if (next.batchId != null && next.batchId == bulkBatchId) {
+                                    addCompletedHistory(next)
+                                }
+                                completeAwaiter(key, DownloadAwaitResult.COMPLETED)
+                                localLibraryNotifier.notifyLocalLibraryChanged()
+                                result = DownloadAwaitResult.COMPLETED
+                            } else when (result) {
+                                DownloadAwaitResult.OFFLINE -> {
                                     persistPartProgress(next.bookId, next.trackId)
+                                    completeAwaiter(key, DownloadAwaitResult.OFFLINE)
+                                }
+                                else -> {
+                                    val attempts = (failureCounts[key] ?: 0) + 1
+                                    failureCounts[key] = attempts
+                                    if (attempts >= MAX_DOWNLOAD_FAILURES) {
+                                        failureCounts.remove(key)
+                                        downloadQueueDao.delete(next.bookId, next.trackId)
+                                        completeAwaiter(key, DownloadAwaitResult.FAILED)
+                                    } else {
+                                        persistPartProgress(next.bookId, next.trackId)
+                                    }
                                 }
                             }
                         }
                     }
+                    if (result != DownloadAwaitResult.FAILED && result != DownloadAwaitResult.OFFLINE) {
+                        completeAwaiter(key, result)
+                    }
+                    refreshNotifierFromDb()
                 }
-                if (result != DownloadAwaitResult.FAILED && result != DownloadAwaitResult.OFFLINE) {
-                    completeAwaiter(key, result)
-                }
-                refreshNotifierFromDb()
-            }
+            } while (result == DownloadAwaitResult.FAILED && failureCounts.containsKey(key))
             if (result == DownloadAwaitResult.OFFLINE) break
             delay(50)
         }

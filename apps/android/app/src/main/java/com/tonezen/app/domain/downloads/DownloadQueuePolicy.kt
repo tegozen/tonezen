@@ -12,7 +12,9 @@ object DownloadQueuePolicy {
     fun sortPending(items: List<DownloadQueueSortable>): List<DownloadQueueSortable> =
         items.sortedWith(
             compareByDescending<DownloadQueueSortable> { it.priority.weight }
-                .thenBy { it.enqueuedAt },
+                .thenBy { it.enqueuedAt }
+                .thenBy { it.key.bookId }
+                .thenBy { it.key.trackId },
         )
 
     fun mergePriority(current: DownloadPriority, incoming: DownloadPriority): DownloadPriority =
