@@ -15,10 +15,10 @@ import {
   progressForTrack as downloadProgressForTrack,
 } from "@shared/downloadQueueState";
 import {
-  findFirstPlayableMusicTrack,
   findNextPlayableIndex,
   findPreviousPlayableIndex,
   isMusicTrackPlayable,
+  resolveMusicWaveDisplayTrack,
   shouldRestartCurrentMusicTrack,
   type MusicSessionState,
 } from "@shared/musicPlayback";
@@ -247,11 +247,12 @@ export function useMusicPlayback({
       pauseOrResume();
       return;
     }
-    const firstPlayable = findFirstPlayableMusicTrack(
+    const displayTrack = resolveMusicWaveDisplayTrack(
       playbackMusicTracks,
-      musicSessionState(sessionState),
+      currentTrack?.id ?? null,
+      musicMode,
     );
-    if (!firstPlayable) {
+    if (!displayTrack) {
       if (sessionState === "Unauthenticated") {
         setMusicError("Войдите в аккаунт, чтобы скачать трек");
       } else if (sessionState !== "AuthenticatedOnline") {
@@ -259,7 +260,10 @@ export function useMusicPlayback({
       }
       return;
     }
-    void playMusicTrackInternal(firstPlayable);
+    void playMusicTrackInternal(displayTrack, {
+      showDownloadProgress: !displayTrack.isDownloaded,
+      advancePlayback: true,
+    });
   }, [
     currentTrack,
     musicMode,

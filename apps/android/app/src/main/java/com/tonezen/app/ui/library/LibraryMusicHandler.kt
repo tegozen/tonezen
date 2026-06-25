@@ -10,6 +10,7 @@ import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.music.MusicLibraryTrack
 import com.tonezen.app.domain.music.MusicPlaybackAdvanceRules
+import com.tonezen.app.domain.music.resolveMusicWaveDisplayTrack
 import com.tonezen.app.domain.music.MusicQueueWindow
 import com.tonezen.app.domain.downloads.DownloadAwaitResult
 import com.tonezen.app.domain.downloads.DownloadPriority
@@ -133,16 +134,12 @@ internal class LibraryMusicHandler(
             return
         }
         val list = visibleMusicTrackList()
-        val index = MusicPlaybackAdvanceRules.findFirstPlayable(
-            items = list,
-            isPlayable = { track ->
-                MusicPlaybackAdvanceRules.isTrackPlayable(
-                    isDownloaded = track.isDownloaded,
-                    isNetworkOnline = uiState.value.isNetworkOnline,
-                )
-            },
-        )
-        if (index == null) {
+        val displayTrack = resolveMusicWaveDisplayTrack(
+            tracks = list,
+            activeTrackId = playback.trackId,
+            isMusicActive = playback.isActive,
+            trackIdOf = { it.trackId },
+        ) ?: run {
             if (!uiState.value.isNetworkOnline) {
                 uiState.update {
                     it.copy(musicPlaybackErrorMessage = playbackErrorMessage(EnsureTrackOutcome.Failure.OFFLINE))
@@ -150,7 +147,15 @@ internal class LibraryMusicHandler(
             }
             return
         }
-        onMusicTrackClick(list[index])
+        playJob?.cancel()
+        uiState.update { it.copy(musicPlaybackErrorMessage = null) }
+        playJob = scope.launch {
+            playMusicTrack(
+                track = displayTrack,
+                showDownloadProgress = !displayTrack.isDownloaded,
+                advancePlayback = true,
+            )
+        }
     }
 
 

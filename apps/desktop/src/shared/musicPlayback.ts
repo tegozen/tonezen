@@ -61,3 +61,15 @@ export function findActiveMusicTrack<T extends { trackId: string }>(
     fullQueue.find((track) => track.trackId === activeTrackId)
   );
 }
+
+export function resolveMusicWaveDisplayTrack<T extends { trackId: string }>(
+  tracks: T[],
+  activeTrackId: string | null | undefined,
+  isMusicActive: boolean,
+): T | null {
+  if (tracks.length === 0) return null;
+  if (isMusicActive && activeTrackId) {
+    return tracks.find((track) => track.trackId === activeTrackId) ?? tracks[0];
+  }
+  return tracks[0];
+}

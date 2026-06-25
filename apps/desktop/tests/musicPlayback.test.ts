@@ -6,6 +6,7 @@ import {
   findNextPlayableIndex,
   findPreviousPlayableIndex,
   isMusicTrackPlayable,
+  resolveMusicWaveDisplayTrack,
   shouldRestartCurrentMusicTrack,
 } from "../src/shared/musicPlayback.js";
 
@@ -63,6 +64,22 @@ describe("music playback advance", () => {
       { trackId: "b", isDownloaded: false },
     ];
     expect(findFirstPlayableMusicTrack(waveTracks, "AuthenticatedOffline")).toBeNull();
+  });
+});
+
+describe("resolveMusicWaveDisplayTrack", () => {
+  const waveTracks = [
+    { trackId: "a", isDownloaded: false },
+    { trackId: "b", isDownloaded: true },
+    { trackId: "c", isDownloaded: true },
+  ];
+
+  it("uses first list track when wave is idle", () => {
+    expect(resolveMusicWaveDisplayTrack(waveTracks, null, false)?.trackId).toBe("a");
+  });
+
+  it("uses active track when music is playing", () => {
+    expect(resolveMusicWaveDisplayTrack(waveTracks, "c", true)?.trackId).toBe("c");
   });
 });
 
