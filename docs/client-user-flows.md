@@ -1,0 +1,318 @@
+# Client user flows — Music & Audiobooks
+
+> Normative spec for **Android** and **Desktop**. Both platforms must behave the same unless noted.
+
+## General rules
+
+- **Offline-first:** local cache is authoritative; sync when online.
+- **Music progress:** local only — never synced to server.
+- **Audiobook progress:** local write always; push/pull when authenticated and online.
+- **UI language:** Russian only — copy inline at usage sites; no strings catalog or locale switching.
+- **Download queue priorities:** `USER` (explicit tap) > `PLAY` (playback needs file) > `PREFETCH` (background next chapter/track) > `BULK` (download all). Progress % is shown only for the **currently active** download in a batch; queued items show icon until their turn.
+- **Auth:** expired JWT while **offline** ≠ logout; refresh tokens **only when online**; never block cold start with synchronous JWT exp check without network.
+
+## Playback vs download (anti-regression)
+
+| Mode | Content | Examples | Not downloaded + online | Not downloaded + offline / fail |
+|------|---------|----------|-------------------------|----------------------------------|
+| Auto / wave (music) | music | «Моя волна», next/prev shuffle | Download `PLAY` | **Next playable** in list (`advancePlayback`) |
+| Auto-advance (audiobooks) | audiobook | End of chapter, next in book/cycle | Download `PLAY` / prefetch | **Error + stop** — no skip to another chapter |
+| Explicit pick | both | Tap track / chapter | Download `PLAY` | **Error**, no silent skip |
+| Resume / cycle start | audiobook | Play cycle, Continue | Download `PLAY` for **target** chapter | **Error** if target not local — no forward walk |
+
+**Forbidden without updating this doc:**
+
+- «Моя волна» → `findFirstPlayable(0)` (card track must match playback start).
+- «Моя волна» → offline error on first track without trying next playable tracks.
+- Audiobook → silent skip to next downloaded chapter when offline.
+- Explicit tap → silent skip.
+- Play cycle → walk from book 1 instead of resume target.
+- Play cycle offline → walk forward to first local chapter.
+- Prefetch only on `trackEnded` without enqueue on **playback start**.
+
+---
+
+## Cold start (splash)
+
+### S1. Splash bootstrap
+
+**Trigger:** User launches the app.
+
+**Preconditions:** None.
+
+**Expected behavior:**
+
+1. Splash screen visible immediately.
+2. Read local session from storage (fast, always).
+3. Detect network.
+4. **Offline:** load local catalog + local audiobook progress → show UI immediately. No JWT refresh. No server pull.
+5. **Online + session:** `refreshIfNeeded` (do not logout on expired JWT if we were offline); pull audiobook progress; start catalog sync (may continue in background after UI).
+6. **No session:** show Auth after minimal local init.
+
+**UI signals:** Splash branding; no blank frame; main UI or Auth when bootstrap completes.
+
+**Invariants:**
+
+- Music progress is **not** pulled on splash.
+- Offline path must be fast — do not block on network timeouts.
+- Desktop splash closes on `bootstrap-complete`, not only `ready-to-show`.
+
+```mermaid
+flowchart TD
+    launch[App launch] --> splash[Splash visible]
+    splash --> local[Local session + catalog]
+    local --> net{Network?}
+    net -->|offline| offlineUi[UI with local data]
+    net -->|online| auth[refreshIfNeeded]
+    auth --> progress[Pull audiobook progress]
+    progress --> catalog[Catalog sync]
+    catalog --> onlineUi[Show UI]
+```
+
+---
+
+## Music
+
+### M1. Download all
+
+**Trigger:** «Скачать все» in music library.
+
+**Preconditions:** At least one undownloaded track; online for new downloads.
+
+**Expected behavior:**
+
+1. Enqueue all missing tracks as `BULK` batch.
+2. Show batch progress (`bulkDownloaded` / `bulkTotal`) on the button/card.
+3. Each track row and Downloads tab shows % **only while that track is actively downloading**.
+4. Queued tracks show download icon without % until active.
+
+**UI signals:** Batch progress bar; per-row % or checkmark; Downloads tab mirrors active item.
+
+**Domain anchors:** `TrackDownloadQueue.enqueueBatch`, `DownloadPriority.BULK`.
+
+---
+
+### M2. Play from «Моя волна»
+
+**Trigger:** Tap play on «Моя волна» card (or card body when idle).
+
+**Preconditions:** Music library has tracks.
+
+**Expected behavior:**
+
+1. Card shows current playing track when music is active; otherwise first track in wave list.
+2. If music already playing → toggle pause/play (same track).
+3. If idle → start from **track shown on card**, not first playable in list.
+4. Track not downloaded + **online** → download (`PLAY`) then play.
+5. Track not downloaded + **offline** or download failed → try **next playable** in list order; repeat until success or list exhausted.
+6. Show error only if **no** playable track exists.
+
+**UI signals:** Card title/artist match start track; spectrum animates when playing.
+
+**Invariants:** Card display and playback start use the same «wave display track» helper.
+
+**Domain anchors:** `MusicPlaybackAdvanceRules`, `advancePlayback` / `advanceToPlayableTrack`.
+
+---
+
+### M3. Play from «Все треки»
+
+**Trigger:** Tap a specific track in expanded list.
+
+**Preconditions:** User chose explicit track.
+
+**Expected behavior:**
+
+1. Queue from tapped track.
+2. Download with `PLAY` if needed (online).
+3. On failure → show error; **no** silent skip to another track.
+
+**UI signals:** Now playing matches tapped track; error toast/snackbar on fail.
+
+**Invariants:** Explicit pick ≠ auto-advance semantics.
+
+---
+
+## Audiobooks & cycles
+
+### A1. Play cycle
+
+**Trigger:** Play on cycle card.
+
+**Preconditions:** Cycle has books with chapters.
+
+**Expected behavior:**
+
+1. Resolve target via `resolveCycleResumeTarget` (last progress in cycle) or first chapter if no history.
+2. **Online:** `awaitTrack` `PLAY` for target chapter → `playQueue` from resume position.
+3. **Offline** without local target file → error, playback does **not** start; **no** forward walk to another downloaded chapter.
+
+**UI signals:** Error message on offline/fail; player does not start wrong chapter.
+
+**Domain anchors:** `resolveCycleResumeTarget`, `orderedCycleEntriesFromResume`.
+
+---
+
+### A2. Open cycle + header menu ⋮
+
+**Trigger:** Tap cycle → cycle detail; ⋮ on cycle card.
+
+**Expected behavior:** Navigate to books list; menu: mark listened, download entire cycle, remove downloads.
+
+**UI signals:** `CycleDetailScreen` / `CycleDetailPage`; overflow menu actions.
+
+---
+
+### A3. Open book → Continue / Play
+
+**Trigger:** Tap book → book detail.
+
+**Expected behavior:**
+
+1. If partial progress → «Продолжить» with resume metadata.
+2. If no history and book not fully listened → «Воспроизвести» (first chapter).
+3. Continue/Play downloads target chapter if online; offline without local file → error, no skip.
+
+**UI signals:** Primary play button always visible when book has chapters and not fully listened.
+
+---
+
+### A4. Chapter list — listen progress + download status
+
+**Trigger:** Book detail chapter list visible.
+
+**Expected behavior:**
+
+1. Each row: listen progress bar; checkmark if downloaded; % if **actively** downloading via queue; download button if not local.
+2. **E2E:** tap download → queue worker → `localPath` in DB → checkmark without leaving page.
+3. Fail / offline → explicit feedback (toast/snackbar), not silent no-op.
+4. Play-initiated downloads use queue (`PLAY`) — same progress source as button download.
+
+**UI signals:** `ChapterTrackRow`; `TrackDownloadedIndicator`; `TrackDownloadButton`; queue progress.
+
+**Invariants:** Single download path through queue for USER and PLAY priorities.
+
+---
+
+### A5. Book header ⋮ — download all chapters
+
+**Trigger:** ⋮ in book detail header → download book.
+
+**Expected behavior:** Enqueue **all** missing chapters in batch (not one track).
+
+**UI signals:** Batch progress in header menu area if applicable.
+
+**Domain anchors:** `downloadAllMissingTracks` / `enqueueBatch`.
+
+---
+
+### A6. Chapter row ⋮ — mark listened
+
+**Trigger:** ⋮ on chapter row.
+
+**Expected behavior:** Mark chapter (and prior chapters per rules) as listened.
+
+---
+
+### A7. Tap chapter — playback intent
+
+**Trigger:** Tap chapter row (not download button).
+
+**Preconditions:** Saved book progress may exist.
+
+**Expected behavior:**
+
+1. Resolve intent via `resolveAudiobookPlaybackIntent`:
+   - Same track as saved progress → `Resume(positionMs)`.
+   - Later chapter than saved → `StartFromZero`.
+   - Earlier chapter than saved → `ConfirmEarlierChapter` → dialog; Cancel aborts; OK starts from 0.
+2. After resolve (and confirm): download `PLAY` if needed.
+3. On fail → error, no skip.
+
+```mermaid
+flowchart TD
+    click[Tap chapter] --> check{sortOrder vs saved}
+    check -->|same| resume[Resume positionMs]
+    check -->|later| zero[Start 0]
+    check -->|earlier| confirm[Confirm dialog]
+    confirm -->|OK| zero
+    confirm -->|Cancel| abort[Abort]
+```
+
+**Domain anchors:** `resolveAudiobookPlaybackIntent`, `resolveAudiobookPlaybackStartMs`.
+
+---
+
+### A8. Downloaded indicator
+
+**Trigger:** Chapter has `localPath`.
+
+**Expected behavior:** Show checkmark; hide download button.
+
+---
+
+### A9. Download progress %
+
+**Trigger:** Chapter actively downloading via queue.
+
+**Expected behavior:** Show % on that row only; other queued rows show icon without %.
+
+---
+
+### A10. Download button
+
+**Trigger:** Tap download on undownloaded chapter.
+
+**Expected behavior:** Enqueue `USER`; show progress when active; offline → «Нет сети» feedback.
+
+---
+
+### A11. Prefetch next chapter + auto-advance
+
+**Trigger:** Audiobook playback starts; chapter ends.
+
+**On playback start (online):**
+
+1. Enqueue next chapter in book/cycle with `PREFETCH`.
+
+**On chapter end:**
+
+```mermaid
+flowchart TD
+    ended[Chapter ended] --> next{Next chapter}
+    next -->|localPath| play[Play immediately]
+    next -->|no localPath| online{Online?}
+    online -->|yes| dl[awaitTrack PLAY]
+    dl -->|ok| play
+    dl -->|fail| stop[Error + stop]
+    online -->|no| stop
+```
+
+**Invariants:** Offline + next not downloaded → error + **stop player**; never skip to another downloaded chapter.
+
+**Domain anchors:** `nextAudiobookDownloadRequest`, `DownloadPriority.PREFETCH`.
+
+---
+
+## Download status in lists (checklist)
+
+- [ ] Tap download → file on disk → `localPath` persisted → checkmark in list
+- [ ] Play undownloaded chapter → queue `PLAY` → % visible in row
+- [ ] Offline tap download → user-visible «Нет сети»
+- [ ] Download failure → snackbar/toast, not silent
+- [ ] Batch: % only on active item
+- [ ] Android path canonicalization (`sanitizeStoredLocalPath`) — file exists ⇒ UI shows downloaded
+
+---
+
+## Domain anchors (reference)
+
+| Function | Platform | Path |
+|----------|----------|------|
+| `resolveCycleResumeTarget` | Android | `domain/progress/CycleListenProgress.kt` |
+| `resolveCycleResumeTarget` | Desktop | `shared/cycleListenProgress.ts` |
+| `resolveAudiobookPlaybackIntent` | Both | `shared/` + `domain/progress/` |
+| `resolveAudiobookPlaybackStartMs` | Android | `domain/progress/TrackListenProgress.kt` |
+| `nextAudiobookDownloadRequest` | Desktop | `shared/audiobookDownloadTarget.ts` |
+| `MusicPlaybackAdvanceRules` | Android | `domain/playback/` |
+| `advanceToPlayableTrack` | Desktop | `hooks/useMusicPlayback.ts` |
