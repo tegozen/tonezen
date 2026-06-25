@@ -96,6 +96,7 @@ class TrackDownloadQueueController @Inject constructor(
                         val (diskBookId, path) = onDisk
                         catalogRepository.markTrackDownloaded(diskBookId, req.trackId, path)
                         skipped++
+                        localLibraryNotifier.notifyLocalLibraryChanged()
                         completeAwaiter(DownloadQueueKey(req.bookId, req.trackId), DownloadAwaitResult.COMPLETED)
                     } else {
                         enqueueLocked(req, refreshNotifier = false)

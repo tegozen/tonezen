@@ -36,4 +36,23 @@ class SafeLocalStorageTest {
         assertTrue(part.isFile)
         assertNull(File(root, "downloads/book-a/track-1.mp3").takeIf { it.exists() })
     }
+
+    @Test
+    fun sanitizeStoredLocalPath_acceptsCanonicalPathWhenRootIsSymlinked() {
+        val realRoot = Files.createTempDirectory("tonezen-files-real").toFile()
+        val linkRoot = realRoot.parentFile.resolve("tonezen-files-link-${System.nanoTime()}")
+        Files.createSymbolicLink(linkRoot.toPath(), realRoot.toPath())
+        try {
+            val file = File(realRoot, "downloads/book-a/track-1.mp3")
+            file.parentFile?.mkdirs()
+            file.writeBytes(byteArrayOf(1, 2, 3))
+            val storedPath = file.canonicalPath
+
+            val validated = SafeLocalStorage.sanitizeStoredLocalPath(linkRoot, storedPath)
+
+            assertEquals(storedPath, validated)
+        } finally {
+            Files.deleteIfExists(linkRoot.toPath())
+        }
+    }
 }

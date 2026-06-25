@@ -397,13 +397,29 @@ export class TrackDownloadQueue {
           !this.sessionService.isOnline(),
       );
 
-      const marked = LocalDatabase.markTrackDownloaded(
+      let marked = LocalDatabase.markTrackDownloaded(
         entity.bookId,
         entity.trackId,
         outcome.finalPath,
         this.downloadsRoot,
       );
-      if (!marked) return "FAILED";
+      if (!marked) {
+        LocalDatabase.reconcileLocalDownloadPaths(this.downloadsRoot);
+        marked = LocalDatabase.markTrackDownloaded(
+          entity.bookId,
+          entity.trackId,
+          outcome.finalPath,
+          this.downloadsRoot,
+        );
+        if (
+          !marked &&
+          !LocalDatabase.resolveLocalTrackPath(entity.bookId, entity.trackId, this.downloadsRoot)
+        ) {
+          if (!fs.existsSync(outcome.finalPath) || fs.statSync(outcome.finalPath).size <= 0) {
+            return "FAILED";
+          }
+        }
+      }
       this.notifyCatalogUpdated();
       return "COMPLETED";
     } catch (error) {
