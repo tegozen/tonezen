@@ -77,3 +77,35 @@ fun resolveAudiobookPlaybackStartMs(
     if (progress.positionMs >= (durationMs * COMPLETED_FRACTION_THRESHOLD).toLong()) return 0L
     return progress.positionMs
 }
+
+sealed class AudiobookPlaybackIntent {
+    data class Resume(val positionMs: Long) : AudiobookPlaybackIntent()
+
+    data object StartFromZero : AudiobookPlaybackIntent()
+
+    data class ConfirmEarlierChapter(
+        val savedTrackId: String,
+        val savedPositionMs: Long,
+    ) : AudiobookPlaybackIntent()
+}
+
+fun resolveAudiobookPlaybackIntent(
+    sortedTracks: List<Track>,
+    bookProgress: AudiobookProgress?,
+    clickedTrack: Track,
+): AudiobookPlaybackIntent {
+    if (bookProgress == null) return AudiobookPlaybackIntent.StartFromZero
+    val savedIndex = sortedTracks.indexOfFirst { it.id == bookProgress.trackId }
+    val clickedIndex = sortedTracks.indexOfFirst { it.id == clickedTrack.id }
+    if (savedIndex < 0 || clickedIndex < 0) return AudiobookPlaybackIntent.StartFromZero
+    return when {
+        clickedIndex == savedIndex -> AudiobookPlaybackIntent.Resume(
+            resolveAudiobookPlaybackStartMs(bookProgress, clickedTrack),
+        )
+        clickedIndex > savedIndex -> AudiobookPlaybackIntent.StartFromZero
+        else -> AudiobookPlaybackIntent.ConfirmEarlierChapter(
+            savedTrackId = bookProgress.trackId,
+            savedPositionMs = bookProgress.positionMs,
+        )
+    }
+}

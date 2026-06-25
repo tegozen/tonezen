@@ -78,6 +78,36 @@ class TrackListenProgressTest {
         assertEquals(false, isBookFullyListened(tracks, null))
     }
 
+    @Test
+    fun `same chapter resumes saved position`() {
+        val progress = progress("ch2", 50_000)
+        val intent = resolveAudiobookPlaybackIntent(tracks, progress, tracks[1])
+        assertEquals(AudiobookPlaybackIntent.Resume(50_000L), intent)
+    }
+
+    @Test
+    fun `later chapter starts from zero`() {
+        val progress = progress("ch2", 50_000)
+        val intent = resolveAudiobookPlaybackIntent(tracks, progress, tracks[2])
+        assertEquals(AudiobookPlaybackIntent.StartFromZero, intent)
+    }
+
+    @Test
+    fun `earlier chapter requires confirmation`() {
+        val progress = progress("ch3", 10_000)
+        val intent = resolveAudiobookPlaybackIntent(tracks, progress, tracks[0])
+        assertEquals(
+            AudiobookPlaybackIntent.ConfirmEarlierChapter("ch3", 10_000L),
+            intent,
+        )
+    }
+
+    @Test
+    fun `no progress starts from zero`() {
+        val intent = resolveAudiobookPlaybackIntent(tracks, null, tracks[1])
+        assertEquals(AudiobookPlaybackIntent.StartFromZero, intent)
+    }
+
     private fun track(id: String, sortOrder: Int, durationMs: Long) = Track(
         id = id,
         bookId = "book-1",
