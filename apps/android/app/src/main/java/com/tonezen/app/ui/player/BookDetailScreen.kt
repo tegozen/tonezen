@@ -83,6 +83,7 @@ internal fun BookDetailScreen(
     val sortedTracks = bookDetailTracksForDisplay(tracks)
     val showDownload = tracks.any { it.localPath.isNullOrBlank() }
     val showRemoveDownload = tracks.any { !it.localPath.isNullOrBlank() }
+    val isBookFullyDownloaded = tracks.all { !it.localPath.isNullOrBlank() }
     val activeTrack = sortedTracks.find { it.id == activeTrackId }
     val playbackTrack = activeTrack?.takeIf { uiState.isPlaybackActiveForBook }
     val isBookListened = isBookFullyListened(sortedTracks, uiState.audiobookProgress)
@@ -153,6 +154,7 @@ internal fun BookDetailScreen(
         trailing = {
             DetailHeaderOverflowMenu(
                 showDownload = showDownload,
+                isDownloaded = isBookFullyDownloaded,
                 showRemoveDownload = showRemoveDownload,
                 isListened = isBookListened,
                 onDownload = onDownloadBook,

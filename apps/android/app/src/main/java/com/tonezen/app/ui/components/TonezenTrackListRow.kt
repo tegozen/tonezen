@@ -208,7 +208,8 @@ internal fun TrackRowOverflowMenu(
 @Composable
 internal fun DetailHeaderOverflowMenu(
     showDownload: Boolean,
-    showRemoveDownload: Boolean,
+    isDownloaded: Boolean = false,
+    showRemoveDownload: Boolean = false,
     isListened: Boolean,
     onDownload: () -> Unit,
     onToggleListened: () -> Unit,
@@ -259,19 +260,30 @@ internal fun DetailHeaderOverflowMenu(
                     onToggleListened()
                 },
             )
-            if (showDownload) {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            stringResource(R.string.offline_action),
-                            color = TonezenInk,
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onDownload()
-                    },
-                )
+            when {
+                isDownloaded -> {
+                    // Show checkmark instead of download button when fully downloaded
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CheckCircleGlyph(tint = TonezenTeal, size = 20.dp)
+                    }
+                }
+                showDownload -> {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                stringResource(R.string.offline_action),
+                                color = TonezenInk,
+                            )
+                        },
+                        onClick = {
+                            expanded = false
+                            onDownload()
+                        },
+                    )
+                }
             }
         }
     }

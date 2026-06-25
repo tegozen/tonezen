@@ -74,6 +74,7 @@ internal fun CycleDetailScreen(
         trailing = {
             DetailHeaderOverflowMenu(
                 showDownload = cycleCardState.showDownload,
+                isDownloaded = false, // Cycle-level download status not tracked separately yet
                 showRemoveDownload = cycleCardState.showRemoveDownload,
                 isListened = cycleCardState.isListened,
                 onDownload = onDownloadCycle,
