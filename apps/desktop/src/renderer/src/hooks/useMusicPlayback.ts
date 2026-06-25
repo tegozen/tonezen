@@ -23,7 +23,6 @@ import {
   type MusicSessionState,
 } from "@shared/musicPlayback";
 import type { useDownloadQueue } from "./useDownloadQueue";
-import { strings } from "../i18n/strings";
 
 interface UseMusicPlaybackOptions {
   books: Book[];
@@ -100,13 +99,13 @@ export function useMusicPlayback({
 
       if (sessionState === "Unauthenticated") {
         if (!options?.suppressPlaybackError) {
-          setMusicError(strings.musicPlaybackErrorLogin);
+          setMusicError("Войдите в аккаунт, чтобы скачать трек");
         }
         return null;
       }
       if (sessionState !== "AuthenticatedOnline") {
         if (!options?.suppressPlaybackError) {
-          setMusicError(strings.musicPlaybackErrorOffline);
+          setMusicError("Нет сети — нужен интернет для первой загрузки");
         }
         return null;
       }
@@ -121,7 +120,7 @@ export function useMusicPlayback({
 
       if (result !== "COMPLETED") {
         if (result === "FAILED" && !options?.suppressPlaybackError) {
-          setMusicError(strings.musicPlaybackErrorDownload);
+          setMusicError("Не удалось скачать трек");
         }
         return null;
       }
@@ -254,9 +253,9 @@ export function useMusicPlayback({
     );
     if (!firstPlayable) {
       if (sessionState === "Unauthenticated") {
-        setMusicError(strings.musicPlaybackErrorLogin);
+        setMusicError("Войдите в аккаунт, чтобы скачать трек");
       } else if (sessionState !== "AuthenticatedOnline") {
-        setMusicError(strings.musicPlaybackErrorOffline);
+        setMusicError("Нет сети — нужен интернет для первой загрузки");
       }
       return;
     }

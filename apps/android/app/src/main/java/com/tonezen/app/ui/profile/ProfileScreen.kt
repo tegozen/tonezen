@@ -27,11 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import com.tonezen.app.ui.theme.TonezenFaint
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.components.CheckCircleGlyph
 import com.tonezen.app.ui.components.ChevronRightGlyph
@@ -160,8 +158,8 @@ internal fun ProfileScreenContent(
     val settingsItems = listOf(
         SettingsItem(
             action = ProfileSettingsAction.Storage,
-            titleRes = R.string.settings_storage,
-            subtitleRes = R.string.settings_storage_subtitle,
+            title = "Хранилище",
+            subtitle = "Офлайн-файлы на устройстве",
             icon = { StorageGlyph(tint = TonezenInk) },
         ),
     )
@@ -197,7 +195,7 @@ internal fun ProfileScreenContent(
             }
             item {
                 Column {
-                    ProfileSectionLabel(stringResource(R.string.profile_sync_status_section))
+                    ProfileSectionLabel("Статус синхронизации")
                     SyncStatusCard(
                         lastSyncTime = state.lastSyncTime,
                         pendingSyncCount = state.pendingSyncCount,
@@ -206,7 +204,7 @@ internal fun ProfileScreenContent(
             }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ProfileSectionLabel(stringResource(R.string.profile_settings_section))
+                    ProfileSectionLabel("Настройки")
                     SettingsGroup(
                         items = settingsItems,
                         onItemClick = onSettingsClick,
@@ -224,13 +222,13 @@ internal fun ProfileScreenContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    stringResource(R.string.profile_title),
+                    "Профиль",
                     color = TonezenInk,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
                 StatusChip(
-                    label = if (online) stringResource(R.string.online) else stringResource(R.string.offline),
+                    label = if (online) "Онлайн" else "Офлайн",
                     tone = if (online) TonezenGreen else TonezenAmber,
                 )
             }
@@ -270,7 +268,7 @@ private fun ProfileUserCard(
             }
             memberSinceLabel?.let { value ->
                 Text(
-                    stringResource(R.string.profile_member_since, value),
+                    "Участник с ${value}",
                     color = TonezenFaint,
                     style = MaterialTheme.typography.labelSmall,
                 )
@@ -311,22 +309,22 @@ private fun SyncStatusCard(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                stringResource(R.string.sync_status_all_set),
+                "Всё в порядке",
                 color = TonezenInk,
                 fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
                 if (lastSyncTime != null) {
-                    stringResource(R.string.last_sync_today_at, lastSyncTime)
+                    "Последняя синхронизация: сегодня, ${lastSyncTime}"
                 } else {
-                    stringResource(R.string.last_sync_never)
+                    "Синхронизация ещё не выполнялась"
                 },
                 color = TonezenMuted,
                 style = MaterialTheme.typography.bodySmall,
             )
             if (pendingSyncCount > 0) {
-                StatusChip(label = stringResource(R.string.pending), tone = TonezenAmber)
+                StatusChip(label = "Ожидает", tone = TonezenAmber)
             }
         }
     }
@@ -345,7 +343,7 @@ private fun SignOutCard(onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            stringResource(R.string.sign_out),
+            "Выйти",
             color = TonezenError,
             fontWeight = FontWeight.Medium,
         )
@@ -366,8 +364,8 @@ private fun SettingsGroup(
     ) {
         items.forEachIndexed { index, item ->
             SettingsRow(
-                title = stringResource(item.titleRes),
-                subtitle = stringResource(item.subtitleRes),
+                title = item.title,
+                subtitle = item.subtitle,
                 icon = item.icon,
                 onClick = { onItemClick(item.action) },
             )
@@ -410,7 +408,7 @@ private fun SettingsRow(
 
 private data class SettingsItem(
     val action: ProfileSettingsAction,
-    val titleRes: Int,
-    val subtitleRes: Int,
+    val title: String,
+    val subtitle: String,
     val icon: @Composable () -> Unit,
 )

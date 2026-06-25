@@ -2,7 +2,6 @@ package com.tonezen.app.ui.player
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.tonezen.app.R
 import com.tonezen.app.data.local.CatalogRepository
 import com.tonezen.app.data.local.EnsureTrackOutcome
 import com.tonezen.app.data.local.LocalLibraryNotifier
@@ -159,7 +158,7 @@ class BookDetailViewModel @Inject constructor(
                         catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
                     }
                     val targetTrack = tracks.find { it.id == track.id } ?: return@launch
-                    _uiState.update { it.copy(playbackErrorRes = null) }
+                    _uiState.update { it.copy(playbackErrorMessage = null) }
                     val localTrack = if (!targetTrack.localPath.isNullOrBlank()) {
                         targetTrack
                     } else {
@@ -171,7 +170,7 @@ class BookDetailViewModel @Inject constructor(
                         _uiState.update { it.copy(downloadProgress = null) }
                         if (outcome.track == null) {
                             _uiState.update {
-                                it.copy(playbackErrorRes = playbackErrorRes(outcome.failure))
+                                it.copy(playbackErrorMessage = playbackErrorMessage(outcome.failure))
                             }
                             return@launch
                         }
@@ -206,7 +205,7 @@ class BookDetailViewModel @Inject constructor(
                         trackDownloadEnsurer.ensureTrackLocal(target.book.id, track).track
                     } ?: run {
                         _uiState.update {
-                            it.copy(playbackErrorRes = R.string.music_playback_error_download)
+                            it.copy(playbackErrorMessage = "Не удалось скачать трек")
                         }
                         return@launch
                     }
@@ -226,7 +225,7 @@ class BookDetailViewModel @Inject constructor(
                     }
                     if (queue.isEmpty()) {
                         _uiState.update {
-                            it.copy(playbackErrorRes = R.string.music_playback_error_download)
+                            it.copy(playbackErrorMessage = "Не удалось скачать трек")
                         }
                         return@launch
                     }
@@ -260,7 +259,7 @@ class BookDetailViewModel @Inject constructor(
     }
 
     fun clearPlaybackError() {
-        _uiState.update { it.copy(playbackErrorRes = null) }
+        _uiState.update { it.copy(playbackErrorMessage = null) }
     }
 
     fun clearDownloadError() {
@@ -432,10 +431,10 @@ class BookDetailViewModel @Inject constructor(
         }
     }
 
-    private fun playbackErrorRes(failure: EnsureTrackOutcome.Failure?): Int = when (failure) {
-        EnsureTrackOutcome.Failure.OFFLINE -> R.string.music_playback_error_offline
-        EnsureTrackOutcome.Failure.NO_SESSION -> R.string.music_playback_error_login
-        EnsureTrackOutcome.Failure.DOWNLOAD_FAILED, null -> R.string.music_playback_error_download
+    private fun playbackErrorMessage(failure: EnsureTrackOutcome.Failure?): String = when (failure) {
+        EnsureTrackOutcome.Failure.OFFLINE -> "Нет сети — нужен интернет для первой загрузки"
+        EnsureTrackOutcome.Failure.NO_SESSION -> "Войдите в аккаунт, чтобы скачать трек"
+        EnsureTrackOutcome.Failure.DOWNLOAD_FAILED, null -> "Не удалось скачать трек"
     }
 
     companion object {

@@ -55,7 +55,7 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 - **Unidirectional data flow:** `UiState` up, user events down; single source of truth in repository/ViewModel.
 - **Repositories per API domain** — ViewModels depend on repos, never on `CatalogDao`, `ApiClient`, or `*Entity`.
 - **Entity/DTO mapping only in `data/`** — `domain/` uses `Book`, `Track`, `AudiobookProgress`, not Room types.
-- **Compose is dumb UI** — no repository calls, no content-type/sync branching, strings from `strings.xml`.
+- **Compose is dumb UI** — no repository calls, no content-type/sync branching; UI copy inline at usage sites (**Russian only**).
 - **IO on background** — all Room/HTTP via `suspend` or `Flow`; no `while (true)` polling in ViewModel.
 - **Modules ~≤200 lines** — split screens, DAOs, and API clients by feature/domain.
 - **Domain tests first** for business logic (JUnit + coroutines-test; Turbine for Flow).
@@ -112,14 +112,14 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
   unless the user explicitly asks for it. Work in the current checkout/branch by default.
 - Atomic commits: one feature + its tests per PR
 - Commit messages and code comments: **English**
-- UI strings: **Russian only** — externalized in `strings.xml` (Android) and `i18n/strings.ts` (desktop); no English user-facing copy in clients
+- UI strings: **Russian only** — inline at usage sites (Android Compose and Desktop); no English user-facing copy in clients
 
 ## Code Style
 
 | Area | Tool | Rules |
 |------|------|-------|
-| Kotlin/Android | `./gradlew testDebugUnitTest` (+ ktlint/detekt when configured) | See [kotlin-android.mdc](.cursor/rules/kotlin-android.mdc): feature ViewModels, UDF, repos per domain, pure `domain/`, Compose stateless, `strings.xml` for UI text |
-| TypeScript/React | ESLint + Prettier | strict TS; functional components; hooks for logic; UI copy in `i18n/strings.ts` (**Russian only**) |
+| Kotlin/Android | `./gradlew testDebugUnitTest` (+ ktlint/detekt when configured) | See [kotlin-android.mdc](.cursor/rules/kotlin-android.mdc): feature ViewModels, UDF, repos per domain, pure `domain/`, Compose stateless, inline Russian UI copy |
+| TypeScript/React | ESLint + Prettier | strict TS; functional components; hooks for logic; UI copy inline at usage sites (**Russian only**) |
 | Desktop renderer UI | Tailwind CSS v4 (`@tailwindcss/vite`) | utility classes + `@layer components` in `styles.css`; no inline `style` props |
 | SQL | pg formatter | snake_case; explicit RLS in migrations |
 | Edge Functions (Deno) | deno lint/fmt | Modules < 200 lines; no `any` |

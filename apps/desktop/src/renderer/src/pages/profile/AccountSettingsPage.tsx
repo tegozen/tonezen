@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { AvatarCropScreen } from "../../components/AvatarCropScreen";
 import { ProfileAvatar } from "../../components/ProfileAvatar";
-import { strings } from "../../i18n/strings";
 import { SettingsPageLayout } from "./SettingsPageLayout";
 import { AccountFormSection } from "./AccountFormSection";
 import { AccountLabeledField } from "./AccountLabeledField";
@@ -24,15 +23,15 @@ function resolveAccountError(error: string | null): string | null {
   if (!error) return null;
   switch (error) {
     case ACCOUNT_OFFLINE_ERROR:
-      return strings.settingsAccountOffline;
+      return "Нужно подключение к интернету";
     case PASSWORD_MISMATCH_ERROR:
-      return strings.settingsAccountPasswordMismatch;
+      return "Пароли не совпадают";
     case NOT_SIGNED_IN_ERROR:
-      return strings.settingsAccountNotSignedIn;
+      return "Войдите в аккаунт";
     case PASSWORD_TOO_SHORT_ERROR:
-      return strings.settingsAccountPasswordTooShort;
+      return "Пароль должен быть не короче 6 символов";
     case AVATAR_UPLOAD_FAILED_ERROR:
-      return strings.settingsAccountAvatarUploadFailed;
+      return "Не удалось загрузить аватар";
     default:
       return error;
   }
@@ -82,7 +81,7 @@ export function AccountSettingsPage({
       })
       .catch(() => {
         if (cancelled) return;
-        setReferralError(strings.settingsAccountReferralLoadFailed);
+        setReferralError("Не удалось загрузить код");
       });
     return () => {
       cancelled = true;
@@ -167,22 +166,22 @@ export function AccountSettingsPage({
       await navigator.clipboard.writeText(referralCode);
       setReferralCopied(true);
     } catch {
-      setReferralError(strings.settingsAccountReferralLoadFailed);
+      setReferralError("Не удалось загрузить код");
     }
   };
 
   return (
     <>
-      <SettingsPageLayout title={strings.settingsAccountPageTitle} onBack={onBack}>
+      <SettingsPageLayout title="Аккаунт" onBack={onBack}>
         <div className="space-y-4">
-          <AccountFormSection title={strings.settingsAccountProfileSection}>
+          <AccountFormSection title="Профиль">
             <div className="account-avatar-block">
               <button
                 type="button"
                 className="account-avatar-picker"
                 disabled={avatarBusy}
                 onClick={openAvatarPicker}
-                aria-label={strings.settingsAccountAvatarChange}
+                aria-label="Изменить фото"
               >
                 <ProfileAvatar avatarUrl={avatarUrl} size={96} iconSize={40} />
                 {avatarBusy && !cropImageUrl && (
@@ -200,15 +199,11 @@ export function AccountSettingsPage({
                 disabled={avatarBusy}
                 onClick={openAvatarPicker}
               >
-                {strings.settingsAccountAvatarChange}
+                Изменить фото
               </button>
             </div>
-            <AccountLabeledField
-              label={strings.settingsAccountDisplayName}
-              value={name}
-              onChange={setName}
-            />
-            <AccountLabeledField label={strings.email} value={email} type="email" disabled />
+            <AccountLabeledField label="Имя" value={name} onChange={setName} />
+            <AccountLabeledField label="Email" value={email} type="email" disabled />
             {resolveAccountError(profileError) && (
               <p className="text-sm text-error">{resolveAccountError(profileError)}</p>
             )}
@@ -218,17 +213,15 @@ export function AccountSettingsPage({
               disabled={profileSaving || !name.trim() || avatarBusy}
               onClick={() => void saveProfile()}
             >
-              {strings.settingsAccountSave}
+              Сохранить
             </button>
           </AccountFormSection>
 
-          <AccountFormSection title={strings.settingsAccountReferralSection}>
-            <p className="text-sm leading-relaxed text-muted">{strings.settingsAccountReferralDesc}</p>
-            <AccountLabeledField
-              label={strings.inviteCode}
-              value={referralCode || "............"}
-              disabled
-            />
+          <AccountFormSection title="Реферальный код">
+            <p className="text-sm leading-relaxed text-muted">
+              Поделитесь кодом, чтобы пригласить нового пользователя.
+            </p>
+            <AccountLabeledField label="Инвайт-код" value={referralCode || "............"} disabled />
             {referralError && <p className="text-sm text-error">{referralError}</p>}
             <button
               type="button"
@@ -236,14 +229,14 @@ export function AccountSettingsPage({
               disabled={!referralCode}
               onClick={() => void copyReferralCode()}
             >
-              {referralCopied ? strings.settingsAccountReferralCopied : strings.settingsAccountReferralCopy}
+              {referralCopied ? "Скопировано" : "Скопировать"}
             </button>
           </AccountFormSection>
 
-          <AccountFormSection title={strings.settingsAccountPasswordSection}>
+          <AccountFormSection title="Смена пароля">
             <AccountLabeledField
               key={`new-password-${passwordFormNonce}`}
-              label={strings.settingsAccountNewPassword}
+              label="Новый пароль"
               value={newPassword}
               onChange={setNewPassword}
               type="password"
@@ -251,7 +244,7 @@ export function AccountSettingsPage({
             />
             <AccountLabeledField
               key={`confirm-password-${passwordFormNonce}`}
-              label={strings.settingsAccountConfirmPassword}
+              label="Подтвердите пароль"
               value={confirmPassword}
               onChange={setConfirmPassword}
               type="password"
@@ -266,7 +259,7 @@ export function AccountSettingsPage({
               disabled={passwordSaving || !newPassword || !confirmPassword || avatarBusy}
               onClick={() => void changePassword()}
             >
-              {strings.settingsAccountChangePassword}
+              Сменить пароль
             </button>
           </AccountFormSection>
         </div>

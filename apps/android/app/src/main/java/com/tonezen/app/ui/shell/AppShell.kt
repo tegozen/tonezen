@@ -16,11 +16,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.tonezen.app.R
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.domain.library.filterAndSortBooks
 import com.tonezen.app.domain.library.filterCycles
@@ -220,8 +218,8 @@ fun AppShell(
                             musicTrackList = visibleMusicTracks,
                             musicPlayback = libraryState.musicPlayback,
                             downloadQueue = downloadQueue,
-                            musicPlaybackErrorRes = libraryState.musicPlaybackErrorRes,
-                            cyclePlaybackErrorRes = libraryState.cyclePlaybackErrorRes,
+                            musicPlaybackErrorMessage = libraryState.musicPlaybackErrorMessage,
+                            cyclePlaybackErrorMessage = libraryState.cyclePlaybackErrorMessage,
                             onMusicWavePlay = libraryViewModel::playMusicWave,
                             onMusicTrackClick = libraryViewModel::onMusicTrackClick,
                             onDownloadMusicTrack = libraryViewModel::downloadMusicTrack,
@@ -248,7 +246,7 @@ fun AppShell(
                             hazeState = hazeState,
                         ) {
                             Text(
-                                text = stringResource(R.string.nav_downloads),
+                                text = "Загрузки",
                                 color = TonezenInk,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,

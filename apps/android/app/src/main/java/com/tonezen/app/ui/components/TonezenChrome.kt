@@ -43,12 +43,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.ui.theme.TonezenChromeBarBackground
 import com.tonezen.app.ui.theme.TonezenChromeBarBorder
 import com.tonezen.app.ui.theme.TonezenChromeHeaderRowHeight
@@ -256,7 +254,7 @@ internal fun BackNavButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ChevronLeftGlyph()
-        Text(stringResource(R.string.back), color = TonezenInk)
+        Text("Назад", color = TonezenInk)
     }
 }
 
@@ -387,7 +385,7 @@ internal fun SearchRow(
                 decorationBox = { inner ->
                     if (query.isEmpty()) {
                         Text(
-                            text = stringResource(R.string.search_library),
+                            text = "Поиск в библиотеке",
                             color = TonezenMuted,
                             style = MaterialTheme.typography.bodyMedium,
                         )

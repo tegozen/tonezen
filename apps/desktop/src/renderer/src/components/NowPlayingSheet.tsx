@@ -6,7 +6,6 @@ import { useAnimatedVisibility } from "../hooks/useAnimatedVisibility";
 import { formatMs } from "../lib/formatTime";
 import { seekFractionFromPointer } from "@shared/playbackSeek";
 import { normalizeWaveformPeaks } from "@shared/waveformPeaks";
-import { strings } from "../i18n/strings";
 
 interface NowPlayingSheetProps {
   visible: boolean;
@@ -119,7 +118,7 @@ export function NowPlayingSheet({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={strings.nowPlaying}
+        aria-label="Сейчас играет"
       >
         <div className="now-playing-sheet-glass">
           <div className="now-playing-sheet-handle" />
@@ -148,7 +147,7 @@ export function NowPlayingSheet({
                       value={volumePercent}
                       className="now-playing-volume-slider"
                       style={{ "--volume-fill": `${volumePercent}%` } as CSSProperties}
-                      aria-label={strings.volume}
+                      aria-label="Громкость"
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={volumePercent}
@@ -174,7 +173,7 @@ export function NowPlayingSheet({
                     : undefined
                 }
                 role="slider"
-                aria-label={strings.nowPlaying}
+                aria-label="Сейчас играет"
                 aria-valuemin={0}
                 aria-valuemax={1000}
                 aria-valuenow={Math.round(progress * 1000)}
@@ -217,16 +216,16 @@ export function NowPlayingSheet({
                 className="now-playing-round-control now-playing-round-control-sm"
                 disabled={disabled}
                 onClick={() => onSeekBy(-15000)}
-                aria-label={strings.rewind15}
+                aria-label="Перемотка назад на 15 секунд"
               >
-                {strings.seekBack15}
+                -15
               </button>
               <button
                 type="button"
                 className="now-playing-round-control"
                 disabled={disabled}
                 onClick={onSkipPrevious}
-                aria-label={strings.back}
+                aria-label="Назад"
               >
                 <SkipBackIcon className="h-6 w-6" />
               </button>
@@ -235,7 +234,7 @@ export function NowPlayingSheet({
                 className={`now-playing-play-btn ${coverPlaying ? "now-playing-play-btn-playing" : ""}`}
                 disabled={isDownloading}
                 onClick={onPlayPause}
-                aria-label={isPlaying ? strings.pause : strings.play}
+                aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
               >
                 {isDownloading ? (
                   <span className="text-sm font-bold">
@@ -252,7 +251,7 @@ export function NowPlayingSheet({
                 className="now-playing-round-control"
                 disabled={disabled}
                 onClick={onSkipNext}
-                aria-label={isMusic ? strings.tabMusic : strings.chapters}
+                aria-label={isMusic ? "Музыка" : "Главы"}
               >
                 <SkipForwardIcon className="h-6 w-6" />
               </button>
@@ -261,9 +260,9 @@ export function NowPlayingSheet({
                 className="now-playing-round-control now-playing-round-control-sm"
                 disabled={disabled}
                 onClick={() => onSeekBy(15000)}
-                aria-label={strings.forward15}
+                aria-label="Перемотка вперёд на 15 секунд"
               >
-                {strings.seekForward15}
+                +15
               </button>
             </div>
           </div>

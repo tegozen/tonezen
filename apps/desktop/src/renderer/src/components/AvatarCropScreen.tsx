@@ -7,7 +7,6 @@ import {
   type AvatarCropTransform,
 } from "@shared/avatarCrop";
 import { ChevronLeftIcon } from "./TonezenIcons";
-import { strings } from "../i18n/strings";
 import { cropAvatarToJpeg } from "../lib/cropAvatarToJpeg";
 
 interface AvatarCropScreenProps {
@@ -176,10 +175,10 @@ export function AvatarCropScreen({
       <div className="avatar-crop-top">
         <button type="button" className="overlay-back-btn" onClick={onBack}>
           <ChevronLeftIcon className="h-5 w-5 shrink-0" />
-          <span>{strings.back}</span>
+          <span>Назад</span>
         </button>
-        <h2 className="avatar-crop-title">{strings.settingsAccountAvatarCropTitle}</h2>
-        <p className="avatar-crop-hint">{strings.settingsAccountAvatarCropHint}</p>
+        <h2 className="avatar-crop-title">Фото профиля</h2>
+        <p className="avatar-crop-hint">Масштабируйте и сдвиньте фото, чтобы лицо было в круге</p>
       </div>
 
       {sourceImage == null && !loadError && (
@@ -190,7 +189,7 @@ export function AvatarCropScreen({
 
       {loadError && (
         <div className="avatar-crop-loading">
-          <p className="text-sm text-muted">{strings.settingsAccountAvatarLoadError}</p>
+          <p className="text-sm text-muted">Не удалось открыть изображение</p>
         </div>
       )}
 
@@ -247,7 +246,7 @@ export function AvatarCropScreen({
             onClick={() => void handleConfirm()}
           >
             {uploading && <span className="avatar-crop-spinner avatar-crop-spinner-inline" aria-hidden="true" />}
-            {strings.settingsAccountAvatarSave}
+            Сохранить фото
           </button>
         </>
       )}

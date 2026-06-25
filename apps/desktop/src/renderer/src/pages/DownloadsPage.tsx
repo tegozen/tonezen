@@ -10,7 +10,6 @@ import { PAGE_TITLE_TOP_SCROLL_PX } from "../lib/layoutChrome";
 import { TitleTopChrome } from "../components/TitleTopChrome";
 import { TrackDownloadButton } from "../components/TrackDownloadButton";
 import { TrackListRow } from "../components/TrackListRow";
-import { strings } from "../i18n/strings";
 
 interface DownloadsPageProps {
   downloadQueue: DownloadQueueState;
@@ -45,18 +44,18 @@ export function DownloadsPage({
         style={{ paddingTop: PAGE_TITLE_TOP_SCROLL_PX }}
       >
         {downloadQueue.pausedForNetwork && (
-          <p className="text-sm text-muted">{strings.downloadPausedOffline}</p>
+          <p className="text-sm text-muted">Ожидание сети</p>
         )}
         {hasActiveItems && (
           <div className="flex justify-end">
             <button type="button" className="text-sm text-teal" onClick={onCancelAll}>
-              {strings.musicDownloadStopAll}
+              Остановить все загрузки
             </button>
           </div>
         )}
         {hasAudiobooks && (
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-muted">{strings.downloadsSectionAudiobooks}</h2>
+            <h2 className="text-sm font-semibold text-muted">Аудиокниги</h2>
             {groups.audiobookCycles.map((cycle) => (
               <div key={cycle.cycleId} className="space-y-3">
                 <h3 className="px-1 text-base font-semibold text-ink">{cycle.title}</h3>
@@ -82,7 +81,7 @@ export function DownloadsPage({
         )}
         {hasMusic && (
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-muted">{strings.downloadsSectionMusic}</h2>
+            <h2 className="text-sm font-semibold text-muted">Музыка</h2>
             {groups.music.map((item) => (
               <DownloadsItemRow
                 key={`${item.bookId}:${item.trackId}`}
@@ -95,11 +94,11 @@ export function DownloadsPage({
         )}
         {isEmpty && (
           <div className="py-12 text-center">
-            <p className="text-sm text-muted">{strings.downloadsEmpty}</p>
+            <p className="text-sm text-muted">Нет загрузок</p>
           </div>
         )}
       </div>
-      <TitleTopChrome title={strings.navDownloads} />
+      <TitleTopChrome title="Загрузки" />
     </div>
   );
 }
@@ -121,7 +120,9 @@ function DownloadsBookGroupView({
       <div className="px-1">
         <h4 className="text-sm font-semibold text-teal">{book.title}</h4>
         <p className="text-xs text-muted">
-          {strings.downloadsBookStatus(activeCount, completedCount)}
+          {activeCount > 0
+            ? `Сейчас: ${activeCount} · Загружено: ${completedCount}`
+            : `Загружено: ${completedCount}`}
         </p>
       </div>
       {book.items.map((item) => (
@@ -159,7 +160,7 @@ function DownloadsItemRow({
       trailing={
         isCompleted ? (
           <button type="button" className="text-sm text-muted" onClick={onDelete}>
-            {strings.removeDownload}
+            Удалить загрузку
           </button>
         ) : (
           <TrackDownloadButton
@@ -174,13 +175,11 @@ function DownloadsItemRow({
 }
 
 function downloadItemSubtitle(item: DownloadsPageItem): string | null {
-  if (item.status === "PAUSED_OFFLINE") return strings.downloadPausedOffline;
-  if (item.status === "QUEUED") return strings.downloadStatusQueued;
-  if (item.status === "DOWNLOADING") return strings.downloading;
+  if (item.status === "PAUSED_OFFLINE") return "Ожидание сети";
+  if (item.status === "QUEUED") return "В очереди";
+  if (item.status === "DOWNLOADING") return "Загрузка…";
   if (item.status === "COMPLETED") {
-    return item.contentType === "audiobook"
-      ? strings.downloadsSectionCompleted
-      : item.subtitle ?? strings.downloadsSectionCompleted;
+    return item.contentType === "audiobook" ? "Загружено" : item.subtitle ?? "Загружено";
   }
   return item.subtitle;
 }

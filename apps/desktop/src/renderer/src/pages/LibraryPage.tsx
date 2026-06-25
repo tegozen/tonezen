@@ -10,7 +10,6 @@ import { MusicTrackRow } from "../components/MusicTrackRow";
 import { TrackSpectrumArt } from "../components/CoverArt";
 import { PauseIcon, PlayIcon } from "../components/TonezenIcons";
 import type { CycleCardState } from "../lib/cycleUtils";
-import { strings } from "../i18n/strings";
 
 interface LibraryPageProps {
   cycles: Cycle[];
@@ -77,7 +76,7 @@ export function LibraryPage({
       >
       {isBooks ? (
         isLoading ? (
-          <p className="text-center text-muted">{strings.libraryLoading}</p>
+          <p className="text-center text-muted">Загрузка библиотеки…</p>
         ) : cycles.length === 0 ? (
           <EmptyLibrary offline={offlineBanner} />
         ) : (
@@ -106,7 +105,7 @@ export function LibraryPage({
           </div>
         )
       ) : isMusic && isLoading ? (
-        <p className="text-center text-muted">{strings.libraryLoading}</p>
+        <p className="text-center text-muted">Загрузка библиотеки…</p>
       ) : isMusic && musicTracks.length === 0 ? (
         <EmptyLibrary offline={offlineBanner} />
       ) : isMusic ? (
@@ -130,7 +129,7 @@ export function LibraryPage({
             className="music-all-tracks-toggle"
             onClick={() => setShowAllMusicTracks((value) => !value)}
           >
-            <span>{strings.musicAllTracks}</span>
+            <span>Все треки</span>
             <span>{showAllMusicTracks ? "-" : "+"} {musicTracks.length}</span>
           </button>
           {showAllMusicTracks ? (
@@ -152,7 +151,7 @@ export function LibraryPage({
       ) : null}
       </div>
       <LibraryTopChrome
-        title={isBooks ? strings.navBooks : strings.navMusic}
+        title={isBooks ? "Книги" : "Музыка"}
         query={query}
         offlineBanner={offlineBanner}
         showSearch={isBooks}
@@ -179,8 +178,8 @@ function MusicWaveCard({
   onClick: () => void;
 }) {
   const fallback = tracks[0];
-  const displayTitle = title ?? fallback?.trackTitle ?? strings.musicWavePlay;
-  const displaySubtitle = subtitle ?? fallback?.artist ?? strings.musicWaveTracksCount(tracks.length);
+  const displayTitle = title ?? fallback?.trackTitle ?? "Запустить волну";
+  const displaySubtitle = subtitle ?? fallback?.artist ?? `${tracks.length} треков доступно`;
   const coverSeed = activeTrackId ?? fallback?.trackId;
 
   return (
@@ -192,10 +191,10 @@ function MusicWaveCard({
         className="music-wave-cover"
       />
       <div className="music-wave-copy">
-        <p className="music-wave-eyebrow">{strings.musicWaveTitle}</p>
+        <p className="music-wave-eyebrow">Моя волна</p>
         <h2>{displayTitle}</h2>
         <p>{displaySubtitle}</p>
-        <span>{strings.musicWaveTracksCount(tracks.length)}</span>
+        <span>{`${tracks.length} треков доступно`}</span>
       </div>
       <span className={`music-wave-play ${isPlaying ? "music-wave-play-active" : ""}`}>
         {isPlaying ? <PauseIcon className="h-7 w-7" /> : <PlayIcon className="h-7 w-7" />}
@@ -207,9 +206,11 @@ function MusicWaveCard({
 function EmptyLibrary({ offline }: { offline: boolean }) {
   return (
     <div className="py-12 text-center">
-      <h2 className="text-lg font-semibold">{strings.emptyLibraryTitle}</h2>
+      <h2 className="text-lg font-semibold">Пока пусто</h2>
       <p className="mt-2 text-sm text-muted">
-        {offline ? strings.emptyLibraryOfflineBody : strings.emptyLibraryBody}
+        {offline
+          ? "Нет подключения к серверу. Показаны только ранее загруженные книги."
+          : "На сервере пока нет контента. Загрузите аудио в хранилище — библиотека обновится автоматически."}
       </p>
     </div>
   );

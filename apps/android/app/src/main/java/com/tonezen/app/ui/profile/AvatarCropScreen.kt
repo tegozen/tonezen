@@ -40,13 +40,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.domain.avatar.AvatarCropTransform
 import com.tonezen.app.domain.avatar.avatarCoverScale
 import com.tonezen.app.domain.avatar.avatarCropDiameterPx
@@ -104,7 +102,7 @@ internal fun AvatarCropScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        stringResource(R.string.settings_account_avatar_load_error),
+                        "Не удалось открыть изображение",
                         color = TonezenMuted,
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
@@ -138,7 +136,7 @@ private fun AvatarCropTopBar(onBack: () -> Unit) {
         ) {
             BackNavButton(onClick = onBack)
             Text(
-                stringResource(R.string.settings_account_avatar_crop_title),
+                "Фото профиля",
                 color = TonezenInk,
                 fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.titleMedium,
@@ -149,7 +147,7 @@ private fun AvatarCropTopBar(onBack: () -> Unit) {
             )
         }
         Text(
-            stringResource(R.string.settings_account_avatar_crop_hint),
+            "Масштабируйте и сдвиньте фото, чтобы лицо было в круге",
             color = TonezenMuted,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
@@ -268,7 +266,7 @@ private fun AvatarCropContent(
                     strokeWidth = 2.dp,
                 )
             }
-            Text(stringResource(R.string.settings_account_avatar_save))
+            Text("Сохранить фото")
         }
     }
 }

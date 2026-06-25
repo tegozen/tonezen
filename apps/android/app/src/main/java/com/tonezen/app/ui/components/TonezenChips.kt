@@ -20,10 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.ui.testing.TestTags
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenBorder
@@ -63,7 +61,7 @@ internal fun OfflineBanner() {
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(stringResource(R.string.no_network_sync_paused), color = TonezenAmber, style = MaterialTheme.typography.bodyMedium)
+        Text("Нет сети — синхронизация приостановлена", color = TonezenAmber, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -79,9 +77,9 @@ internal fun EmptyLibrary(offline: Boolean = false) {
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(stringResource(R.string.empty_library_title), color = TonezenInk, style = MaterialTheme.typography.titleLarge)
+        Text("Пока пусто", color = TonezenInk, style = MaterialTheme.typography.titleLarge)
         Text(
-            stringResource(if (offline) R.string.empty_library_offline_body else R.string.empty_library_body),
+            if (offline) "Нет подключения к серверу. Показаны только ранее загруженные книги." else "На сервере пока нет контента. Загрузите аудио в хранилище — библиотека обновится автоматически.",
             color = TonezenMuted,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -99,6 +97,6 @@ internal fun LibraryLoading() {
             .border(BorderStroke(1.dp, TonezenBorder), RoundedCornerShape(16.dp))
             .padding(18.dp),
     ) {
-        Text(stringResource(R.string.library_loading), color = TonezenMuted, style = MaterialTheme.typography.bodyMedium)
+        Text("Загрузка библиотеки…", color = TonezenMuted, style = MaterialTheme.typography.bodyMedium)
     }
 }

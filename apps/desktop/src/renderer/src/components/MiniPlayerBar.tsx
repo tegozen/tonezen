@@ -1,5 +1,4 @@
 import { PauseIcon, PlayIcon } from "./TonezenIcons";
-import { strings } from "../i18n/strings";
 import { TrackCoverArt } from "./CoverArt";
 
 interface MiniPlayerBarProps {
@@ -48,7 +47,7 @@ export function MiniPlayerBar({
           type="button"
           className={`mini-player-play-btn ${isPlaying ? "mini-player-play-btn-playing" : ""}`}
           disabled={isDownloading}
-          aria-label={isPlaying ? strings.pause : strings.play}
+          aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
           onClick={onPlayPause}
         >
           {isPlaying ? <PauseIcon className="h-[30px] w-[30px]" /> : <PlayIcon className="h-[30px] w-[30px]" />}

@@ -1,5 +1,4 @@
 import { FilterIcon, SearchIcon } from "./TonezenIcons";
-import { strings } from "../i18n/strings";
 
 interface LibraryTopChromeProps {
   title: string;
@@ -22,7 +21,9 @@ export function LibraryTopChrome({
     <div className="library-chrome-wrap">
       <div className="library-chrome-shell">
         <div className="library-chrome-inner">
-          {offlineBanner && <div className="library-offline-banner">{strings.noNetworkSyncPaused}</div>}
+          {offlineBanner && (
+            <div className="library-offline-banner">Нет сети — синхронизация приостановлена</div>
+          )}
           <div className="library-chrome-title">{title}</div>
           {showSearch && (
             <div className="library-search-row">
@@ -30,7 +31,7 @@ export function LibraryTopChrome({
                 <SearchIcon className="h-5 w-5 shrink-0 text-muted" />
                 <input
                   type="search"
-                  placeholder={strings.searchLibrary}
+                  placeholder="Поиск в библиотеке"
                   value={query}
                   onChange={(e) => onQueryChange(e.target.value)}
                 />
@@ -39,7 +40,7 @@ export function LibraryTopChrome({
                 type="button"
                 className="library-filter-btn"
                 onClick={onFilterClick}
-                aria-label={strings.filter}
+                aria-label="Фильтр"
               >
                 <FilterIcon className="h-5 w-5 text-ink" />
               </button>

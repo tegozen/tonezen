@@ -20,9 +20,7 @@ import { useDownloadQueue } from "./hooks/useDownloadQueue";
 import { useMusicPlayback } from "./hooks/useMusicPlayback";
 import { usePlayback } from "./hooks/usePlayback";
 import { useTonezenSession } from "./hooks/useTonezenSession";
-import type { BottomTab, LibraryFilter } from "./i18n/strings";
-import { strings } from "./i18n/strings";
-import { resolveDownloadError } from "./lib/errorMessages";
+import type { BottomTab, LibraryFilter } from "@shared/navigation";
 import {
   buildTracksByBookId,
   computeCycleCardState,
@@ -119,7 +117,7 @@ export function App() {
       void window.tonezen.diagnostics
         .logError({
           area: "download",
-          message: strings.downloadFailed,
+          message: "Не удалось скачать",
           ...input,
         })
         .catch(() => {});
@@ -290,7 +288,7 @@ export function App() {
 
   useEffect(() => {
     return window.tonezen.download.onFailed(() => {
-      showToast(strings.downloadFailed);
+      showToast("Не удалось скачать");
     });
   }, [showToast]);
 
@@ -389,7 +387,7 @@ export function App() {
       playTrack(local, 0, selectedBook);
       setShowExpandedPlayer(false);
     } else if (!track.localPath) {
-      showToast(strings.downloadFailed);
+      showToast("Не удалось скачать");
     }
   };
 
@@ -432,7 +430,21 @@ export function App() {
     try {
       await downloadQueue.enqueue(request);
     } catch (e) {
-      showToast(resolveDownloadError(e instanceof Error ? e.message : ""));
+      const message = e instanceof Error ? e.message : "";
+      let errorText: string;
+      switch (message) {
+        case "__download_auth_required__":
+          errorText = "Войдите в аккаунт, чтобы скачать трек";
+          break;
+        case "__download_sign_failed__":
+        case "__download_no_signed_url__":
+        case "__download_transfer_failed__":
+          errorText = "Не удалось скачать трек";
+          break;
+        default:
+          errorText = "Не удалось скачать";
+      }
+      showToast(errorText);
       logDownloadFailure({
         code: e instanceof Error ? e.message : "UNKNOWN",
         bookId: request.bookId,
@@ -455,7 +467,21 @@ export function App() {
         contentType: book.contentType,
       });
     } catch (e) {
-      showToast(resolveDownloadError(e instanceof Error ? e.message : ""));
+      const message = e instanceof Error ? e.message : "";
+      let errorText: string;
+      switch (message) {
+        case "__download_auth_required__":
+          errorText = "Войдите в аккаунт, чтобы скачать трек";
+          break;
+        case "__download_sign_failed__":
+        case "__download_no_signed_url__":
+        case "__download_transfer_failed__":
+          errorText = "Не удалось скачать трек";
+          break;
+        default:
+          errorText = "Не удалось скачать";
+      }
+      showToast(errorText);
     }
   };
 
@@ -616,9 +642,9 @@ export function App() {
   const miniSubtitle = music.musicMode
     ? activeMusicTrack
       ? [activeMusicTrack.artist, activeMusicTrack.albumTitle].filter(Boolean).join(" · ") ||
-        strings.nowPlaying
-      : strings.nowPlaying
-    : selectedBook?.author ?? strings.nowPlaying;
+        "Сейчас играет"
+      : "Сейчас играет"
+    : selectedBook?.author ?? "Сейчас играет";
   const miniDownloadProgress = currentTrack
     ? progressForTrack(downloadQueue.state, currentTrack.id)
     : null;

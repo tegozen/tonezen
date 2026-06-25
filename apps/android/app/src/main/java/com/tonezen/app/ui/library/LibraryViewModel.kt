@@ -5,7 +5,6 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.tonezen.app.R
 import com.tonezen.app.data.local.CatalogRepository
 import com.tonezen.app.data.local.EnsureTrackOutcome
 import com.tonezen.app.data.local.LocalLibraryNotifier
@@ -89,7 +88,7 @@ class LibraryViewModel @Inject constructor(
             playbackQueueBuilder = playbackQueueBuilder,
             localLibraryNotifier = localLibraryNotifier,
             cancelPlayJob = { musicHandler.cancelPlayJob() },
-            playbackErrorRes = ::playbackErrorRes,
+            playbackErrorMessage = ::playbackErrorMessage,
         )
         musicHandler = LibraryMusicHandler(
             uiState = _uiState,
@@ -104,7 +103,7 @@ class LibraryViewModel @Inject constructor(
             playbackClient = playbackClient,
             playbackQueueBuilder = playbackQueueBuilder,
             musicPlaybackQueue = musicPlaybackQueue,
-            playbackErrorRes = ::playbackErrorRes,
+            playbackErrorMessage = ::playbackErrorMessage,
             refreshCycleCardStates = { cycles, downloadedBookIds ->
                 cycleHandler.refreshCycleCardStates(cycles, downloadedBookIds)
             },
@@ -443,10 +442,10 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
-    private fun playbackErrorRes(failure: EnsureTrackOutcome.Failure?): Int = when (failure) {
-        EnsureTrackOutcome.Failure.OFFLINE -> R.string.music_playback_error_offline
-        EnsureTrackOutcome.Failure.NO_SESSION -> R.string.music_playback_error_login
-        EnsureTrackOutcome.Failure.DOWNLOAD_FAILED, null -> R.string.music_playback_error_download
+    private fun playbackErrorMessage(failure: EnsureTrackOutcome.Failure?): String = when (failure) {
+        EnsureTrackOutcome.Failure.OFFLINE -> "Нет сети — нужен интернет для первой загрузки"
+        EnsureTrackOutcome.Failure.NO_SESSION -> "Войдите в аккаунт, чтобы скачать трек"
+        EnsureTrackOutcome.Failure.DOWNLOAD_FAILED, null -> "Не удалось скачать трек"
     }
 
     private companion object {

@@ -15,11 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.tonezen.app.R
 import com.tonezen.app.playback.DownloadQueueItem
 import com.tonezen.app.playback.DownloadQueueItemStatus
 import com.tonezen.app.ui.components.EmptyLibrary
@@ -53,7 +51,7 @@ fun DownloadsTabScreen(
         if (state.pausedForNetwork) {
             item {
                 Text(
-                    text = stringResource(R.string.download_paused_offline),
+                    text = "Ожидание сети",
                     color = TonezenMuted,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(bottom = 4.dp),
@@ -63,8 +61,8 @@ fun DownloadsTabScreen(
         if (state.activeItems.isNotEmpty()) {
             item {
                 DownloadsSectionHeader(
-                    title = stringResource(R.string.downloads_section_active),
-                    actionLabel = stringResource(R.string.music_download_stop_all),
+                    title = "Сейчас",
+                    actionLabel = "Остановить все загрузки",
                     onAction = viewModel::cancelAll,
                 )
             }
@@ -78,7 +76,7 @@ fun DownloadsTabScreen(
         if (state.completedItems.isNotEmpty()) {
             item {
                 DownloadsSectionHeader(
-                    title = stringResource(R.string.downloads_section_completed),
+                    title = "Загружено",
                     actionLabel = null,
                     onAction = null,
                 )
@@ -94,7 +92,7 @@ fun DownloadsTabScreen(
             item { EmptyLibrary(offline = offlineBanner) }
             item {
                 Text(
-                    text = stringResource(R.string.downloads_empty),
+                    text = "Нет загрузок",
                     color = TonezenMuted,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(top = 8.dp),
@@ -136,8 +134,8 @@ private fun DownloadsActiveRow(
     onCancel: () -> Unit,
 ) {
     val statusLabel = when (item.status) {
-        DownloadQueueItemStatus.PAUSED_OFFLINE -> stringResource(R.string.download_paused_offline)
-        DownloadQueueItemStatus.QUEUED -> stringResource(R.string.download_status_queued)
+        DownloadQueueItemStatus.PAUSED_OFFLINE -> "Ожидание сети"
+        DownloadQueueItemStatus.QUEUED -> "В очереди"
         else -> null
     }
     TonezenTrackListRow(
@@ -171,7 +169,7 @@ private fun DownloadsCompletedRow(
         clickEnabled = false,
         trailing = {
             TextButton(onClick = onDelete) {
-                Text(text = stringResource(R.string.remove_download))
+                Text(text = "Удалить загрузку")
             }
         },
     )

@@ -1,6 +1,5 @@
 package com.tonezen.app.ui.library
 
-import com.tonezen.app.R
 import com.tonezen.app.data.local.CatalogRepository
 import com.tonezen.app.data.local.EnsureTrackOutcome
 import com.tonezen.app.data.local.LocalLibraryNotifier
@@ -50,7 +49,7 @@ internal class LibraryCycleHandler(
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val localLibraryNotifier: LocalLibraryNotifier,
     private val cancelPlayJob: () -> Unit,
-    private val playbackErrorRes: (EnsureTrackOutcome.Failure?) -> Int,
+    private val playbackErrorMessage: (EnsureTrackOutcome.Failure?) -> String,
 ) {
     private val playbackCoordinator = PlaybackCoordinator()
 
@@ -349,7 +348,7 @@ internal class LibraryCycleHandler(
                 if (awaitResult != DownloadAwaitResult.COMPLETED) {
                     if (awaitResult == DownloadAwaitResult.FAILED) {
                         uiState.update {
-                            it.copy(cyclePlaybackErrorRes = playbackErrorRes(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
+                            it.copy(cyclePlaybackErrorMessage = playbackErrorMessage(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
                         }
                     }
                     return@launch
@@ -364,7 +363,7 @@ internal class LibraryCycleHandler(
             }
             if (localTrack == null) {
                 uiState.update {
-                    it.copy(cyclePlaybackErrorRes = playbackErrorRes(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
+                    it.copy(cyclePlaybackErrorMessage = playbackErrorMessage(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
                 }
                 return@launch
             }
@@ -389,7 +388,7 @@ internal class LibraryCycleHandler(
                 uiState.update {
                     it.copy(
                         nowPlayingTitle = localTrack.title,
-                        cyclePlaybackErrorRes = null,
+                        cyclePlaybackErrorMessage = null,
                         cyclePlayback = CyclePlaybackUi(cycleId = cycle.id, isPlaying = true),
                     )
                 }
@@ -406,7 +405,7 @@ internal class LibraryCycleHandler(
                 uiState.update {
                     it.copy(
                         nowPlayingTitle = localTrack.title,
-                        cyclePlaybackErrorRes = null,
+                        cyclePlaybackErrorMessage = null,
                     )
                 }
                 playbackClient.playQueue(queue, startIndex)
@@ -451,7 +450,7 @@ internal class LibraryCycleHandler(
     private suspend fun playCycleInternal(cycle: Cycle) {
         uiState.update {
             it.copy(
-                cyclePlaybackErrorRes = null,
+                cyclePlaybackErrorMessage = null,
                 cyclePlayback = CyclePlaybackUi(
                     cycleId = cycle.id,
                     isPreparing = true,
@@ -469,7 +468,7 @@ internal class LibraryCycleHandler(
             uiState.update {
                 it.copy(
                     cyclePlayback = CyclePlaybackUi(),
-                    cyclePlaybackErrorRes = R.string.cycle_playback_error_empty,
+                    cyclePlaybackErrorMessage = "В цикле нет доступных глав для воспроизведения",
                 )
             }
             return
@@ -479,7 +478,7 @@ internal class LibraryCycleHandler(
             uiState.update {
                 it.copy(
                     cyclePlayback = CyclePlaybackUi(),
-                    cyclePlaybackErrorRes = R.string.cycle_playback_error_empty,
+                    cyclePlaybackErrorMessage = "В цикле нет доступных глав для воспроизведения",
                 )
             }
             return
@@ -500,8 +499,8 @@ internal class LibraryCycleHandler(
                 uiState.update {
                     it.copy(
                         cyclePlayback = CyclePlaybackUi(),
-                        cyclePlaybackErrorRes = if (awaitResult == DownloadAwaitResult.FAILED) {
-                            playbackErrorRes(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED)
+                        cyclePlaybackErrorMessage = if (awaitResult == DownloadAwaitResult.FAILED) {
+                            playbackErrorMessage(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED)
                         } else {
                             null
                         },
@@ -524,7 +523,7 @@ internal class LibraryCycleHandler(
             uiState.update {
                 it.copy(
                     cyclePlayback = CyclePlaybackUi(),
-                    cyclePlaybackErrorRes = playbackErrorRes(startOutcome.failure),
+                    cyclePlaybackErrorMessage = playbackErrorMessage(startOutcome.failure),
                 )
             }
             return
@@ -536,7 +535,7 @@ internal class LibraryCycleHandler(
             uiState.update {
                 it.copy(
                     cyclePlayback = CyclePlaybackUi(),
-                    cyclePlaybackErrorRes = R.string.cycle_playback_error_empty,
+                    cyclePlaybackErrorMessage = "В цикле нет доступных глав для воспроизведения",
                 )
             }
             return
@@ -546,7 +545,7 @@ internal class LibraryCycleHandler(
         uiState.update {
             it.copy(
                 nowPlayingTitle = startTrack.title,
-                cyclePlaybackErrorRes = null,
+                cyclePlaybackErrorMessage = null,
                 cyclePlayback = CyclePlaybackUi(cycleId = cycle.id),
             )
         }

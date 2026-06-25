@@ -8,7 +8,6 @@ import {
   ChevronRightIcon,
   StorageIcon,
 } from "../components/TonezenIcons";
-import { strings } from "../i18n/strings";
 import { AccountSettingsPage } from "./profile/AccountSettingsPage";
 import { StorageSettingsPage } from "./profile/StorageSettingsPage";
 
@@ -85,8 +84,8 @@ export function ProfilePage({
 
   const memberSinceLabel = formatMemberSinceDate(memberSinceEpochMs);
   const lastSyncLabel = formatLastSyncLabel(lastSyncAtEpochMs, {
-    todayAt: strings.lastSyncTodayAt,
-    never: strings.lastSyncNever,
+    todayAt: "Последняя синхронизация: сегодня, {time}",
+    never: "Синхронизация ещё не выполнялась",
   });
 
   return (
@@ -99,62 +98,64 @@ export function ProfilePage({
             {email && <div className="profile-user-email">{email}</div>}
             {memberSinceLabel && (
               <div className="profile-user-member-since">
-                {strings.profileMemberSince.replace("{date}", memberSinceLabel)}
+                {`Участник с ${memberSinceLabel}`}
               </div>
             )}
           </div>
         </button>
 
         <div>
-          <div className="profile-section-label">{strings.profileSyncStatusSection}</div>
+          <div className="profile-section-label">Статус синхронизации</div>
           <div className="profile-sync-card">
             <CheckCircleIcon className="mt-0.5 h-[22px] w-[22px] shrink-0 text-teal" />
             <div className="min-w-0 flex-1 space-y-1">
-              <div className="font-semibold">{strings.syncStatusAllSet}</div>
+              <div className="font-semibold">Всё в порядке</div>
               <div className="text-sm text-muted">{lastSyncLabel}</div>
-              {pendingCount > 0 && <span className="chip-amber">{strings.pending}</span>}
+              {pendingCount > 0 && <span className="chip-amber">Ожидает</span>}
             </div>
           </div>
         </div>
 
         <div className="space-y-3">
-          <div className="profile-section-label">{strings.profileSettingsSection}</div>
+          <div className="profile-section-label">Настройки</div>
           <div className="profile-settings-group">
             <button type="button" className="profile-settings-row" onClick={() => setActivePage("storage")}>
               <div className="flex min-w-0 items-center gap-3">
                 <StorageIcon className="h-6 w-6 shrink-0" />
                 <div className="min-w-0">
-                  <div className="font-medium">{strings.settingsStorage}</div>
-                  <div className="text-sm text-muted">{strings.settingsStorageSubtitle}</div>
+                  <div className="font-medium">Хранилище</div>
+                  <div className="text-sm text-muted">Офлайн-файлы на устройстве</div>
                 </div>
               </div>
               <ChevronRightIcon className="h-5 w-5 shrink-0 text-muted" />
             </button>
           </div>
           <button type="button" className="profile-sign-out-card" onClick={onRequestSignOut}>
-            {strings.signOut}
+            Выйти
           </button>
         </div>
       </div>
       <TitleTopChrome
-        title={strings.profileTitle}
+        title="Профиль"
         trailing={
           <span className={online ? "chip-green" : "chip-amber"}>
-            {online ? strings.online : strings.offline}
+            {online ? "Онлайн" : "Офлайн"}
           </span>
         }
       />
       {showSignOutConfirm && (
         <div className="sheet-overlay flex items-center justify-center p-5">
           <div className="modal-panel glass-panel">
-            <h2 className="text-lg font-semibold">{strings.signOutConfirmTitle}</h2>
-            <p className="mt-2 text-sm text-muted">{strings.signOutConfirmBody}</p>
+            <h2 className="text-lg font-semibold">Выйти из аккаунта?</h2>
+            <p className="mt-2 text-sm text-muted">
+              Офлайн-загрузки останутся на устройстве. Прогресс аудиокниг синхронизируется снова после входа онлайн.
+            </p>
             <div className="mt-4 flex gap-3">
               <button type="button" className="btn-secondary flex-1" onClick={onCancelSignOut}>
-                {strings.cancel}
+                Отмена
               </button>
               <button type="button" className="btn-danger flex-1" onClick={onConfirmSignOut}>
-                {strings.signOut}
+                Выйти
               </button>
             </div>
           </div>
@@ -163,14 +164,16 @@ export function ProfilePage({
       {showSyncDialog && (
         <div className="sheet-overlay flex items-center justify-center p-5">
           <div className="modal-panel glass-panel">
-            <h2 className="text-lg font-semibold">{strings.syncPausedTitle}</h2>
-            <p className="mt-2 text-sm text-muted">{strings.syncPausedBody}</p>
+            <h2 className="text-lg font-semibold">Синхронизация приостановлена</h2>
+            <p className="mt-2 text-sm text-muted">
+              Вы офлайн. Прогресс аудиокниг синхронизируется, когда появится сеть.
+            </p>
             <div className="mt-4 flex gap-3">
               <button type="button" className="btn-primary flex-1" onClick={onCloseSyncDialog}>
-                {strings.keepListening}
+                Продолжить слушать
               </button>
               <button type="button" className="btn-secondary flex-1" onClick={onSyncNow}>
-                {strings.retry}
+                Повторить
               </button>
             </div>
           </div>

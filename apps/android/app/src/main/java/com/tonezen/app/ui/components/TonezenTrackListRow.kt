@@ -39,10 +39,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
-import com.tonezen.app.R
 import com.tonezen.app.ui.testing.TestTags
-import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Brush
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenAppBg
@@ -148,7 +145,7 @@ internal fun TrackRowOverflowMenu(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    @StringRes deleteLabelRes: Int = R.string.music_delete_track,
+    deleteLabel: String = "Удалить трек",
     showDelete: Boolean = true,
     onToggleListened: (() -> Unit)? = null,
     isListened: Boolean = false,
@@ -175,9 +172,7 @@ internal fun TrackRowOverflowMenu(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            stringResource(
-                                if (isListened) R.string.mark_not_listened else R.string.mark_complete,
-                            ),
+                            if (isListened) "Отметить не прослушанным" else "Отметить прослушанным",
                             color = TonezenInk,
                         )
                     },
@@ -191,7 +186,7 @@ internal fun TrackRowOverflowMenu(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            stringResource(deleteLabelRes),
+                            deleteLabel,
                             color = TonezenError,
                         )
                     },
@@ -236,7 +231,7 @@ internal fun DetailHeaderOverflowMenu(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            stringResource(R.string.remove_download),
+                            "Удалить загрузку",
                             color = TonezenError,
                         )
                     },
@@ -249,9 +244,7 @@ internal fun DetailHeaderOverflowMenu(
             DropdownMenuItem(
                 text = {
                     Text(
-                        stringResource(
-                            if (isListened) R.string.mark_not_listened else R.string.mark_complete,
-                        ),
+                        if (isListened) "Отметить не прослушанным" else "Отметить прослушанным",
                         color = TonezenInk,
                     )
                 },
@@ -274,7 +267,7 @@ internal fun DetailHeaderOverflowMenu(
                     DropdownMenuItem(
                         text = {
                             Text(
-                                stringResource(R.string.offline_action),
+                                "Скачать все",
                                 color = TonezenInk,
                             )
                         },
@@ -297,7 +290,7 @@ internal fun TrackDownloadButton(
     enabled: Boolean = true,
 ) {
     val isDownloading = progress != null
-    val downloadLabel = stringResource(R.string.download)
+    val downloadLabel = "Скачать"
     Box(
         modifier = modifier
             .size(36.dp)

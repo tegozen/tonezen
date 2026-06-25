@@ -29,14 +29,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.ui.testing.TestTags
 import com.tonezen.app.ui.components.EyeGlyph
 import com.tonezen.app.ui.components.EyeOffGlyph
@@ -197,7 +195,7 @@ private fun AuthSignInForm(
                 TonezenAuthField(
                     value = email,
                     onValueChange = onEmailChange,
-                    label = stringResource(R.string.email),
+                    label = "Email",
                     keyboardType = KeyboardType.Email,
                     icon = AuthFieldIcon.Email,
                     modifier = Modifier.testTag(TestTags.AUTH_EMAIL),
@@ -205,7 +203,7 @@ private fun AuthSignInForm(
                 TonezenAuthField(
                     value = password,
                     onValueChange = onPasswordChange,
-                    label = stringResource(R.string.password),
+                    label = "Пароль",
                     keyboardType = KeyboardType.Password,
                     icon = AuthFieldIcon.Password,
                     hidden = !passwordVisible,
@@ -215,16 +213,16 @@ private fun AuthSignInForm(
                     modifier = Modifier.testTag(TestTags.AUTH_PASSWORD),
                 )
                 AuthPrimaryButton(
-                    text = stringResource(R.string.sign_in),
+                    text = "Войти",
                     enabled = canSubmit,
                     onClick = onSubmit,
                     modifier = Modifier.testTag(TestTags.AUTH_SIGN_IN),
                 )
                 AuthModeActions(
-                    primaryText = stringResource(R.string.forgot_password),
+                    primaryText = "Забыли пароль?",
                     primaryTag = TestTags.AUTH_SHOW_RECOVERY,
                     onPrimary = { onModeChange(AuthFormMode.Recovery) },
-                    secondaryText = stringResource(R.string.no_account_yet),
+                    secondaryText = "Нет аккаунта",
                     secondaryTag = TestTags.AUTH_SHOW_SIGN_UP,
                     onSecondary = { onModeChange(AuthFormMode.Signup) },
                 )
@@ -233,14 +231,14 @@ private fun AuthSignInForm(
                 TonezenAuthField(
                     value = inviteCode,
                     onValueChange = onInviteCodeChange,
-                    label = stringResource(R.string.invite_code),
+                    label = "Инвайт-код",
                     keyboardType = KeyboardType.Text,
                     icon = AuthFieldIcon.Password,
                     modifier = Modifier.testTag(TestTags.AUTH_INVITE_CODE),
                 )
                 if (!inviteCodeVerified) {
                     AuthPrimaryButton(
-                        text = stringResource(R.string.check_invite_code),
+                        text = "Проверить код",
                         enabled = canVerifyInvite,
                         onClick = onVerifyInviteCode,
                         modifier = Modifier.testTag(TestTags.AUTH_VERIFY_INVITE),
@@ -249,7 +247,7 @@ private fun AuthSignInForm(
                     TonezenAuthField(
                         value = signupEmail,
                         onValueChange = onSignupEmailChange,
-                        label = stringResource(R.string.email),
+                        label = "Email",
                         keyboardType = KeyboardType.Email,
                         icon = AuthFieldIcon.Email,
                         modifier = Modifier.testTag(TestTags.AUTH_SIGNUP_EMAIL),
@@ -257,7 +255,7 @@ private fun AuthSignInForm(
                     TonezenAuthField(
                         value = signupName,
                         onValueChange = onSignupNameChange,
-                        label = stringResource(R.string.auth_display_name),
+                        label = "Имя",
                         keyboardType = KeyboardType.Text,
                         icon = AuthFieldIcon.Email,
                         modifier = Modifier.testTag(TestTags.AUTH_SIGNUP_NAME),
@@ -265,7 +263,7 @@ private fun AuthSignInForm(
                     TonezenAuthField(
                         value = signupPassword,
                         onValueChange = onSignupPasswordChange,
-                        label = stringResource(R.string.password),
+                        label = "Пароль",
                         keyboardType = KeyboardType.Password,
                         icon = AuthFieldIcon.Password,
                         hidden = !signupPasswordVisible,
@@ -277,58 +275,58 @@ private fun AuthSignInForm(
                     TonezenAuthField(
                         value = signupConfirmPassword,
                         onValueChange = onSignupConfirmPasswordChange,
-                        label = stringResource(R.string.confirm_password),
+                        label = "Подтвердите пароль",
                         keyboardType = KeyboardType.Password,
                         icon = AuthFieldIcon.Password,
                         hidden = !signupPasswordVisible,
                         modifier = Modifier.testTag(TestTags.AUTH_SIGNUP_CONFIRM),
                     )
                     AuthPrimaryButton(
-                        text = stringResource(R.string.create_account),
+                        text = "Создать аккаунт",
                         enabled = canSignup,
                         onClick = onSignup,
                         modifier = Modifier.testTag(TestTags.AUTH_SIGN_UP),
                     )
                 }
                 AuthTextButton(
-                    text = stringResource(R.string.already_have_account),
+                    text = "Уже есть аккаунт",
                     onClick = { onModeChange(AuthFormMode.Login) },
                 )
             }
             AuthFormMode.Recovery -> {
                 Text(
-                    stringResource(R.string.auth_recovery_title),
+                    "Восстановление пароля",
                     color = TonezenInk,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    stringResource(R.string.auth_recovery_body),
+                    "Введите email аккаунта. Если он зарегистрирован, мы отправим ссылку для сброса пароля.",
                     color = TonezenMuted,
                     style = MaterialTheme.typography.bodySmall,
                 )
                 TonezenAuthField(
                     value = recoveryEmail,
                     onValueChange = onRecoveryEmailChange,
-                    label = stringResource(R.string.email),
+                    label = "Email",
                     keyboardType = KeyboardType.Email,
                     icon = AuthFieldIcon.Email,
                     modifier = Modifier.testTag(TestTags.AUTH_RECOVERY_EMAIL),
                 )
                 AuthPrimaryButton(
-                    text = stringResource(R.string.auth_recovery_submit),
+                    text = "Отправить ссылку",
                     enabled = canRecover,
                     onClick = onPasswordRecovery,
                     modifier = Modifier.testTag(TestTags.AUTH_RECOVERY_SUBMIT),
                 )
                 if (passwordRecoverySent) {
                     Text(
-                        stringResource(R.string.auth_recovery_sent),
+                        "Если аккаунт найден, письмо уже отправлено.",
                         color = TonezenTeal,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 AuthTextButton(
-                    text = stringResource(R.string.back_to_sign_in),
+                    text = "Назад ко входу",
                     onClick = { onModeChange(AuthFormMode.Login) },
                 )
             }
@@ -344,7 +342,7 @@ private fun AuthSignInForm(
             )
         }
         Text(
-            stringResource(R.string.offline_playback_note),
+            "Офлайн-воспроизведение работает с загруженными файлами. Истёкшая сессия остаётся активной офлайн.",
             color = TonezenMuted,
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
@@ -480,13 +478,13 @@ private fun TonezenAuthField(
 
 @Composable
 internal fun resolveAuthError(error: String): String = when (error) {
-    AuthViewModel.AUTH_LOGIN_FAILED_ERROR -> stringResource(R.string.auth_login_failed)
-    AuthViewModel.AUTH_INVITE_CODE_INVALID_ERROR -> stringResource(R.string.auth_invite_code_invalid)
-    AuthViewModel.AUTH_SIGNUP_FAILED_ERROR -> stringResource(R.string.auth_signup_failed)
-    AuthViewModel.AUTH_PASSWORD_MISMATCH_ERROR -> stringResource(R.string.auth_password_mismatch)
-    AuthViewModel.AUTH_PASSWORD_TOO_SHORT_ERROR -> stringResource(R.string.auth_password_too_short)
-    AuthViewModel.AUTH_RECOVERY_FAILED_ERROR -> stringResource(R.string.auth_recovery_failed)
-    else -> stringResource(R.string.auth_login_failed)
+    AuthViewModel.AUTH_LOGIN_FAILED_ERROR -> "Не удалось войти. Проверьте email и пароль."
+    AuthViewModel.AUTH_INVITE_CODE_INVALID_ERROR -> "Инвайт-код не подошёл"
+    AuthViewModel.AUTH_SIGNUP_FAILED_ERROR -> "Не удалось зарегистрироваться"
+    AuthViewModel.AUTH_PASSWORD_MISMATCH_ERROR -> "Пароли не совпадают"
+    AuthViewModel.AUTH_PASSWORD_TOO_SHORT_ERROR -> "Пароль должен быть не короче 6 символов"
+    AuthViewModel.AUTH_RECOVERY_FAILED_ERROR -> "Не удалось отправить ссылку"
+    else -> "Не удалось войти. Проверьте email и пароль."
 }
 
 @Composable

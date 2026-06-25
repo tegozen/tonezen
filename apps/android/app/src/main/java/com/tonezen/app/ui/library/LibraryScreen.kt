@@ -27,10 +27,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import com.tonezen.app.R
 import com.tonezen.app.domain.library.LibraryFilterState
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
@@ -94,8 +92,8 @@ internal fun LibraryScreen(
     musicTrackList: List<MusicListTrack>,
     musicPlayback: MusicPlaybackUi,
     downloadQueue: DownloadQueueState,
-    musicPlaybackErrorRes: Int?,
-    cyclePlaybackErrorRes: Int?,
+    musicPlaybackErrorMessage: String?,
+    cyclePlaybackErrorMessage: String?,
     onMusicWavePlay: () -> Unit,
     onMusicTrackClick: (MusicListTrack) -> Unit,
     onDownloadMusicTrack: (MusicListTrack) -> Unit,
@@ -153,10 +151,10 @@ internal fun LibraryScreen(
             } else if (isBooksSection && allCycles.isEmpty()) {
                 item { EmptyLibrary(offline = offlineBanner) }
             } else if (isBooksSection) {
-                if (cyclePlaybackErrorRes != null) {
+                if (cyclePlaybackErrorMessage != null) {
                     item {
                         Text(
-                            text = stringResource(cyclePlaybackErrorRes),
+                            text = cyclePlaybackErrorMessage,
                             color = Color(0xFFF87171),
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -213,10 +211,10 @@ internal fun LibraryScreen(
                         onClick = onDownloadAllMusic,
                     )
                 }
-                if (musicPlaybackErrorRes != null) {
+                if (musicPlaybackErrorMessage != null) {
                     item {
                         Text(
-                            text = stringResource(musicPlaybackErrorRes),
+                            text = musicPlaybackErrorMessage,
                             color = Color(0xFFF87171),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(top = 4.dp),
@@ -264,9 +262,7 @@ internal fun LibraryScreen(
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Text(
-                    text = stringResource(
-                        if (isBooksSection) R.string.nav_books else R.string.nav_music,
-                    ),
+                    text = if (isBooksSection) "Книги" else "Музыка",
                     color = TonezenInk,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -332,13 +328,13 @@ private fun LibraryCycleCard(
                 if (showProgress) {
                     progressFraction?.let { progress ->
                         Text(
-                            text = stringResource(R.string.cycle_listen_progress, (progress * 100).toInt()),
+                            text = "${(progress * 100).toInt()}%",
                             color = Color.White.copy(alpha = 0.92f),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
                     } ?: Text(
-                        text = stringResource(R.string.cycle_listen_progress, 0),
+                        text = "${0}%",
                         color = Color.White.copy(alpha = 0.92f),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,

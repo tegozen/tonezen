@@ -1,14 +1,17 @@
 package com.tonezen.app.playback
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.os.Build
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import com.tonezen.app.R
 import com.tonezen.app.MainActivity
+import com.tonezen.app.R
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -22,11 +25,20 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(NotificationManager::class.java)
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Воспроизведение",
+                NotificationManager.IMPORTANCE_LOW,
+            )
+            manager.createNotificationChannel(channel)
+        }
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider.Builder(this)
                 .setNotificationId(NOTIFICATION_ID)
                 .setChannelId(CHANNEL_ID)
-                .setChannelName(R.string.playback_notification_channel)
+                .setChannelName(R.string.app_name)
                 .build(),
         )
 

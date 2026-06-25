@@ -20,11 +20,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.playback.MusicDownloadState
 import com.tonezen.app.ui.components.PlayButton
 import com.tonezen.app.ui.components.SpectrumCoverArt
@@ -47,7 +45,7 @@ internal fun MusicWaveCard(
 ) {
     val playableCount = tracks.count { it.isDownloaded || isNetworkOnline }
     val fallbackTrack = tracks.firstOrNull()
-    val title = musicPlayback.trackTitle ?: fallbackTrack?.trackTitle ?: stringResource(R.string.music_wave_play)
+    val title = musicPlayback.trackTitle ?: fallbackTrack?.trackTitle ?: "Запустить волну"
     val subtitle = musicPlayback.artist ?: fallbackTrack?.artist
     val seed = musicPlayback.trackId ?: fallbackTrack?.trackId ?: "music-wave"
 
@@ -73,7 +71,7 @@ internal fun MusicWaveCard(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
-                text = stringResource(R.string.music_wave_title),
+                text = "Моя волна",
                 color = TonezenTeal,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
@@ -87,7 +85,7 @@ internal fun MusicWaveCard(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = subtitle ?: stringResource(R.string.music_wave_tracks_count, playableCount),
+                text = subtitle ?: "${playableCount} треков доступно",
                 color = TonezenMuted,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
@@ -95,7 +93,7 @@ internal fun MusicWaveCard(
             )
             if (subtitle != null) {
                 Text(
-                    text = stringResource(R.string.music_wave_tracks_count, playableCount),
+                    text = "${playableCount} треков доступно",
                     color = TonezenMuted.copy(alpha = 0.72f),
                     style = MaterialTheme.typography.labelSmall,
                 )
@@ -126,7 +124,7 @@ internal fun MusicAllTracksToggle(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = stringResource(R.string.music_all_tracks),
+            text = "Все треки",
             color = TonezenInk,
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
@@ -159,7 +157,7 @@ internal fun MusicDownloadAllButton(
 
     val isBulkActive = musicDownload.isBulkDownloading
     val progress = musicDownload.bulkProgress ?: (downloaded.toFloat() / displayTotal.toFloat())
-    val labelRes = if (isBulkActive) R.string.music_download_stop else R.string.music_download_all
+    val label = if (isBulkActive) "Остановить загрузку" else "Скачать все"
 
     Column(
         modifier = modifier
@@ -177,13 +175,13 @@ internal fun MusicDownloadAllButton(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource(labelRes),
+                text = label,
                 color = TonezenInk,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = stringResource(R.string.music_download_all_progress, downloaded, displayTotal),
+                text = "${downloaded} из ${displayTotal}",
                 color = TonezenMuted,
                 style = MaterialTheme.typography.labelSmall,
             )
@@ -246,7 +244,7 @@ internal fun MusicTrackRow(
                 onDelete = onDeleteClick,
                 enabled = true,
                 showDelete = track.isDownloaded,
-                deleteLabelRes = R.string.remove_download,
+                deleteLabel = "Удалить загрузку",
             )
         },
     )

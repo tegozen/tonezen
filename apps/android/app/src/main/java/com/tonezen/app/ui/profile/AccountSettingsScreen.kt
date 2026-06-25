@@ -38,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -47,7 +46,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.components.EyeGlyph
 import com.tonezen.app.ui.components.EyeOffGlyph
@@ -113,14 +111,14 @@ internal fun AccountSettingsScreen(
         bottomScrollPadding = bottomScrollPadding,
         title = {
             Text(
-                stringResource(R.string.settings_account_page_title),
+                "Аккаунт",
                 color = TonezenInk,
                 fontWeight = FontWeight.SemiBold,
             )
         },
     ) {
         item {
-            AccountFormSection(title = stringResource(R.string.settings_account_profile_section)) {
+            AccountFormSection(title = "Профиль") {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -165,7 +163,7 @@ internal fun AccountSettingsScreen(
                         }
                     }
                     Text(
-                        stringResource(R.string.settings_account_avatar_change),
+                        "Изменить фото",
                         color = TonezenTeal,
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center,
@@ -179,13 +177,13 @@ internal fun AccountSettingsScreen(
                 AccountLabeledField(
                     value = name,
                     onValueChange = { name = it },
-                    label = stringResource(R.string.settings_account_display_name),
+                    label = "Имя",
                     keyboardType = KeyboardType.Text,
                 )
                 AccountLabeledField(
                     value = email,
                     onValueChange = {},
-                    label = stringResource(R.string.email),
+                    label = "Email",
                     keyboardType = KeyboardType.Email,
                     enabled = false,
                 )
@@ -198,21 +196,21 @@ internal fun AccountSettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = TonezenTeal, contentColor = TonezenAppBg),
                 ) {
-                    Text(stringResource(R.string.settings_account_save))
+                    Text("Сохранить")
                 }
             }
         }
         item {
-            AccountFormSection(title = stringResource(R.string.settings_account_referral_section)) {
+            AccountFormSection(title = "Реферальный код") {
                 Text(
-                    stringResource(R.string.settings_account_referral_desc),
+                    "Дайте этот код человеку, которому хотите открыть регистрацию.",
                     color = TonezenMuted,
                     style = MaterialTheme.typography.bodySmall,
                 )
                 AccountLabeledField(
                     value = referralCode.orEmpty(),
                     onValueChange = {},
-                    label = stringResource(R.string.invite_code),
+                    label = "Инвайт-код",
                     keyboardType = KeyboardType.Text,
                     enabled = false,
                 )
@@ -232,20 +230,20 @@ internal fun AccountSettingsScreen(
                 ) {
                     Text(
                         if (referralCopied) {
-                            stringResource(R.string.settings_account_referral_copied)
+                            "Скопировано"
                         } else {
-                            stringResource(R.string.settings_account_referral_copy)
+                            "Скопировать"
                         },
                     )
                 }
             }
         }
         item {
-            AccountFormSection(title = stringResource(R.string.settings_account_password_section)) {
+            AccountFormSection(title = "Смена пароля") {
                 AccountLabeledField(
                     value = newPassword,
                     onValueChange = { newPassword = it },
-                    label = stringResource(R.string.settings_account_new_password),
+                    label = "Новый пароль",
                     keyboardType = KeyboardType.Password,
                     hidden = !passwordVisible,
                     showPasswordToggle = true,
@@ -254,7 +252,7 @@ internal fun AccountSettingsScreen(
                 AccountLabeledField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it },
-                    label = stringResource(R.string.settings_account_confirm_password),
+                    label = "Подтвердите пароль",
                     keyboardType = KeyboardType.Password,
                     hidden = !confirmVisible,
                     showPasswordToggle = true,
@@ -269,7 +267,7 @@ internal fun AccountSettingsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = TonezenTeal, contentColor = TonezenAppBg),
                 ) {
-                    Text(stringResource(R.string.settings_account_change_password))
+                    Text("Сменить пароль")
                 }
             }
         }
@@ -349,20 +347,20 @@ private fun AccountLabeledField(
 
 @Composable
 internal fun resolveAccountError(error: String?): String? = when (error) {
-    ProfileViewModel.ACCOUNT_OFFLINE_ERROR -> stringResource(R.string.settings_account_offline)
-    ProfileViewModel.PASSWORD_MISMATCH_ERROR -> stringResource(R.string.settings_account_password_mismatch)
-    ProfileViewModel.NOT_SIGNED_IN_ERROR -> stringResource(R.string.settings_account_not_signed_in)
-    ProfileViewModel.PASSWORD_TOO_SHORT_ERROR -> stringResource(R.string.settings_account_password_too_short)
-    ProfileViewModel.PROFILE_UPDATE_FAILED_ERROR -> stringResource(R.string.settings_account_update_failed)
-    ProfileViewModel.PASSWORD_CHANGE_FAILED_ERROR -> stringResource(R.string.settings_account_password_change_failed)
-    ProfileViewModel.REFERRAL_CODE_FAILED_ERROR -> stringResource(R.string.settings_account_referral_load_failed)
+    ProfileViewModel.ACCOUNT_OFFLINE_ERROR -> "Нужно подключение к интернету"
+    ProfileViewModel.PASSWORD_MISMATCH_ERROR -> "Пароли не совпадают"
+    ProfileViewModel.NOT_SIGNED_IN_ERROR -> "Войдите в аккаунт"
+    ProfileViewModel.PASSWORD_TOO_SHORT_ERROR -> "Пароль должен быть не короче 6 символов"
+    ProfileViewModel.PROFILE_UPDATE_FAILED_ERROR -> "Не удалось сохранить профиль"
+    ProfileViewModel.PASSWORD_CHANGE_FAILED_ERROR -> "Не удалось сменить пароль"
+    ProfileViewModel.REFERRAL_CODE_FAILED_ERROR -> "Не удалось загрузить реферальный код"
     else -> null
 }
 
 @Composable
 internal fun resolveAvatarUploadError(error: String?): String? = when (error) {
-    ProfileViewModel.ACCOUNT_OFFLINE_ERROR -> stringResource(R.string.settings_account_offline)
-    ProfileViewModel.NOT_SIGNED_IN_ERROR -> stringResource(R.string.settings_account_not_signed_in)
-    ProfileViewModel.AVATAR_UPLOAD_FAILED_ERROR -> stringResource(R.string.settings_account_avatar_upload_failed)
+    ProfileViewModel.ACCOUNT_OFFLINE_ERROR -> "Нужно подключение к интернету"
+    ProfileViewModel.NOT_SIGNED_IN_ERROR -> "Войдите в аккаунт"
+    ProfileViewModel.AVATAR_UPLOAD_FAILED_ERROR -> "Не удалось загрузить аватар"
     else -> null
 }

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { strings } from "../i18n/strings";
 import { MoreVerticalIcon } from "./TonezenIcons";
 
 interface TrackRowOverflowMenuProps {
@@ -13,7 +12,7 @@ interface TrackRowOverflowMenuProps {
 export function TrackRowOverflowMenu({
   showDelete = false,
   isListened = false,
-  deleteLabel = strings.removeDownload,
+  deleteLabel = "Удалить загрузку",
   onDelete,
   onToggleListened,
 }: TrackRowOverflowMenuProps) {
@@ -46,7 +45,7 @@ export function TrackRowOverflowMenu({
           setOpen((value) => !value);
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        aria-label={strings.moreOptions}
+        aria-label="Ещё"
       >
         <MoreVerticalIcon className="h-5 w-5 text-base" />
       </button>
@@ -54,7 +53,7 @@ export function TrackRowOverflowMenu({
         <div className="overflow-menu-popover" onClick={stopMenuEvent} onPointerDown={stopMenuEvent}>
           {onToggleListened && (
             <MenuItem
-              label={isListened ? strings.markNotListened : strings.markComplete}
+              label={isListened ? "Отметить не прослушанным" : "Отметить прослушанным"}
               onClick={() => {
                 setOpen(false);
                 onToggleListened();

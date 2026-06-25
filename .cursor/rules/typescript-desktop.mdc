@@ -12,3 +12,4 @@ alwaysApply: false
 - `WindowLifecycleManager` with `isQuitting` flag
 - Domain logic in shared TS modules, test with Vitest
 - Supabase JS auth with offline-safe session handling
+- UI copy: Russian literals inline at usage sites (no central i18n module)

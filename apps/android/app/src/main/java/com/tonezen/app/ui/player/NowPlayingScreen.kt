@@ -17,13 +17,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.tonezen.app.R
 import com.tonezen.app.ui.components.PlayButton
 import com.tonezen.app.ui.components.ProgressBar
 import com.tonezen.app.ui.components.RoundControl
@@ -175,7 +173,7 @@ internal fun NowPlayingContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             RoundControl(
-                label = stringResource(R.string.rewind_15),
+                label = "-15",
                 outlined = true,
                 size = 40.dp,
                 enabled = !isDownloading,
@@ -215,7 +213,7 @@ internal fun NowPlayingContent(
                 )
             }
             RoundControl(
-                label = stringResource(R.string.forward_15),
+                label = "+15",
                 outlined = true,
                 size = 40.dp,
                 enabled = !isDownloading,

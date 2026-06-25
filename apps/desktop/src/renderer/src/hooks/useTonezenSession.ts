@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SessionState } from "@shared/types";
-import { resolveLoginError } from "../lib/errorMessages";
 
 type SessionSnapshot = Awaited<ReturnType<typeof window.tonezen.session.get>>;
 
@@ -57,7 +56,7 @@ export function useTonezenSession() {
       await refreshSession();
       return true;
     } catch (e) {
-      setError(resolveLoginError(e instanceof Error ? e.message : ""));
+      setError("Не удалось войти. Проверьте email и пароль.");
       return false;
     }
   }, [email, password, refreshSession]);
@@ -79,7 +78,7 @@ export function useTonezenSession() {
         await refreshSession();
         return true;
       } catch (e) {
-        setError(resolveLoginError(e instanceof Error ? e.message : ""));
+        setError("Не удалось войти. Проверьте email и пароль.");
         return false;
       }
     },

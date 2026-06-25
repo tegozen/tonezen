@@ -4,7 +4,6 @@ import {
   isBulkDownloading,
   type DownloadQueueState,
 } from "@shared/downloadQueueState";
-import { strings } from "../i18n/strings";
 
 interface MusicDownloadAllButtonProps {
   tracks: MusicListTrack[];
@@ -34,10 +33,10 @@ export function MusicDownloadAllButton({ tracks, musicDownload, onClick }: Music
     >
       <div className="music-download-all-header">
         <span className="text-sm font-semibold text-ink">
-          {bulkActive ? strings.musicDownloadStop : strings.musicDownloadAll}
+          {bulkActive ? "Остановить загрузку" : "Скачать все"}
         </span>
         <span className="text-xs text-muted">
-          {strings.musicDownloadAllProgress(downloaded, displayTotal)}
+          {`${downloaded} из ${displayTotal}`}
         </span>
       </div>
       <div className="music-download-all-progress-track">

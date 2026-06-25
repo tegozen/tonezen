@@ -20,12 +20,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Cycle
@@ -81,7 +79,7 @@ internal fun CycleCover(cycle: Cycle, modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                text = stringResource(R.string.cycle_books_count, cycle.books.size),
+                text = "${cycle.books.size} книг",
                 color = Color.White.copy(alpha = 0.78f),
                 style = MaterialTheme.typography.labelMedium,
             )

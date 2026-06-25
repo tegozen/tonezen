@@ -3,7 +3,6 @@ import { CheckCircleIcon, PauseIcon, PlayIcon } from "./TonezenIcons";
 import { ContinueResumeMeta } from "./ContinueResumeMeta";
 import { CycleCover } from "./CycleCover";
 import type { CycleCardState } from "../lib/cycleUtils";
-import { strings } from "../i18n/strings";
 
 interface LibraryCycleCardProps {
   cycle: Cycle;
@@ -29,15 +28,13 @@ export function LibraryCycleCard({
     <div className="library-cycle-card">
       <CycleCover cycle={cycle} className="aspect-[0.78] w-full" onClick={onClick} />
       {state.isDownloaded && (
-        <CheckCircleIcon className="library-cycle-downloaded text-teal" aria-label={strings.offline} />
+        <CheckCircleIcon className="library-cycle-downloaded text-teal" aria-label="Офлайн" />
       )}
       {(continueState || showProgress) && (
         <div className="library-cycle-footer-meta">
           {continueState && <ContinueResumeMeta state={continueState} variant="overlay" />}
           {showProgress && (
-            <span className="library-cycle-progress">
-              {strings.cycleListenProgress(progressPercent ?? 0)}
-            </span>
+            <span className="library-cycle-progress">{`${progressPercent ?? 0}%`}</span>
           )}
         </div>
       )}
@@ -45,7 +42,7 @@ export function LibraryCycleCard({
         type="button"
         className={`compact-media-play-btn ${isPlaying ? "compact-media-play-btn-playing" : ""}`}
         onClick={onPlayClick}
-        aria-label={isPlaying ? strings.pause : strings.play}
+        aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
       >
         {isPlaying ? <PauseIcon className="h-[18px] w-[18px]" /> : <PlayIcon className="h-[18px] w-[18px]" />}
       </button>

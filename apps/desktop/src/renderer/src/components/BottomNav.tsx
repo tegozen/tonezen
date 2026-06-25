@@ -1,6 +1,4 @@
-import { BOTTOM_NAV_TABS } from "@shared/navigation";
-import type { BottomTab } from "../i18n/strings";
-import { strings } from "../i18n/strings";
+import { BOTTOM_NAV_TABS, type BottomTab } from "@shared/navigation";
 import { BooksIcon, DownloadsIcon, MusicIcon, ProfileIcon } from "./TonezenIcons";
 
 interface BottomNavProps {
@@ -15,13 +13,13 @@ const tabs: Array<{
 }> = BOTTOM_NAV_TABS.map((id) => {
   switch (id) {
     case "music":
-      return { id, label: strings.navMusic, Icon: MusicIcon };
+      return { id, label: "Музыка", Icon: MusicIcon };
     case "books":
-      return { id, label: strings.navBooks, Icon: BooksIcon };
+      return { id, label: "Книги", Icon: BooksIcon };
     case "downloads":
-      return { id, label: strings.navDownloads, Icon: DownloadsIcon };
+      return { id, label: "Загрузки", Icon: DownloadsIcon };
     case "profile":
-      return { id, label: strings.navProfile, Icon: ProfileIcon };
+      return { id, label: "Профиль", Icon: ProfileIcon };
   }
 });
 

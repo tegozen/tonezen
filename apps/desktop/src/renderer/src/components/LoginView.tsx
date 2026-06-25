@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { EyeIcon, EyeOffIcon, LockIcon, MailIcon, ProfileIcon } from "./TonezenIcons";
 import { AuthIntroPanel, AuthStarField } from "./AuthDecor";
-import { strings } from "../i18n/strings";
 import {
   canSubmitInviteCode,
   canSubmitPasswordRecovery,
@@ -83,7 +82,7 @@ export function LoginView({
       setInviteVerified(true);
     } catch {
       setInviteVerified(false);
-      setInviteError(strings.inviteCodeInvalid);
+      setInviteError("Инвайт-код не подошёл");
     } finally {
       setBusy(false);
     }
@@ -91,7 +90,7 @@ export function LoginView({
 
   const submitSignup = async () => {
     if (signupPassword !== signupConfirmPassword) {
-      setSignupError(strings.passwordMismatch);
+      setSignupError("Пароли не совпадают");
       return;
     }
     if (!canCreateAccount) return;
@@ -104,9 +103,9 @@ export function LoginView({
         password: signupPassword,
         displayName: displayName.trim(),
       });
-      if (!ok) setSignupError(strings.signupFailed);
+      if (!ok) setSignupError("Не удалось зарегистрироваться");
     } catch {
-      setSignupError(strings.signupFailed);
+      setSignupError("Не удалось зарегистрироваться");
     } finally {
       setBusy(false);
     }
@@ -120,7 +119,7 @@ export function LoginView({
       await onPasswordRecovery(recoveryEmail.trim());
       setRecoverySent(true);
     } catch {
-      setRecoveryError(strings.recoveryFailed);
+      setRecoveryError("Не удалось отправить ссылку");
     } finally {
       setBusy(false);
     }
@@ -146,7 +145,7 @@ export function LoginView({
                 <MailIcon className="auth-field-icon" />
                 <input
                   type="email"
-                  placeholder={strings.email}
+                  placeholder="Email"
                   value={email}
                   onChange={(e) => onEmailChange(e.target.value)}
                   autoComplete="email"
@@ -156,7 +155,7 @@ export function LoginView({
                 <LockIcon className="auth-field-icon" />
                 <input
                   type={passwordVisible ? "text" : "password"}
-                  placeholder={strings.password}
+                  placeholder="Пароль"
                   value={password}
                   onChange={(e) => onPasswordChange(e.target.value)}
                   autoComplete="current-password"
@@ -165,7 +164,7 @@ export function LoginView({
                   type="button"
                   className="auth-field-toggle"
                   onClick={() => setPasswordVisible((value) => !value)}
-                  aria-label={passwordVisible ? strings.hidePassword : strings.showPassword}
+                  aria-label={passwordVisible ? "Скрыть" : "Показать"}
                 >
                   {passwordVisible ? (
                     <EyeOffIcon className="h-[19px] w-[19px] text-muted" />
@@ -175,15 +174,15 @@ export function LoginView({
                 </button>
               </label>
               <button type="submit" className="auth-sign-in-btn" disabled={!canSubmit}>
-                {strings.signIn}
+                Войти
               </button>
               {error && <p className="error-text px-0.5 text-sm">{error}</p>}
               <div className="auth-inline-actions">
                 <button type="button" onClick={() => switchMode("recovery")}>
-                  {strings.forgotPassword}
+                  Забыли пароль?
                 </button>
                 <button type="button" onClick={() => switchMode("signup")}>
-                  {strings.noAccountYet}
+                  Нет аккаунта
                 </button>
               </div>
             </>
@@ -194,7 +193,7 @@ export function LoginView({
                 <LockIcon className="auth-field-icon" />
                 <input
                   type="text"
-                  placeholder={strings.inviteCode}
+                  placeholder="Инвайт-код"
                   value={inviteCode}
                   onChange={(e) => {
                     setInviteCode(e.target.value);
@@ -205,7 +204,7 @@ export function LoginView({
               </label>
               {!shouldShowSignupForm(inviteVerified) && (
                 <button type="button" className="auth-sign-in-btn" disabled={!canCheckInvite} onClick={verifyInvite}>
-                  {strings.checkInviteCode}
+                  Проверить код
                 </button>
               )}
               {inviteError && <p className="error-text px-0.5 text-sm">{inviteError}</p>}
@@ -215,7 +214,7 @@ export function LoginView({
                     <MailIcon className="auth-field-icon" />
                     <input
                       type="email"
-                      placeholder={strings.email}
+                      placeholder="Email"
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
                       autoComplete="email"
@@ -225,7 +224,7 @@ export function LoginView({
                     <ProfileIcon className="auth-field-icon" />
                     <input
                       type="text"
-                      placeholder={strings.displayName}
+                      placeholder="Имя"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       autoComplete="name"
@@ -235,7 +234,7 @@ export function LoginView({
                     <LockIcon className="auth-field-icon" />
                     <input
                       type={signupPasswordVisible ? "text" : "password"}
-                      placeholder={strings.password}
+                      placeholder="Пароль"
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
                       autoComplete="new-password"
@@ -244,7 +243,7 @@ export function LoginView({
                       type="button"
                       className="auth-field-toggle"
                       onClick={() => setSignupPasswordVisible((value) => !value)}
-                      aria-label={signupPasswordVisible ? strings.hidePassword : strings.showPassword}
+                      aria-label={signupPasswordVisible ? "Скрыть" : "Показать"}
                     >
                       {signupPasswordVisible ? (
                         <EyeOffIcon className="h-[19px] w-[19px] text-muted" />
@@ -257,48 +256,54 @@ export function LoginView({
                     <LockIcon className="auth-field-icon" />
                     <input
                       type={signupPasswordVisible ? "text" : "password"}
-                      placeholder={strings.confirmPassword}
+                      placeholder="Подтвердите пароль"
                       value={signupConfirmPassword}
                       onChange={(e) => setSignupConfirmPassword(e.target.value)}
                       autoComplete="new-password"
                     />
                   </label>
                   <button type="button" className="auth-sign-in-btn" disabled={!canCreateAccount} onClick={submitSignup}>
-                    {strings.createAccount}
+                    Создать аккаунт
                   </button>
                 </>
               )}
               {signupError && <p className="error-text px-0.5 text-sm">{signupError}</p>}
               <button type="button" className="auth-text-button" onClick={() => switchMode("login")}>
-                {strings.alreadyHaveAccount}
+                Уже есть аккаунт
               </button>
             </>
           )}
           {mode === "recovery" && (
             <>
-              <h2 className="auth-mode-title">{strings.recoveryTitle}</h2>
-              <p className="auth-mode-copy">{strings.recoveryBody}</p>
+              <h2 className="auth-mode-title">Восстановление пароля</h2>
+              <p className="auth-mode-copy">
+                Введите email аккаунта. Если он зарегистрирован, мы отправим ссылку для сброса пароля.
+              </p>
               <label className="auth-field">
                 <MailIcon className="auth-field-icon" />
                 <input
                   type="email"
-                  placeholder={strings.email}
+                  placeholder="Email"
                   value={recoveryEmail}
                   onChange={(e) => setRecoveryEmail(e.target.value)}
                   autoComplete="email"
                 />
               </label>
               <button type="button" className="auth-sign-in-btn" disabled={!canRecover} onClick={submitRecovery}>
-                {strings.sendRecoveryEmail}
+                Отправить ссылку
               </button>
-              {recoverySent && <p className="success-text px-0.5 text-sm">{strings.recoverySent}</p>}
+              {recoverySent && (
+                <p className="success-text px-0.5 text-sm">Если аккаунт найден, письмо уже отправлено.</p>
+              )}
               {recoveryError && <p className="error-text px-0.5 text-sm">{recoveryError}</p>}
               <button type="button" className="auth-text-button" onClick={() => switchMode("login")}>
-                {strings.backToSignIn}
+                Назад ко входу
               </button>
             </>
           )}
-          <p className="auth-footer-note">{strings.offlinePlaybackNote}</p>
+          <p className="auth-footer-note">
+            Офлайн-воспроизведение работает с загруженными файлами. Истёкшая сессия остаётся активной офлайн.
+          </p>
         </form>
       </main>
     </div>

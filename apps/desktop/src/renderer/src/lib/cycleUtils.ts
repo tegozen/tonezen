@@ -1,6 +1,6 @@
 import type { AudiobookProgress, Book, Cycle, Track } from "@shared/types";
 import { cycleBookIds, resolveBookListenedMs } from "@shared/cycleListenProgress";
-import type { LibraryFilter } from "../i18n/strings";
+import type { LibraryFilter } from "@shared/navigation";
 import { canContinueBookListening, type BookContinueState } from "./bookTrackUtils";
 
 export interface CycleCardState {

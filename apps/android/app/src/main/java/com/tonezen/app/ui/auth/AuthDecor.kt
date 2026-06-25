@@ -27,11 +27,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.ui.components.DownloadGlyph
 import com.tonezen.app.ui.components.SyncGlyph
 import com.tonezen.app.ui.theme.TonezenAmber
@@ -76,32 +74,32 @@ internal fun AuthIntroPanel() {
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Text(
-            stringResource(R.string.app_name),
+            "Tonezen",
             color = TonezenInk,
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
         )
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
-                stringResource(R.string.auth_headline),
+                "Ваша библиотека, всегда офлайн",
                 color = TonezenInk,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                stringResource(R.string.auth_body),
+                "Скачивайте книги и музыку. Прогресс аудиокниг синхронизируется, когда вы онлайн.",
                 color = TonezenMuted,
                 style = MaterialTheme.typography.bodyLarge,
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AuthPill(
-                label = stringResource(R.string.auth_offline_badge),
+                label = "Офлайн-воспроизведение",
                 tone = TonezenTeal,
                 icon = { DownloadGlyph(tint = TonezenTeal, size = 12.dp) },
             )
             AuthPill(
-                label = stringResource(R.string.auth_sync_badge),
+                label = "Синхронизация прогресса",
                 tone = TonezenAmber,
                 icon = { SyncGlyph(tint = TonezenAmber, size = 12.dp) },
             )
@@ -139,7 +137,7 @@ private fun AuthMediaStack() {
             .padding(top = 2.dp),
     ) {
         AuthMiniCover(
-            title = stringResource(R.string.auth_cover_midnight),
+            title = "THE MIDNIGHT LIBRARY",
             brush = Brush.verticalGradient(listOf(Color(0xFF06111D), Color(0xFF12314C), Color(0xFF06111D))),
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -148,7 +146,7 @@ private fun AuthMediaStack() {
                 .graphicsLayer(rotationZ = -7f),
         )
         AuthMiniCover(
-            title = stringResource(R.string.auth_cover_atomic),
+            title = "ATOMIC HABITS",
             brush = Brush.verticalGradient(listOf(Color(0xFFF5E8CE), Color(0xFFC9AA78))),
             contentColor = Color(0xFF6D4C2F),
             modifier = Modifier
@@ -158,7 +156,7 @@ private fun AuthMediaStack() {
                 .graphicsLayer(rotationZ = 1.5f),
         )
         AuthMiniCover(
-            title = stringResource(R.string.auth_cover_body),
+            title = "THE 4-HOUR BODY",
             brush = Brush.verticalGradient(listOf(Color(0xFF8D2E1B), Color(0xFFD65B28))),
             modifier = Modifier
                 .align(Alignment.BottomEnd)

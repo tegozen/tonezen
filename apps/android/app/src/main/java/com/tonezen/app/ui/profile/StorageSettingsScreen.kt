@@ -10,11 +10,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.components.TonezenGlassAlertDialog
 import com.tonezen.app.ui.theme.TonezenError
@@ -48,23 +46,23 @@ internal fun StorageSettingsScreen(
         onDismissRequest = onDismissDeleteAllConfirm,
         title = {
             Text(
-                stringResource(R.string.delete_all_confirm_title),
+                "Удалить все загрузки?",
                 color = TonezenInk,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
         },
         text = {
-            Text(stringResource(R.string.delete_all_confirm_body), color = TonezenMuted)
+            Text("Все офлайн-файлы будут удалены с этого устройства.", color = TonezenMuted)
         },
         confirmButton = {
             TextButton(onClick = onConfirmDeleteAll) {
-                Text(stringResource(R.string.delete_all), color = TonezenError)
+                Text("Удалить все", color = TonezenError)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismissDeleteAllConfirm) {
-                Text(stringResource(R.string.cancel))
+                Text("Отмена")
             }
         },
     )
@@ -76,28 +74,28 @@ internal fun StorageSettingsScreen(
         bottomScrollPadding = bottomScrollPadding,
         title = {
             Text(
-                stringResource(R.string.settings_storage_page_title),
+                "Хранилище",
                 color = TonezenInk,
                 fontWeight = FontWeight.SemiBold,
             )
         },
     ) {
         item {
-            SettingsInfoSection(title = stringResource(R.string.settings_storage_downloads_section)) {
+            SettingsInfoSection(title = "Загрузки") {
                 Text(
-                    stringResource(R.string.storage_saved, formatStorageGb(usedBytes)),
+                    "${formatStorageGb(usedBytes)} сохранено офлайн",
                     color = TonezenInk,
                     fontWeight = FontWeight.SemiBold,
                 )
                 usedPercent?.let {
                     Text(
-                        stringResource(R.string.storage_percent, (it * 100).toInt()),
+                        "${(it * 100).toInt()}% памяти устройства",
                         color = TonezenMuted,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
                 Text(
-                    stringResource(R.string.settings_storage_downloads_desc),
+                    "Офлайн-файлы аудиокниг и музыки",
                     color = TonezenMuted,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -106,7 +104,7 @@ internal fun StorageSettingsScreen(
                     enabled = hasDownloads,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(stringResource(R.string.delete_all), color = TonezenError)
+                    Text("Удалить все", color = TonezenError)
                 }
             }
         }

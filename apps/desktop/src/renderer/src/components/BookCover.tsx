@@ -1,7 +1,6 @@
 import type { Book } from "@shared/types";
 import { bookCoverGradient } from "../lib/coverGradient";
 import { bookAuthorLabel } from "../lib/cycleUtils";
-import { strings } from "../i18n/strings";
 
 interface BookCoverProps {
   book: Book;
@@ -10,7 +9,7 @@ interface BookCoverProps {
 
 export function BookCover({ book, className = "" }: BookCoverProps) {
   const gradient = bookCoverGradient(book.id, book.contentType === "audiobook");
-  const author = bookAuthorLabel(book) || strings.authorPlaceholder;
+  const author = bookAuthorLabel(book) || "Автор не указан";
 
   return (
     <div className={`book-cover ${className}`} style={{ background: gradient }} aria-hidden>

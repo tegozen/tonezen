@@ -5,7 +5,6 @@ import { OverlayTopChrome } from "../components/OverlayTopChrome";
 import { OVERLAY_BACK_TOP_SCROLL_PX } from "../lib/layoutChrome";
 import { canContinueBookListening } from "../lib/bookTrackUtils";
 import type { CycleCardState } from "../lib/cycleUtils";
-import { strings } from "../i18n/strings";
 
 interface CycleDetailPageProps {
   cycle: Cycle;
@@ -56,7 +55,7 @@ export function CycleDetailPage({
         </div>
       </div>
       <OverlayTopChrome
-        title={strings.cycleBooksSection}
+        title="Книги цикла"
         onBack={onBack}
         trailing={
           <DetailHeaderMenu

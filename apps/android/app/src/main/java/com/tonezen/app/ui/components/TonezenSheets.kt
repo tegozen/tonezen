@@ -37,10 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.domain.library.LibraryContentFilter
 import com.tonezen.app.domain.library.LibraryFilterState
 import com.tonezen.app.domain.library.LibrarySortOrder
@@ -202,25 +200,25 @@ internal fun LibraryFilterSheet(
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(stringResource(R.string.search_filter_title), color = TonezenInk, fontWeight = FontWeight.SemiBold)
+            Text("Поиск и фильтр", color = TonezenInk, fontWeight = FontWeight.SemiBold)
             FilterChipRow(
-                label = stringResource(R.string.filter_all),
+                label = "Все",
                 selected = filter.contentFilter == LibraryContentFilter.ALL,
                 onClick = { onContentFilterChange(LibraryContentFilter.ALL) },
             )
             FilterChipRow(
-                label = stringResource(R.string.filter_downloaded),
+                label = "Загруженные",
                 selected = filter.contentFilter == LibraryContentFilter.DOWNLOADED,
                 onClick = { onContentFilterChange(LibraryContentFilter.DOWNLOADED) },
             )
-            Text(stringResource(R.string.sort_by), color = TonezenMuted)
+            Text("Сортировка", color = TonezenMuted)
             FilterChipRow(
-                label = stringResource(R.string.sort_recently_played),
+                label = "Недавно слушали",
                 selected = filter.sortOrder == LibrarySortOrder.RECENTLY_PLAYED,
                 onClick = { onSortOrderChange(LibrarySortOrder.RECENTLY_PLAYED) },
             )
             FilterChipRow(
-                label = stringResource(R.string.sort_title),
+                label = "Название",
                 selected = filter.sortOrder == LibrarySortOrder.TITLE,
                 onClick = { onSortOrderChange(LibrarySortOrder.TITLE) },
             )
@@ -229,12 +227,12 @@ internal fun LibraryFilterSheet(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 TonezenSheetSecondaryButton(
-                    label = stringResource(R.string.reset),
+                    label = "Сбросить",
                     onClick = onReset,
                     modifier = Modifier.weight(1f),
                 )
                 TonezenSheetPrimaryButton(
-                    label = stringResource(R.string.apply),
+                    label = "Применить",
                     onClick = { onApply(filter) },
                     modifier = Modifier.weight(1f),
                 )
@@ -285,20 +283,20 @@ internal fun DownloadConfirmSheet(
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(stringResource(R.string.download_confirm_title), color = TonezenInk, fontWeight = FontWeight.SemiBold)
-            Text(stringResource(R.string.download_confirm_body, formatMegabytes(estimatedBytes)), color = TonezenMuted)
-            ToggleRow(stringResource(R.string.download_audio_files), includeAudio) { includeAudio = it }
-            ToggleRow(stringResource(R.string.download_cover_art), includeCover) { includeCover = it }
+            Text("Скачать аудиокнигу?", color = TonezenInk, fontWeight = FontWeight.SemiBold)
+            Text("Будет использовано примерно ${formatMegabytes(estimatedBytes)} памяти.", color = TonezenMuted)
+            ToggleRow("Аудиофайлы", includeAudio) { includeAudio = it }
+            ToggleRow("Обложка", includeCover) { includeCover = it }
             Button(
                 onClick = onConfirm,
                 enabled = includeAudio,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = TonezenTeal, contentColor = TonezenAppBg),
             ) {
-                Text(stringResource(R.string.download_offline))
+                Text("Скачать офлайн")
             }
             TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.cancel), color = TonezenMuted)
+                Text("Отмена", color = TonezenMuted)
             }
         }
     }
@@ -332,23 +330,23 @@ internal fun SignOutConfirmDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                stringResource(R.string.sign_out_confirm_title),
+                "Выйти из аккаунта?",
                 color = TonezenInk,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
         },
         text = {
-            Text(stringResource(R.string.sign_out_confirm_body), color = TonezenMuted)
+            Text("Офлайн-загрузки останутся на устройстве. Прогресс аудиокниг синхронизируется снова после входа онлайн.", color = TonezenMuted)
         },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text(stringResource(R.string.sign_out), color = TonezenError)
+                Text("Выйти", color = TonezenError)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
+                Text("Отмена")
             }
         },
     )
@@ -367,23 +365,23 @@ internal fun OfflineSyncDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                stringResource(R.string.sync_paused_title),
+                "Синхронизация приостановлена",
                 color = TonezenInk,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
             )
         },
         text = {
-            Text(stringResource(R.string.sync_paused_body), color = TonezenMuted)
+            Text("Вы офлайн. Прогресс аудиокниг синхронизируется, когда появится сеть.", color = TonezenMuted)
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.keep_listening), color = TonezenTeal)
+                Text("Продолжить слушать", color = TonezenTeal)
             }
         },
         dismissButton = {
             TextButton(onClick = onRetry) {
-                Text(stringResource(R.string.retry))
+                Text("Повторить")
             }
         },
     )

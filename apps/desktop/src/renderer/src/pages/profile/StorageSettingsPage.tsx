@@ -1,4 +1,3 @@
-import { strings } from "../../i18n/strings";
 import { formatGb } from "../../lib/formatTime";
 import { SettingsPageLayout, SettingsInfoRow, SettingsSection } from "./SettingsPageLayout";
 
@@ -18,27 +17,30 @@ export function StorageSettingsPage({
   onDeleteAll,
 }: StorageSettingsPageProps) {
   return (
-    <SettingsPageLayout title={strings.settingsStoragePageTitle} onBack={onBack}>
-      <SettingsSection title={strings.settingsStorageDownloadsSection}>
+    <SettingsPageLayout title="Хранилище" onBack={onBack}>
+      <SettingsSection title="Загрузки">
         <div className="font-semibold">
-          {formatGb(usedBytes)} {strings.storageSavedOffline}
+          {formatGb(usedBytes)} сохранено офлайн
         </div>
-        <SettingsInfoRow title={strings.settingsStorageDownloadsSection} subtitle={strings.settingsStorageDownloadsDesc} />
+        <SettingsInfoRow
+          title="Загрузки"
+          subtitle="Офлайн-файлы аудиокниг и музыки"
+        />
         <button type="button" className="btn-danger w-full" onClick={() => onShowDeleteConfirm(true)}>
-          {strings.deleteAll}
+          Удалить все
         </button>
       </SettingsSection>
       {showDeleteConfirm && (
         <div className="sheet-overlay flex items-center justify-center p-5">
           <div className="modal-panel glass-panel">
-            <h2 className="text-lg font-semibold">{strings.deleteAllConfirmTitle}</h2>
-            <p className="mt-2 text-sm text-muted">{strings.deleteAllConfirmBody}</p>
+            <h2 className="text-lg font-semibold">Удалить все загрузки?</h2>
+            <p className="mt-2 text-sm text-muted">Все офлайн-файлы будут удалены с этого устройства.</p>
             <div className="mt-4 flex gap-3">
               <button type="button" className="btn-secondary flex-1" onClick={() => onShowDeleteConfirm(false)}>
-                {strings.cancel}
+                Отмена
               </button>
               <button type="button" className="btn-danger flex-1" onClick={onDeleteAll}>
-                {strings.deleteAll}
+                Удалить все
               </button>
             </div>
           </div>

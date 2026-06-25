@@ -71,10 +71,10 @@ class TrackDownloadService : Service() {
         val pending = state.queuedItems.size
         val activeTitle = state.queuedItems.find { it.trackId == state.activeTrackId }?.title
         val text = when {
-            state.pausedForNetwork -> getString(R.string.download_paused_offline)
-            activeTitle != null -> getString(R.string.download_notification_progress, activeTitle)
-            pending > 0 -> getString(R.string.download_notification_queued, pending)
-            else -> getString(R.string.download_notification_title)
+            state.pausedForNetwork -> "Ожидание сети"
+            activeTitle != null -> "Скачивается: ${activeTitle}"
+            pending > 0 -> "В очереди: ${pending}"
+            else -> "Загрузка Tonezen"
         }
         val stopIntent = PendingIntent.getService(
             this,
@@ -83,13 +83,13 @@ class TrackDownloadService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.download_notification_title))
+            .setContentTitle("Загрузка Tonezen")
             .setContentText(text)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setProgress(100, ((state.activeProgress ?: 0f) * 100).toInt(), state.activeProgress == null)
-            .addAction(0, getString(R.string.download_notification_stop), stopIntent)
+            .addAction(0, "Остановить", stopIntent)
             .setContentIntent(
                 PendingIntent.getActivity(
                     this,
@@ -105,7 +105,7 @@ class TrackDownloadService : Service() {
         val manager = getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             CHANNEL_ID,
-            getString(R.string.download_notification_channel),
+            "Загрузки",
             NotificationManager.IMPORTANCE_LOW,
         )
         manager.createNotificationChannel(channel)

@@ -24,11 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.ui.testing.TestTags
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenAppBg
@@ -38,11 +36,11 @@ import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
 import com.tonezen.app.ui.theme.trackCoverBrush
 
-enum class BottomDestination(val labelRes: Int) {
-    Music(R.string.nav_music),
-    Books(R.string.nav_books),
-    Downloads(R.string.nav_downloads),
-    Profile(R.string.nav_profile),
+enum class BottomDestination(val label: String) {
+    Music("Музыка"),
+    Books("Книги"),
+    Downloads("Загрузки"),
+    Profile("Профиль"),
 }
 
 @Composable
@@ -127,7 +125,7 @@ private fun BottomNavItem(
                 }
             }
             Text(
-                text = stringResource(destination.labelRes),
+                text = destination.label,
                 color = if (active) TonezenTeal else TonezenMuted,
                 style = MaterialTheme.typography.labelSmall,
             )

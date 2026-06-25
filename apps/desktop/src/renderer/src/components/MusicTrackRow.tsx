@@ -8,7 +8,6 @@ import { TrackDownloadButton } from "./TrackDownloadButton";
 import { TrackDownloadedIndicator } from "./TrackDownloadedIndicator";
 import { TrackListRow } from "./TrackListRow";
 import { TrackRowOverflowMenu } from "./TrackRowOverflowMenu";
-import { strings } from "../i18n/strings";
 
 interface MusicTrackRowProps {
   track: MusicListTrack;
@@ -55,7 +54,7 @@ export function MusicTrackRow({
           {track.isDownloaded ? (
             <TrackRowOverflowMenu
               showDelete
-              deleteLabel={strings.removeDownload}
+              deleteLabel="Удалить загрузку"
               onDelete={onDeleteClick}
             />
           ) : null}

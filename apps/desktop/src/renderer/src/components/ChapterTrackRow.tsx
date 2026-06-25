@@ -8,7 +8,6 @@ import { TrackDownloadButton } from "./TrackDownloadButton";
 import { TrackDownloadedIndicator } from "./TrackDownloadedIndicator";
 import { TrackListRow } from "./TrackListRow";
 import { TrackRowOverflowMenu } from "./TrackRowOverflowMenu";
-import { strings } from "../i18n/strings";
 
 interface ChapterTrackRowProps {
   track: Track;
@@ -53,7 +52,7 @@ export function ChapterTrackRow({
         <div className="flex items-center gap-2">
           {listenPercent != null ? (
             <span className="text-xs font-semibold text-teal">
-              {strings.cycleListenProgress(listenPercent)}
+              {`${listenPercent}%`}
             </span>
           ) : null}
           <span

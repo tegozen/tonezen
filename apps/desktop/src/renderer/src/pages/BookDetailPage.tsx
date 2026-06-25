@@ -8,7 +8,6 @@ import { OverlayTopChrome } from "../components/OverlayTopChrome";
 import { OVERLAY_BACK_TOP_SCROLL_PX } from "../lib/layoutChrome";
 import { buildBookTrackProgress, canContinueBookListening, resolveChapterTrackState } from "../lib/bookTrackUtils";
 import { scrollActiveRowAboveBottomPadding } from "../lib/scrollActiveRow";
-import { strings } from "../i18n/strings";
 
 interface BookDetailPageProps {
   book: Book;
@@ -126,7 +125,7 @@ export function BookDetailPage({
       </div>
       </div>
       <OverlayTopChrome
-        title={strings.chapters}
+        title="Главы"
         onBack={onBack}
         trailing={
           <DetailHeaderMenu

@@ -1,5 +1,4 @@
 import { DownloadsIcon } from "./TonezenIcons";
-import { strings } from "../i18n/strings";
 
 interface TrackDownloadButtonProps {
   downloading?: boolean;
@@ -26,7 +25,7 @@ export function TrackDownloadButton({
       }}
       onPointerDown={(event) => event.stopPropagation()}
       disabled={disabled || downloading}
-      aria-label={strings.downloadOffline}
+      aria-label="Скачать офлайн"
     >
       {downloading ? (
         <span className="track-download-btn-progress">

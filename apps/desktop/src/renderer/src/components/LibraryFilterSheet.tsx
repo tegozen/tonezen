@@ -1,5 +1,4 @@
-import type { LibraryFilter } from "../i18n/strings";
-import { strings } from "../i18n/strings";
+import type { LibraryFilter } from "@shared/navigation";
 import { useAnimatedVisibility } from "../hooks/useAnimatedVisibility";
 
 interface LibraryFilterSheetProps {
@@ -41,38 +40,38 @@ export function LibraryFilterSheet({
           <div className="sheet-handle filter-sheet-handle" />
           <div className="filter-sheet-content">
             <h3 id="filter-sheet-title" className="filter-sheet-title">
-              {strings.searchFilterTitle}
+              Поиск и фильтр
             </h3>
 
             <FilterChipRow
-              label={strings.filterAll}
+              label="Все"
               selected={filter.contentFilter === "all"}
               onClick={() => onContentFilterChange("all")}
             />
             <FilterChipRow
-              label={strings.filterDownloaded}
+              label="Загруженные"
               selected={filter.contentFilter === "downloaded"}
               onClick={() => onContentFilterChange("downloaded")}
             />
 
-            <p className="filter-sheet-section-label">{strings.sortBy}</p>
+            <p className="filter-sheet-section-label">Сортировка</p>
             <FilterChipRow
-              label={strings.sortRecentlyPlayed}
+              label="Недавно слушали"
               selected={filter.sortOrder === "recent"}
               onClick={() => onSortOrderChange("recent")}
             />
             <FilterChipRow
-              label={strings.sortTitle}
+              label="Название"
               selected={filter.sortOrder === "title"}
               onClick={() => onSortOrderChange("title")}
             />
 
             <div className="filter-sheet-actions">
               <button type="button" className="sheet-btn-secondary" onClick={onReset}>
-                {strings.reset}
+                Сбросить
               </button>
               <button type="button" className="sheet-btn-primary" onClick={onApply}>
-                {strings.apply}
+                Применить
               </button>
             </div>
           </div>

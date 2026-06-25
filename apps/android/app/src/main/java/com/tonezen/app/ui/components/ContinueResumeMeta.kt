@@ -6,11 +6,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.domain.progress.BookContinueState
 import com.tonezen.app.ui.theme.TonezenAmber
 import com.tonezen.app.ui.theme.TonezenInk
@@ -70,7 +68,7 @@ fun ContinueResumeMeta(
         verticalArrangement = Arrangement.spacedBy(spacing),
     ) {
         Text(
-            text = stringResource(R.string.resume),
+            text = "Продолжить",
             color = labelColor,
             style = labelStyle,
             fontWeight = FontWeight.SemiBold,

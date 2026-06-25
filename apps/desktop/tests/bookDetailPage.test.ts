@@ -1,9 +1,11 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { emptyDownloadQueueState } from "../src/shared/downloadQueueState.js";
 import type { Book, Track } from "../src/shared/types.js";
 import { BookDetailPage } from "../src/renderer/src/pages/BookDetailPage.js";
-import { strings } from "../src/renderer/src/i18n/strings.js";
+
+const emptyDownloadQueue = emptyDownloadQueueState();
 
 const book: Book = {
   id: "book-1",
@@ -31,6 +33,7 @@ function renderBookDetailPage(
     React.createElement(BookDetailPage, {
       book,
       tracks,
+      downloadQueue: emptyDownloadQueue,
       ...props,
     }),
   );
@@ -46,6 +49,7 @@ describe("BookDetailPage", () => {
       onBack: noop,
       onTrackClick: noop,
       onDownloadRequest: noop,
+      onDownloadTrack: noop,
       onToggleBookListened: noop,
       onRemoveBookDownloads: noop,
       onMarkTrackListened: noop,
@@ -58,7 +62,7 @@ describe("BookDetailPage", () => {
       allDownloaded: true,
     });
 
-    expect(html).not.toContain(strings.resume);
+    expect(html).not.toContain("Продолжить");
   });
 
   it("does not render a confirmation sheet before downloading a book", () => {
@@ -70,6 +74,7 @@ describe("BookDetailPage", () => {
       onBack: noop,
       onTrackClick: noop,
       onDownloadRequest: noop,
+      onDownloadTrack: noop,
       onToggleBookListened: noop,
       onRemoveBookDownloads: noop,
       onMarkTrackListened: noop,

@@ -3,7 +3,6 @@ import { BookCover } from "./BookCover";
 import { ContinueResumeMeta } from "./ContinueResumeMeta";
 import { bookAuthorLabel } from "../lib/cycleUtils";
 import type { BookContinueState } from "../lib/bookTrackUtils";
-import { strings } from "../i18n/strings";
 
 interface CycleBookRowProps {
   book: Book;
@@ -19,7 +18,7 @@ export function CycleBookRow({ book, downloaded, continueState, onClick }: Cycle
       <div className="min-w-0 flex-1">
         <div className="truncate text-base font-semibold">{book.title}</div>
         <div className="truncate text-sm text-muted">
-          {bookAuthorLabel(book) || strings.authorPlaceholder}
+          {bookAuthorLabel(book) || "Автор не указан"}
         </div>
         {(continueState || downloaded) && (
           <div className="mt-1.5 flex flex-wrap items-end gap-2">
@@ -27,7 +26,7 @@ export function CycleBookRow({ book, downloaded, continueState, onClick }: Cycle
             {downloaded && (
               <span className="status-chip status-chip-teal">
                 <span className="status-chip-dot" aria-hidden />
-                {strings.offline}
+                Офлайн
               </span>
             )}
           </div>

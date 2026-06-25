@@ -25,7 +25,7 @@ data class BookDetailUiState(
     val downloadQueueState: DownloadQueueState = DownloadQueueState(),
     val syncStatus: SyncDisplayStatus = SyncDisplayStatus.NONE,
     val error: String? = null,
-    val playbackErrorRes: Int? = null,
+    val playbackErrorMessage: String? = null,
 )
 
 data class BookDetailPlaybackState(

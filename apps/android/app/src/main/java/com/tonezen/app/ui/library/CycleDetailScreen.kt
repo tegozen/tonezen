@@ -15,12 +15,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Cycle
@@ -63,7 +61,7 @@ internal fun CycleDetailScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp),
         title = {
             Text(
-                text = stringResource(R.string.cycle_books_section),
+                text = "Книги цикла",
                 color = TonezenInk,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -131,7 +129,7 @@ private fun CycleBookRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = bookAuthorLabel(book).ifBlank { stringResource(R.string.author_placeholder) },
+                text = bookAuthorLabel(book).ifBlank { "Автор не указан" },
                 color = TonezenMuted,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
@@ -149,7 +147,7 @@ private fun CycleBookRow(
                         )
                     }
                     if (downloaded) {
-                        StatusChip(label = stringResource(R.string.offline), tone = TonezenTeal)
+                        StatusChip(label = "Офлайн", tone = TonezenTeal)
                     }
                 }
             }

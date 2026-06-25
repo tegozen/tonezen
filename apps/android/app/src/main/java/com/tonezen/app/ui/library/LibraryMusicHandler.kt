@@ -44,7 +44,7 @@ internal class LibraryMusicHandler(
     private val playbackClient: PlaybackClient,
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val musicPlaybackQueue: MusicPlaybackQueue,
-    private val playbackErrorRes: (EnsureTrackOutcome.Failure?) -> Int,
+    private val playbackErrorMessage: (EnsureTrackOutcome.Failure?) -> String,
     private val refreshCycleCardStates: suspend (List<com.tonezen.app.domain.model.Cycle>, Set<String>) -> Unit,
 ) {
     var onBulkDownloadFinished: () -> Unit = {}
@@ -110,7 +110,7 @@ internal class LibraryMusicHandler(
                 playbackClient.pause()
             } else if (!track.isDownloaded) {
                 playJob?.cancel()
-                uiState.update { it.copy(musicPlaybackErrorRes = null) }
+                uiState.update { it.copy(musicPlaybackErrorMessage = null) }
                 playJob = scope.launch {
                     playMusicTrack(track, showDownloadProgress = true)
                 }
@@ -120,7 +120,7 @@ internal class LibraryMusicHandler(
             return
         }
         playJob?.cancel()
-        uiState.update { it.copy(musicPlaybackErrorRes = null) }
+        uiState.update { it.copy(musicPlaybackErrorMessage = null) }
         playJob = scope.launch {
             playMusicTrack(track, showDownloadProgress = !track.isDownloaded)
         }
@@ -145,7 +145,7 @@ internal class LibraryMusicHandler(
         if (index == null) {
             if (!uiState.value.isNetworkOnline) {
                 uiState.update {
-                    it.copy(musicPlaybackErrorRes = playbackErrorRes(EnsureTrackOutcome.Failure.OFFLINE))
+                    it.copy(musicPlaybackErrorMessage = playbackErrorMessage(EnsureTrackOutcome.Failure.OFFLINE))
                 }
             }
             return
@@ -203,7 +203,7 @@ internal class LibraryMusicHandler(
                 state.copy(
                     musicTrackList = updatedList,
                     musicPlayback = if (isPlaying) MusicPlaybackUi() else state.musicPlayback,
-                    musicPlaybackErrorRes = null,
+                    musicPlaybackErrorMessage = null,
                 )
             }
             localLibraryNotifier.notifyLocalLibraryChanged()
@@ -297,7 +297,7 @@ internal class LibraryMusicHandler(
                 uiState.update {
                     it.copy(
                         musicPlayback = MusicPlaybackUi(),
-                        musicPlaybackErrorRes = null,
+                        musicPlaybackErrorMessage = null,
                     )
                 }
             }
@@ -647,7 +647,7 @@ internal class LibraryMusicHandler(
                     if (failedIndex >= 0) playNextAvailableFrom(failedIndex)
                 } else if (awaitResult == DownloadAwaitResult.FAILED) {
                     uiState.update {
-                        it.copy(musicPlaybackErrorRes = playbackErrorRes(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
+                        it.copy(musicPlaybackErrorMessage = playbackErrorMessage(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
                     }
                 }
                 return
@@ -661,7 +661,7 @@ internal class LibraryMusicHandler(
                 if (failedIndex >= 0) playNextAvailableFrom(failedIndex)
             } else {
                 uiState.update {
-                    it.copy(musicPlaybackErrorRes = playbackErrorRes(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
+                    it.copy(musicPlaybackErrorMessage = playbackErrorMessage(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
                 }
             }
             return
@@ -680,7 +680,7 @@ internal class LibraryMusicHandler(
         }
         if (queue.isEmpty()) {
             uiState.update {
-                it.copy(musicPlaybackErrorRes = playbackErrorRes(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
+                it.copy(musicPlaybackErrorMessage = playbackErrorMessage(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
             }
             return
         }
@@ -688,7 +688,7 @@ internal class LibraryMusicHandler(
         val startIndex = queue.indexOfFirst { it.trackId == localTrack.id }.coerceAtLeast(0)
         uiState.update { state ->
             state.copy(
-                musicPlaybackErrorRes = null,
+                musicPlaybackErrorMessage = null,
                 musicTrackList = state.musicTrackList.map { row ->
                     if (row.trackId == track.trackId) row.copy(isDownloaded = true) else row
                 },

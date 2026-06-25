@@ -9,11 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.R
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Track
@@ -100,9 +98,9 @@ internal fun BookDetailScreen(
     // 1. Книга не полностью прослушана И
     // 2. Книга сейчас НЕ играет (когда книга играет, плеер уже доступен внутри активного трека).
     val hasContinueButton = !isBookListened && !hasPlaybackControls
-    val playbackErrorMessage = uiState.playbackErrorRes?.let { stringResource(it) }
+    val playbackErrorMessage = uiState.playbackErrorMessage
     val downloadErrorMessage = if (uiState.error == BookDetailViewModel.DOWNLOAD_FAILED_ERROR) {
-        stringResource(R.string.music_playback_error_download)
+        "Не удалось скачать трек"
     } else {
         null
     }
@@ -145,7 +143,7 @@ internal fun BookDetailScreen(
         listState = listState,
         title = {
             Text(
-                text = stringResource(R.string.chapters),
+                text = "Главы",
                 color = TonezenInk,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -178,7 +176,7 @@ internal fun BookDetailScreen(
                             variant = ContinueResumeVariant.Button,
                         )
                     } else {
-                        Text(stringResource(R.string.play))
+                        Text("Воспроизвести")
                     }
                 }
             }
@@ -257,7 +255,7 @@ private fun BookDetailPlaybackControls(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             RoundControl(
-                label = stringResource(R.string.rewind_15),
+                label = "-15",
                 outlined = true,
                 size = 40.dp,
             ) {
@@ -269,7 +267,7 @@ private fun BookDetailPlaybackControls(
                 onClick = onPlayPause,
             )
             RoundControl(
-                label = stringResource(R.string.forward_15),
+                label = "+15",
                 outlined = true,
                 size = 40.dp,
             ) {
@@ -319,7 +317,7 @@ internal fun ChapterTrackRow(
         leading = {
             if (listenPercent != null) {
                 Text(
-                    text = stringResource(R.string.cycle_listen_progress, listenPercent),
+                    text = "${listenPercent}%",
                     color = TonezenTeal,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
@@ -352,7 +350,7 @@ internal fun ChapterTrackRow(
             }
             TrackRowOverflowMenu(
                 onDelete = onRemoveDownload,
-                deleteLabelRes = R.string.remove_download,
+                deleteLabel = "Удалить загрузку",
                 showDelete = isDownloaded,
                 onToggleListened = {
                     if (listenState.status == TrackListenStatus.COMPLETED) {

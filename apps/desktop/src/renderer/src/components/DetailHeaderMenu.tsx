@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { strings } from "../i18n/strings";
 import { MoreVerticalIcon } from "./TonezenIcons";
 
 interface DetailHeaderMenuProps {
@@ -40,7 +39,7 @@ export function DetailHeaderMenu({
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        aria-label={strings.moreOptions}
+        aria-label="Ещё"
       >
         <MoreVerticalIcon className="h-5 w-5 text-base" />
       </button>
@@ -48,7 +47,7 @@ export function DetailHeaderMenu({
         <div className="overflow-menu-popover">
           {showDownload && (
             <MenuItem
-              label={strings.download}
+              label="Скачать"
               onClick={() => {
                 setOpen(false);
                 onDownload();
@@ -56,7 +55,7 @@ export function DetailHeaderMenu({
             />
           )}
           <MenuItem
-            label={isListened ? strings.markNotListened : strings.markComplete}
+            label={isListened ? "Отметить не прослушанным" : "Отметить прослушанным"}
             onClick={() => {
               setOpen(false);
               onToggleListened();
@@ -64,7 +63,7 @@ export function DetailHeaderMenu({
           />
           {showRemoveDownload && (
             <MenuItem
-              label={strings.deleteLocalFiles}
+              label="Удалить локальные файлы"
               onClick={() => {
                 setOpen(false);
                 onRemoveDownloads();

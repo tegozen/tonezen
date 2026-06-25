@@ -53,7 +53,7 @@ Repositories align with OpenAPI domains: `catalog`, `downloads`, `progress`, `au
 - Screens are **stateless**: `Screen(uiState, onEvent)`.
 - **Hoist state** to ViewModel; Composables only hold ephemeral UI state (text field focus).
 - No business rules in `@Composable` (no `if (contentType == …)` for sync, no repository calls).
-- User-visible strings in **`strings.xml`** (**Russian only**) — never concatenate labels in ViewModel (`"Continue: $title"`).
+- User-visible strings **inline at usage sites** (**Russian only**) — use Kotlin templates for formatted copy (`"$count треков"`).
 - Split files **&lt; ~200 lines**; extract sub-composables to `components/` or feature-local files.
 - Theme/colors in `ui/theme/`; no magic hex in screens except one-off decor with comment.
 
@@ -93,7 +93,7 @@ Repositories align with OpenAPI domains: `catalog`, `downloads`, `progress`, `au
 - God ViewModel / god `ApiClient` / god DAO file
 - `domain/` importing Room entities or Android SDK
 - ViewModel → `CatalogDao` or entity types
-- Hardcoded user-facing strings outside `strings.xml`
+- English user-facing copy in clients
 - Synchronous network/DB on main thread
 - Server sync of music progress
 - Force logout on expired JWT when offline

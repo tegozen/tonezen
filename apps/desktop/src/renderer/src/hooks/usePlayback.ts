@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toAudioFileUrl } from "../lib/audioFileUrl";
 import { formatMs } from "../lib/formatTime";
 import { loadPlaybackVolume, savePlaybackVolume } from "../lib/playbackVolume";
-import { strings } from "../i18n/strings";
 import {
   clearMediaSession,
   setMediaPlaybackState,
@@ -95,7 +94,7 @@ export function usePlayback(
       if (selectedBook?.id === saved.bookId) {
         const track = tracks.find((t) => t.id === saved.trackId);
         setProgressLabel(
-          track ? strings.continueListening(track.title, formatMs(saved.positionMs)) : null,
+          track ? `Продолжить: ${track.title} · ${formatMs(saved.positionMs)}` : null,
         );
       }
     });

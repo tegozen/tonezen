@@ -61,7 +61,7 @@ data class LibraryUiState(
     val nowPlayingTitle: String? = null,
     val musicTrackList: List<MusicListTrack> = emptyList(),
     val musicPlayback: MusicPlaybackUi = MusicPlaybackUi(),
-    val musicPlaybackErrorRes: Int? = null,
-    val cyclePlaybackErrorRes: Int? = null,
+    val musicPlaybackErrorMessage: String? = null,
+    val cyclePlaybackErrorMessage: String? = null,
     val progressUpdatedAtByBookId: Map<String, Long> = emptyMap(),
 )
