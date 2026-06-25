@@ -8,6 +8,8 @@ import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.domain.music.MusicDownloadInteractionRules
+import com.tonezen.app.domain.music.MusicDownloadInteractionState
 import com.tonezen.app.domain.music.MusicLibraryTrack
 import com.tonezen.app.domain.music.MusicPlaybackAdvanceRules
 import com.tonezen.app.domain.music.resolveMusicWaveDisplayTrack
@@ -16,6 +18,7 @@ import com.tonezen.app.domain.downloads.DownloadAwaitResult
 import com.tonezen.app.domain.downloads.DownloadPriority
 import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
 import com.tonezen.app.playback.DownloadQueueNotifier
+import com.tonezen.app.playback.forMusic
 import com.tonezen.app.playback.TrackDownloadQueueController
 import com.tonezen.app.playback.queuedTrackIds
 import com.tonezen.app.playback.MusicPlaybackQueue
@@ -103,8 +106,32 @@ internal class LibraryMusicHandler(
         }
     }
 
+    private fun musicDownloadInteractionState(): MusicDownloadInteractionState {
+        val snapshot = downloadQueueNotifier.snapshot().forMusic()
+        return MusicDownloadInteractionState(
+            isTrackDownloading = snapshot.isTrackDownloading,
+            isBulkDownloading = snapshot.isBulkDownloading,
+            activeTrackId = snapshot.activeTrackId,
+        )
+    }
+
+    private fun pauseMusicForBulkDownload() {
+        playJob?.cancel()
+        musicPrefetchJob?.cancel()
+        musicPrefetchJob = null
+        prefetchTargetIndex = -1
+        if (uiState.value.musicPlayback.isActive) {
+            playbackClient.pause()
+        }
+    }
+
     fun onMusicTrackClick(track: MusicListTrack) {
         if (!uiState.value.isNetworkOnline && !track.isDownloaded) return
+        if (MusicDownloadInteractionRules.blocksUndownloadedTap(musicDownloadInteractionState()) &&
+            !track.isDownloaded
+        ) {
+            return
+        }
         val playback = uiState.value.musicPlayback
         if (playback.trackId == track.trackId && playback.isActive) {
             if (playback.isPlaying) {
@@ -128,6 +155,9 @@ internal class LibraryMusicHandler(
     }
 
     fun playMusicWave() {
+        if (MusicDownloadInteractionRules.blocksPlaybackAdvanceDuringBulk(musicDownloadInteractionState())) {
+            return
+        }
         val playback = uiState.value.musicPlayback
         if (playback.isActive && playback.trackId != null) {
             onMiniPlayerPlayPause()
@@ -170,7 +200,7 @@ internal class LibraryMusicHandler(
                 uiState.update { it.copy(musicTrackList = updatedList) }
                 return@launch
             }
-            val snapshot = downloadQueueNotifier.snapshot()
+            val snapshot = downloadQueueNotifier.snapshot().forMusic()
             if (snapshot.progressForTrack(track.trackId) != null ||
                 snapshot.queuedTrackIds().contains(track.trackId)
             ) {
@@ -218,25 +248,30 @@ internal class LibraryMusicHandler(
 
     fun downloadAllMusic() {
         if (!uiState.value.isNetworkOnline) return
-        val snapshot = downloadQueueNotifier.snapshot()
+        val snapshot = downloadQueueNotifier.snapshot().forMusic()
         if (snapshot.isBulkDownloading) {
             snapshot.activeBatchId?.let { downloadQueueController.cancelBatch(it) }
+            lastBulkBatchId = null
             return
         }
         val pending = uiState.value.musicTrackList.filter { !it.isDownloaded }
         if (pending.isEmpty()) return
-        musicPrefetchJob?.cancel()
-        musicPrefetchJob = null
-        prefetchTargetIndex = -1
-        val batchId = java.util.UUID.randomUUID().toString()
-        lastBulkBatchId = batchId
-        downloadQueueController.enqueueBatch(
-            pending.map { it.toEnqueueRequest(DownloadPriority.BULK, batchId) },
-            batchId,
-        )
+        scope.launch {
+            pauseMusicForBulkDownload()
+            downloadQueueController.cancelMusicPlaybackDownloadsAwait()
+            val batchId = java.util.UUID.randomUUID().toString()
+            lastBulkBatchId = batchId
+            downloadQueueController.enqueueBatch(
+                pending.map { it.toEnqueueRequest(DownloadPriority.BULK, batchId) },
+                batchId,
+            )
+        }
     }
 
     suspend fun onMusicSnapshot(snapshot: PlaybackSnapshot) {
+        if (MusicDownloadInteractionRules.blocksPlaybackAdvanceDuringBulk(musicDownloadInteractionState())) {
+            return
+        }
         val trackId = snapshot.trackId ?: return
         session.musicStartedInSession = true
         val libraryTracks = activeMusicLibraryTracks()
@@ -310,6 +345,9 @@ internal class LibraryMusicHandler(
     }
 
     fun handleMusicTrackEnded() {
+        if (MusicDownloadInteractionRules.blocksPlaybackAdvanceDuringBulk(musicDownloadInteractionState())) {
+            return
+        }
         val snapshot = playbackClient.snapshot.value
         val trackId = snapshot.trackId ?: return
         val isMusic = snapshot.contentType == ContentType.MUSIC || trackId in session.musicBookIdByTrackId
@@ -495,6 +533,9 @@ internal class LibraryMusicHandler(
         session.musicLibraryTracks.ifEmpty { musicPlaybackQueue.get() }
 
     private fun scheduleMusicPrefetch(fromIndex: Int) {
+        if (MusicDownloadInteractionRules.blocksPlaybackAdvanceDuringBulk(musicDownloadInteractionState())) {
+            return
+        }
         if (!uiState.value.isNetworkOnline) return
         if (fromIndex !in session.musicLibraryTracks.indices) return
         if (prefetchTargetIndex == fromIndex && musicPrefetchJob?.isActive == true) return
@@ -628,6 +669,10 @@ internal class LibraryMusicHandler(
         showDownloadProgress: Boolean,
         advancePlayback: Boolean = false,
     ) {
+        val downloadState = musicDownloadInteractionState()
+        if (MusicDownloadInteractionRules.blocksPlaybackAdvanceDuringBulk(downloadState)) {
+            if (!track.isDownloaded || advancePlayback) return
+        }
         if (uiState.value.books.none { it.id == track.bookId }) return
         val libraryTracks = buildMusicLibraryTracksFromList()
         val targetEntry = libraryTracks.find { it.track.id == track.trackId } ?: return

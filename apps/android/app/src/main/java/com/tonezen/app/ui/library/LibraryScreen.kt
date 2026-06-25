@@ -46,6 +46,7 @@ import com.tonezen.app.ui.components.OfflineBanner
 import com.tonezen.app.ui.components.SearchRow
 import com.tonezen.app.ui.components.TonezenTopChromeBar
 import com.tonezen.app.playback.DownloadQueueState
+import com.tonezen.app.playback.forMusic
 import com.tonezen.app.playback.toMusicDownloadState
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
 import com.tonezen.app.ui.theme.TonezenChromeHeaderRowHeight
@@ -107,7 +108,8 @@ internal fun LibraryScreen(
     val isBooksSection = section == LibrarySection.Books
     val isMusicSection = section == LibrarySection.Music
     var showAllMusicTracks by rememberSaveable { mutableStateOf(false) }
-    val musicDownload = remember(downloadQueue) { downloadQueue.toMusicDownloadState() }
+    val musicDownloadQueue = remember(downloadQueue) { downloadQueue.forMusic() }
+    val musicDownload = remember(musicDownloadQueue) { musicDownloadQueue.toMusicDownloadState() }
     val topChromeScrollPadding = remember(offlineBanner, section) {
         val base = if (isBooksSection) {
             TonezenTopChromeScrollPaddingBooks
@@ -231,9 +233,9 @@ internal fun LibraryScreen(
                 if (showAllMusicTracks) {
                     items(musicTrackList, key = { it.trackId }) { track ->
                         val isActive = musicPlayback.trackId == track.trackId
-                        val trackDownloadProgress = downloadQueue.progressForTrack(track.trackId)
+                        val trackDownloadProgress = musicDownloadQueue.progressForTrack(track.trackId)
                         val isDownloading = trackDownloadProgress != null
-                        val isQueued = downloadQueue.isTrackQueued(track.trackId)
+                        val isQueued = musicDownloadQueue.isTrackQueued(track.trackId)
                         MusicTrackRow(
                             track = track,
                             isActive = isActive,

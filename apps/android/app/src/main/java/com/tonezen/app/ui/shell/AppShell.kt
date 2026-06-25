@@ -41,6 +41,7 @@ import com.tonezen.app.ui.profile.ProfileScreen
 import com.tonezen.app.ui.profile.AvatarCropScreen
 import com.tonezen.app.ui.profile.ProfileViewModel
 import com.tonezen.app.ui.profile.resolveAvatarUploadError
+import com.tonezen.app.playback.forMusic
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenPageChromeScrollPadding
 import com.tonezen.app.ui.theme.TonezenSurface
@@ -280,8 +281,12 @@ fun AppShell(
                             isPlaying = shellState.isPlaying,
                             positionMs = shellState.positionMs,
                             durationMs = shellState.durationMs,
-                            downloadProgress = shellState.nowPlayingCoverSeed
-                                ?.let { downloadQueue.progressForTrack(it) },
+                            downloadProgress = if (libraryState.musicPlayback.isActive) {
+                                shellState.nowPlayingCoverSeed
+                                    ?.let { downloadQueue.forMusic().progressForTrack(it) }
+                            } else {
+                                null
+                            },
                             onBarClick = shellViewModel::onMiniPlayerClick,
                             onPlayPauseClick = {
                                 if (libraryState.musicPlayback.isActive) {

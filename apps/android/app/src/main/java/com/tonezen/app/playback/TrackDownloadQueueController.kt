@@ -142,15 +142,26 @@ class TrackDownloadQueueController @Inject constructor(
         if (!SafeLocalStorage.isSafeId(bookId) || !SafeLocalStorage.isSafeId(trackId)) return
         scope.launch {
             mutex.withLock {
-                val key = DownloadQueueKey(bookId, trackId)
-                userCancelledKeys.add(key)
-                downloadQueueDao.delete(bookId, trackId)
+                cancelQueuedTrackLocked(bookId, trackId)
                 downloadRepository.cancelActiveDownload()
-                failureCounts.remove(key)
-                completeAwaiter(key, DownloadAwaitResult.CANCELLED)
                 refreshNotifierFromDb()
                 stopServiceIfIdle()
             }
+        }
+    }
+
+    suspend fun cancelMusicPlaybackDownloadsAwait() {
+        mutex.withLock {
+            val playbackPriorities = setOf(DownloadPriority.PLAY.name, DownloadPriority.PREFETCH.name)
+            val items = downloadQueueDao.getAll().filter { entity ->
+                entity.contentType == MUSIC_CONTENT_TYPE &&
+                    entity.priority in playbackPriorities
+            }
+            if (items.isEmpty()) return@withLock
+            items.forEach { cancelQueuedTrackLocked(it.bookId, it.trackId) }
+            downloadRepository.cancelActiveDownload()
+            refreshNotifierFromDb()
+            stopServiceIfIdle()
         }
     }
 
@@ -522,6 +533,14 @@ class TrackDownloadQueueController @Inject constructor(
         awaiters.remove(key)?.complete(result)
     }
 
+    private suspend fun cancelQueuedTrackLocked(bookId: String, trackId: String) {
+        val key = DownloadQueueKey(bookId, trackId)
+        userCancelledKeys.add(key)
+        downloadQueueDao.delete(bookId, trackId)
+        failureCounts.remove(key)
+        completeAwaiter(key, DownloadAwaitResult.CANCELLED)
+    }
+
     private suspend fun cancelTrackLocked(bookId: String, trackId: String) {
         val key = DownloadQueueKey(bookId, trackId)
         userCancelledKeys.add(key)
@@ -653,5 +672,6 @@ class TrackDownloadQueueController @Inject constructor(
     companion object {
         private const val STATUS_QUEUED = "queued"
         private const val MAX_DOWNLOAD_FAILURES = 3
+        private const val MUSIC_CONTENT_TYPE = "music"
     }
 }

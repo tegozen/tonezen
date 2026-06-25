@@ -21,4 +21,7 @@ object MusicDownloadInteractionRules {
 
     fun blocksNowPlayingPlaybackUi(state: MusicDownloadInteractionState, playingTrackId: String?): Boolean =
         playingTrackId != null && state.isTrackDownloading && state.activeTrackId == playingTrackId
+
+    fun blocksPlaybackAdvanceDuringBulk(state: MusicDownloadInteractionState): Boolean =
+        state.isBulkDownloading
 }

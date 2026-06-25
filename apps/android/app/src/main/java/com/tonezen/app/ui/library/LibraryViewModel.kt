@@ -24,6 +24,7 @@ import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.playback.DownloadQueueNotifier
+import com.tonezen.app.playback.forMusic
 import com.tonezen.app.playback.TrackDownloadQueueController
 import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
@@ -119,7 +120,9 @@ class LibraryViewModel @Inject constructor(
         }
         viewModelScope.launch {
             var wasQueueActive = downloadQueueNotifier.snapshot().isActive
+            var wasBulkDownloading = downloadQueueNotifier.snapshot().forMusic().isBulkDownloading
             downloadQueueNotifier.state.collect { state ->
+                val musicQueue = state.forMusic()
                 if (!state.isActive && pendingCatalogReload) {
                     pendingCatalogReload = false
                     reloadCatalogFromLocal()
@@ -127,7 +130,11 @@ class LibraryViewModel @Inject constructor(
                 if (wasQueueActive && !state.isActive) {
                     refreshDownloads()
                 }
+                if (wasBulkDownloading && !musicQueue.isBulkDownloading) {
+                    musicHandler.onBulkDownloadFinished()
+                }
                 wasQueueActive = state.isActive
+                wasBulkDownloading = musicQueue.isBulkDownloading
             }
         }
         _uiState.update { it.copy(isNetworkOnline = networkMonitor.isOnline()) }

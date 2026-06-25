@@ -1,12 +1,42 @@
 package com.tonezen.app.playback
 
-fun DownloadQueueState.toMusicDownloadState(): MusicDownloadState =
-    MusicDownloadState(
-        activeTrackId = activeTrackId,
-        trackProgress = activeProgress,
-        bulkDownloaded = bulkDownloaded,
-        bulkTotal = bulkTotal,
+const val MUSIC_DOWNLOAD_CONTENT_TYPE = "music"
+
+fun DownloadQueueState.forMusic(): DownloadQueueState {
+    val musicQueued = queuedItems.filter { it.contentType == MUSIC_DOWNLOAD_CONTENT_TYPE }
+    val musicHistory = completedHistory.filter { it.contentType == MUSIC_DOWNLOAD_CONTENT_TYPE }
+    val activeIsMusic = activeTrackId != null &&
+        activeBookId != null &&
+        musicQueued.any { item ->
+            item.trackId == activeTrackId &&
+                item.bookId == activeBookId &&
+                (item.status == DownloadQueueItemStatus.DOWNLOADING ||
+                    item.status == DownloadQueueItemStatus.PAUSED_OFFLINE)
+        }
+    val musicBatchActive = activeBatchId != null &&
+        (musicQueued + musicHistory).any { it.batchId == activeBatchId }
+
+    return copy(
+        queuedItems = musicQueued,
+        completedHistory = musicHistory,
+        activeBookId = if (activeIsMusic) activeBookId else null,
+        activeTrackId = if (activeIsMusic) activeTrackId else null,
+        activeProgress = if (activeIsMusic) activeProgress else null,
+        bulkTotal = if (musicBatchActive) bulkTotal else 0,
+        bulkDownloaded = if (musicBatchActive) bulkDownloaded else 0,
+        activeBatchId = if (musicBatchActive) activeBatchId else null,
     )
+}
+
+fun DownloadQueueState.toMusicDownloadState(): MusicDownloadState {
+    val musicQueue = forMusic()
+    return MusicDownloadState(
+        activeTrackId = musicQueue.activeTrackId,
+        trackProgress = musicQueue.activeProgress,
+        bulkDownloaded = musicQueue.bulkDownloaded,
+        bulkTotal = musicQueue.bulkTotal,
+    )
+}
 
 fun DownloadQueueState.queuedTrackIds(): Set<String> =
     queuedItems
@@ -16,3 +46,6 @@ fun DownloadQueueState.queuedTrackIds(): Set<String> =
         }
         .map { it.trackId }
         .toSet()
+
+fun DownloadQueueState.queuedMusicTrackIds(): Set<String> =
+    forMusic().queuedTrackIds()

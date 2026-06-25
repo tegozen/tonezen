@@ -73,4 +73,10 @@ class MusicDownloadInteractionRulesTest {
         assertFalse(MusicDownloadInteractionRules.blocksNowPlayingPlaybackUi(downloadingT2, null))
         assertFalse(MusicDownloadInteractionRules.blocksNowPlayingPlaybackUi(state(), "t1"))
     }
+
+    @Test
+    fun blocksPlaybackAdvanceDuringBulk() {
+        assertTrue(MusicDownloadInteractionRules.blocksPlaybackAdvanceDuringBulk(state(bulkDownloading = true)))
+        assertFalse(MusicDownloadInteractionRules.blocksPlaybackAdvanceDuringBulk(state()))
+    }
 }
