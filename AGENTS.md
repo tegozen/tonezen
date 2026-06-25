@@ -25,6 +25,15 @@ ui → domain → data
 
 Dependencies point inward only. Domain logic must not import Android, Electron, or Supabase SDKs.
 
+### Client UX flows (mandatory)
+
+Before changing library, playback, downloads, or progress UI/logic on **Android** or **Desktop**, read [`docs/client-user-flows.md`](docs/client-user-flows.md).
+
+- Treat it as the source of truth for user-visible behavior.
+- Android and Desktop must stay behaviorally aligned unless the doc explicitly allows a platform exception.
+- When fixing a bug or adding a feature in these areas, update the doc if behavior changes.
+- Prefer implementing rules in `domain/` (Android) and `apps/desktop/src/shared/` (Desktop); UI only orchestrates.
+
 ### Android (Kotlin) — mandatory structure
 
 Based on [Google app architecture](https://developer.android.com/topic/architecture) and Kotlin conventions. Full checklist: [`.cursor/rules/kotlin-android.mdc`](.cursor/rules/kotlin-android.mdc).
