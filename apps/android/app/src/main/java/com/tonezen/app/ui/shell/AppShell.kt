@@ -158,6 +158,8 @@ fun AppShell(
                             onPlaybackSeekToFraction = bookDetailViewModel::seekToFraction,
                             onDismissPlaybackError = bookDetailViewModel::clearPlaybackError,
                             onDismissDownloadError = bookDetailViewModel::clearDownloadError,
+                            onConfirmEarlierChapter = bookDetailViewModel::confirmEarlierChapterPlayback,
+                            onDismissEarlierChapter = bookDetailViewModel::dismissEarlierChapterPrompt,
                             bottomScrollPadding = overlayBottomScrollPadding,
                         )
                     }

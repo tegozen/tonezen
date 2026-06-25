@@ -46,6 +46,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
+import com.tonezen.app.ui.components.TonezenGlassAlertDialog
+import androidx.compose.material3.TextButton
 import com.tonezen.app.ui.components.PlayButton
 import com.tonezen.app.ui.components.ProgressBar
 import com.tonezen.app.ui.components.RoundControl
@@ -74,6 +76,8 @@ internal fun BookDetailScreen(
     onPlaybackSeekToFraction: (Float) -> Unit,
     onDismissPlaybackError: () -> Unit,
     onDismissDownloadError: () -> Unit,
+    onConfirmEarlierChapter: () -> Unit,
+    onDismissEarlierChapter: () -> Unit,
     bottomScrollPadding: Dp,
 ) {
     val tracks = uiState.tracks
@@ -99,10 +103,10 @@ internal fun BookDetailScreen(
     // 2. Книга сейчас НЕ играет (когда книга играет, плеер уже доступен внутри активного трека).
     val hasContinueButton = !isBookListened && !hasPlaybackControls
     val playbackErrorMessage = uiState.playbackErrorMessage
-    val downloadErrorMessage = if (uiState.error == BookDetailViewModel.DOWNLOAD_FAILED_ERROR) {
-        "Не удалось скачать трек"
-    } else {
-        null
+    val downloadErrorMessage = when (uiState.error) {
+        BookDetailViewModel.DOWNLOAD_FAILED_ERROR -> "Не удалось скачать трек"
+        BookDetailViewModel.DOWNLOAD_OFFLINE_ERROR -> "Нет сети"
+        else -> null
     }
 
     LaunchedEffect(playbackErrorMessage) {
@@ -203,7 +207,51 @@ internal fun BookDetailScreen(
             .align(Alignment.BottomCenter)
             .padding(bottom = bottomScrollPadding),
     )
+    EarlierChapterConfirmDialog(
+        visible = uiState.confirmEarlierChapter != null,
+        hazeState = hazeState,
+        onDismiss = onDismissEarlierChapter,
+        onConfirm = onConfirmEarlierChapter,
+    )
     }
+}
+
+@Composable
+private fun EarlierChapterConfirmDialog(
+    visible: Boolean,
+    hazeState: HazeState,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    TonezenGlassAlertDialog(
+        visible = visible,
+        hazeState = hazeState,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Начать с этой главы?",
+                color = TonezenInk,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        text = {
+            Text(
+                "Вы уже слушали более позднюю главу. Начать выбранную главу с начала?",
+                color = TonezenMuted,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Начать", color = TonezenTeal)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        },
+    )
 }
 
 @Composable

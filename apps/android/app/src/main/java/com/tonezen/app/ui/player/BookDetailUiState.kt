@@ -12,6 +12,12 @@ enum class SyncDisplayStatus {
     PENDING,
 }
 
+data class ConfirmEarlierChapterPrompt(
+    val track: Track,
+    val savedTrackId: String,
+    val savedPositionMs: Long,
+)
+
 data class BookDetailUiState(
     val book: Book? = null,
     val tracks: List<Track> = emptyList(),
@@ -26,6 +32,7 @@ data class BookDetailUiState(
     val syncStatus: SyncDisplayStatus = SyncDisplayStatus.NONE,
     val error: String? = null,
     val playbackErrorMessage: String? = null,
+    val confirmEarlierChapter: ConfirmEarlierChapterPrompt? = null,
 )
 
 data class BookDetailPlaybackState(
