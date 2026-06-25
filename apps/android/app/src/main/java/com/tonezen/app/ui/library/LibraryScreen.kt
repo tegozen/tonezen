@@ -15,11 +15,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -95,6 +98,8 @@ internal fun LibraryScreen(
     downloadQueue: DownloadQueueState,
     musicPlaybackErrorMessage: String?,
     cyclePlaybackErrorMessage: String?,
+    onDismissMusicPlaybackError: () -> Unit,
+    onDismissCyclePlaybackError: () -> Unit,
     onMusicWavePlay: () -> Unit,
     onMusicTrackClick: (MusicListTrack) -> Unit,
     onDownloadMusicTrack: (MusicListTrack) -> Unit,
@@ -110,6 +115,22 @@ internal fun LibraryScreen(
     var showAllMusicTracks by rememberSaveable { mutableStateOf(false) }
     val musicDownloadQueue = remember(downloadQueue) { downloadQueue.forMusic() }
     val musicDownload = remember(musicDownloadQueue) { musicDownloadQueue.toMusicDownloadState() }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(musicPlaybackErrorMessage) {
+        musicPlaybackErrorMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            onDismissMusicPlaybackError()
+        }
+    }
+
+    LaunchedEffect(cyclePlaybackErrorMessage) {
+        cyclePlaybackErrorMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            onDismissCyclePlaybackError()
+        }
+    }
+
     val topChromeScrollPadding = remember(offlineBanner, section) {
         val base = if (isBooksSection) {
             TonezenTopChromeScrollPaddingBooks
@@ -153,15 +174,6 @@ internal fun LibraryScreen(
             } else if (isBooksSection && allCycles.isEmpty()) {
                 item { EmptyLibrary(offline = offlineBanner) }
             } else if (isBooksSection) {
-                if (cyclePlaybackErrorMessage != null) {
-                    item {
-                        Text(
-                            text = cyclePlaybackErrorMessage,
-                            color = Color(0xFFF87171),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
                 items(cycles.chunked(2)) { row ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -213,16 +225,6 @@ internal fun LibraryScreen(
                         onClick = onDownloadAllMusic,
                     )
                 }
-                if (musicPlaybackErrorMessage != null) {
-                    item {
-                        Text(
-                            text = musicPlaybackErrorMessage,
-                            color = Color(0xFFF87171),
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                }
                 item {
                     MusicAllTracksToggle(
                         count = musicTrackList.size,
@@ -250,6 +252,12 @@ internal fun LibraryScreen(
                 }
             }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = bottomChromeScrollPadding),
+        )
         TonezenTopChromeBar(
             modifier = Modifier.align(Alignment.TopCenter),
             hazeState = hazeState,

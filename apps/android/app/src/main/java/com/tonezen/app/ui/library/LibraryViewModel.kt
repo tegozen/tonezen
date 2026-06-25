@@ -279,6 +279,14 @@ class LibraryViewModel @Inject constructor(
 
     fun downloadAllMusic() = musicHandler.downloadAllMusic()
 
+    fun clearMusicPlaybackError() {
+        _uiState.update { it.copy(musicPlaybackErrorMessage = null) }
+    }
+
+    fun clearCyclePlaybackError() {
+        _uiState.update { it.copy(cyclePlaybackErrorMessage = null) }
+    }
+
     fun cancelAllDownloads() = musicHandler.cancelAllDownloads()
 
     fun refreshCycleMenu(cycle: Cycle) = cycleHandler.refreshCycleMenu(cycle)

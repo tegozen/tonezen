@@ -223,6 +223,8 @@ fun AppShell(
                             downloadQueue = downloadQueue,
                             musicPlaybackErrorMessage = libraryState.musicPlaybackErrorMessage,
                             cyclePlaybackErrorMessage = libraryState.cyclePlaybackErrorMessage,
+                            onDismissMusicPlaybackError = libraryViewModel::clearMusicPlaybackError,
+                            onDismissCyclePlaybackError = libraryViewModel::clearCyclePlaybackError,
                             onMusicWavePlay = libraryViewModel::playMusicWave,
                             onMusicTrackClick = libraryViewModel::onMusicTrackClick,
                             onDownloadMusicTrack = libraryViewModel::downloadMusicTrack,

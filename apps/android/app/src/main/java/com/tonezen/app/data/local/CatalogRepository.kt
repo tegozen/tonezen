@@ -73,7 +73,11 @@ class CatalogRepository @Inject constructor(
 
     suspend fun findBookForTrack(trackId: String): Book? {
         val bookId = catalogDao.getBookIdForTrack(trackId) ?: return null
-        return catalogDao.getBook(bookId)?.toDomain()
+        return getBook(bookId)
+    }
+
+    suspend fun getBook(bookId: String): Book? = withContext(Dispatchers.IO) {
+        catalogDao.getBook(bookId)?.toDomain()
     }
 
     suspend fun resolveMusicLibraryTracks(): List<MusicLibraryTrack> {
