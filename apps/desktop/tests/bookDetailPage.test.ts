@@ -65,6 +65,31 @@ describe("BookDetailPage", () => {
     expect(html).not.toContain("Продолжить");
   });
 
+  it("shows play action when book has no listening history", () => {
+    const noop = vi.fn();
+
+    const html = renderBookDetailPage({
+      currentTrackId: null,
+      playbackPositionMs: 0,
+      onBack: noop,
+      onTrackClick: noop,
+      onDownloadRequest: noop,
+      onDownloadTrack: noop,
+      onToggleBookListened: noop,
+      onRemoveBookDownloads: noop,
+      onMarkTrackListened: noop,
+      onRemoveTrackDownload: noop,
+      onContinue: noop,
+      savedTrackId: null,
+      savedPositionMs: 0,
+      isBookListened: false,
+      hasDownloads: false,
+      allDownloaded: false,
+    });
+
+    expect(html).toContain("Воспроизвести");
+  });
+
   it("does not render a confirmation sheet before downloading a book", () => {
     const noop = vi.fn();
 

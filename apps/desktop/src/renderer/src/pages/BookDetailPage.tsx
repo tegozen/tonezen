@@ -65,7 +65,7 @@ export function BookDetailPage({
     tracks,
     savedTrackId ? { bookId: book.id, trackId: savedTrackId, positionMs: savedPositionMs } : null,
   );
-  const showContinue = continueState != null && currentTrackId == null;
+  const showPrimaryPlay = !isBookListened && currentTrackId == null;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,13 +88,17 @@ export function BookDetailPage({
         className="scroll-under-chrome"
         style={{ paddingTop: OVERLAY_BACK_TOP_SCROLL_PX }}
       >
-      {showContinue && continueState && (
+      {showPrimaryPlay && (
         <button
           type="button"
           className="btn-primary mx-4 mb-3 flex w-[calc(100%-2rem)] justify-center"
           onClick={onContinue}
         >
-          <ContinueResumeMeta state={continueState} variant="button" />
+          {continueState ? (
+            <ContinueResumeMeta state={continueState} variant="button" />
+          ) : (
+            "Воспроизвести"
+          )}
         </button>
       )}
       <div className="chapter-track-list">
