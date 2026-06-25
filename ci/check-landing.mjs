@@ -83,7 +83,7 @@ assertIncludes(index, 'class="download-version"', "landing download versions");
 assertIncludes(index, 'data-release-version', "landing release version placeholders");
 assertIncludes(index, 'id="release"', "landing release screen");
 assertIncludes(index, 'class="release-screen"', "landing release screen");
-assertIncludes(index, 'data-release-changelog', "landing release changelog");
+assertIncludes(index, 'data-release-list', "landing release list container");
 assertIncludes(index, "Версия недоступна", "landing release unavailable copy");
 
 const resetPassword = read("docker/landing/public/reset-password.html");
@@ -116,11 +116,12 @@ assertIncludes(styles, ".feature-icon img", "landing feature icon CSS");
 const releaseScript = read("docker/landing/public/release.js");
 assertIncludes(
   releaseScript,
-  "/rest/v1/app_versions?select=version,changelog_ru,released_at&order=released_at.desc&limit=1",
+  "/rest/v1/app_versions?select=version,changelog_ru,released_at&order=released_at.desc&limit=3",
   "landing release fetch",
 );
 assertIncludes(releaseScript, "data-release-version", "landing release script");
-assertIncludes(releaseScript, "data-release-changelog", "landing release script");
+assertIncludes(releaseScript, "data-release-list", "landing release script");
+assertIncludes(releaseScript, "renderReleases", "landing release script");
 assertNotIncludes(releaseScript, "0.2.0", "landing release script fallback");
 
 assertFile("docker/landing/public/favicon.ico");

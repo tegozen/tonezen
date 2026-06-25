@@ -1,14 +1,13 @@
 const releaseUrl =
-  "/rest/v1/app_versions?select=version,changelog_ru,released_at&order=released_at.desc&limit=1";
+  "/rest/v1/app_versions?select=version,changelog_ru,released_at&order=released_at.desc&limit=3";
 
 const versionNodes = document.querySelectorAll("[data-release-version]");
-const changelogNode = document.querySelector("[data-release-changelog]");
-const dateNode = document.querySelector("[data-release-date]");
+const releaseListNode = document.querySelector("[data-release-list]");
 const stateNode = document.querySelector("[data-release-state]");
 
-loadRelease();
+loadReleases();
 
-async function loadRelease() {
+async function loadReleases() {
   try {
     const response = await fetch(releaseUrl, {
       headers: {
@@ -21,37 +20,54 @@ async function loadRelease() {
     }
 
     const releases = await response.json();
-    const release = Array.isArray(releases) ? releases[0] : null;
+    const valid = Array.isArray(releases) ? releases.filter(isRelease) : [];
 
-    if (!isRelease(release)) {
+    if (valid.length === 0) {
       throw new Error("Release response is empty or invalid");
     }
 
-    renderRelease(release);
+    renderReleases(valid);
   } catch {
     renderUnavailable();
   }
 }
 
-function renderRelease(release) {
+function renderReleases(releases) {
+  const latest = releases[0];
+
   versionNodes.forEach((node) => {
-    node.textContent = `Версия ${release.version}`;
+    node.textContent = `Версия ${latest.version}`;
   });
 
-  if (dateNode) {
-    dateNode.hidden = false;
-    dateNode.textContent = `Опубликовано ${formatReleaseDate(release.released_at)}`;
-  }
+  if (releaseListNode) {
+    releaseListNode.replaceChildren(
+      ...releases.map((release) => {
+        const article = document.createElement("article");
+        article.className = "release-card";
 
-  if (changelogNode) {
-    changelogNode.replaceChildren(
-      ...release.changelog_ru.map((entry) => {
-        const item = document.createElement("li");
-        item.textContent = entry;
-        return item;
+        const version = document.createElement("p");
+        version.className = "release-version";
+        version.textContent = `Версия ${release.version}`;
+
+        const date = document.createElement("p");
+        date.className = "release-date";
+        date.textContent = `Опубликовано ${formatReleaseDate(release.released_at)}`;
+
+        const changelog = document.createElement("ul");
+        changelog.className = "release-changelog";
+        changelog.replaceChildren(
+          ...release.changelog_ru.map((entry) => {
+            const item = document.createElement("li");
+            item.textContent = entry;
+            return item;
+          }),
+        );
+
+        article.append(version, date, changelog);
+        return article;
       }),
     );
-    changelogNode.hidden = false;
+    releaseListNode.hidden = false;
   }
 
   if (stateNode) {
@@ -64,14 +80,9 @@ function renderUnavailable() {
     node.textContent = "Версия недоступна";
   });
 
-  if (dateNode) {
-    dateNode.hidden = true;
-    dateNode.textContent = "";
-  }
-
-  if (changelogNode) {
-    changelogNode.replaceChildren();
-    changelogNode.hidden = true;
+  if (releaseListNode) {
+    releaseListNode.replaceChildren();
+    releaseListNode.hidden = true;
   }
 
   if (stateNode) {
