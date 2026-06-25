@@ -68,7 +68,7 @@ internal fun SpectrumCoverArt(
             drawCircle(
                 color = TonezenTeal.copy(alpha = if (isPlaying) 0.18f else 0.1f),
                 radius = size.minDimension * 0.38f,
-                center = Offset(size.width * 0.5f, size.height * 0.55f),
+                center = Offset(size.width * 0.5f, size.height * 0.5f),
             )
             drawCircle(
                 color = Color.White.copy(alpha = 0.06f),
@@ -79,7 +79,7 @@ internal fun SpectrumCoverArt(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 18.dp, vertical = 24.dp),
+                .padding(18.dp),
         ) {
             val gap = 3.dp.toPx()
             val barWidth = ((size.width - gap * (bars.size - 1)) / bars.size).coerceAtLeast(2.dp.toPx())

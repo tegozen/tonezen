@@ -1084,12 +1084,12 @@
   .track-spectrum-glow {
     @apply pointer-events-none absolute inset-0;
     background:
-      radial-gradient(circle at 50% 58%, rgb(94 234 212 / 0.18), transparent 38%),
+      radial-gradient(circle at 50% 50%, rgb(94 234 212 / 0.18), transparent 38%),
       radial-gradient(circle at 24% 22%, rgb(255 255 255 / 0.07), transparent 28%);
   }
 
   .track-spectrum-bars {
-    @apply absolute inset-x-[18px] inset-y-6 flex items-center justify-center gap-[3px];
+    @apply absolute inset-[18px] flex items-center justify-center gap-[3px];
   }
 
   .track-spectrum-bar {
