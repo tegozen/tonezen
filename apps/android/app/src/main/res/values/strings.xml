@@ -85,7 +85,7 @@
     <string name="download_audio_files">Аудиофайлы</string>
     <string name="download_cover_art">Обложка</string>
     <string name="download_offline">Скачать офлайн</string>
-    <string name="offline_action">Офлайн</string>
+    <string name="offline_action">Скачать все</string>
     <string name="mark_complete">Отметить прослушанным</string>
     <string name="mark_not_listened">Отметить не прослушанным</string>
     <string name="remove_download">Удалить загрузку</string>

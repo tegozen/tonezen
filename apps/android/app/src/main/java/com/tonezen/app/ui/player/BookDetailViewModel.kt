@@ -14,7 +14,6 @@ import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
-import com.tonezen.app.domain.downloads.nextAudiobookDownloadRequest
 import com.tonezen.app.domain.downloads.DownloadPriority
 import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
 import com.tonezen.app.domain.progress.completedAudiobookProgress
@@ -34,6 +33,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -102,6 +102,16 @@ class BookDetailViewModel @Inject constructor(
                 persistAudiobookProgress(book.id, completed.trackId, completed.positionMs)
             }
         }
+        // Обновляем треки при изменении локальной библиотеки (завершение фоновой загрузки),
+        // чтобы иконки скачивания обновились на галочку без перехода назад/вперёд.
+        viewModelScope.launch {
+            localLibraryNotifier.changes
+                .debounce(300L)
+                .collect {
+                    val book = _uiState.value.book ?: return@collect
+                    reloadTracks(book)
+                }
+        }
     }
 
     fun loadBook(book: Book) {
@@ -111,14 +121,32 @@ class BookDetailViewModel @Inject constructor(
                     catalogRepository.getProgress(book.id)
             }
             val syncStatus = resolveSyncStatus(book, progress)
+            val playbackState = resolveBookDetailPlaybackState(tracks, playbackClient.snapshot.value)
             _uiState.update {
                 it.copy(
                     book = book,
                     tracks = tracks,
                     audiobookProgress = progress,
                     syncStatus = syncStatus,
+                    activeTrackId = playbackState.activeTrackId ?: it.activeTrackId,
+                    isPlaybackActiveForBook = playbackState.isActiveForBook || it.isPlaybackActiveForBook,
                 )
             }
+        }
+    }
+
+    /** Перечитывает только треки (без полной загрузки книги) — используется при фоновых изменениях. */
+    private suspend fun reloadTracks(book: Book) {
+        val tracks = withContext(Dispatchers.IO) {
+            catalogRepository.getTracksForBook(book.id)
+        }
+        val playbackState = resolveBookDetailPlaybackState(tracks, playbackClient.snapshot.value)
+        _uiState.update {
+            it.copy(
+                tracks = tracks,
+                activeTrackId = playbackState.activeTrackId ?: it.activeTrackId,
+                isPlaybackActiveForBook = playbackState.isActiveForBook || it.isPlaybackActiveForBook,
+            )
         }
     }
 
@@ -153,7 +181,12 @@ class BookDetailViewModel @Inject constructor(
                     val refreshedTracks = withContext(Dispatchers.IO) {
                         catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
                     }
-                    val queue = playbackQueueBuilder.buildQueueFromLocalTracks(book, refreshedTracks)
+                    // Строим очередь из скачанных треков. Если по какой-то причине целевой трек
+                    // ещё не отражён в БД как скачанный — подставляем его напрямую из localTrack.
+                    val tracksForQueue = refreshedTracks.map { t ->
+                        if (t.id == localTrack.id && t.localPath.isNullOrBlank()) localTrack else t
+                    }
+                    val queue = playbackQueueBuilder.buildQueueFromLocalTracks(book, tracksForQueue)
                     if (queue.isEmpty()) return@launch
                     val startIndex = queue.indexOfFirst { it.trackId == localTrack.id }
                     if (startIndex < 0) return@launch
@@ -208,7 +241,7 @@ class BookDetailViewModel @Inject constructor(
     }
 
     fun requestDownload() {
-        downloadNextTrack()
+        downloadAllMissingTracks()
     }
 
     fun requestTrackDownload(track: Track) {
@@ -235,8 +268,15 @@ class BookDetailViewModel @Inject constructor(
     }
 
     fun continueListening() {
-        val progress = _uiState.value.audiobookProgress ?: return
-        val track = _uiState.value.tracks.find { it.id == progress.trackId } ?: return
+        val state = _uiState.value
+        val progress = state.audiobookProgress
+        val tracks = state.tracks.sortedBy { it.sortOrder }
+        // Если прогресса нет — начинаем с первого трека
+        val track = if (progress != null) {
+            tracks.find { it.id == progress.trackId } ?: tracks.firstOrNull()
+        } else {
+            tracks.firstOrNull()
+        } ?: return
         playTrack(track)
     }
 
@@ -260,15 +300,25 @@ class BookDetailViewModel @Inject constructor(
         playbackClient.seekTo((durationMs * fraction.coerceIn(0f, 1f)).toLong())
     }
 
-    private fun downloadNextTrack() {
+    private fun downloadAllMissingTracks() {
         val book = _uiState.value.book ?: return
-        val request = nextAudiobookDownloadRequest(
-            book = book,
-            tracks = _uiState.value.tracks,
-            currentTrackId = _uiState.value.activeTrackId,
-            savedTrackId = _uiState.value.audiobookProgress?.trackId,
-        ) ?: return
-        downloadQueueController.enqueue(request)
+        val missingTracks = _uiState.value.tracks
+            .sortedBy { it.sortOrder }
+            .filter { it.localPath.isNullOrBlank() }
+        if (missingTracks.isEmpty()) return
+        val batchId = java.util.UUID.randomUUID().toString()
+        val requests = missingTracks.map { track ->
+            EnqueueDownloadRequest(
+                bookId = book.id,
+                trackId = track.id,
+                priority = DownloadPriority.USER,
+                batchId = batchId,
+                title = track.title,
+                subtitle = book.title,
+                contentType = book.contentType.name.lowercase(),
+            )
+        }
+        downloadQueueController.enqueueBatch(requests, batchId)
     }
 
     fun deleteLocalDownloads() {

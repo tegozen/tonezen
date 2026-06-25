@@ -95,9 +95,10 @@ internal fun BookDetailScreen(
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     val hasPlaybackControls = playbackTrack != null
-    // Показываем кнопку "Продолжить" только если есть не прослушанный контент И книга сейчас НЕ играет.
-    // Когда книга играет, кнопка излишня — плеер уже доступен внутри активного трека.
-    val hasContinueButton = continueState != null && !isBookListened && !hasPlaybackControls
+    // Показываем кнопку "Продолжить" / "Начать слушать" только если:
+    // 1. Книга не полностью прослушана И
+    // 2. Книга сейчас НЕ играет (когда книга играет, плеер уже доступен внутри активного трека).
+    val hasContinueButton = !isBookListened && !hasPlaybackControls
     val playbackErrorMessage = uiState.playbackErrorRes?.let { stringResource(it) }
     val downloadErrorMessage = if (uiState.error == BookDetailViewModel.DOWNLOAD_FAILED_ERROR) {
         stringResource(R.string.music_playback_error_download)
@@ -160,10 +161,8 @@ internal fun BookDetailScreen(
             )
         },
     ) {
-        // Плеер вверху экрана показываем только когда:
-        // 1. Книга не полностью прослушана И
-        // 2. Кнопка "Продолжить" должна быть видна (офлайн-режим)
-        continueState?.takeIf { hasContinueButton }?.let { state ->
+        // Кнопка "Продолжить" / "Начать слушать" — показывается когда книга не играет и не прослушана.
+        if (hasContinueButton) {
             item(key = "continue-listening") {
                 Button(
                     onClick = onContinueListening,
@@ -171,10 +170,14 @@ internal fun BookDetailScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
-                    ContinueResumeMeta(
-                        state = state,
-                        variant = ContinueResumeVariant.Button,
-                    )
+                    if (continueState != null) {
+                        ContinueResumeMeta(
+                            state = continueState,
+                            variant = ContinueResumeVariant.Button,
+                        )
+                    } else {
+                        Text(stringResource(R.string.play))
+                    }
                 }
             }
         }
