@@ -69,7 +69,7 @@ class LibraryViewModel @Inject constructor(
     private lateinit var cycleHandler: LibraryCycleHandler
     private lateinit var musicHandler: LibraryMusicHandler
     private var lastLibrarySnapshotUiKey: LibrarySnapshotUiKey? = null
-    private var lastLoadedUserId: String? = null
+    private var catalogOwnerKey: String? = null
     private var pendingCatalogReload = false
 
     init {
@@ -158,9 +158,9 @@ class LibraryViewModel @Inject constructor(
                 if (sessionRepository.resolveState(sessionData) != SessionState.UNAUTHENTICATED) {
                     playbackClient.connect()
                 }
-                val userId = sessionData?.userId
-                if (userId != lastLoadedUserId) {
-                    lastLoadedUserId = userId
+                val ownerKey = sessionData?.userId ?: "__anonymous__"
+                if (ownerKey != catalogOwnerKey) {
+                    catalogOwnerKey = ownerKey
                     loadLibrary(sessionData)
                 }
             }
@@ -308,6 +308,7 @@ class LibraryViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoadingCatalog = false,
+                        isBootstrapComplete = true,
                         books = emptyList(),
                         cycles = emptyList(),
                         musicTrackList = emptyList(),
@@ -318,9 +319,20 @@ class LibraryViewModel @Inject constructor(
             return
         }
         val refreshed = withContext(Dispatchers.IO) {
-            sessionRepository.refreshIfNeeded(sessionData)
+            if (networkMonitor.isOnline()) {
+                sessionRepository.refreshIfNeeded(sessionData)
+            } else {
+                sessionData
+            }
         }
         refreshSessionState(refreshed)
+        if (networkMonitor.isOnline()) {
+            refreshed?.accessToken?.let { token ->
+                withContext(Dispatchers.IO) {
+                    progressSyncRepository.pullAll(token)
+                }
+            }
+        }
         refreshed?.let {
             progressSyncRepository.start(it)
             profileSyncRepository.start(it)
@@ -347,6 +359,7 @@ class LibraryViewModel @Inject constructor(
                     rebuildMusic = true,
                     reconcileLocalPaths = false,
                 )
+                _uiState.update { it.copy(isBootstrapComplete = true) }
                 if (_uiState.value.books.isNotEmpty() || _uiState.value.cycles.isNotEmpty()) {
                     _uiState.update { it.copy(isLoadingCatalog = false) }
                 }
@@ -376,7 +389,7 @@ class LibraryViewModel @Inject constructor(
                 rebuildMusic = true,
                 reconcileLocalPaths = false,
             )
-            _uiState.update { it.copy(isLoadingCatalog = false) }
+            _uiState.update { it.copy(isLoadingCatalog = false, isBootstrapComplete = true) }
             viewModelScope.launch(Dispatchers.IO) {
                 catalogRepository.reconcileLocalDownloadPaths()
                 withContext(Dispatchers.Main) {

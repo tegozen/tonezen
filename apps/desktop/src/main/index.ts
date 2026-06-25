@@ -13,6 +13,7 @@ import { ProgressSyncService } from "./progressSync.js";
 import { getClientConfig, loadAppEnv, loadPackagedEnv } from "./loadEnv.js";
 import { createMainWindow } from "./mainWindow.js";
 import { closeSplashWindow, createSplashWindow } from "./splashWindow.js";
+import { runColdStartBootstrap } from "./bootstrap.js";
 import { createAppTray } from "./tray.js";
 import { PlaybackPowerBlocker } from "./playbackPowerBlocker.js";
 import { registerIpcHandlers } from "./ipcHandlers.js";
@@ -102,6 +103,8 @@ if (!hasSingleInstanceLock) {
         anonKey: runtimeConfig.supabaseAnonKey,
       },
     );
+
+    await runColdStartBootstrap(sessionService, progressSync);
 
     const mainWindow = createMainWindow(lifecycle, () => closeSplashWindow(splashWindow));
     appUiReferences.setMainWindow(mainWindow);

@@ -11,6 +11,7 @@ import com.tonezen.app.ui.auth.AuthScreen
 import com.tonezen.app.ui.auth.AuthViewModel
 import com.tonezen.app.ui.library.LibraryViewModel
 import com.tonezen.app.ui.shell.AppShell
+import com.tonezen.app.ui.splash.SplashScreen
 import com.tonezen.app.ui.theme.TonezenTheme
 
 @Composable
@@ -23,7 +24,7 @@ fun TonezenApp(
 
     TonezenTheme {
         when {
-            !libraryState.isSessionLoaded -> Unit
+            !libraryState.isBootstrapComplete -> SplashScreen()
             libraryState.sessionState == SessionState.UNAUTHENTICATED -> AuthScreen(
                 padding = PaddingValues(0.dp),
                 onLogin = authViewModel::login,
