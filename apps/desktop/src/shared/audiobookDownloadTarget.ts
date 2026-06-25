@@ -26,6 +26,13 @@ export function nextAudiobookDownloadRequest({
   };
 }
 
+export function nextChapterInBook(tracks: Track[], currentTrackId: string): Track | null {
+  const sorted = [...tracks].sort((a, b) => a.sortOrder - b.sortOrder);
+  const index = sorted.findIndex((track) => track.id === currentTrackId);
+  if (index < 0 || index >= sorted.length - 1) return null;
+  return sorted[index + 1];
+}
+
 function nextAudiobookDownloadTrack(
   tracks: Track[],
   currentTrackId: string | null,

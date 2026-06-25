@@ -8,7 +8,12 @@ import {
 import { completedAudiobookProgress, upsertAudiobookProgress } from "@shared/audiobookProgress";
 import { completedDownloadItems } from "@shared/downloadsPageState";
 import { progressForTrack } from "@shared/downloadQueueState";
-import { nextAudiobookDownloadRequest } from "@shared/audiobookDownloadTarget";
+import { nextChapterInBook } from "@shared/audiobookDownloadTarget";
+import { resolveAudiobookPlaybackIntent } from "@shared/audiobookPlaybackIntent";
+import {
+  orderedCycleEntriesFromResume,
+  resolveCycleResumeTarget,
+} from "@shared/cycleListenProgress";
 import { CyclePlaybackResolver } from "@shared/cyclePlayback";
 import { findActiveMusicTrack } from "@shared/musicPlayback";
 import { AppShell } from "./components/AppShell";
@@ -84,6 +89,7 @@ export function App() {
   const [cyclePlayingId, setCyclePlayingId] = useState<string | null>(null);
   const [progressList, setProgressList] = useState<Array<{ bookId: string; trackId: string; positionMs: number; updatedAt: string }>>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [earlierChapterPrompt, setEarlierChapterPrompt] = useState<Track | null>(null);
 
   const downloadQueue = useDownloadQueue();
   const musicStartedInSessionRef = useRef(false);
@@ -187,7 +193,6 @@ export function App() {
     pauseOrResume,
     seekBy,
     seekTo,
-    resumeProgress,
     volume,
     setVolume,
   } = usePlayback(selectedBook, tracks, skipTracks, skipHandlers);
@@ -379,16 +384,55 @@ export function App() {
     if (fromCycle) setSelectedCycle(fromCycle);
   };
 
+  const prefetchNextAudiobookChapter = useCallback(
+    async (book: Book, bookTracks: Track[], currentTrack: Track) => {
+      if (sessionState !== "AuthenticatedOnline") return;
+      const next = nextChapterInBook(bookTracks, currentTrack.id);
+      if (!next || next.localPath) return;
+      try {
+        await downloadQueue.enqueue({
+          bookId: book.id,
+          trackId: next.id,
+          priority: "PREFETCH",
+          title: next.title,
+          subtitle: book.title,
+          contentType: book.contentType,
+        });
+      } catch {
+        // Prefetch is best-effort.
+      }
+    },
+    [downloadQueue, sessionState],
+  );
+
+  const playAudiobookTrackResolved = async (book: Book, bookTracks: Track[], track: Track, startMs: number) => {
+    music.setMusicMode(false);
+    const local = track.localPath ? track : await ensureAudiobookTrackLocal(book.id, track.id);
+    if (local?.localPath) {
+      playTrack(local, startMs, book);
+      setShowExpandedPlayer(false);
+      void prefetchNextAudiobookChapter(book, bookTracks, local);
+    } else if (!track.localPath) {
+      const offlineMessage =
+        sessionState === "AuthenticatedOffline" || sessionState === "Unauthenticated"
+          ? "Нет сети — нужен интернет для первой загрузки"
+          : "Не удалось скачать";
+      showToast(offlineMessage);
+      stopPlayback();
+    }
+  };
+
   const playBookTrack = async (track: Track) => {
     if (!selectedBook) return;
-    music.setMusicMode(false);
-    const local = track.localPath ? track : await ensureAudiobookTrackLocal(selectedBook.id, track.id);
-    if (local?.localPath) {
-      playTrack(local, 0, selectedBook);
-      setShowExpandedPlayer(false);
-    } else if (!track.localPath) {
-      showToast("Не удалось скачать");
+    const sortedTracks = [...tracks].sort((a, b) => a.sortOrder - b.sortOrder);
+    const saved = progressByBook.get(selectedBook.id) ?? null;
+    const intent = resolveAudiobookPlaybackIntent(sortedTracks, saved, track);
+    if (intent.kind === "ConfirmEarlierChapter") {
+      setEarlierChapterPrompt(track);
+      return;
     }
+    const startMs = intent.kind === "Resume" ? intent.positionMs : 0;
+    await playAudiobookTrackResolved(selectedBook, tracks, track, startMs);
   };
 
   const playCycle = async (cycle: Cycle) => {
@@ -398,65 +442,97 @@ export function App() {
     }
     setCyclePlayingId(cycle.id);
     music.setMusicMode(false);
-    for (const book of cycle.books) {
-      const bookTracks = await window.tonezen.db.getTracks(book.id);
-      const saved = await window.tonezen.progress.get(book.id);
-      let startTrack = bookTracks[0];
-      if (saved) {
-        startTrack = bookTracks.find((item) => item.id === saved.trackId) ?? bookTracks[0];
-      }
-      if (!startTrack) continue;
-      const local = startTrack.localPath ? startTrack : await ensureAudiobookTrackLocal(book.id, startTrack.id);
-      if (local?.localPath) {
-        setSelectedBook(book as Book);
-        setTracks(bookTracks as Track[]);
-        playTrack(local, saved?.positionMs ?? 0, book);
-        return;
+    const progressMap = new Map(
+      progressList.map((entry) => [
+        entry.bookId,
+        {
+          bookId: entry.bookId,
+          trackId: entry.trackId,
+          positionMs: entry.positionMs,
+          updatedAt: entry.updatedAt,
+        },
+      ]),
+    );
+    const resume = resolveCycleResumeTarget(cycle, tracksByBookId, progressMap);
+    if (!resume) {
+      showToast("В цикле нет доступных глав для воспроизведения");
+      setCyclePlayingId(null);
+      return;
+    }
+    if (!resume.track.localPath && sessionState !== "AuthenticatedOnline") {
+      showToast("Нет сети — нужен интернет для первой загрузки");
+      stopPlayback();
+      setCyclePlayingId(null);
+      return;
+    }
+    const local = resume.track.localPath
+      ? resume.track
+      : await ensureAudiobookTrackLocal(resume.book.id, resume.track.id);
+    if (!local?.localPath) {
+      showToast("Не удалось скачать");
+      stopPlayback();
+      setCyclePlayingId(null);
+      return;
+    }
+    setSelectedBook(resume.book);
+    setSelectedCycle(cycle);
+    const bookTracks = await window.tonezen.db.getTracks(resume.book.id);
+    setTracks(bookTracks as Track[]);
+    playTrack(local, resume.startPositionMs, resume.book);
+    const entries = orderedCycleEntriesFromResume(cycle, tracksByBookId, {
+      book: resume.book,
+      track: local,
+      startPositionMs: resume.startPositionMs,
+    });
+    if (entries.length > 1 && sessionState === "AuthenticatedOnline") {
+      const next = entries[1];
+      if (!next.track.localPath) {
+        void downloadQueue.enqueue({
+          bookId: next.book.id,
+          trackId: next.track.id,
+          priority: "PREFETCH",
+          title: next.track.title,
+          subtitle: next.book.title,
+          contentType: next.book.contentType,
+        }).catch(() => {});
       }
     }
   };
 
-  const downloadNextBookTrack = async (book: Book) => {
+  const downloadAllBookTracks = async (book: Book) => {
     const bookTracks = await window.tonezen.db.getTracks(book.id);
-    const activeTrackId =
-      !music.musicMode && currentTrack && currentTrack.bookId === book.id ? currentTrack.id : null;
-    const request = nextAudiobookDownloadRequest({
-      book,
-      tracks: bookTracks as Track[],
-      currentTrackId: activeTrackId,
-      savedTrackId: progressByBook.get(book.id)?.trackId ?? null,
-    });
-    if (!request) return;
+    const missing = bookTracks.filter((track) => !track.localPath);
+    if (missing.length === 0) return;
+    const batchId = crypto.randomUUID();
     try {
-      await downloadQueue.enqueue(request);
+      await downloadQueue.enqueueBatch(
+        missing.map((track) => ({
+          bookId: book.id,
+          trackId: track.id,
+          priority: "USER" as const,
+          batchId,
+          title: track.title,
+          subtitle: book.title,
+          contentType: book.contentType,
+        })),
+        batchId,
+      );
     } catch (e) {
       const message = e instanceof Error ? e.message : "";
-      let errorText: string;
-      switch (message) {
-        case "__download_auth_required__":
-          errorText = "Войдите в аккаунт, чтобы скачать трек";
-          break;
-        case "__download_sign_failed__":
-        case "__download_no_signed_url__":
-        case "__download_transfer_failed__":
-          errorText = "Не удалось скачать трек";
-          break;
-        default:
-          errorText = "Не удалось скачать";
+      if (sessionState === "AuthenticatedOffline" || sessionState === "Unauthenticated") {
+        showToast("Нет сети");
+      } else {
+        showToast(message === "__download_auth_required__" ? "Войдите в аккаунт, чтобы скачать трек" : "Не удалось скачать");
       }
-      showToast(errorText);
-      logDownloadFailure({
-        code: e instanceof Error ? e.message : "UNKNOWN",
-        bookId: request.bookId,
-        trackId: request.trackId,
-        bookTitle: request.subtitle ?? undefined,
-        trackTitle: request.title,
-      });
     }
   };
 
   const downloadBookTrack = async (book: Book, track: Track) => {
     if (track.localPath) return;
+    if (sessionState === "AuthenticatedOffline" || sessionState === "Unauthenticated") {
+      showToast("Нет сети");
+      return;
+    }
     try {
       await downloadQueue.enqueue({
         bookId: book.id,
@@ -548,6 +624,22 @@ export function App() {
     if (prev) void playBookTrack(prev);
   };
 
+  const advanceAudiobookTrack = async (book: Book, bookTracks: Track[], nextTrack: Track) => {
+    if (!nextTrack.localPath && sessionState !== "AuthenticatedOnline") {
+      showToast("Нет сети — нужен интернет для первой загрузки");
+      stopPlayback();
+      return;
+    }
+    const local = nextTrack.localPath ? nextTrack : await ensureAudiobookTrackLocal(book.id, nextTrack.id);
+    if (!local?.localPath) {
+      showToast("Не удалось скачать");
+      stopPlayback();
+      return;
+    }
+    playTrack(local, 0, book);
+    void prefetchNextAudiobookChapter(book, bookTracks, local);
+  };
+
   const handleTrackEnded = () => {
     const completedProgress = completedAudiobookProgress(selectedBook, currentTrack, durationMs);
     if (completedProgress) {
@@ -564,7 +656,7 @@ export function App() {
 
     const nextInBook = cycleResolver.nextInBook(currentTrack, tracks);
     if (nextInBook) {
-      void playBookTrack(nextInBook);
+      void advanceAudiobookTrack(selectedBook, tracks, nextInBook);
       return;
     }
 
@@ -589,8 +681,18 @@ export function App() {
       if (!selectedCycle && result.isNextBookInCycle) {
         setSelectedCycle(cycle);
       }
-      void playBookTrack(result.track as Track);
+      void advanceAudiobookTrack(result.book as Book, bookTracks as Track[], result.track as Track);
     })();
+  };
+
+  const continueBook = async () => {
+    if (!selectedBook) return;
+    const sortedTracks = [...tracks].sort((a, b) => a.sortOrder - b.sortOrder);
+    const saved = progressByBook.get(selectedBook.id);
+    const track = saved
+      ? sortedTracks.find((item) => item.id === saved.trackId) ?? sortedTracks[0]
+      : sortedTracks[0];
+    if (track) await playBookTrack(track);
   };
 
   const markTrackListened = async (book: Book, track: Track, listened: boolean) => {
@@ -727,7 +829,7 @@ export function App() {
             setSelectedBook(null);
           }}
           onTrackClick={(track) => void playBookTrack(track)}
-          onDownloadRequest={() => void downloadNextBookTrack(selectedBook)}
+          onDownloadRequest={() => void downloadAllBookTracks(selectedBook)}
           onDownloadTrack={(track) => void downloadBookTrack(selectedBook, track)}
           onToggleBookListened={() => {
             const listened = tracks.length > 0 && tracks.every((track) => {
@@ -741,7 +843,7 @@ export function App() {
           onRemoveBookDownloads={() => void removeBookDownloads(selectedBook)}
           onMarkTrackListened={(track, listened) => void markTrackListened(selectedBook, track, listened)}
           onRemoveTrackDownload={(track) => void removeTrackDownload(selectedBook, track)}
-          onContinue={() => void resumeProgress()}
+          onContinue={() => void continueBook()}
           savedTrackId={savedBookProgress?.trackId ?? null}
           savedPositionMs={savedBookProgress?.positionMs ?? 0}
           isBookListened={
@@ -872,6 +974,36 @@ export function App() {
     <>
       {shell}
       {toastMessage && <ToastMessage message={toastMessage} />}
+      {earlierChapterPrompt && selectedBook && (
+        <div className="sheet-overlay flex items-center justify-center p-5">
+          <div className="modal-panel glass-panel">
+            <h2 className="text-lg font-semibold">Начать с этой главы?</h2>
+            <p className="mt-2 text-sm text-muted">
+              Вы уже слушали более позднюю главу. Начать выбранную главу с начала?
+            </p>
+            <div className="mt-4 flex gap-3">
+              <button
+                type="button"
+                className="btn-secondary flex-1"
+                onClick={() => setEarlierChapterPrompt(null)}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                className="btn-primary flex-1"
+                onClick={() => {
+                  const track = earlierChapterPrompt;
+                  setEarlierChapterPrompt(null);
+                  if (track) void playAudiobookTrackResolved(selectedBook, tracks, track, 0);
+                }}
+              >
+                Начать
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <NowPlayingSheet
         visible={showExpandedPlayer && Boolean(currentTrack)}
         title={miniTitle ?? ""}

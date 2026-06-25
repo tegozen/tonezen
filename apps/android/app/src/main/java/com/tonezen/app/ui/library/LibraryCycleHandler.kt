@@ -346,11 +346,7 @@ internal class LibraryCycleHandler(
                     contentType = ContentType.AUDIOBOOK.name.lowercase(),
                 )
                 if (awaitResult != DownloadAwaitResult.COMPLETED) {
-                    if (awaitResult == DownloadAwaitResult.FAILED) {
-                        uiState.update {
-                            it.copy(cyclePlaybackErrorMessage = playbackErrorMessage(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
-                        }
-                    }
+                    stopAudiobookAdvance(playbackErrorMessageForAwait(awaitResult))
                     return@launch
                 }
                 withContext(Dispatchers.IO) {
@@ -362,9 +358,7 @@ internal class LibraryCycleHandler(
                 }
             }
             if (localTrack == null) {
-                uiState.update {
-                    it.copy(cyclePlaybackErrorMessage = playbackErrorMessage(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
-                }
+                stopAudiobookAdvance(playbackErrorMessage(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED))
                 return@launch
             }
 
@@ -499,11 +493,7 @@ internal class LibraryCycleHandler(
                 uiState.update {
                     it.copy(
                         cyclePlayback = CyclePlaybackUi(),
-                        cyclePlaybackErrorMessage = if (awaitResult == DownloadAwaitResult.FAILED) {
-                            playbackErrorMessage(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED)
-                        } else {
-                            null
-                        },
+                        cyclePlaybackErrorMessage = playbackErrorMessageForAwait(awaitResult),
                     )
                 }
                 return
@@ -554,12 +544,52 @@ internal class LibraryCycleHandler(
             queueResult.startIndex,
             resume.startPositionMs,
         )
+        prefetchNextCycleChapter(cycle, tracksByBookId, resume)
         refreshDownloadedBooks()
         refreshCycleCardStates(listOf(cycle), uiState.value.downloadedBookIds)
     }
 
     private fun cyclesContaining(bookId: String): List<Cycle> =
         uiState.value.cycles.filter { cycle -> cycle.books.any { it.id == bookId } }
+
+    private fun stopAudiobookAdvance(message: String) {
+        playbackClient.stopAndRelease()
+        uiState.update {
+            it.copy(
+                cyclePlaybackErrorMessage = message,
+                cyclePlayback = CyclePlaybackUi(),
+            )
+        }
+    }
+
+    private fun playbackErrorMessageForAwait(result: DownloadAwaitResult): String = when (result) {
+        DownloadAwaitResult.OFFLINE -> playbackErrorMessage(EnsureTrackOutcome.Failure.OFFLINE)
+        DownloadAwaitResult.FAILED -> playbackErrorMessage(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED)
+        DownloadAwaitResult.CANCELLED, DownloadAwaitResult.COMPLETED ->
+            playbackErrorMessage(EnsureTrackOutcome.Failure.DOWNLOAD_FAILED)
+    }
+
+    private fun prefetchNextCycleChapter(
+        cycle: Cycle,
+        tracksByBookId: Map<String, List<Track>>,
+        resume: CycleResumeTarget,
+    ) {
+        if (!uiState.value.isNetworkOnline) return
+        val entries = orderedCycleEntriesFromResume(cycle, tracksByBookId, resume)
+        if (entries.size < 2) return
+        val next = entries[1]
+        if (!next.second.localPath.isNullOrBlank()) return
+        downloadQueueController.enqueue(
+            EnqueueDownloadRequest(
+                bookId = next.first.id,
+                trackId = next.second.id,
+                priority = DownloadPriority.PREFETCH,
+                title = next.second.title,
+                subtitle = next.first.title,
+                contentType = ContentType.AUDIOBOOK.name.lowercase(),
+            ),
+        )
+    }
 
     private suspend fun refreshDownloadedBooks() {
         val downloaded = withContext(Dispatchers.IO) {
