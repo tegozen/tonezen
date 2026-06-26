@@ -1,6 +1,6 @@
 {
   "name": "@tonezen/desktop",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "private": true,
   "description": "Tonezen desktop — offline-first media player",
   "main": "out/main/index.js",
