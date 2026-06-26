@@ -147,7 +147,7 @@ class TrackDownloadQueueController @Inject constructor(
         scope.launch {
             mutex.withLock {
                 cancelQueuedTrackLocked(bookId, trackId)
-                downloadRepository.cancelActiveDownload()
+                cancelActiveDownloadIfMatching(bookId, trackId)
                 refreshNotifierFromDb()
                 stopServiceIfIdle()
             }
@@ -162,8 +162,9 @@ class TrackDownloadQueueController @Inject constructor(
                     entity.priority in playbackPriorities
             }
             if (items.isEmpty()) return@withLock
+            val keys = items.map { DownloadQueueKey(it.bookId, it.trackId) }
             items.forEach { cancelQueuedTrackLocked(it.bookId, it.trackId) }
-            downloadRepository.cancelActiveDownload()
+            cancelActiveDownloadIfMatchingAny(keys)
             refreshNotifierFromDb()
             stopServiceIfIdle()
         }
@@ -176,7 +177,7 @@ class TrackDownloadQueueController @Inject constructor(
                 val key = DownloadQueueKey(bookId, trackId)
                 userCancelledKeys.add(key)
                 downloadQueueDao.delete(bookId, trackId)
-                downloadRepository.cancelActiveDownload()
+                cancelActiveDownloadIfMatching(bookId, trackId)
                 withContext(Dispatchers.IO) {
                     downloadRepository.deleteLocalTrack(bookId, trackId)
                 }
@@ -675,6 +676,22 @@ class TrackDownloadQueueController @Inject constructor(
         workerJob = null
         withContext(Dispatchers.Main) {
             context.stopService(Intent(context, TrackDownloadService::class.java))
+        }
+    }
+
+    private fun cancelActiveDownloadIfMatching(bookId: String, trackId: String) {
+        val active = notifier.snapshot()
+        if (active.activeBookId == bookId && active.activeTrackId == trackId) {
+            downloadRepository.cancelActiveDownload()
+        }
+    }
+
+    private fun cancelActiveDownloadIfMatchingAny(keys: Collection<DownloadQueueKey>) {
+        val active = notifier.snapshot()
+        val activeBookId = active.activeBookId ?: return
+        val activeTrackId = active.activeTrackId ?: return
+        if (keys.any { it.bookId == activeBookId && it.trackId == activeTrackId }) {
+            downloadRepository.cancelActiveDownload()
         }
     }
 
