@@ -63,6 +63,8 @@ The indexer reads tags from each file (title, artist, track number). All files b
 
 Folder and file names may contain **Cyrillic and spaces** — Kong routes uploads through `storage-path-proxy`, which transliterates storage paths automatically and stores the original display path for the indexer (e.g. `cycles/Рыцарь системы/Книга 1/01 глава.mp3` is stored as `cycles/rytsar-sistemy/kniga-1/01-glava.mp3`, while apps display «Рыцарь системы» / «Книга 1» / «01 глава»). After changing proxy or Kong config, run `docker compose up -d storage storage-path-proxy kong`.
 
+**Reads pass through verbatim.** The proxy only sanitizes **mutating** requests (uploads). `GET`/`HEAD`/`OPTIONS` are forwarded with the object key unchanged, because the download path comes from the catalog (the indexer recorded the real stored key) and must match both the actual object and the URL embedded in the signed-download token. Re-sanitizing a read would change the key (e.g. lowercase it) and break the signature check (`InvalidSignature`) for any object whose stored key is not already the canonical sanitized form — for example legacy `music/*` files uploaded with mixed-case keys outside the proxy.
+
 For content uploaded before display-name mapping existed, add the mapping manually and wait for the next indexer scan:
 
 ```sql
