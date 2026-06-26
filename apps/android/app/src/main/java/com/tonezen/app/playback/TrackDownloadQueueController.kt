@@ -12,6 +12,7 @@ import com.tonezen.app.data.remote.DownloadRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.domain.downloads.DownloadAwaitResult
 import com.tonezen.app.domain.downloads.DownloadPriority
+import com.tonezen.app.domain.downloads.DownloadQueueBookIdPolicy
 import com.tonezen.app.domain.downloads.DownloadQueueKey
 import com.tonezen.app.domain.downloads.DownloadQueuePolicy
 import com.tonezen.app.domain.downloads.DownloadQueueSortable
@@ -88,7 +89,8 @@ class TrackDownloadQueueController @Inject constructor(
                 var skipped = 0
                 var enqueueSequence = System.currentTimeMillis()
                 requests.forEach { request ->
-                    val req = request.copy(
+                    val normalized = normalizeEnqueueRequest(request)
+                    val req = normalized.copy(
                         batchId = batchId,
                         enqueuedAt = enqueueSequence++,
                     )
@@ -120,8 +122,12 @@ class TrackDownloadQueueController @Inject constructor(
         subtitle: String? = null,
         contentType: String = "music",
     ): DownloadAwaitResult {
-        val key = DownloadQueueKey(bookId, trackId)
-        isTrackAlreadyOnDisk(bookId, trackId)?.let { (diskBookId, path) ->
+        val normalizedBookId = DownloadQueueBookIdPolicy.resolveEnqueueBookId(
+            bookId,
+            catalogRepository.canonicalBookIdForTrack(trackId),
+        )
+        val key = DownloadQueueKey(normalizedBookId, trackId)
+        isTrackAlreadyOnDisk(normalizedBookId, trackId)?.let { (diskBookId, path) ->
             catalogRepository.markTrackDownloaded(diskBookId, trackId, path)
             return DownloadAwaitResult.COMPLETED
         }
@@ -130,7 +136,7 @@ class TrackDownloadQueueController @Inject constructor(
         mutex.withLock {
             enqueueLocked(
                 EnqueueDownloadRequest(
-                    bookId = bookId,
+                    bookId = normalizedBookId,
                     trackId = trackId,
                     priority = priority,
                     title = title,
@@ -248,8 +254,35 @@ class TrackDownloadQueueController @Inject constructor(
         }
     }
 
+    suspend fun reconcileDownloadQueueBookIds() {
+        mutex.withLock {
+            reconcileDownloadQueueBookIdsLocked()
+            refreshNotifierFromDb()
+        }
+    }
+
+    private suspend fun reconcileDownloadQueueBookIdsLocked() {
+        val stale = downloadQueueDao.getAll().mapNotNull { entity ->
+            val canonical = catalogRepository.canonicalBookIdForTrack(entity.trackId) ?: return@mapNotNull null
+            if (DownloadQueueBookIdPolicy.isStaleQueueEntry(entity.bookId, canonical)) {
+                entity to canonical
+            } else {
+                null
+            }
+        }
+        stale.forEach { (entity, canonical) ->
+            val staleKey = DownloadQueueKey(entity.bookId, entity.trackId)
+            downloadQueueDao.delete(entity.bookId, entity.trackId)
+            userCancelledKeys.remove(staleKey)
+            failureCounts.remove(staleKey)
+            completeAwaiter(staleKey, DownloadAwaitResult.CANCELLED)
+            downloadQueueDao.upsert(entity.copy(bookId = canonical))
+        }
+    }
+
     suspend fun restoreFromDb() {
         mutex.withLock {
+            reconcileDownloadQueueBookIdsLocked()
             val items = downloadQueueDao.getAll()
             items.forEach { entity ->
                 val onDisk = isTrackAlreadyOnDisk(entity.bookId, entity.trackId)
@@ -268,36 +301,37 @@ class TrackDownloadQueueController @Inject constructor(
         request: EnqueueDownloadRequest,
         refreshNotifier: Boolean = true,
     ) {
-        if (!SafeLocalStorage.isSafeId(request.bookId) || !SafeLocalStorage.isSafeId(request.trackId)) return
-        val requestKey = DownloadQueueKey(request.bookId, request.trackId)
+        val normalized = normalizeEnqueueRequest(request)
+        if (!SafeLocalStorage.isSafeId(normalized.bookId) || !SafeLocalStorage.isSafeId(normalized.trackId)) return
+        val requestKey = DownloadQueueKey(normalized.bookId, normalized.trackId)
         userCancelledKeys.remove(requestKey)
-        if (request.priority == DownloadPriority.USER || request.priority == DownloadPriority.PLAY) {
+        if (normalized.priority == DownloadPriority.USER || normalized.priority == DownloadPriority.PLAY) {
             failureCounts.remove(requestKey)
         }
-        if (completeTrackIfOnDisk(request.bookId, request.trackId, purgeQueue = true)) return
-        if (catalogRepository.resolveLocalTrackPath(request.bookId, request.trackId) != null) {
+        if (completeTrackIfOnDisk(normalized.bookId, normalized.trackId, purgeQueue = true)) return
+        if (catalogRepository.resolveLocalTrackPath(normalized.bookId, normalized.trackId) != null) {
             completeAwaiter(requestKey, DownloadAwaitResult.COMPLETED)
             return
         }
-        val existing = downloadQueueDao.get(request.bookId, request.trackId)
+        val existing = downloadQueueDao.get(normalized.bookId, normalized.trackId)
         val priority = if (existing != null) {
             DownloadQueuePolicy.mergePriority(
                 DownloadPriority.valueOf(existing.priority),
-                request.priority,
+                normalized.priority,
             )
         } else {
-            request.priority
+            normalized.priority
         }
-        val partFile = SafeLocalStorage.trackPartFile(context.filesDir, request.bookId, request.trackId)
+        val partFile = SafeLocalStorage.trackPartFile(context.filesDir, normalized.bookId, normalized.trackId)
         val entity = DownloadQueueEntity(
-            bookId = request.bookId,
-            trackId = request.trackId,
+            bookId = normalized.bookId,
+            trackId = normalized.trackId,
             priority = priority.name,
-            batchId = request.batchId ?: existing?.batchId,
-            enqueuedAt = existing?.enqueuedAt ?: request.enqueuedAt,
-            title = request.title.ifBlank { existing?.title ?: request.trackId },
-            subtitle = request.subtitle ?: existing?.subtitle,
-            contentType = request.contentType,
+            batchId = normalized.batchId ?: existing?.batchId,
+            enqueuedAt = existing?.enqueuedAt ?: normalized.enqueuedAt,
+            title = normalized.title.ifBlank { existing?.title ?: normalized.trackId },
+            subtitle = normalized.subtitle ?: existing?.subtitle,
+            contentType = normalized.contentType,
             status = STATUS_QUEUED,
             bytesDownloaded = partFile?.takeIf { it.exists() }?.length() ?: existing?.bytesDownloaded ?: 0L,
             totalBytes = existing?.totalBytes,
@@ -308,6 +342,12 @@ class TrackDownloadQueueController @Inject constructor(
             refreshNotifierFromDb()
         }
         startWorkerLocked()
+    }
+
+    private suspend fun normalizeEnqueueRequest(request: EnqueueDownloadRequest): EnqueueDownloadRequest {
+        val canonicalBookId = catalogRepository.canonicalBookIdForTrack(request.trackId)
+        val bookId = DownloadQueueBookIdPolicy.resolveEnqueueBookId(request.bookId, canonicalBookId)
+        return if (bookId == request.bookId) request else request.copy(bookId = bookId)
     }
 
     private fun startWorkerLocked() {
@@ -332,7 +372,8 @@ class TrackDownloadQueueController @Inject constructor(
                 failureCounts.remove(key)
                 localLibraryNotifier.notifyLocalLibraryChanged()
                 mutex.withLock {
-                    purgeQueueForTrackId(next.trackId)
+                    purgeQueueEntry(next.bookId, next.trackId)
+                    removeStaleQueueEntriesForTrack(next.trackId)
                     if (next.batchId != null && next.batchId == bulkBatchId) {
                         addCompletedHistory(next)
                     }
@@ -359,7 +400,8 @@ class TrackDownloadQueueController @Inject constructor(
                     when (result) {
                         DownloadAwaitResult.COMPLETED -> {
                             failureCounts.remove(key)
-                            purgeQueueForTrackId(next.trackId)
+                            purgeQueueEntry(next.bookId, next.trackId)
+                            removeStaleQueueEntriesForTrack(next.trackId)
                             addCompletedHistory(next)
                             localLibraryNotifier.notifyLocalLibraryChanged()
                         }
@@ -373,7 +415,8 @@ class TrackDownloadQueueController @Inject constructor(
                                 val (diskBookId, path) = diskAfter
                                 catalogRepository.markTrackDownloaded(diskBookId, next.trackId, path)
                                 failureCounts.remove(key)
-                                purgeQueueForTrackId(next.trackId)
+                                purgeQueueEntry(next.bookId, next.trackId)
+                                removeStaleQueueEntriesForTrack(next.trackId)
                                 if (next.batchId != null && next.batchId == bulkBatchId) {
                                     addCompletedHistory(next)
                                 }
@@ -420,30 +463,45 @@ class TrackDownloadQueueController @Inject constructor(
         val (diskBookId, path) = onDisk
         catalogRepository.markTrackDownloaded(diskBookId, trackId, path)
         if (purgeQueue) {
-            purgeQueueForTrackId(trackId)
+            purgeQueueEntry(bookId, trackId)
+            removeStaleQueueEntriesForTrack(trackId)
         }
         localLibraryNotifier.notifyLocalLibraryChanged()
         completeAwaiter(DownloadQueueKey(bookId, trackId), DownloadAwaitResult.COMPLETED)
         return true
     }
 
-    private suspend fun purgeQueueForTrackId(trackId: String) {
-        val pending = downloadQueueDao.getAll().filter { it.trackId == trackId }
-        if (pending.isEmpty()) return
-        pending.forEach { entity ->
-            val key = DownloadQueueKey(entity.bookId, entity.trackId)
-            userCancelledKeys.remove(key)
-            failureCounts.remove(key)
-            downloadQueueDao.delete(entity.bookId, entity.trackId)
-            completeAwaiter(key, DownloadAwaitResult.COMPLETED)
-        }
+    private suspend fun purgeQueueEntry(bookId: String, trackId: String) {
+        val key = DownloadQueueKey(bookId, trackId)
+        userCancelledKeys.remove(key)
+        failureCounts.remove(key)
+        downloadQueueDao.delete(bookId, trackId)
+    }
+
+    private suspend fun removeStaleQueueEntriesForTrack(trackId: String) {
+        val canonical = catalogRepository.canonicalBookIdForTrack(trackId) ?: return
+        downloadQueueDao.getAll()
+            .filter { it.trackId == trackId && DownloadQueueBookIdPolicy.isStaleQueueEntry(it.bookId, canonical) }
+            .forEach { entity ->
+                val staleKey = DownloadQueueKey(entity.bookId, entity.trackId)
+                userCancelledKeys.remove(staleKey)
+                failureCounts.remove(staleKey)
+                downloadQueueDao.delete(entity.bookId, entity.trackId)
+                completeAwaiter(staleKey, DownloadAwaitResult.CANCELLED)
+            }
     }
 
     private suspend fun isTrackAlreadyOnDisk(bookId: String, trackId: String): Pair<String, String>? {
-        catalogRepository.resolveLocalTrackPath(bookId, trackId)?.let { path ->
-            return bookId to path
+        val canonicalBookId = catalogRepository.canonicalBookIdForTrack(trackId) ?: bookId
+        catalogRepository.resolveLocalTrackPath(canonicalBookId, trackId)?.let { path ->
+            return canonicalBookId to path
         }
-        return SafeLocalStorage.findDownloadedTrack(context.filesDir, trackId, bookId)
+        if (canonicalBookId != bookId) {
+            catalogRepository.resolveLocalTrackPath(bookId, trackId)?.let { path ->
+                return bookId to path
+            }
+        }
+        return SafeLocalStorage.findDownloadedTrack(context.filesDir, trackId, canonicalBookId)
             ?.let { it.bookId to it.path }
     }
 

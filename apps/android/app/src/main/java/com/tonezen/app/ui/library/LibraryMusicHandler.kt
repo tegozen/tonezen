@@ -56,25 +56,35 @@ internal class LibraryMusicHandler(
     private var prefetchTargetIndex: Int = -1
     private var lastBulkBatchId: String? = null
 
-    private fun musicEnqueueRequest(
+    private suspend fun resolveMusicDownloadBookId(track: MusicListTrack): String =
+        catalogRepository.canonicalBookIdForTrack(track.trackId) ?: track.bookId
+
+    private suspend fun musicEnqueueRequest(
         track: MusicListTrack,
         priority: DownloadPriority,
         batchId: String? = null,
-    ) = EnqueueDownloadRequest(
-        bookId = track.bookId,
-        trackId = track.trackId,
-        priority = priority,
-        batchId = batchId,
-        title = track.trackTitle,
-        subtitle = track.artist,
-        contentType = ContentType.MUSIC.name.lowercase(),
-    )
+    ): EnqueueDownloadRequest {
+        val bookId = resolveMusicDownloadBookId(track)
+        return EnqueueDownloadRequest(
+            bookId = bookId,
+            trackId = track.trackId,
+            priority = priority,
+            batchId = batchId,
+            title = track.trackTitle,
+            subtitle = track.artist,
+            contentType = ContentType.MUSIC.name.lowercase(),
+        )
+    }
 
     private suspend fun catalogTrackNeedsDownload(track: MusicListTrack): Boolean {
-        val catalogTrack = catalogRepository.getTracksForBook(track.bookId)
-            .find { it.id == track.trackId }
-        if (!catalogTrack?.localPath.isNullOrBlank()) return false
-        return !trackDownloadEnsurer.isTrackLocal(track.bookId, track.trackId)
+        val catalogTrack = catalogRepository.findTrackInCatalog(track.trackId) ?: return false
+        val bookId = catalogTrack.bookId
+        if (!catalogTrack.localPath.isNullOrBlank() &&
+            trackDownloadEnsurer.isTrackLocal(bookId, track.trackId)
+        ) {
+            return false
+        }
+        return !trackDownloadEnsurer.isTrackLocal(bookId, track.trackId)
     }
 
     private fun reportMusicDownloadError(failure: EnsureTrackOutcome.Failure? = EnsureTrackOutcome.Failure.DOWNLOAD_FAILED) {
@@ -224,27 +234,11 @@ internal class LibraryMusicHandler(
                 uiState.update { it.copy(musicTrackList = updatedList) }
                 return@launch
             }
-            val result = downloadQueueController.awaitTrack(
-                bookId = track.bookId,
-                trackId = track.trackId,
-                priority = DownloadPriority.USER,
-                title = track.trackTitle,
-                subtitle = track.artist,
-                contentType = ContentType.MUSIC.name.lowercase(),
+            downloadQueueController.enqueue(
+                withContext(Dispatchers.IO) {
+                    musicEnqueueRequest(track, DownloadPriority.USER)
+                },
             )
-            when (result) {
-                DownloadAwaitResult.COMPLETED -> {
-                    localLibraryNotifier.notifyLocalLibraryChanged()
-                    val updatedList = refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
-                    uiState.update {
-                        it.copy(
-                            musicTrackList = updatedList,
-                            musicPlaybackErrorMessage = null,
-                        )
-                    }
-                }
-                else -> reportMusicDownloadError(result)
-            }
         }
     }
 
@@ -254,8 +248,9 @@ internal class LibraryMusicHandler(
 
     fun deleteMusicTrack(track: MusicListTrack) {
         scope.launch {
+            val bookId = withContext(Dispatchers.IO) { resolveMusicDownloadBookId(track) }
             val isPlaying = uiState.value.musicPlayback.trackId == track.trackId
-            downloadQueueController.cancelTrack(track.bookId, track.trackId)
+            downloadQueueController.cancelTrack(bookId, track.trackId)
             if (isPlaying) {
                 playJob?.cancel()
                 musicPrefetchJob?.cancel()
@@ -264,8 +259,8 @@ internal class LibraryMusicHandler(
                 playbackClient.stopAndRelease()
             }
             withContext(Dispatchers.IO) {
-                downloadRepository.deleteLocalTrack(track.bookId, track.trackId)
-                catalogRepository.clearTrackLocalPath(track.bookId, track.trackId)
+                downloadRepository.deleteLocalTrack(bookId, track.trackId)
+                catalogRepository.clearTrackLocalPath(bookId, track.trackId)
             }
             val updatedList = refreshMusicTrackListDownloadState(
                 uiState.value.musicTrackList,
@@ -308,7 +303,7 @@ internal class LibraryMusicHandler(
             lastBulkBatchId = batchId
             downloadQueueController.enqueueBatch(
                 missingTracks.map { listTrack ->
-                    musicEnqueueRequest(listTrack, DownloadPriority.USER, batchId)
+                    musicEnqueueRequest(listTrack, DownloadPriority.BULK, batchId)
                 },
                 batchId,
             )
@@ -453,6 +448,7 @@ internal class LibraryMusicHandler(
         }
         session.musicCandidates = entries.map { it.book to it.track }
         session.musicBookIdByTrackId = entries.associate { it.track.id to it.book.id }
+        downloadQueueController.reconcileDownloadQueueBookIds()
     }
 
     suspend fun rebuildMusicCandidates(books: List<Book>) {
@@ -730,13 +726,13 @@ internal class LibraryMusicHandler(
             return
         }
         val libraryTracks = buildMusicLibraryTracksFromList()
-        val bookId = track.bookId
         val resolvedTrack = withContext(Dispatchers.IO) {
-            catalogRepository.getTracksForBook(bookId).find { it.id == track.trackId }
+            catalogRepository.findTrackInCatalog(track.trackId)
         } ?: run {
             reportMusicDownloadError()
             return
         }
+        val bookId = resolvedTrack.bookId
         val needsDownload = withContext(Dispatchers.IO) {
             !trackDownloadEnsurer.isTrackLocal(bookId, resolvedTrack.id)
         }

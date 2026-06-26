@@ -71,8 +71,17 @@ class CatalogRepository @Inject constructor(
         accumulated
     }
 
+    suspend fun canonicalBookIdForTrack(trackId: String): String? = withContext(Dispatchers.IO) {
+        catalogDao.getBookIdForTrack(trackId)
+    }
+
+    suspend fun findTrackInCatalog(trackId: String): Track? = withContext(Dispatchers.IO) {
+        val bookId = catalogDao.getBookIdForTrack(trackId) ?: return@withContext null
+        catalogDao.getTracksForBook(bookId).find { it.id == trackId }?.toDomainTrack()
+    }
+
     suspend fun findBookForTrack(trackId: String): Book? {
-        val bookId = catalogDao.getBookIdForTrack(trackId) ?: return null
+        val bookId = canonicalBookIdForTrack(trackId) ?: return null
         return getBook(bookId)
     }
 
