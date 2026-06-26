@@ -58,11 +58,10 @@ internal class LibraryMusicHandler(
 
     private fun musicEnqueueRequest(
         track: MusicListTrack,
-        bookId: String,
         priority: DownloadPriority,
         batchId: String? = null,
     ) = EnqueueDownloadRequest(
-        bookId = bookId,
+        bookId = track.bookId,
         trackId = track.trackId,
         priority = priority,
         batchId = batchId,
@@ -71,18 +70,12 @@ internal class LibraryMusicHandler(
         contentType = ContentType.MUSIC.name.lowercase(),
     )
 
-    private suspend fun resolveMusicTrackRef(listTrack: MusicListTrack): MusicLibraryTrack? =
-        withContext(Dispatchers.IO) {
-            val bookId = session.musicBookIdByTrackId[listTrack.trackId]
-                ?: catalogRepository.findBookForTrack(listTrack.trackId)?.id
-                ?: listTrack.bookId.takeIf { catalogRepository.getBook(it) != null }
-                ?: return@withContext null
-            val book = catalogRepository.getBook(bookId) ?: return@withContext null
-            val domainTrack = catalogRepository.getTracksForBook(bookId)
-                .find { it.id == listTrack.trackId }
-                ?: return@withContext null
-            MusicLibraryTrack(book, domainTrack)
-        }
+    private suspend fun catalogTrackNeedsDownload(track: MusicListTrack): Boolean {
+        val catalogTrack = catalogRepository.getTracksForBook(track.bookId)
+            .find { it.id == track.trackId }
+        if (!catalogTrack?.localPath.isNullOrBlank()) return false
+        return !trackDownloadEnsurer.isTrackLocal(track.bookId, track.trackId)
+    }
 
     private fun reportMusicDownloadError(failure: EnsureTrackOutcome.Failure? = EnsureTrackOutcome.Failure.DOWNLOAD_FAILED) {
         uiState.update {
@@ -221,25 +214,37 @@ internal class LibraryMusicHandler(
 
 
     fun downloadMusicTrack(track: MusicListTrack) {
-        if (!uiState.value.isNetworkOnline) return
+        if (!uiState.value.isNetworkOnline) {
+            reportMusicDownloadError(EnsureTrackOutcome.Failure.OFFLINE)
+            return
+        }
         scope.launch {
-            val entry = resolveMusicTrackRef(track) ?: run {
-                reportMusicDownloadError()
-                return@launch
-            }
-            val bookId = entry.book.id
-            val domainTrack = entry.track
-            if (withContext(Dispatchers.IO) {
-                    trackDownloadEnsurer.isTrackLocal(bookId, domainTrack.id)
-                }
-            ) {
+            if (!withContext(Dispatchers.IO) { catalogTrackNeedsDownload(track) }) {
                 val updatedList = refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
                 uiState.update { it.copy(musicTrackList = updatedList) }
                 return@launch
             }
-            downloadQueueController.enqueue(
-                musicEnqueueRequest(track, bookId, DownloadPriority.USER),
+            val result = downloadQueueController.awaitTrack(
+                bookId = track.bookId,
+                trackId = track.trackId,
+                priority = DownloadPriority.USER,
+                title = track.trackTitle,
+                subtitle = track.artist,
+                contentType = ContentType.MUSIC.name.lowercase(),
             )
+            when (result) {
+                DownloadAwaitResult.COMPLETED -> {
+                    localLibraryNotifier.notifyLocalLibraryChanged()
+                    val updatedList = refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
+                    uiState.update {
+                        it.copy(
+                            musicTrackList = updatedList,
+                            musicPlaybackErrorMessage = null,
+                        )
+                    }
+                }
+                else -> reportMusicDownloadError(result)
+            }
         }
     }
 
@@ -249,10 +254,8 @@ internal class LibraryMusicHandler(
 
     fun deleteMusicTrack(track: MusicListTrack) {
         scope.launch {
-            val entry = resolveMusicTrackRef(track)
-            val bookId = entry?.book?.id ?: track.bookId
             val isPlaying = uiState.value.musicPlayback.trackId == track.trackId
-            downloadQueueController.cancelTrack(bookId, track.trackId)
+            downloadQueueController.cancelTrack(track.bookId, track.trackId)
             if (isPlaying) {
                 playJob?.cancel()
                 musicPrefetchJob?.cancel()
@@ -261,8 +264,8 @@ internal class LibraryMusicHandler(
                 playbackClient.stopAndRelease()
             }
             withContext(Dispatchers.IO) {
-                downloadRepository.deleteLocalTrack(bookId, track.trackId)
-                catalogRepository.clearTrackLocalPath(bookId, track.trackId)
+                downloadRepository.deleteLocalTrack(track.bookId, track.trackId)
+                catalogRepository.clearTrackLocalPath(track.bookId, track.trackId)
             }
             val updatedList = refreshMusicTrackListDownloadState(
                 uiState.value.musicTrackList,
@@ -281,40 +284,31 @@ internal class LibraryMusicHandler(
     }
 
     fun downloadAllMusic() {
-        if (!uiState.value.isNetworkOnline) return
+        if (!uiState.value.isNetworkOnline) {
+            reportMusicDownloadError(EnsureTrackOutcome.Failure.OFFLINE)
+            return
+        }
         val snapshot = downloadQueueNotifier.snapshot().forMusic()
         if (snapshot.isBulkDownloading) {
             snapshot.activeBatchId?.let { downloadQueueController.cancelBatch(it) }
             lastBulkBatchId = null
             return
         }
-        val pending = uiState.value.musicTrackList.filter { !it.isDownloaded }
-        if (pending.isEmpty()) return
         scope.launch {
-            val tracksToDownload = withContext(Dispatchers.IO) {
-                pending.mapNotNull { listTrack ->
-                    val entry = resolveMusicTrackRef(listTrack) ?: return@mapNotNull null
-                    if (trackDownloadEnsurer.isTrackLocal(entry.book.id, entry.track.id)) {
-                        null
-                    } else {
-                        listTrack to entry.book.id
-                    }
-                }
+            val missingTracks = withContext(Dispatchers.IO) {
+                uiState.value.musicTrackList.filter { catalogTrackNeedsDownload(it) }
             }
-            if (tracksToDownload.isEmpty()) {
-                if (pending.isNotEmpty()) {
-                    val updatedList = refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
-                    uiState.update { it.copy(musicTrackList = updatedList) }
-                }
+            if (missingTracks.isEmpty()) {
+                val updatedList = refreshMusicTrackListDownloadState(uiState.value.musicTrackList)
+                uiState.update { it.copy(musicTrackList = updatedList) }
                 return@launch
             }
             pauseMusicForBulkDownload()
-            downloadQueueController.cancelMusicPlaybackDownloadsAwait()
             val batchId = java.util.UUID.randomUUID().toString()
             lastBulkBatchId = batchId
             downloadQueueController.enqueueBatch(
-                tracksToDownload.map { (track, bookId) ->
-                    musicEnqueueRequest(track, bookId, DownloadPriority.USER, batchId)
+                missingTracks.map { listTrack ->
+                    musicEnqueueRequest(listTrack, DownloadPriority.USER, batchId)
                 },
                 batchId,
             )
@@ -706,8 +700,13 @@ internal class LibraryMusicHandler(
             }
         }
         return withContext(Dispatchers.IO) {
-            val byTrackId = catalogRepository.resolveMusicLibraryTracks()
-                .associateBy { it.track.id }
+            val byTrackId = if (session.musicCandidates.isNotEmpty()) {
+                session.musicCandidates.associate { (book, track) ->
+                    track.id to MusicLibraryTrack(book, track)
+                }
+            } else {
+                catalogRepository.resolveMusicLibraryTracks().associateBy { it.track.id }
+            }
             visible.mapNotNull { item -> byTrackId[item.trackId] }
         }
     }
@@ -726,16 +725,18 @@ internal class LibraryMusicHandler(
         if (MusicDownloadInteractionRules.blocksPlaybackAdvanceDuringBulk(downloadState)) {
             if (!track.isDownloaded || advancePlayback) return
         }
-        if (!musicBookAvailable(track.bookId)) return
-        val entry = resolveMusicTrackRef(track) ?: run {
+        if (!musicBookAvailable(track.bookId)) {
             reportMusicDownloadError()
             return
         }
         val libraryTracks = buildMusicLibraryTracksFromList()
-        val bookId = entry.book.id
+        val bookId = track.bookId
         val resolvedTrack = withContext(Dispatchers.IO) {
             catalogRepository.getTracksForBook(bookId).find { it.id == track.trackId }
-        } ?: entry.track
+        } ?: run {
+            reportMusicDownloadError()
+            return
+        }
         val needsDownload = withContext(Dispatchers.IO) {
             !trackDownloadEnsurer.isTrackLocal(bookId, resolvedTrack.id)
         }
