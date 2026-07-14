@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +49,7 @@ internal fun CycleDetailScreen(
     progressByBookId: Map<String, AudiobookProgress?>,
     onBack: () -> Unit,
     onBookClick: (Book) -> Unit,
+    onBookResume: (Book) -> Unit,
     onDownloadCycle: () -> Unit,
     onToggleCycleListened: () -> Unit,
     onRemoveCycleDownloads: () -> Unit,
@@ -72,7 +74,7 @@ internal fun CycleDetailScreen(
         trailing = {
             DetailHeaderOverflowMenu(
                 showDownload = cycleCardState.showDownload,
-                isDownloaded = false, // Cycle-level download status not tracked separately yet
+                isDownloaded = false,
                 showRemoveDownload = cycleCardState.showRemoveDownload,
                 isListened = cycleCardState.isListened,
                 onDownload = onDownloadCycle,
@@ -92,6 +94,7 @@ internal fun CycleDetailScreen(
                 downloaded = downloadedBookIds.contains(book.id),
                 continueState = continueState,
                 onClick = { onBookClick(book) },
+                onResumeClick = { onBookResume(book) },
             )
         }
     }
@@ -103,6 +106,7 @@ private fun CycleBookRow(
     downloaded: Boolean,
     continueState: BookContinueState?,
     onClick: () -> Unit,
+    onResumeClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -138,13 +142,21 @@ private fun CycleBookRow(
             if (continueState != null || downloaded) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.Bottom,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     continueState?.let { state ->
-                        ContinueResumeMeta(
-                            state = state,
-                            variant = ContinueResumeVariant.Inline,
-                        )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            ContinueResumeMeta(
+                                state = state,
+                                variant = ContinueResumeVariant.Inline,
+                            )
+                            TextButton(onClick = onResumeClick) {
+                                Text("Продолжить", color = TonezenTeal)
+                            }
+                        }
                     }
                     if (downloaded) {
                         StatusChip(label = "Офлайн", tone = TonezenTeal)

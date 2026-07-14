@@ -166,6 +166,19 @@ internal fun BookDetailScreen(
         },
     ) {
         // Кнопка "Продолжить" / "Начать слушать" — показывается когда книга не играет и не прослушана.
+        if (hasPlaybackControls && playbackTrack != null) {
+            item(key = "playback-controls") {
+                BookDetailPlaybackControls(
+                    track = playbackTrack,
+                    positionMs = uiState.playbackPositionMs,
+                    durationMs = uiState.playbackDurationMs,
+                    isPlaying = uiState.isPlaying,
+                    onPlayPause = onPlaybackPlayPause,
+                    onSeekBy = onPlaybackSeekBy,
+                    onSeekToFraction = onPlaybackSeekToFraction,
+                )
+            }
+        }
         if (hasContinueButton) {
             item(key = "continue-listening") {
                 Button(

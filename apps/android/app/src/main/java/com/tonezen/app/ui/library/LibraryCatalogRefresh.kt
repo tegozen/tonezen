@@ -11,7 +11,11 @@ internal suspend fun loadCatalogFromRemoteWithLocalFallback(
     try {
         val books = catalogRepository.syncFromRemote(accessToken)
         val cycles = catalogRepository.getAllCycles()
-        books to cycles
+        if (books.isEmpty() && cycles.isEmpty()) {
+            catalogRepository.getAllBooks() to catalogRepository.getAllCycles()
+        } else {
+            books to cycles
+        }
     } catch (_: Exception) {
         catalogRepository.getAllBooks() to catalogRepository.getAllCycles()
     }

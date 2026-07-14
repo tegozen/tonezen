@@ -139,6 +139,16 @@ fun AppShell(
                             bookDetailViewModel.loadBook(selectedBook)
                         }
 
+                        LaunchedEffect(shellState.autoResumeBookId, selectedBook.id, detailState.book?.id) {
+                            if (
+                                shellState.autoResumeBookId == selectedBook.id &&
+                                detailState.book?.id == selectedBook.id
+                            ) {
+                                shellViewModel.consumeAutoResumeBook(selectedBook.id)
+                                bookDetailViewModel.continueListening()
+                            }
+                        }
+
                     BookDetailScreen(
                         padding = PaddingValues(0.dp),
                         hazeState = hazeState,
@@ -180,6 +190,7 @@ fun AppShell(
                             progressByBookId = libraryState.audiobookProgressByBookId,
                             onBack = shellViewModel::closeCycle,
                             onBookClick = shellViewModel::openBook,
+                            onBookResume = shellViewModel::resumeBook,
                             onDownloadCycle = { libraryViewModel.downloadCycle(selectedCycle) },
                             onToggleCycleListened = { libraryViewModel.toggleCycleListened(selectedCycle) },
                             onRemoveCycleDownloads = { libraryViewModel.removeCycleDownloads(selectedCycle) },

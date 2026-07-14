@@ -42,4 +42,5 @@ class LibraryCatalogRefreshTest {
         coVerify(exactly = 1) { catalogRepository.getAllBooks() }
         coVerify(exactly = 1) { catalogRepository.getAllCycles() }
     }
+
 }

@@ -8,6 +8,7 @@ data class AppShellUiState(
     val currentTab: BottomDestination = BottomDestination.Music,
     val selectedCycle: Cycle? = null,
     val selectedBook: Book? = null,
+    val autoResumeBookId: String? = null,
     val nowPlayingTitle: String? = null,
     val nowPlayingSubtitle: String? = null,
     val nowPlayingCoverSeed: String? = null,

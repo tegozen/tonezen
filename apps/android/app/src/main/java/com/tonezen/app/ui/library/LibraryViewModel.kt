@@ -324,6 +324,7 @@ class LibraryViewModel @Inject constructor(
                     it.copy(
                         isLoadingCatalog = false,
                         isBootstrapComplete = true,
+                        hasShownInitialLocalCatalog = false,
                         books = emptyList(),
                         cycles = emptyList(),
                         musicTrackList = emptyList(),
@@ -361,11 +362,7 @@ class LibraryViewModel @Inject constructor(
                     loadCatalogFromRemoteWithLocalFallback(catalogRepository, refreshed?.accessToken)
                 }
                 val localCatalog = async(Dispatchers.IO) {
-                    loadLocalCatalogProgressively(catalogRepository) { partialBooks ->
-                        withContext(Dispatchers.Main.immediate) {
-                            _uiState.update { it.copy(books = partialBooks) }
-                        }
-                    }
+                    loadLocalCatalogProgressively(catalogRepository)
                 }
                 val (localBooks, localCycles) = localCatalog.await()
                 updateCatalog(
@@ -373,6 +370,7 @@ class LibraryViewModel @Inject constructor(
                     cycles = localCycles,
                     rebuildMusic = true,
                     reconcileLocalPaths = false,
+                    markInitialLocalCatalogShown = localBooks.isNotEmpty() || localCycles.isNotEmpty(),
                 )
                 _uiState.update { it.copy(isBootstrapComplete = true) }
                 if (_uiState.value.books.isNotEmpty() || _uiState.value.cycles.isNotEmpty()) {
@@ -392,17 +390,14 @@ class LibraryViewModel @Inject constructor(
             }
         } else {
             val (local, localCycles) = withContext(Dispatchers.IO) {
-                loadLocalCatalogProgressively(catalogRepository) { partialBooks ->
-                    withContext(Dispatchers.Main.immediate) {
-                        _uiState.update { it.copy(books = partialBooks) }
-                    }
-                }
+                loadLocalCatalogProgressively(catalogRepository)
             }
             updateCatalog(
                 books = local,
                 cycles = localCycles,
                 rebuildMusic = true,
                 reconcileLocalPaths = false,
+                markInitialLocalCatalogShown = local.isNotEmpty() || localCycles.isNotEmpty(),
             )
             _uiState.update { it.copy(isLoadingCatalog = false, isBootstrapComplete = true) }
             viewModelScope.launch(Dispatchers.IO) {
@@ -416,11 +411,7 @@ class LibraryViewModel @Inject constructor(
 
     private suspend fun reloadCatalogFromLocal() {
         val (books, cycles) = withContext(Dispatchers.IO) {
-            loadLocalCatalogProgressively(catalogRepository) { partialBooks ->
-                withContext(Dispatchers.Main.immediate) {
-                    _uiState.update { it.copy(books = partialBooks) }
-                }
-            }
+            loadLocalCatalogProgressively(catalogRepository)
         }
         updateCatalog(books, cycles, rebuildMusic = true)
     }
@@ -442,9 +433,23 @@ class LibraryViewModel @Inject constructor(
         cycles: List<Cycle>,
         rebuildMusic: Boolean = false,
         reconcileLocalPaths: Boolean = true,
+        markInitialLocalCatalogShown: Boolean = false,
     ) {
-        updateBooks(books, rebuildMusic, reconcileLocalPaths)
-        _uiState.update { it.copy(cycles = cycles) }
+        val shouldPreserveCurrentCatalog =
+            _uiState.value.hasShownInitialLocalCatalog &&
+                _uiState.value.books.isNotEmpty() &&
+                _uiState.value.cycles.isNotEmpty() &&
+                books.isEmpty() &&
+                cycles.isEmpty()
+        if (shouldPreserveCurrentCatalog) return
+
+        updateBooks(books, rebuildMusic, reconcileLocalPaths, markInitialLocalCatalogShown)
+        _uiState.update {
+            it.copy(
+                cycles = cycles,
+                hasShownInitialLocalCatalog = it.hasShownInitialLocalCatalog || markInitialLocalCatalogShown,
+            )
+        }
         cycleHandler.refreshCycleCardStates(cycles, _uiState.value.downloadedBookIds)
     }
 
@@ -452,6 +457,7 @@ class LibraryViewModel @Inject constructor(
         books: List<Book>,
         rebuildMusic: Boolean = false,
         reconcileLocalPaths: Boolean = true,
+        markInitialLocalCatalogShown: Boolean = false,
     ) {
         musicHandler.reloadMusicCatalogData()
         val trackList = musicHandler.buildMusicTrackListForCatalogUpdate(
@@ -466,6 +472,7 @@ class LibraryViewModel @Inject constructor(
                 books = books,
                 downloadedBookIds = downloaded,
                 musicTrackList = trackList,
+                hasShownInitialLocalCatalog = it.hasShownInitialLocalCatalog || markInitialLocalCatalogShown,
             )
         }
     }

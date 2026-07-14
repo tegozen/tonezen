@@ -84,6 +84,18 @@ class AppShellViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 selectedBook = book,
+                autoResumeBookId = null,
+                showExpandedPlayer = false,
+                nowPlayingSubtitle = book.author,
+            )
+        }
+    }
+
+    fun resumeBook(book: Book) {
+        _uiState.update {
+            it.copy(
+                selectedBook = book,
+                autoResumeBookId = book.id,
                 showExpandedPlayer = false,
                 nowPlayingSubtitle = book.author,
             )
@@ -91,7 +103,17 @@ class AppShellViewModel @Inject constructor(
     }
 
     fun closeBook() {
-        _uiState.update { it.copy(selectedBook = null) }
+        _uiState.update { it.copy(selectedBook = null, autoResumeBookId = null) }
+    }
+
+    fun consumeAutoResumeBook(bookId: String) {
+        _uiState.update { state ->
+            if (state.autoResumeBookId == bookId) {
+                state.copy(autoResumeBookId = null)
+            } else {
+                state
+            }
+        }
     }
 
     fun onMiniPlayerClick() {
