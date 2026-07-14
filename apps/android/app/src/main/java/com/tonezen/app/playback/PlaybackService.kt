@@ -5,11 +5,13 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionResult
 import com.tonezen.app.MainActivity
 import com.tonezen.app.R
 import dagger.hilt.android.AndroidEntryPoint
@@ -62,6 +64,14 @@ class PlaybackService : MediaSessionService() {
                 if (playbackState == Player.STATE_ENDED) {
                     playbackEvents.notifyTrackEnded()
                 }
+                updateConnectedControllerCommands()
+            }
+
+            override fun onMediaItemTransition(
+                mediaItem: androidx.media3.common.MediaItem?,
+                reason: Int,
+            ) {
+                updateConnectedControllerCommands()
             }
         }.also { player?.addListener(it) }
 
@@ -80,16 +90,21 @@ class PlaybackService : MediaSessionService() {
                         session: MediaSession,
                         controller: MediaSession.ControllerInfo,
                     ): MediaSession.ConnectionResult {
-                        val playerCommands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
-                            .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
-                            .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
-                            .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
-                            .add(Player.COMMAND_SEEK_BACK)
-                            .add(Player.COMMAND_SEEK_FORWARD)
-                            .build()
+                        val playerCommands = buildPlayerCommands()
                         return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                             .setAvailablePlayerCommands(playerCommands)
                             .build()
+                    }
+
+                    override fun onPlayerCommandRequest(
+                        session: MediaSession,
+                        controller: MediaSession.ControllerInfo,
+                        playerCommand: Int,
+                    ): Int {
+                        if (!canHandleQueueSkipCommand(playerCommand)) {
+                            return SessionResult.RESULT_ERROR_NOT_SUPPORTED
+                        }
+                        return SessionResult.RESULT_SUCCESS
                     }
                 },
             )
@@ -114,4 +129,49 @@ class PlaybackService : MediaSessionService() {
         const val SEEK_BACK_MS = 15_000L
         const val SEEK_FORWARD_MS = 30_000L
     }
+
+    private fun updateConnectedControllerCommands() {
+        val session = mediaSession ?: return
+        val playerCommands = buildPlayerCommands()
+        session.connectedControllers.forEach { controller ->
+            session.setAvailableCommands(
+                controller,
+                MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS,
+                playerCommands,
+            )
+        }
+    }
+
+    private fun buildPlayerCommands(): Player.Commands {
+        val exoPlayer = player ?: return MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS
+        val commands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
+            .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+            .add(Player.COMMAND_SEEK_BACK)
+            .add(Player.COMMAND_SEEK_FORWARD)
+        if (canHandleQueueSkipCommand(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM) &&
+            exoPlayer.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+        ) {
+            commands.add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+        }
+        if (canHandleQueueSkipCommand(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM) &&
+            exoPlayer.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+        ) {
+            commands.add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+        }
+        return commands.build()
+    }
+
+    private fun canHandleQueueSkipCommand(playerCommand: Int): Boolean {
+        if (
+            playerCommand != Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM &&
+            playerCommand != Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
+        ) {
+            return true
+        }
+        return currentMediaType() == MediaMetadata.MEDIA_TYPE_MUSIC
+    }
+
+    private fun currentMediaType(): Int? =
+        player?.currentMediaItem?.mediaMetadata?.mediaType
+            ?: player?.mediaMetadata?.mediaType
 }
