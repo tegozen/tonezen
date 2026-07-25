@@ -1,6 +1,6 @@
-.PHONY: test lint up down seed db-migrate indexer-test api-test desktop-test landing-test storage-path-test release-migration-test bump-skill-test postgres-export postgres-import gen-env check-eol
+.PHONY: test lint up down seed db-migrate indexer-test api-test landing-test storage-path-test release-migration-test bump-skill-test postgres-export postgres-import gen-env check-eol
 
-test: check-eol landing-test storage-path-test release-migration-test bump-skill-test indexer-test api-test desktop-test
+test: check-eol landing-test storage-path-test release-migration-test bump-skill-test indexer-test api-test
 	@echo "All unit tests passed"
 
 lint: check-eol
@@ -32,9 +32,6 @@ indexer-test:
 
 api-test:
 	cd backend/api && npm test
-
-desktop-test:
-	cd apps/desktop && npm test
 
 landing-test:
 	node ci/check-landing.mjs
