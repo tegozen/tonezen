@@ -3,6 +3,11 @@ declare module "*.svg" {
   export default src;
 }
 
+declare module "*.module.scss" {
+  const classes: { readonly [key: string]: string };
+  export default classes;
+}
+
 declare module "*.png?asset" {
   const src: string;
   export default src;

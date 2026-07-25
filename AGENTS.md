@@ -142,7 +142,7 @@ apps/desktop/src/
 |------|------|-------|
 | Kotlin/Android | `./gradlew` (+ ktlint/detekt when configured) | See [kotlin-android.mdc](.cursor/rules/kotlin-android.mdc): feature ViewModels, UDF, repos per domain, pure `domain/`, Compose stateless, inline Russian UI copy |
 | TypeScript/React | ESLint + Prettier | strict TS; functional components; hooks for logic; UI copy inline at usage sites (**Russian only**) |
-| Desktop renderer UI | Tailwind CSS v4 (`@tailwindcss/vite`) | Feature-Sliced Design in `renderer/src`; domain in `src/core`; utility classes + component layers |
+| Desktop renderer UI | Tailwind CSS v4 + SCSS modules | FSD in `renderer/src`; domain in `src/core`; `@reference` SCSS modules for new UI; legacy globals in `app/styles/styles.css` |
 | SQL | pg formatter | snake_case; explicit RLS in migrations |
 | Edge Functions (Deno) | deno lint/fmt | Modules < 200 lines; no `any` |
 | Indexer (Node/TS) | ESLint + Prettier | Same as desktop |

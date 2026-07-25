@@ -1,0 +1,21 @@
+@reference "../../../app/styles/tailwind.css";
+
+.overlay {
+  @apply fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-5;
+}
+
+.panel {
+  @apply mx-auto max-w-sm rounded-2xl border border-border/80 bg-surface-raised/95 p-5 backdrop-blur-xl;
+}
+
+.actions {
+  @apply mt-4 flex gap-3;
+}
+
+.cancel {
+  @apply flex-1 cursor-pointer rounded-xl border border-border bg-surface-muted px-4 py-2.5 text-ink outline-none hover:border-teal/40;
+}
+
+.confirm {
+  @apply flex-1 cursor-pointer rounded-xl bg-teal-strong px-4 py-2.5 font-medium text-app outline-none hover:opacity-90;
+}

@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  --app-shell-width: 430px;
+  --color-app: #020617;
+  --color-surface: #0f172a;
+  --color-surface-raised: #172033;
+  --color-surface-muted: #1e293b;
+  --color-ink: #f8fafc;
+  --color-muted: #94a3b8;
+  --color-teal: #5eead4;
+  --color-teal-strong: #14b8a6;
+  --color-amber: #fcd34d;
+  --color-cream: #f5e9d6;
+  --color-green: #4ade80;
+  --color-error: #f87171;
+  --color-border: #334155;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    @apply m-0 h-full overflow-hidden;
+  }
+
+  body {
+    @apply bg-[#00142B] font-sans text-ink antialiased;
+  }
+
+  button,
+  a,
+  [role="button"],
+  input,
+  textarea,
+  select {
+    @apply outline-none;
+  }
+
+  button:focus,
+  button:focus-visible,
+  a:focus,
+  a:focus-visible,
+  input:focus,
+  input:focus-visible,
+  textarea:focus,
+  textarea:focus-visible,
+  select:focus,
+  select:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}

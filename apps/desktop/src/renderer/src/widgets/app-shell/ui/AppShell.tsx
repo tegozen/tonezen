@@ -3,6 +3,7 @@ import { BottomNav } from "./BottomNav";
 import { MiniPlayerBar } from "@/widgets/mini-player";
 import type { BottomTab } from "@core/platform/navigation";
 import { scrollPadBottomCss } from "@/shared/lib/layoutChrome";
+import styles from "./AppShell.module.scss";
 
 interface AppShellProps {
   activeTab: BottomTab;
@@ -44,9 +45,9 @@ export function AppShell({
   } as CSSProperties;
 
   return (
-    <div className="app-frame">
+    <div className={styles.frame}>
       <main
-        className={`app-content ${!showBottomNav ? "app-content-overlay" : ""}`}
+        className={`${styles.content} ${!showBottomNav ? styles.contentOverlay : ""}`}
         style={contentStyle}
       >
         {children}

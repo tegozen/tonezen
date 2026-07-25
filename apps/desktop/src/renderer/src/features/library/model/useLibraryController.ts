@@ -21,7 +21,7 @@ import {
   queryKeys,
   type LibraryBundle,
 } from "@/shared/api";
-import { useIpcQueryInvalidation } from "@/app/providers/useIpcQueryInvalidation";
+import { useIpcQueryInvalidation } from "@/app/useIpcQueryInvalidation";
 
 export type RefreshLibraryOptions = { rebuildMusic?: boolean; reconcileLocalPaths?: boolean };
 

@@ -17,3 +17,4 @@ alwaysApply: false
 - Supabase JS auth with offline-safe session handling
 - UI copy: Russian literals inline at usage sites (no central i18n module)
 - Modules ideally ~≤200 lines; prefer splitting over god-files
+- Styles: Tailwind v4 entry in `app/styles/tailwind.css`; prefer `*.module.scss` with `@reference` for new UI; legacy globals remain in `app/styles/styles.css`

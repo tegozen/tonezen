@@ -1,0 +1,13 @@
+@reference "../../app/styles/tailwind.css";
+
+.frame {
+  @apply mx-auto flex h-dvh max-h-dvh w-full max-w-[var(--app-shell-width)] flex-col overflow-hidden bg-[#00142B];
+}
+
+.content {
+  @apply relative flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-2;
+}
+
+.contentOverlay {
+  @apply flex min-h-0 flex-1 flex-col overflow-hidden;
+}

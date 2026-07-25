@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getTonezenApi } from "@/shared/api";
-import { queryKeys } from "@/shared/api/queryKeys";
+import { getTonezenApi, queryKeys } from "@/shared/api";
 
 /** Bridge IPC push events → React Query invalidation. */
 export function useIpcQueryInvalidation(enabled: boolean) {
