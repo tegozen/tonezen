@@ -1,7 +1,7 @@
 import {
   avatarCoverScale,
   type AvatarCropTransform,
-} from "@shared/avatarCrop";
+} from "@core/profile/avatarCrop";
 
 export async function cropAvatarToJpeg(
   image: HTMLImageElement,

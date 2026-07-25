@@ -1,4 +1,4 @@
-import type { AudiobookProgress, Track } from "@shared/types";
+import type { AudiobookProgress, Track } from "@core/types";
 
 export interface BookContinueState {
   trackTitle: string;

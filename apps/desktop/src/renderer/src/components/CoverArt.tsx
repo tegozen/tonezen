@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useMemo } from "react";
-import { buildSpectrumBars } from "@shared/spectrumBars";
+import { buildSpectrumBars } from "@core/playback/spectrumBars";
 import { bookCoverGradient, trackCoverGradient } from "../lib/coverGradient";
 
 interface CoverArtProps {

@@ -1,4 +1,4 @@
-import type { Book } from "@shared/types";
+import type { Book } from "@core/types";
 import { bookCoverGradient } from "../lib/coverGradient";
 import { bookAuthorLabel } from "../lib/cycleUtils";
 

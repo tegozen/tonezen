@@ -1,6 +1,6 @@
-import { COMPLETED_HISTORY_LIMIT } from "./downloadResumePolicy.js";
-import type { Book, ContentType, Cycle, Track } from "./types.js";
-import type { DownloadQueueItem, DownloadQueueState } from "./downloadQueueState.js";
+import { COMPLETED_HISTORY_LIMIT } from "@core/downloads/downloadResumePolicy.js";
+import type { Book, ContentType, Cycle, Track } from "@core/types.js";
+import type { DownloadQueueItem, DownloadQueueState } from "@core/downloads/downloadQueueState.js";
 
 export interface CompletedDownloadItem {
   bookId: string;

@@ -1,4 +1,4 @@
-import type { SessionState, StoredSession } from "./types.js";
+import type { SessionState, StoredSession } from "@core/types.js";
 
 export class SessionManager {
   private refreshInFlight = false;

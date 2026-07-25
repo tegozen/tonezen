@@ -8,7 +8,7 @@ import {
   type MusicDownloadState,
   updateBulkDownload,
   updateTrackDownload,
-} from "@shared/musicDownloadState";
+} from "@core/downloads/musicDownloadState";
 
 type MusicDownloadAction =
   | { type: "beginTrack"; trackId: string }

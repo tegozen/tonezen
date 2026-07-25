@@ -1,4 +1,4 @@
-import type { AudiobookProgress } from "./types.js";
+import type { AudiobookProgress } from "@core/types.js";
 
 /** Last-write-wins merge for audiobook progress */
 export function mergeProgressLww(

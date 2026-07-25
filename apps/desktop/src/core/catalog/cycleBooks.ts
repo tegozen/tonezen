@@ -1,4 +1,4 @@
-import type { Book } from "./types.js";
+import type { Book } from "@core/types.js";
 
 export function booksForCycleOrder(bookOrder: string[], catalog: Book[]): Book[] {
   const bookById = new Map(catalog.map((book) => [book.id, book]));

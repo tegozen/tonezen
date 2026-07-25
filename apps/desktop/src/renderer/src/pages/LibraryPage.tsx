@@ -1,7 +1,7 @@
 import { useState } from "react";
-import type { Cycle } from "@shared/types";
-import type { MusicListTrack } from "@shared/musicList";
-import type { DownloadQueueState } from "@shared/downloadQueueState";
+import type { Cycle } from "@core/types";
+import type { MusicListTrack } from "@core/catalog/musicList";
+import type { DownloadQueueState } from "@core/downloads/downloadQueueState";
 import { libraryScrollPaddingTop, type LibrarySection } from "../lib/layoutChrome";
 import { LibraryCycleCard } from "../components/LibraryCycleCard";
 import { LibraryTopChrome } from "../components/LibraryTopChrome";

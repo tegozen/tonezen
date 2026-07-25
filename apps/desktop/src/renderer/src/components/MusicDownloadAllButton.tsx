@@ -1,9 +1,9 @@
-import type { MusicListTrack } from "@shared/musicList";
+import type { MusicListTrack } from "@core/catalog/musicList";
 import {
   bulkProgressFraction,
   isBulkDownloading,
   type DownloadQueueState,
-} from "@shared/downloadQueueState";
+} from "@core/downloads/downloadQueueState";
 
 interface MusicDownloadAllButtonProps {
   tracks: MusicListTrack[];

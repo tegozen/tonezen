@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { SessionState } from "@shared/types";
+import type { SessionState } from "@core/types";
 
 type SessionSnapshot = Awaited<ReturnType<typeof window.tonezen.session.get>>;
 
@@ -55,7 +55,7 @@ export function useTonezenSession() {
       await window.tonezen.session.login(email, password);
       await refreshSession();
       return true;
-    } catch (e) {
+    } catch {
       setError("Не удалось войти. Проверьте email и пароль.");
       return false;
     }
@@ -77,7 +77,7 @@ export function useTonezenSession() {
         await window.tonezen.session.register(input);
         await refreshSession();
         return true;
-      } catch (e) {
+      } catch {
         setError("Не удалось войти. Проверьте email и пароль.");
         return false;
       }

@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import { booksForCycleOrder } from "../../shared/cycleBooks.js";
+import { booksForCycleOrder } from "@core/catalog/cycleBooks.js";
 import {
   isSafeStorageId,
   resolveTrackDownloadPath,
   sanitizeLocalAudioPath,
-} from "../../shared/safeLocalPaths.js";
-import type { Book, Cycle, Track } from "../../shared/types.js";
-import { serializeWaveformPeaks } from "../../shared/waveformPeaks.js";
+} from "@core/platform/safeLocalPaths.js";
+import type { Book, Cycle, Track } from "@core/types.js";
+import { serializeWaveformPeaks } from "@core/catalog/waveformPeaks.js";
 import { getDb } from "./connection.js";
 import { mapBookRow, mapTrackRow, type BookRow, type TrackRow } from "./mappers.js";
 

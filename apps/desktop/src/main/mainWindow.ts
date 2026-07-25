@@ -6,7 +6,7 @@ import {
   mainWindowContentSize,
   needsMainWindowWidthEnforcement,
   normalizeMainWindowContentSize,
-} from "../shared/appShell.js";
+} from "@core/platform/appShell.js";
 import { appIconPath } from "./assets.js";
 import type { WindowLifecycleManager } from "./windowLifecycle.js";
 

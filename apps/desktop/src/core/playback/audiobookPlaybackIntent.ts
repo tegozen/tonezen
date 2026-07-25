@@ -1,4 +1,4 @@
-import type { AudiobookProgress, Track } from "./types.js";
+import type { AudiobookProgress, Track } from "@core/types.js";
 
 export type AudiobookPlaybackIntent =
   | { kind: "Resume"; positionMs: number }

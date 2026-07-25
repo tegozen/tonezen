@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import type { Book, SessionState, Track } from "@shared/types";
+import type { Book, SessionState, Track } from "@core/types";
 import {
   buildMusicTrackListForCatalogUpdate,
   musicQueueFrom,
@@ -8,12 +8,12 @@ import {
   previousMusicIndex,
   visibleMusicTrackList,
   type MusicListTrack,
-} from "@shared/musicList";
+} from "@core/catalog/musicList";
 import {
   isBulkDownloading,
   isTrackQueued,
   progressForTrack as downloadProgressForTrack,
-} from "@shared/downloadQueueState";
+} from "@core/downloads/downloadQueueState";
 import {
   findNextPlayableIndex,
   findPreviousPlayableIndex,
@@ -21,7 +21,7 @@ import {
   resolveMusicWaveDisplayTrack,
   shouldRestartCurrentMusicTrack,
   type MusicSessionState,
-} from "@shared/musicPlayback";
+} from "@core/playback/musicPlayback";
 import type { useDownloadQueue } from "./useDownloadQueue";
 
 interface UseMusicPlaybackOptions {

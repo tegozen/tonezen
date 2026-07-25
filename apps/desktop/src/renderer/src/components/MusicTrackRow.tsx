@@ -1,9 +1,9 @@
-import type { MusicListTrack } from "@shared/musicList";
+import type { MusicListTrack } from "@core/catalog/musicList";
 import {
   isTrackQueued,
   progressForTrack,
   type DownloadQueueState,
-} from "@shared/downloadQueueState";
+} from "@core/downloads/downloadQueueState";
 import { TrackDownloadButton } from "./TrackDownloadButton";
 import { TrackDownloadedIndicator } from "./TrackDownloadedIndicator";
 import { TrackListRow } from "./TrackListRow";

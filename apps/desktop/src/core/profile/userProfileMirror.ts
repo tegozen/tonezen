@@ -1,4 +1,4 @@
-import type { AuthConfig } from "./supabaseAuth.js";
+import type { AuthConfig } from "@core/auth/supabaseAuth.js";
 
 export interface UserProfileMirrorRow {
   user_id: string;

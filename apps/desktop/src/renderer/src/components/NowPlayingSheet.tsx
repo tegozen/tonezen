@@ -4,8 +4,8 @@ import { PauseIcon, PlayIcon, SkipBackIcon, SkipForwardIcon } from "./TonezenIco
 import { TrackSpectrumArt } from "./CoverArt";
 import { useAnimatedVisibility } from "../hooks/useAnimatedVisibility";
 import { formatMs } from "../lib/formatTime";
-import { seekFractionFromPointer } from "@shared/playbackSeek";
-import { normalizeWaveformPeaks } from "@shared/waveformPeaks";
+import { seekFractionFromPointer } from "@core/playback/playbackSeek";
+import { normalizeWaveformPeaks } from "@core/catalog/waveformPeaks";
 
 interface NowPlayingSheetProps {
   visible: boolean;

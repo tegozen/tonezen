@@ -1,4 +1,4 @@
-import type { Book } from "@shared/types";
+import type { Book } from "@core/types";
 import { BookCover } from "./BookCover";
 import { ContinueResumeMeta } from "./ContinueResumeMeta";
 import { bookAuthorLabel } from "../lib/cycleUtils";

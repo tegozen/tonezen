@@ -4,7 +4,7 @@ import path from "node:path";
 import { registerLocalAudioScheme, setupLocalAudioProtocol } from "./mediaProtocol.js";
 import { WindowLifecycleManager } from "./windowLifecycle.js";
 import { SessionService } from "./sessionService.js";
-import { LocalDatabase } from "./database.js";
+import { LocalDatabase } from "./db/localDatabase.js";
 import { CatalogSyncService } from "./catalogSync.js";
 import { CatalogRealtimeSyncService } from "./catalogRealtimeSync.js";
 import { DownloadManager } from "./downloadManager.js";

@@ -1,4 +1,4 @@
-import type { AudiobookProgress, Book, Cycle, Track } from "@shared/types";
+import type { AudiobookProgress, Book, Cycle, Track } from "@core/types";
 import { CycleBookRow } from "../components/CycleBookRow";
 import { DetailHeaderMenu } from "../components/DetailHeaderMenu";
 import { OverlayTopChrome } from "../components/OverlayTopChrome";

@@ -5,7 +5,7 @@ import {
   minAvatarCoverScale,
   avatarCoverScale,
   type AvatarCropTransform,
-} from "@shared/avatarCrop";
+} from "@core/profile/avatarCrop";
 import { ChevronLeftIcon } from "./TonezenIcons";
 import { cropAvatarToJpeg } from "../lib/cropAvatarToJpeg";
 

@@ -1,4 +1,4 @@
-import type { AudiobookProgress, Book, Track } from "./types.js";
+import type { AudiobookProgress, Book, Track } from "@core/types.js";
 
 export function completedAudiobookProgress(
   book: Book | null | undefined,

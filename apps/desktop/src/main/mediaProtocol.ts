@@ -2,8 +2,8 @@ import fs from "node:fs";
 import { net, protocol } from "electron";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { LOCAL_AUDIO_SCHEME, localAudioPathFromUrl } from "../shared/localAudioUrl.js";
-import { isPathUnderRoot, sanitizeLocalAudioPath } from "../shared/safeLocalPaths.js";
+import { LOCAL_AUDIO_SCHEME, localAudioPathFromUrl } from "@core/platform/localAudioUrl.js";
+import { isPathUnderRoot, sanitizeLocalAudioPath } from "@core/platform/safeLocalPaths.js";
 
 let allowedAudioRoots: string[] = [];
 

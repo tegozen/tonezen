@@ -3,9 +3,9 @@ import {
   type CompletedDownloadItem,
   type DownloadsBookGroup,
   type DownloadsPageItem,
-} from "@shared/downloadsPageState";
-import type { Book, Cycle } from "@shared/types";
-import type { DownloadQueueState } from "@shared/downloadQueueState";
+} from "@core/downloads/downloadsPageState";
+import type { Book, Cycle } from "@core/types";
+import type { DownloadQueueState } from "@core/downloads/downloadQueueState";
 import { PAGE_TITLE_TOP_SCROLL_PX } from "../lib/layoutChrome";
 import { TitleTopChrome } from "../components/TitleTopChrome";
 import { TrackDownloadButton } from "../components/TrackDownloadButton";

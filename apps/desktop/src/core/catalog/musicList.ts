@@ -1,4 +1,4 @@
-import type { Book, Track } from "./types.js";
+import type { Book, Track } from "@core/types.js";
 
 export const MUSIC_LIBRARY_SLUG = "music-library";
 

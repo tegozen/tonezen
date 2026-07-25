@@ -3,15 +3,15 @@ import type { CatalogRealtimeSyncService } from "./catalogRealtimeSync.js";
 import type { CatalogSyncService } from "./catalogSync.js";
 import type { DownloadManager } from "./downloadManager.js";
 import type { TrackDownloadQueue } from "./trackDownloadQueue.js";
-import { LocalDatabase } from "./database.js";
+import { LocalDatabase } from "./db/localDatabase.js";
 import type { PlaybackPowerBlocker } from "./playbackPowerBlocker.js";
 import type { ProfileSyncService } from "./profileSync.js";
 import type { ProgressSyncService } from "./progressSync.js";
-import type { EnqueueDownloadRequest } from "../shared/downloadQueueState.js";
-import type { DownloadPriority } from "../shared/downloadQueuePolicy.js";
+import type { EnqueueDownloadRequest } from "@core/downloads/downloadQueueState.js";
+import type { DownloadPriority } from "@core/downloads/downloadQueuePolicy.js";
 import type { SessionService } from "./sessionService.js";
-import { isSafeStorageId } from "../shared/safeLocalPaths.js";
-import { coerceAvatarJpegBytes } from "../shared/avatarBytes.js";
+import { isSafeStorageId } from "@core/platform/safeLocalPaths.js";
+import { coerceAvatarJpegBytes } from "@core/profile/avatarBytes.js";
 import { appendDiagnosticError, type DiagnosticErrorEntry } from "./diagnosticsLog.js";
 
 function assertSafeDownloadIds(bookId: string, trackId: string): boolean {

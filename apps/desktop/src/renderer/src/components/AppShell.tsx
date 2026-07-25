@@ -1,7 +1,7 @@
 import type { ReactNode, CSSProperties } from "react";
 import { BottomNav } from "./BottomNav";
 import { MiniPlayerBar } from "./MiniPlayerBar";
-import type { BottomTab } from "@shared/navigation";
+import type { BottomTab } from "@core/platform/navigation";
 import { scrollPadBottomCss } from "../lib/layoutChrome";
 
 interface AppShellProps {

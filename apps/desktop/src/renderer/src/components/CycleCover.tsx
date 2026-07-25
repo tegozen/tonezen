@@ -1,4 +1,4 @@
-import type { Cycle } from "@shared/types";
+import type { Cycle } from "@core/types";
 import { bookCoverGradient } from "../lib/coverGradient";
 
 interface CycleCoverProps {

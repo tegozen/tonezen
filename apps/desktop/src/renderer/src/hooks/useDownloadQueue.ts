@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   emptyDownloadQueueState,
   type DownloadQueueState,
-} from "@shared/downloadQueueState";
+} from "@core/downloads/downloadQueueState";
 
 export function useDownloadQueue() {
   const [state, setState] = useState<DownloadQueueState>(emptyDownloadQueueState);

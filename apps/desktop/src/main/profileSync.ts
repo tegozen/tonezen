@@ -1,8 +1,8 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowserWindow } from "electron";
-import type { UserProfileMirrorRow } from "../shared/userProfileMirror.js";
-import type { StoredSession } from "../shared/types.js";
+import type { UserProfileMirrorRow } from "@core/profile/userProfileMirror.js";
+import type { StoredSession } from "@core/types.js";
 import { createSupabaseClient } from "./supabaseClient.js";
 import type { SessionService } from "./sessionService.js";
 import { isAuthSubscriptionError } from "./catalogRealtimeSync.js";

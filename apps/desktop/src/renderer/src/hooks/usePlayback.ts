@@ -1,9 +1,9 @@
-import { CyclePlaybackResolver } from "@shared/cyclePlayback";
-import { effectiveDurationMs } from "@shared/playbackDuration";
-import { needsMetadataBeforeSeek, startSecondsFromMs } from "@shared/playbackStart";
-import type { AudiobookProgress, Book, Track } from "@shared/types";
+import { CyclePlaybackResolver } from "@core/playback/cyclePlayback";
+import { effectiveDurationMs } from "@core/playback/playbackDuration";
+import { needsMetadataBeforeSeek, startSecondsFromMs } from "@core/playback/playbackStart";
+import type { AudiobookProgress, Book, Track } from "@core/types";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toAudioFileUrl } from "../lib/audioFileUrl";
+import { toAudioFileUrl } from "@core/platform/localAudioUrl";
 import { formatMs } from "../lib/formatTime";
 import { loadPlaybackVolume, savePlaybackVolume } from "../lib/playbackVolume";
 import {

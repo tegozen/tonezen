@@ -1,6 +1,6 @@
-import type { AuthConfig } from "./supabaseAuth.js";
-import { coerceAvatarJpegBytes } from "./avatarBytes.js";
-import { isSafeStorageId } from "./safeLocalPaths.js";
+import type { AuthConfig } from "@core/auth/supabaseAuth.js";
+import { coerceAvatarJpegBytes } from "@core/profile/avatarBytes.js";
+import { isSafeStorageId } from "@core/platform/safeLocalPaths.js";
 
 export const AVATAR_FILE_NAME = "avatar.jpg";
 

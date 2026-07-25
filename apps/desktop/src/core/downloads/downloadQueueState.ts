@@ -1,4 +1,4 @@
-import { COMPLETED_HISTORY_LIMIT } from "./downloadResumePolicy.js";
+import { COMPLETED_HISTORY_LIMIT } from "@core/downloads/downloadResumePolicy.js";
 import {
   bulkProgressFraction,
   emptyMusicDownloadState,
@@ -7,8 +7,8 @@ import {
   isTrackDownloading,
   progressForTrack,
   type MusicDownloadState,
-} from "./musicDownloadState.js";
-import type { DownloadPriority } from "./downloadQueuePolicy.js";
+} from "@core/downloads/musicDownloadState.js";
+import type { DownloadPriority } from "@core/downloads/downloadQueuePolicy.js";
 
 export type DownloadQueueItemStatus =
   | "QUEUED"

@@ -1,4 +1,4 @@
-import type { AudiobookProgress } from "../../shared/types.js";
+import type { AudiobookProgress } from "@core/types.js";
 import { getDb } from "./connection.js";
 
 export interface StoredProgress extends AudiobookProgress {

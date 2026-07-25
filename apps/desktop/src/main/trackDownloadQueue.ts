@@ -6,7 +6,7 @@ import {
   mergePriority,
   sortPending,
   type DownloadPriority,
-} from "../shared/downloadQueuePolicy.js";
+} from "@core/downloads/downloadQueuePolicy.js";
 import type { DownloadQueueRow } from "./db/downloadQueueDb.js";
 import {
   emptyDownloadQueueState,
@@ -16,10 +16,10 @@ import {
   type DownloadQueueItemStatus,
   type DownloadQueueState,
   type EnqueueDownloadRequest,
-} from "../shared/downloadQueueState.js";
-import { isSafeStorageId, resolveTrackPartPath } from "../shared/safeLocalPaths.js";
+} from "@core/downloads/downloadQueueState.js";
+import { isSafeStorageId, resolveTrackPartPath } from "@core/platform/safeLocalPaths.js";
 import { DownloadCancelledError, type DownloadManager } from "./downloadManager.js";
-import { LocalDatabase } from "./database.js";
+import { LocalDatabase } from "./db/localDatabase.js";
 import type { SessionService } from "./sessionService.js";
 import type { DiagnosticErrorEntry } from "./diagnosticsLog.js";
 

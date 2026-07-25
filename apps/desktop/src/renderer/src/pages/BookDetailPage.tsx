@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import type { Book, Track } from "@shared/types";
-import type { DownloadQueueState } from "@shared/downloadQueueState";
+import type { Book, Track } from "@core/types";
+import type { DownloadQueueState } from "@core/downloads/downloadQueueState";
 import { ChapterTrackRow } from "../components/ChapterTrackRow";
 import { ContinueResumeMeta } from "../components/ContinueResumeMeta";
 import { DetailHeaderMenu } from "../components/DetailHeaderMenu";

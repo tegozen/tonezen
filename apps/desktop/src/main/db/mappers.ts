@@ -1,5 +1,5 @@
-import type { Book, Track } from "../../shared/types.js";
-import { parseWaveformPeaksJson } from "../../shared/waveformPeaks.js";
+import type { Book, Track } from "@core/types.js";
+import { parseWaveformPeaksJson } from "@core/catalog/waveformPeaks.js";
 
 export interface BookRow {
   id: string;

@@ -1,21 +1,21 @@
 import { safeStorage } from "electron";
 import fs from "node:fs";
 import path from "node:path";
-import { SessionManager } from "../shared/session.js";
-import { avatarUrlWithCacheBust } from "../shared/avatarBytes.js";
-import { resolveSyncedAvatarUrl, stripAvatarQuery } from "../shared/profileSync.js";
+import { SessionManager } from "@core/auth/session.js";
+import { avatarUrlWithCacheBust } from "@core/profile/avatarBytes.js";
+import { resolveSyncedAvatarUrl, stripAvatarQuery } from "@core/profile/profileSync.js";
 import {
   SupabaseAuthClient,
   applyUserProfile,
   displayNameFromUser,
   mergeSessionOnRefresh,
   sessionFromGoTrue,
-} from "../shared/supabaseAuth.js";
-import type { SessionState, StoredSession } from "../shared/types.js";
-import { upsertUserProfileMirror, type UserProfileMirrorRow } from "../shared/userProfileMirror.js";
-import { isRefreshAuthFailure } from "../shared/authErrors.js";
-import { createRefreshCoordinator } from "../shared/refreshCoordinator.js";
-import { normalizeAvatarUrl } from "../shared/avatarUpload.js";
+} from "@core/auth/supabaseAuth.js";
+import type { SessionState, StoredSession } from "@core/types.js";
+import { upsertUserProfileMirror, type UserProfileMirrorRow } from "@core/profile/userProfileMirror.js";
+import { isRefreshAuthFailure } from "@core/auth/authErrors.js";
+import { createRefreshCoordinator } from "@core/auth/refreshCoordinator.js";
+import { normalizeAvatarUrl } from "@core/profile/avatarUpload.js";
 
 const SESSION_FILE = "session.dat";
 

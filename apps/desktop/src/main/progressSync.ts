@@ -1,13 +1,13 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowserWindow } from "electron";
-import { mergeProgressLww } from "../shared/progressMerge.js";
-import type { AudiobookProgress, StoredSession } from "../shared/types.js";
-import { LocalDatabase } from "./database.js";
+import { mergeProgressLww } from "@core/progress/progressMerge.js";
+import type { AudiobookProgress, StoredSession } from "@core/types.js";
+import { LocalDatabase } from "./db/localDatabase.js";
 import { createSupabaseClient } from "./supabaseClient.js";
 import { isAuthSubscriptionError } from "./catalogRealtimeSync.js";
 
-import { apiV1Url } from "../shared/serverPaths.js";
+import { apiV1Url } from "@core/platform/serverPaths.js";
 
 export interface ProgressSyncConfig {
   baseUrl: string;

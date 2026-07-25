@@ -1,4 +1,4 @@
-import type { AudiobookProgress, Book, Cycle, Track } from "./types.js";
+import type { AudiobookProgress, Book, Cycle, Track } from "@core/types.js";
 
 const COMPLETED_FRACTION_THRESHOLD = 0.95;
 

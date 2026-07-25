@@ -1,4 +1,4 @@
-import { BOTTOM_NAV_TABS, type BottomTab } from "@shared/navigation";
+import { BOTTOM_NAV_TABS, type BottomTab } from "@core/platform/navigation";
 import { BooksIcon, DownloadsIcon, MusicIcon, ProfileIcon } from "./TonezenIcons";
 
 interface BottomNavProps {

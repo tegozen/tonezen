@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Book, Cycle, Track } from "@shared/types";
+import type { Book, Cycle, Track } from "@core/types";
 import {
   buildMusicTrackListForCatalogUpdate,
   visibleMusicTrackList,
   type MusicListTrack,
-} from "@shared/musicList";
-import { completedAudiobookProgress, upsertAudiobookProgress } from "@shared/audiobookProgress";
-import { completedDownloadItems } from "@shared/downloadsPageState";
-import { progressForTrack } from "@shared/downloadQueueState";
-import { nextChapterInBook } from "@shared/audiobookDownloadTarget";
-import { resolveAudiobookPlaybackIntent } from "@shared/audiobookPlaybackIntent";
+} from "@core/catalog/musicList";
+import { completedAudiobookProgress, upsertAudiobookProgress } from "@core/progress/audiobookProgress";
+import { completedDownloadItems } from "@core/downloads/downloadsPageState";
+import { progressForTrack } from "@core/downloads/downloadQueueState";
+import { nextChapterInBook } from "@core/downloads/audiobookDownloadTarget";
+import { resolveAudiobookPlaybackIntent } from "@core/playback/audiobookPlaybackIntent";
 import {
   orderedCycleEntriesFromResume,
   resolveCycleResumeTarget,
-} from "@shared/cycleListenProgress";
-import { CyclePlaybackResolver } from "@shared/cyclePlayback";
-import { findActiveMusicTrack } from "@shared/musicPlayback";
+} from "@core/playback/cycleListenProgress";
+import { CyclePlaybackResolver } from "@core/playback/cyclePlayback";
+import { findActiveMusicTrack } from "@core/playback/musicPlayback";
 import { AppShell } from "./components/AppShell";
 import { LibraryFilterSheet } from "./components/LibraryFilterSheet";
 import { LoginView } from "./components/LoginView";
@@ -25,7 +25,7 @@ import { useDownloadQueue } from "./hooks/useDownloadQueue";
 import { useMusicPlayback } from "./hooks/useMusicPlayback";
 import { usePlayback } from "./hooks/usePlayback";
 import { useTonezenSession } from "./hooks/useTonezenSession";
-import type { BottomTab, LibraryFilter } from "@shared/navigation";
+import type { BottomTab, LibraryFilter } from "@core/platform/navigation";
 import {
   buildTracksByBookId,
   computeCycleCardState,

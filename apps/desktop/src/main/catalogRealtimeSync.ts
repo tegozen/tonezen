@@ -1,7 +1,7 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowserWindow } from "electron";
-import type { StoredSession } from "../shared/types.js";
+import type { StoredSession } from "@core/types.js";
 import type { CatalogSyncService } from "./catalogSync.js";
 import { createSupabaseClient } from "./supabaseClient.js";
 

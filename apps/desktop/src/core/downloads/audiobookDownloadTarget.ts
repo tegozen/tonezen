@@ -1,5 +1,5 @@
-import type { EnqueueDownloadRequest } from "./downloadQueueState.js";
-import type { Book, Track } from "./types.js";
+import type { EnqueueDownloadRequest } from "@core/downloads/downloadQueueState.js";
+import type { Book, Track } from "@core/types.js";
 
 interface NextAudiobookDownloadInput {
   book: Book;

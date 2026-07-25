@@ -4,18 +4,18 @@ import { open, rename, stat } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
-import { progressFraction, resolveResumeAction } from "../shared/downloadResumePolicy.js";
-import { rmWithRetry, unlinkWithRetry } from "../shared/fileDeleteRetry.js";
+import { progressFraction, resolveResumeAction } from "@core/downloads/downloadResumePolicy.js";
+import { rmWithRetry, unlinkWithRetry } from "@core/platform/fileDeleteRetry.js";
 import {
   assertAllowedDownloadUrl,
   normalizeDownloadUrl,
   resolveTrackDownloadPath,
   resolveTrackPartPath,
   sanitizeLocalAudioPath,
-} from "../shared/safeLocalPaths.js";
-import { apiV1Url } from "../shared/serverPaths.js";
-import type { Track } from "../shared/types.js";
-import { LocalDatabase } from "./database.js";
+} from "@core/platform/safeLocalPaths.js";
+import { apiV1Url } from "@core/platform/serverPaths.js";
+import type { Track } from "@core/types.js";
+import { LocalDatabase } from "./db/localDatabase.js";
 
 export class DownloadCancelledError extends Error {
   constructor() {

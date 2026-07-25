@@ -1,6 +1,6 @@
-import { uploadAvatarToStorage } from "./avatarUpload.js";
-import { avatarUrlWithCacheBust } from "./avatarBytes.js";
-import type { StoredSession } from "./types.js";
+import { uploadAvatarToStorage } from "@core/profile/avatarUpload.js";
+import { avatarUrlWithCacheBust } from "@core/profile/avatarBytes.js";
+import type { StoredSession } from "@core/types.js";
 
 export interface GoTrueUser {
   id: string;

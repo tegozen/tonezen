@@ -1,4 +1,4 @@
-import type { Cycle } from "@shared/types";
+import type { Cycle } from "@core/types";
 import { CheckCircleIcon, PauseIcon, PlayIcon } from "./TonezenIcons";
 import { ContinueResumeMeta } from "./ContinueResumeMeta";
 import { CycleCover } from "./CycleCover";

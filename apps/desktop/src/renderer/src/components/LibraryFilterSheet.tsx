@@ -1,4 +1,4 @@
-import type { LibraryFilter } from "@shared/navigation";
+import type { LibraryFilter } from "@core/platform/navigation";
 import { useAnimatedVisibility } from "../hooks/useAnimatedVisibility";
 
 interface LibraryFilterSheetProps {
