@@ -12,6 +12,7 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src electron.vite.config.ts",
+    "lint:fsd": "steiger src/renderer/src",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "build": {
@@ -83,6 +84,7 @@
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
     "@eslint/js": "^9.16.0",
+    "@feature-sliced/steiger-plugin": "^0.7.0",
     "@tailwindcss/vite": "^4.3.0",
     "@types/better-sqlite3": "^7.6.12",
     "@types/react": "^18.3.12",
@@ -94,6 +96,7 @@
     "electron-vite": "^2.3.0",
     "eslint": "^9.16.0",
     "eslint-plugin-react-hooks": "^5.0.0",
+    "steiger": "^0.6.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.17.0",

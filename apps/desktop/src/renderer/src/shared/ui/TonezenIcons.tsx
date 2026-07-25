@@ -1,33 +1,35 @@
 import type { CSSProperties, HTMLAttributes } from "react";
-import checkCircleUrl from "@/shared/assets/icons/check-circle.svg";
-import chevronLeftUrl from "@/shared/assets/icons/chevron-left.svg";
-import chevronRightUrl from "@/shared/assets/icons/chevron-right.svg";
-import closeUrl from "@/shared/assets/icons/close.svg";
-import downloadUrl from "@/shared/assets/icons/download.svg";
-import eyeOffUrl from "@/shared/assets/icons/eye-off.svg";
-import eyeUrl from "@/shared/assets/icons/eye.svg";
-import filterUrl from "@/shared/assets/icons/filter.svg";
-import forward15Url from "@/shared/assets/icons/forward-15.svg";
-import gripUrl from "@/shared/assets/icons/grip.svg";
-import heartUrl from "@/shared/assets/icons/heart.svg";
-import booksUrl from "@/shared/assets/icons/books.svg";
-import lockUrl from "@/shared/assets/icons/lock.svg";
-import mailUrl from "@/shared/assets/icons/mail.svg";
-import moreVerticalUrl from "@/shared/assets/icons/more-vertical.svg";
-import musicUrl from "@/shared/assets/icons/music.svg";
-import pauseUrl from "@/shared/assets/icons/pause.svg";
-import playUrl from "@/shared/assets/icons/play.svg";
-import playerUrl from "@/shared/assets/icons/player.svg";
-import profileUrl from "@/shared/assets/icons/profile.svg";
-import queueUrl from "@/shared/assets/icons/queue.svg";
-import rewind15Url from "@/shared/assets/icons/rewind-15.svg";
-import searchUrl from "@/shared/assets/icons/search.svg";
-import skipNextUrl from "@/shared/assets/icons/skip-next.svg";
-import skipPreviousUrl from "@/shared/assets/icons/skip-previous.svg";
-import storageUrl from "@/shared/assets/icons/storage.svg";
-import syncUrl from "@/shared/assets/icons/sync.svg";
-import trashUrl from "@/shared/assets/icons/trash.svg";
-import warningUrl from "@/shared/assets/icons/warning.svg";
+import {
+  booksUrl,
+  checkCircleUrl,
+  chevronLeftUrl,
+  chevronRightUrl,
+  closeUrl,
+  downloadUrl,
+  eyeOffUrl,
+  eyeUrl,
+  filterUrl,
+  forward15Url,
+  gripUrl,
+  heartUrl,
+  lockUrl,
+  mailUrl,
+  moreVerticalUrl,
+  musicUrl,
+  pauseUrl,
+  playUrl,
+  playerUrl,
+  profileUrl,
+  queueUrl,
+  rewind15Url,
+  searchUrl,
+  skipNextUrl,
+  skipPreviousUrl,
+  storageUrl,
+  syncUrl,
+  trashUrl,
+  warningUrl,
+} from "./icons";
 
 type IconProps = HTMLAttributes<HTMLSpanElement> & {
   title?: string;

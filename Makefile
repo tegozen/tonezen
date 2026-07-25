@@ -7,6 +7,7 @@ lint: check-eol
 	cd backend/indexer && npm run lint
 	cd backend/api && npm run lint
 	cd apps/desktop && npm run lint
+	cd apps/desktop && npm run lint:fsd
 	cd apps/desktop && npm run typecheck
 
 check-eol:
