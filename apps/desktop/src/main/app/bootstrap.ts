@@ -1,6 +1,6 @@
 import { net } from "electron";
-import type { ProgressSyncService } from "./progressSync.js";
-import type { SessionService } from "./sessionService.js";
+import type { ProgressSyncService } from "../progress/progressSync.js";
+import type { SessionService } from "../session/sessionService.js";
 
 export async function runColdStartBootstrap(
   sessionService: SessionService,

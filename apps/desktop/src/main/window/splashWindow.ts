@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { BrowserWindow } from "electron";
-import { appIconPath, splashImagePath } from "./assets.js";
+import { appIconPath, splashImagePath } from "../app/assets.js";
 
 export function createSplashWindow(): BrowserWindow {
   const splashWindow = new BrowserWindow({

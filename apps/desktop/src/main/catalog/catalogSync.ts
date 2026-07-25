@@ -2,7 +2,7 @@ import type { Book, Cycle, Track } from "@core/types.js";
 import { normalizeCycleBookOrder } from "@core/catalog/cycleBooks.js";
 import { apiV1Url } from "@core/platform/serverPaths.js";
 import { normalizeWaveformPeaks } from "@core/catalog/waveformPeaks.js";
-import { LocalDatabase } from "./db/localDatabase.js";
+import { LocalDatabase } from "../db/localDatabase.js";
 
 interface ApiBook {
   id: string;

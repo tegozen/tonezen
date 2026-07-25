@@ -1,5 +1,5 @@
 import { app, Menu, Tray, nativeImage, type BrowserWindow } from "electron";
-import { appIconPngPath, trayIconPath } from "./assets.js";
+import { appIconPngPath, trayIconPath } from "../app/assets.js";
 import type { WindowLifecycleManager } from "./windowLifecycle.js";
 
 /** macOS tray clicks fire twice; show the menu instead of toggling the window. */

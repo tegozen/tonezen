@@ -15,7 +15,7 @@ import {
 } from "@core/platform/safeLocalPaths.js";
 import { apiV1Url } from "@core/platform/serverPaths.js";
 import type { Track } from "@core/types.js";
-import { LocalDatabase } from "./db/localDatabase.js";
+import { LocalDatabase } from "../db/localDatabase.js";
 
 export class DownloadCancelledError extends Error {
   constructor() {

@@ -3,9 +3,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowserWindow } from "electron";
 import type { UserProfileMirrorRow } from "@core/profile/userProfileMirror.js";
 import type { StoredSession } from "@core/types.js";
-import { createSupabaseClient } from "./supabaseClient.js";
-import type { SessionService } from "./sessionService.js";
-import { isAuthSubscriptionError } from "./catalogRealtimeSync.js";
+import { createSupabaseClient } from "../session/supabaseClient.js";
+import type { SessionService } from "../session/sessionService.js";
+import { isAuthSubscriptionError } from "../catalog/catalogRealtimeSync.js";
 
 export interface ProfileSyncConfig {
   baseUrl: string;

@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowserWindow } from "electron";
 import type { StoredSession } from "@core/types.js";
 import type { CatalogSyncService } from "./catalogSync.js";
-import { createSupabaseClient } from "./supabaseClient.js";
+import { createSupabaseClient } from "../session/supabaseClient.js";
 
 export interface CatalogRealtimeSyncConfig {
   baseUrl: string;

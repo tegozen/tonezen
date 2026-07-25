@@ -1,5 +1,5 @@
 import type { AudiobookProgress } from "@core/types.js";
-import { getDb } from "./connection.js";
+import { getDb } from "../db/connection.js";
 
 export interface StoredProgress extends AudiobookProgress {
   pendingSync: boolean;

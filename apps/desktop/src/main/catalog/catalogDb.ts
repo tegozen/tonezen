@@ -8,8 +8,8 @@ import {
 } from "@core/platform/safeLocalPaths.js";
 import type { Book, Cycle, Track } from "@core/types.js";
 import { serializeWaveformPeaks } from "@core/catalog/waveformPeaks.js";
-import { getDb } from "./connection.js";
-import { mapBookRow, mapTrackRow, type BookRow, type TrackRow } from "./mappers.js";
+import { getDb } from "../db/connection.js";
+import { mapBookRow, mapTrackRow, type BookRow, type TrackRow } from "../db/mappers.js";
 
 export interface LibrarySnapshotOptions {
   reconcileLocalPaths?: boolean;

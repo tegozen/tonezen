@@ -7,7 +7,7 @@ import {
   sortPending,
   type DownloadPriority,
 } from "@core/downloads/downloadQueuePolicy.js";
-import type { DownloadQueueRow } from "./db/downloadQueueDb.js";
+import type { DownloadQueueRow } from "./downloadQueueDb.js";
 import {
   emptyDownloadQueueState,
   trimCompletedHistory,
@@ -19,9 +19,9 @@ import {
 } from "@core/downloads/downloadQueueState.js";
 import { isSafeStorageId, resolveTrackPartPath } from "@core/platform/safeLocalPaths.js";
 import { DownloadCancelledError, type DownloadManager } from "./downloadManager.js";
-import { LocalDatabase } from "./db/localDatabase.js";
-import type { SessionService } from "./sessionService.js";
-import type { DiagnosticErrorEntry } from "./diagnosticsLog.js";
+import { LocalDatabase } from "../db/localDatabase.js";
+import type { SessionService } from "../session/sessionService.js";
+import type { DiagnosticErrorEntry } from "../app/diagnosticsLog.js";
 
 const STATUS_QUEUED = "queued";
 const MAX_DOWNLOAD_FAILURES = 3;

@@ -1,18 +1,18 @@
 import { ipcMain } from "electron";
-import type { CatalogRealtimeSyncService } from "./catalogRealtimeSync.js";
-import type { CatalogSyncService } from "./catalogSync.js";
-import type { DownloadManager } from "./downloadManager.js";
-import type { TrackDownloadQueue } from "./trackDownloadQueue.js";
-import { LocalDatabase } from "./db/localDatabase.js";
-import type { PlaybackPowerBlocker } from "./playbackPowerBlocker.js";
-import type { ProfileSyncService } from "./profileSync.js";
-import type { ProgressSyncService } from "./progressSync.js";
+import type { CatalogRealtimeSyncService } from "../catalog/catalogRealtimeSync.js";
+import type { CatalogSyncService } from "../catalog/catalogSync.js";
+import type { DownloadManager } from "../downloads/downloadManager.js";
+import type { TrackDownloadQueue } from "../downloads/trackDownloadQueue.js";
+import { LocalDatabase } from "../db/localDatabase.js";
+import type { PlaybackPowerBlocker } from "../media/playbackPowerBlocker.js";
+import type { ProfileSyncService } from "../profile/profileSync.js";
+import type { ProgressSyncService } from "../progress/progressSync.js";
 import type { EnqueueDownloadRequest } from "@core/downloads/downloadQueueState.js";
 import type { DownloadPriority } from "@core/downloads/downloadQueuePolicy.js";
-import type { SessionService } from "./sessionService.js";
+import type { SessionService } from "../session/sessionService.js";
 import { isSafeStorageId } from "@core/platform/safeLocalPaths.js";
 import { coerceAvatarJpegBytes } from "@core/profile/avatarBytes.js";
-import { appendDiagnosticError, type DiagnosticErrorEntry } from "./diagnosticsLog.js";
+import { appendDiagnosticError, type DiagnosticErrorEntry } from "../app/diagnosticsLog.js";
 
 function assertSafeDownloadIds(bookId: string, trackId: string): boolean {
   return isSafeStorageId(bookId) && isSafeStorageId(trackId);

@@ -7,7 +7,7 @@ import {
   needsMainWindowWidthEnforcement,
   normalizeMainWindowContentSize,
 } from "@core/platform/appShell.js";
-import { appIconPath } from "./assets.js";
+import { appIconPath } from "../app/assets.js";
 import type { WindowLifecycleManager } from "./windowLifecycle.js";
 
 function enforceMainWindowShellSize(mainWindow: BrowserWindow): void {

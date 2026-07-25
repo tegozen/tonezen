@@ -3,9 +3,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowserWindow } from "electron";
 import { mergeProgressLww } from "@core/progress/progressMerge.js";
 import type { AudiobookProgress, StoredSession } from "@core/types.js";
-import { LocalDatabase } from "./db/localDatabase.js";
-import { createSupabaseClient } from "./supabaseClient.js";
-import { isAuthSubscriptionError } from "./catalogRealtimeSync.js";
+import { LocalDatabase } from "../db/localDatabase.js";
+import { createSupabaseClient } from "../session/supabaseClient.js";
+import { isAuthSubscriptionError } from "../catalog/catalogRealtimeSync.js";
 
 import { apiV1Url } from "@core/platform/serverPaths.js";
 
