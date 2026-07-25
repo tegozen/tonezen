@@ -1,0 +1,147 @@
+import { useEffect, useRef } from "react";
+import type { Book, Track } from "@core/types";
+import type { DownloadQueueState } from "@core/downloads/downloadQueueState";
+import { ChapterTrackRow } from "@/entities/book";
+import { ContinueResumeMeta } from "@/entities/track";
+import { DetailHeaderMenu } from "@/shared/ui/DetailHeaderMenu";
+import { OverlayTopChrome } from "@/widgets/top-chrome";
+import { OVERLAY_BACK_TOP_SCROLL_PX } from "@/shared/lib/layoutChrome";
+import { buildBookTrackProgress, canContinueBookListening, resolveChapterTrackState } from "@/entities/book";
+import { scrollActiveRowAboveBottomPadding } from "@/shared/lib/scrollActiveRow";
+
+interface BookDetailPageProps {
+  book: Book;
+  tracks: Track[];
+  currentTrackId: string | null;
+  playbackPositionMs: number;
+  downloadQueue: DownloadQueueState;
+  onBack: () => void;
+  onTrackClick: (track: Track) => void;
+  onDownloadRequest: () => void;
+  onDownloadTrack: (track: Track) => void;
+  onToggleBookListened: () => void;
+  onRemoveBookDownloads: () => void;
+  onMarkTrackListened: (track: Track, listened: boolean) => void;
+  onRemoveTrackDownload: (track: Track) => void;
+  onContinue: () => void;
+  savedTrackId: string | null;
+  savedPositionMs: number;
+  isBookListened: boolean;
+  hasDownloads: boolean;
+  allDownloaded: boolean;
+}
+
+export function BookDetailPage({
+  book,
+  tracks,
+  currentTrackId,
+  playbackPositionMs,
+  downloadQueue,
+  onBack,
+  onTrackClick,
+  onDownloadRequest,
+  onDownloadTrack,
+  onToggleBookListened,
+  onRemoveBookDownloads,
+  onMarkTrackListened,
+  onRemoveTrackDownload,
+  onContinue,
+  savedTrackId,
+  savedPositionMs,
+  isBookListened,
+  hasDownloads,
+  allDownloaded,
+}: BookDetailPageProps) {
+  const sortedTracks = [...tracks].sort((a, b) => a.sortOrder - b.sortOrder);
+  const progressByTrack = buildBookTrackProgress(
+    tracks,
+    savedTrackId,
+    savedPositionMs,
+    currentTrackId,
+    playbackPositionMs,
+  );
+  const continueState = canContinueBookListening(
+    book.id,
+    tracks,
+    savedTrackId ? { bookId: book.id, trackId: savedTrackId, positionMs: savedPositionMs } : null,
+  );
+  const showPrimaryPlay = !isBookListened && currentTrackId == null;
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!currentTrackId) return;
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+    const rowEl = scrollEl.querySelector<HTMLElement>("[data-active-chapter-track]");
+    if (!rowEl) return;
+
+    const frame = requestAnimationFrame(() => {
+      scrollActiveRowAboveBottomPadding(scrollEl, rowEl);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [currentTrackId]);
+
+  return (
+    <div className="overlay-page">
+      <div
+        ref={scrollRef}
+        className="scroll-under-chrome"
+        style={{ paddingTop: OVERLAY_BACK_TOP_SCROLL_PX }}
+      >
+      {showPrimaryPlay && (
+        <button
+          type="button"
+          className="btn-primary mx-4 mb-3 flex w-[calc(100%-2rem)] justify-center"
+          onClick={onContinue}
+        >
+          {continueState ? (
+            <ContinueResumeMeta state={continueState} variant="button" />
+          ) : (
+            "Воспроизвести"
+          )}
+        </button>
+      )}
+      <div className="chapter-track-list">
+        {sortedTracks.map((track) => {
+          const isActive = track.id === currentTrackId;
+          const { listenProgress, listenPercent } = resolveChapterTrackState(
+            track,
+            progressByTrack.get(track.id),
+          );
+          return (
+            <div key={track.id} data-active-chapter-track={isActive || undefined}>
+              <ChapterTrackRow
+                track={track}
+                trackNumber={track.sortOrder + 1}
+                isActive={isActive}
+                listenProgress={listenProgress}
+                listenPercent={listenPercent}
+                isDownloaded={Boolean(track.localPath)}
+                downloadQueue={downloadQueue}
+                onClick={() => onTrackClick(track)}
+                onToggleListened={() => onMarkTrackListened(track, listenPercent !== 100)}
+                onRemoveDownload={() => onRemoveTrackDownload(track)}
+                onDownloadTrack={() => onDownloadTrack(track)}
+              />
+            </div>
+          );
+        })}
+      </div>
+      </div>
+      <OverlayTopChrome
+        title="Главы"
+        onBack={onBack}
+        trailing={
+          <DetailHeaderMenu
+            showDownload={!allDownloaded}
+            showRemoveDownload={hasDownloads}
+            isListened={isBookListened}
+            onDownload={onDownloadRequest}
+            onToggleListened={onToggleBookListened}
+            onRemoveDownloads={onRemoveBookDownloads}
+          />
+        }
+      />
+    </div>
+  );
+}
