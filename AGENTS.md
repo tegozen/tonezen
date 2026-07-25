@@ -32,7 +32,7 @@ Before changing library, playback, downloads, or progress UI/logic on **Android*
 - Treat it as the source of truth for user-visible behavior.
 - Android and Desktop must stay behaviorally aligned unless the doc explicitly allows a platform exception.
 - When fixing a bug or adding a feature in these areas, update the doc if behavior changes.
-- Prefer implementing rules in `domain/` (Android) and `apps/desktop/src/shared/` (Desktop); UI only orchestrates.
+- Prefer implementing rules in `domain/` (Android) and `apps/desktop/src/core/` (Desktop); UI only orchestrates.
 
 ### Android (Kotlin) — mandatory structure
 
@@ -68,8 +68,8 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 ### API-first
 
 1. Update `docs/openapi.yaml`
-2. Add/update contract tests
-3. Implement Edge Functions / clients
+2. Implement Edge Functions / clients
+3. Add/update contract tests only when the user explicitly asks
 
 ### Backend
 
@@ -116,7 +116,7 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 - Branches: `feat/…`, `fix/…`, `chore/…` from `main`
 - Codex/local chat workflow: do **not** create or switch to a new branch or git worktree
   unless the user explicitly asks for it. Work in the current checkout/branch by default.
-- Atomic commits: one feature + its tests per PR
+- Atomic commits: one logical change per PR
 - Commit messages and code comments: **English**
 - UI strings: **Russian only** — inline at usage sites (Android Compose and Desktop); no English user-facing copy in clients
 
@@ -124,23 +124,18 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 
 | Area | Tool | Rules |
 |------|------|-------|
-| Kotlin/Android | `./gradlew testDebugUnitTest` (+ ktlint/detekt when configured) | See [kotlin-android.mdc](.cursor/rules/kotlin-android.mdc): feature ViewModels, UDF, repos per domain, pure `domain/`, Compose stateless, inline Russian UI copy |
+| Kotlin/Android | `./gradlew` (+ ktlint/detekt when configured) | See [kotlin-android.mdc](.cursor/rules/kotlin-android.mdc): feature ViewModels, UDF, repos per domain, pure `domain/`, Compose stateless, inline Russian UI copy |
 | TypeScript/React | ESLint + Prettier | strict TS; functional components; hooks for logic; UI copy inline at usage sites (**Russian only**) |
-| Desktop renderer UI | Tailwind CSS v4 (`@tailwindcss/vite`) | utility classes + `@layer components` in `styles.css`; no inline `style` props |
+| Desktop renderer UI | Tailwind CSS v4 (`@tailwindcss/vite`) | Feature-Sliced Design in `renderer/src`; domain in `src/core`; utility classes + component layers |
 | SQL | pg formatter | snake_case; explicit RLS in migrations |
 | Edge Functions (Deno) | deno lint/fmt | Modules < 200 lines; no `any` |
 | Indexer (Node/TS) | ESLint + Prettier | Same as desktop |
 
-## TDD (when the user asks for tests / before merge)
+## Tests (optional)
 
-Applies only when the user explicitly requests tests or when preparing a mergeable PR after such a request:
-
-1. **Red** — write failing test or update OpenAPI spec
-2. **Green** — minimal implementation
-3. **Refactor** — without behavior change
-4. `make test` and `make lint` must pass before merge
-
-PRs without tests for domain/sync/indexer/API changes are not merged.
+- Tests are **not** mandatory for merges or PRs.
+- Write or update tests only when the user explicitly asks.
+- Backend (`make test` targets for api/indexer) and Android unit tests remain available; desktop has no unit-test suite.
 
 ## Forbidden
 
@@ -157,17 +152,17 @@ PRs without tests for domain/sync/indexer/API changes are not merged.
 
 ## PR Checklist
 
-- [ ] Tests added/updated
-- [ ] `make lint` and `make test` green
 - [ ] OpenAPI updated (if API changed)
 - [ ] AGENTS.md rules followed
+- [ ] `make lint` green when verification was requested
+- [ ] Tests added/updated only if the user asked for them
 
 ## Commands
 
 ```bash
 docker compose up -d          # Start backend stack
-make test                     # Run all unit tests
-make lint                     # Run linters
+make lint                     # Run linters (desktop typecheck included)
+make test                     # Run available unit tests (backend/landing; no desktop suite)
 ```
 
 See [`README.md`](README.md) for full setup.

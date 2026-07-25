@@ -7,7 +7,7 @@ alwaysApply: false
 # Backend
 
 - SQL migrations in `backend/supabase/migrations/` with explicit RLS
-- Indexer: pure parsers + thin DB IO; Vitest with fixture dirs first
-- Edge Functions: Deno, deno test, no `any`
+- Indexer: pure parsers + thin DB IO; Vitest fixtures when tests are requested
+- Edge Functions: Deno, no `any`
 - Signed download URLs via HMAC; never expose raw volume over HTTP
 - Catalog soft-delete via `deleted_at`

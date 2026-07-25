@@ -69,7 +69,7 @@ Repositories align with OpenAPI domains: `catalog`, `downloads`, `progress`, `au
 
 - Repository returns `Flow` for observable data; `suspend` for one-shot commands.
 - Use **`stateIn`** / **`shareIn`** in ViewModel when multiple collectors need the same stream.
-- Test with `runTest`, Turbine for Flow; domain tests without Robolectric when possible.
+- When tests are requested: `runTest`, Turbine for Flow; domain tests without Robolectric when possible.
 
 ## DI (Hilt)
 
@@ -80,7 +80,7 @@ Repositories align with OpenAPI domains: `catalog`, `downloads`, `progress`, `au
 ## Playback
 
 - `MediaSessionService` for background audio; UI talks via `PlaybackClient`.
-- Domain playback rules (`PlaybackCoordinator`, `CyclePlaybackResolver`) live in `domain/playback/` and must be **wired** — no dead tested code.
+- Domain playback rules (`PlaybackCoordinator`, `CyclePlaybackResolver`) live in `domain/playback/` and must be **wired** — no dead unused code.
 
 ## Auth & sync (Tonezen)
 

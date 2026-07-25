@@ -10,6 +10,6 @@ alwaysApply: false
 - Main process: tray-first lifecycle, SessionService, IPC, sqlite
 - Close/minimize → hide to tray; `app.quit()` only from tray «Exit»
 - `WindowLifecycleManager` with `isQuitting` flag
-- Domain logic in shared TS modules, test with Vitest
+- Domain logic in `src/core` TS modules; renderer uses Feature-Sliced Design
 - Supabase JS auth with offline-safe session handling
 - UI copy: Russian literals inline at usage sites (no central i18n module)

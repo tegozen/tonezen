@@ -12,4 +12,4 @@ Use Conventional Commits in English:
 - `test(scope): description`
 - `docs:`, `chore:`, `ci:`, `refactor:`
 
-One logical change + tests per commit/PR when possible.
+One logical change per commit/PR when possible. Tests only when the user asks.
