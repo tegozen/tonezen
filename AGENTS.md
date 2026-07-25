@@ -58,7 +58,7 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 - **Compose is dumb UI** — no repository calls, no content-type/sync branching; UI copy inline at usage sites (**Russian only**).
 - **IO on background** — all Room/HTTP via `suspend` or `Flow`; no `while (true)` polling in ViewModel.
 - **Modules ~≤200 lines** — split screens, DAOs, and API clients by feature/domain.
-- **Domain tests first** for business logic (JUnit + coroutines-test; Turbine for Flow).
+- **Domain tests** for business logic (JUnit + coroutines-test; Turbine for Flow) — only when the user explicitly asks for tests.
 
 **Known debt (fix when touching the area)**
 
@@ -103,6 +103,12 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 - Create shared skills under `.agents/skills/<skill-name>/SKILL.md` so Codex and Cursor can both discover them.
 - Do not add new skills under agent-specific directories such as `.cursor/skills` or `.codex/skills` unless the user explicitly asks for that location.
 
+## Agent execution policy
+
+- Do **not** write or update tests unless the user explicitly asks for tests.
+- Do **not** run commands (`make test`, `make lint`, Gradle, npm, docker, builds, apps, etc.) unless the user explicitly asks to run them.
+- Implement code changes only; leave verification and test authoring to an explicit user request.
+
 ## Git Style
 
 - **Conventional Commits:** `feat:`, `fix:`, `test:`, `refactor:`, `docs:`, `chore:`, `ci:`
@@ -125,7 +131,9 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 | Edge Functions (Deno) | deno lint/fmt | Modules < 200 lines; no `any` |
 | Indexer (Node/TS) | ESLint + Prettier | Same as desktop |
 
-## TDD (mandatory for business logic)
+## TDD (when the user asks for tests / before merge)
+
+Applies only when the user explicitly requests tests or when preparing a mergeable PR after such a request:
 
 1. **Red** — write failing test or update OpenAPI spec
 2. **Green** — minimal implementation
@@ -145,6 +153,7 @@ PRs without tests for domain/sync/indexer/API changes are not merged.
 - Desktop `app.quit()` on window close without explicit quit flag
 - Synchronous JWT exp check on main thread at cold start without network
 - PRs > 400 lines without justification
+- Writing/updating tests or running any commands without an explicit user request (see Agent execution policy)
 
 ## PR Checklist
 
