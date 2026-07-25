@@ -11,6 +11,12 @@ export function loadConfig(): AppConfig & { port: number; databaseUrl: string } 
   const storageSignExpiresIn = Number(process.env.STORAGE_SIGN_EXPIRES_IN ?? "900");
   const publicBaseUrl =
     process.env.TONEZEN_BASE_URL ?? process.env.STORAGE_PUBLIC_URL ?? "http://localhost:8000";
+  const jwtAudience = process.env.JWT_AUD ?? "authenticated";
+  const jwtIssuer = process.env.JWT_ISS?.trim() || undefined;
+  const corsOrigins = (process.env.CORS_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
   if (!databaseUrl || !jwtSecret || !serviceRoleKey) {
     console.error("DATABASE_URL, JWT_SECRET, SERVICE_ROLE_KEY required");
@@ -21,6 +27,9 @@ export function loadConfig(): AppConfig & { port: number; databaseUrl: string } 
     port,
     databaseUrl,
     jwtSecret,
+    jwtAudience,
+    jwtIssuer,
+    corsOrigins: corsOrigins.length > 0 ? corsOrigins : [publicBaseUrl.replace(/\/$/, "")],
     auth: {
       authUrl,
       publicBaseUrl,

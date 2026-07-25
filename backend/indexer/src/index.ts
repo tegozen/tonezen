@@ -81,13 +81,29 @@ async function runOnce(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  await runOnce();
-  setInterval(() => {
-    runOnce().catch((err) => {
+  let running = false;
+  const scheduleNext = () => {
+    setTimeout(() => {
+      void tick();
+    }, config.intervalSeconds * 1000);
+  };
+  const tick = async () => {
+    if (running) {
+      scheduleNext();
+      return;
+    }
+    running = true;
+    try {
+      await runOnce();
+    } catch (err) {
       healthState.lastFailureAt = Date.now();
       console.error("[indexer] Error:", err);
-    });
-  }, config.intervalSeconds * 1000);
+    } finally {
+      running = false;
+      scheduleNext();
+    }
+  };
+  await tick();
 }
 
 main().catch((err) => {

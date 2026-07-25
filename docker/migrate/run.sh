@@ -4,7 +4,7 @@ set -eu
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-/migrations}"
 PGHOST="${PGHOST:-db}"
 PGUSER="${PGUSER:-supabase_admin}"
-PGPASSWORD="${PGPASSWORD:-tonezen-postgres-internal}"
+PGPASSWORD="${PGPASSWORD:?Set PGPASSWORD / POSTGRES_PASSWORD in .env}"
 PGDATABASE="${PGDATABASE:-tonezen}"
 export PGPASSWORD
 
@@ -40,14 +40,25 @@ waveform_peaks_exists() {
 
 record_migration() {
   filename=$1
+  # Validate filename before recording (defense against path/SQL injection).
+  case "$filename" in
+    *[!A-Za-z0-9._-]* | "" )
+      echo "[migrate] refusing unsafe migration filename: $filename" >&2
+      exit 1
+      ;;
+  esac
   psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 \
-    -c "INSERT INTO schema_migrations (filename) VALUES ('${filename}') ON CONFLICT DO NOTHING"
+    -v filename="$filename" \
+    -c "INSERT INTO schema_migrations (filename) VALUES (:'filename') ON CONFLICT DO NOTHING"
 }
 
 is_recorded() {
   filename=$1
-  [ "$(psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -tAc \
-    "SELECT 1 FROM schema_migrations WHERE filename = '${filename}' LIMIT 1")" = "1" ]
+  case "$filename" in
+    *[!A-Za-z0-9._-]* | "" ) return 1 ;;
+  esac
+  [ "$(psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v filename="$filename" -tAc \
+    "SELECT 1 FROM schema_migrations WHERE filename = :'filename' LIMIT 1")" = "1" ]
 }
 
 for file in $(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | sort); do
@@ -75,5 +86,17 @@ for file in $(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | sort); do
   psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -f "$file"
   record_migration "$filename"
 done
+
+# Keep role passwords in sync with the deploy secret (migrations 005/032 may set
+# a placeholder; compose uses POSTGRES_PASSWORD for all DB URLs).
+echo "[migrate] syncing role passwords"
+psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -v pwd="$PGPASSWORD" <<'SQL'
+ALTER ROLE supabase_admin WITH PASSWORD :'pwd';
+ALTER ROLE supabase_auth_admin WITH PASSWORD :'pwd';
+ALTER ROLE supabase_storage_admin WITH PASSWORD :'pwd';
+ALTER ROLE authenticator WITH PASSWORD :'pwd';
+SQL
+psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -v pwd="$PGPASSWORD" \
+  -c "ALTER ROLE tonezen_api WITH PASSWORD :'pwd'" 2>/dev/null || true
 
 echo "[migrate] done"

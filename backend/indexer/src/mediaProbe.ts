@@ -8,6 +8,8 @@ import path from "node:path";
 const execFileAsync = promisify(execFile);
 export const WAVEFORM_PEAK_COUNT = 64;
 const WAVEFORM_SAMPLE_RATE = 8000;
+const FFPROBE_TIMEOUT_MS = 60_000;
+const FFMPEG_TIMEOUT_MS = 120_000;
 
 export interface FileMetadata {
   sizeBytes: number;
@@ -146,14 +148,11 @@ export async function resolveStorageObjectPath(objectPath: string): Promise<stri
 
 export async function probeAudioTags(filePath: string): Promise<AudioTags | null> {
   try {
-    const { stdout } = await execFileAsync("ffprobe", [
-      "-v",
-      "quiet",
-      "-print_format",
-      "json",
-      "-show_format",
-      filePath,
-    ]);
+    const { stdout } = await execFileAsync(
+      "ffprobe",
+      ["-v", "quiet", "-print_format", "json", "-show_format", filePath],
+      { timeout: FFPROBE_TIMEOUT_MS, maxBuffer: 2 * 1024 * 1024 },
+    );
     const json = JSON.parse(stdout) as {
       format?: { tags?: Record<string, string>; duration?: string };
     };
@@ -187,15 +186,19 @@ export async function sha256File(filePath: string): Promise<string> {
 
 export async function probeDurationMs(filePath: string): Promise<number | null> {
   try {
-    const { stdout } = await execFileAsync("ffprobe", [
-      "-v",
-      "error",
-      "-show_entries",
-      "format=duration",
-      "-of",
-      "default=noprint_wrappers=1:nokey=1",
-      filePath,
-    ]);
+    const { stdout } = await execFileAsync(
+      "ffprobe",
+      [
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        filePath,
+      ],
+      { timeout: FFPROBE_TIMEOUT_MS, maxBuffer: 64 * 1024 },
+    );
     const seconds = parseFloat(stdout.trim());
     if (Number.isNaN(seconds)) return null;
     return Math.round(seconds * 1000);
@@ -234,8 +237,13 @@ export async function probeWaveformPeaks(
     const finish = (result: number[] | null) => {
       if (settled) return;
       settled = true;
+      clearTimeout(killTimer);
       resolve(result);
     };
+    const killTimer = setTimeout(() => {
+      ffmpeg.kill("SIGKILL");
+      finish(null);
+    }, FFMPEG_TIMEOUT_MS);
 
     ffmpeg.stdout.on("data", (chunk: Buffer<ArrayBufferLike>) => {
       const input = remainder.length > 0 ? Buffer.concat([remainder, chunk]) : chunk;

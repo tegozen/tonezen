@@ -45,7 +45,7 @@ services:
       - name: cors
         config:
           origins:
-            - "*"
+            - "$TONEZEN_BASE_URL"
           methods:
             - GET
             - HEAD
@@ -73,7 +73,7 @@ services:
             - upload-length
             - upload-metadata
             - upload-expires
-          credentials: true
+          credentials: false
 
   # TUS resumable uploads: storage returns Location without /storage/v1 prefix
   - name: storage-tus
@@ -88,7 +88,7 @@ services:
       - name: cors
         config:
           origins:
-            - "*"
+            - "$TONEZEN_BASE_URL"
           methods:
             - GET
             - HEAD
@@ -116,7 +116,7 @@ services:
             - upload-length
             - upload-metadata
             - upload-expires
-          credentials: true
+          credentials: false
 
   - name: realtime-v1-ws
     url: http://realtime-dev.supabase-realtime:4000/socket
@@ -203,7 +203,7 @@ plugins:
   - name: cors
     config:
       origins:
-        - "*"
+        - "$TONEZEN_BASE_URL"
       methods:
         - GET
         - HEAD
@@ -231,4 +231,4 @@ plugins:
         - upload-length
         - upload-metadata
         - upload-expires
-      credentials: true
+      credentials: false

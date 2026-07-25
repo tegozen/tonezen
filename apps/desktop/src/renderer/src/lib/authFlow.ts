@@ -19,7 +19,7 @@ export function canSubmitSignup(state: SignupFormState): boolean {
     state.inviteVerified &&
     state.email.trim().length > 0 &&
     state.displayName.trim().length > 0 &&
-    state.password.length >= 6 &&
+    state.password.length >= 12 &&
     state.password === state.confirmPassword
   );
 }

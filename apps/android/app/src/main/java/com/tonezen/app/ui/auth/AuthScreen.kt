@@ -482,7 +482,7 @@ internal fun resolveAuthError(error: String): String = when (error) {
     AuthViewModel.AUTH_INVITE_CODE_INVALID_ERROR -> "Инвайт-код не подошёл"
     AuthViewModel.AUTH_SIGNUP_FAILED_ERROR -> "Не удалось зарегистрироваться"
     AuthViewModel.AUTH_PASSWORD_MISMATCH_ERROR -> "Пароли не совпадают"
-    AuthViewModel.AUTH_PASSWORD_TOO_SHORT_ERROR -> "Пароль должен быть не короче 6 символов"
+    AuthViewModel.AUTH_PASSWORD_TOO_SHORT_ERROR -> "Пароль должен быть не короче 12 символов"
     AuthViewModel.AUTH_RECOVERY_FAILED_ERROR -> "Не удалось отправить ссылку"
     else -> "Не удалось войти. Проверьте email и пароль."
 }

@@ -94,7 +94,7 @@ class AuthViewModel @Inject constructor(
     }
 
     companion object {
-        private const val MIN_PASSWORD_LENGTH = 6
+        private const val MIN_PASSWORD_LENGTH = 12
         const val AUTH_LOGIN_FAILED_ERROR = "__auth_login_failed__"
         const val AUTH_INVITE_CODE_INVALID_ERROR = "__auth_invite_code_invalid__"
         const val AUTH_SIGNUP_FAILED_ERROR = "__auth_signup_failed__"

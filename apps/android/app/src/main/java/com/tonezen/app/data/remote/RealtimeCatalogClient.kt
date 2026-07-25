@@ -38,8 +38,11 @@ class RealtimeCatalogClient(
         messageRef.reset()
         topic = "realtime:catalog-global-$userId"
         val wsBase = supabaseUrl.trimEnd('/').replace("https://", "wss://").replace("http://", "ws://")
-        val wsUrl = "$wsBase/realtime/v1/websocket?apikey=$anonKey&vsn=1.0.0"
-        val request = Request.Builder().url(wsUrl).build()
+        val wsUrl = "$wsBase/realtime/v1/websocket?vsn=1.0.0"
+        val request = Request.Builder()
+            .url(wsUrl)
+            .header("apikey", anonKey)
+            .build()
         webSocket = httpClient.newWebSocket(
             request,
             object : WebSocketListener() {

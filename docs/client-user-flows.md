@@ -305,6 +305,26 @@ flowchart TD
 
 ---
 
+## Account
+
+### A1. Change password (authenticated)
+
+**Trigger:** User submits «Сменить пароль» in account settings.
+
+**Preconditions:** Signed in; online.
+
+**Expected behavior:**
+
+1. Form requires **current password**, new password, and confirmation.
+2. Client calls `POST /api/v1/auth/password` with Bearer access token and `{ current_password, password }`.
+3. Server verifies current password via GoTrue password grant, then updates password.
+4. Wrong current password → user-visible error; do not clear the session.
+5. Password recovery from the landing page still uses `POST /api/v1/auth/password/update` with a recovery access token (no current password).
+
+**Forbidden without updating this doc:** changing password with only an access token and no current-password check from the in-app account settings UI.
+
+---
+
 ## Domain anchors (reference)
 
 | Function | Platform | Path |

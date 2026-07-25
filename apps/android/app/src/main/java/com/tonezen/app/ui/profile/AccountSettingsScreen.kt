@@ -80,12 +80,14 @@ internal fun AccountSettingsScreen(
     passwordFormNonce: Int,
     onBack: () -> Unit,
     onSaveProfile: (displayName: String) -> Unit,
-    onChangePassword: (newPassword: String, confirmPassword: String) -> Unit,
+    onChangePassword: (currentPassword: String, newPassword: String, confirmPassword: String) -> Unit,
     onAvatarPicked: (Uri) -> Unit,
 ) {
     var name by remember(displayName) { mutableStateOf(displayName) }
+    var currentPassword by remember(passwordFormNonce) { mutableStateOf("") }
     var newPassword by remember(passwordFormNonce) { mutableStateOf("") }
     var confirmPassword by remember(passwordFormNonce) { mutableStateOf("") }
+    var currentVisible by remember(passwordFormNonce) { mutableStateOf(false) }
     var passwordVisible by remember(passwordFormNonce) { mutableStateOf(false) }
     var confirmVisible by remember(passwordFormNonce) { mutableStateOf(false) }
     var referralCopied by remember(referralCode) { mutableStateOf(false) }
@@ -241,6 +243,15 @@ internal fun AccountSettingsScreen(
         item {
             AccountFormSection(title = "Смена пароля") {
                 AccountLabeledField(
+                    value = currentPassword,
+                    onValueChange = { currentPassword = it },
+                    label = "Текущий пароль",
+                    keyboardType = KeyboardType.Password,
+                    hidden = !currentVisible,
+                    showPasswordToggle = true,
+                    onTogglePasswordVisible = { currentVisible = !currentVisible },
+                )
+                AccountLabeledField(
                     value = newPassword,
                     onValueChange = { newPassword = it },
                     label = "Новый пароль",
@@ -262,8 +273,11 @@ internal fun AccountSettingsScreen(
                     Text(message, color = TonezenError, style = MaterialTheme.typography.bodySmall)
                 }
                 Button(
-                    onClick = { onChangePassword(newPassword, confirmPassword) },
-                    enabled = newPassword.isNotBlank() && confirmPassword.isNotBlank() && !passwordSaving,
+                    onClick = { onChangePassword(currentPassword, newPassword, confirmPassword) },
+                    enabled = currentPassword.isNotBlank() &&
+                        newPassword.isNotBlank() &&
+                        confirmPassword.isNotBlank() &&
+                        !passwordSaving,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = TonezenTeal, contentColor = TonezenAppBg),
                 ) {
@@ -350,7 +364,7 @@ internal fun resolveAccountError(error: String?): String? = when (error) {
     ProfileViewModel.ACCOUNT_OFFLINE_ERROR -> "Нужно подключение к интернету"
     ProfileViewModel.PASSWORD_MISMATCH_ERROR -> "Пароли не совпадают"
     ProfileViewModel.NOT_SIGNED_IN_ERROR -> "Войдите в аккаунт"
-    ProfileViewModel.PASSWORD_TOO_SHORT_ERROR -> "Пароль должен быть не короче 6 символов"
+    ProfileViewModel.PASSWORD_TOO_SHORT_ERROR -> "Пароль должен быть не короче 12 символов"
     ProfileViewModel.PROFILE_UPDATE_FAILED_ERROR -> "Не удалось сохранить профиль"
     ProfileViewModel.PASSWORD_CHANGE_FAILED_ERROR -> "Не удалось сменить пароль"
     ProfileViewModel.REFERRAL_CODE_FAILED_ERROR -> "Не удалось загрузить реферальный код"

@@ -89,4 +89,42 @@ export class AuthAdminClient {
     if (response.status === 401 || response.status === 403) return "invalid_token";
     throw new Error(`Password update failed (${response.status}): ${text}`);
   }
+
+  /**
+   * Authenticated password change: verify current password via GoTrue password
+   * grant, then update with the caller's access token.
+   */
+  async changePasswordWithCurrentPassword(input: {
+    accessToken: string;
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<"ok" | "invalid_token" | "wrong_password"> {
+    const userUrl = `${trimTrailingSlash(this.config.authUrl)}/user`;
+    const userResponse = await fetch(userUrl, {
+      method: "GET",
+      headers: serviceHeaders(this.config.serviceRoleKey, input.accessToken),
+    });
+    if (!userResponse.ok) {
+      if (userResponse.status === 401 || userResponse.status === 403) return "invalid_token";
+      const text = await userResponse.text();
+      throw new Error(`User fetch failed (${userResponse.status}): ${text}`);
+    }
+    const user = (await userResponse.json()) as { email?: unknown };
+    const email = typeof user.email === "string" ? user.email : "";
+    if (!email) {
+      throw new Error("User email missing for password change");
+    }
+
+    const tokenUrl = `${trimTrailingSlash(this.config.authUrl)}/token?grant_type=password`;
+    const verifyResponse = await fetch(tokenUrl, {
+      method: "POST",
+      headers: serviceHeaders(this.config.serviceRoleKey),
+      body: JSON.stringify({ email, password: input.currentPassword }),
+    });
+    if (!verifyResponse.ok) {
+      return "wrong_password";
+    }
+
+    return this.updatePasswordWithRecoveryToken(input.accessToken, input.newPassword);
+  }
 }

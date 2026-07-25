@@ -31,9 +31,45 @@ export function isReadRequest(method) {
   return method === "GET" || method === "HEAD" || method === "OPTIONS";
 }
 
+/**
+ * Reject request targets that Node's URL parser would treat as absolute or
+ * protocol-relative (authority override → SSRF against the Docker network).
+ *
+ * @param {string | undefined | null} rawUrl
+ * @returns {string} Safe path+query for `new URL(path, upstream)`.
+ */
+export function assertRelativeRequestTarget(rawUrl) {
+  const target = rawUrl ?? "";
+  if (!target || target[0] !== "/") {
+    throw new Error("Invalid request target");
+  }
+  // Protocol-relative (`//host/...`) or backslash authority (`/\/host`, `\\host`).
+  if (target.startsWith("//") || target.includes("\\")) {
+    throw new Error("Invalid request target");
+  }
+  // Absolute URL smuggled as the request-target (`http://evil/...`).
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(target.slice(1))) {
+    throw new Error("Invalid request target");
+  }
+  return target;
+}
+
+/**
+ * @param {URL} url
+ * @param {string} upstreamBase
+ */
+export function assertUpstreamOrigin(url, upstreamBase = upstream) {
+  const allowed = new URL(upstreamBase);
+  if (url.origin !== allowed.origin) {
+    throw new Error("Upstream origin mismatch");
+  }
+}
+
 /** @param {import("node:http").IncomingMessage} req */
 export function rewriteRequest(req) {
-  const url = new URL(req.url ?? "/", upstream);
+  const target = assertRelativeRequestTarget(req.url);
+  const url = new URL(target, upstream);
+  assertUpstreamOrigin(url);
   const headers = { ...req.headers };
   delete headers.host;
 
@@ -69,7 +105,15 @@ function shouldStoreDisplayName(method) {
  * @param {import("node:http").ServerResponse} res
  */
 async function proxyAsync(req, res) {
-  const { url, headers, mapping } = rewriteRequest(req);
+  let rewritten;
+  try {
+    rewritten = rewriteRequest(req);
+  } catch {
+    res.writeHead(400, { "Content-Type": "text/plain" });
+    res.end("Bad Request");
+    return;
+  }
+  const { url, headers, mapping } = rewritten;
 
   if (shouldStoreDisplayName(req.method)) {
     await upsertContentDisplayName(displayNameStore, mapping);

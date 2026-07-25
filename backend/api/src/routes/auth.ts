@@ -3,7 +3,7 @@ import { asyncRoute } from "../lib/http.js";
 import type { RouteDeps } from "./deps.js";
 import { normalizeInviteCode } from "../db/auth.js";
 
-const MIN_PASSWORD_LENGTH = 6;
+const MIN_PASSWORD_LENGTH = 12;
 
 function normalizeEmail(email: unknown): string {
   return typeof email === "string" ? email.trim().toLowerCase() : "";
@@ -18,17 +18,13 @@ function isValidPassword(password: unknown): password is string {
 }
 
 export function registerAuthRoutes(app: Express, deps: RouteDeps): void {
-  app.post("/auth/invite/verify", asyncRoute(async (req, res) => {
+  app.post("/auth/invite/verify", deps.authRateLimiter, asyncRoute(async (req, res) => {
     const code = normalizeInviteCode(String(req.body?.code ?? ""));
-    const invite = await deps.auth.getInviteCode(code);
-    if (!invite) {
-      res.status(404).json({ error: "Invalid invite code" });
-      return;
-    }
-    res.json({ valid: true });
+    const invite = code ? await deps.auth.getInviteCode(code) : null;
+    res.json({ valid: Boolean(invite) });
   }));
 
-  app.post("/auth/signup", asyncRoute(async (req, res) => {
+  app.post("/auth/signup", deps.authRateLimiter, asyncRoute(async (req, res) => {
     const inviteCode = normalizeInviteCode(String(req.body?.invite_code ?? ""));
     const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
@@ -41,7 +37,8 @@ export function registerAuthRoutes(app: Express, deps: RouteDeps): void {
 
     const invite = await deps.auth.getInviteCode(inviteCode);
     if (!invite) {
-      res.status(404).json({ error: "Invalid invite code" });
+      // Same status as other signup failures to avoid invite-code oracle via signup.
+      res.status(400).json({ error: "Signup failed" });
       return;
     }
 
@@ -51,7 +48,7 @@ export function registerAuthRoutes(app: Express, deps: RouteDeps): void {
       displayName,
     });
     if ("error" in created) {
-      res.status(409).json({ error: "Email already registered" });
+      res.status(400).json({ error: "Signup failed" });
       return;
     }
 
@@ -65,7 +62,7 @@ export function registerAuthRoutes(app: Express, deps: RouteDeps): void {
     res.json({ code });
   }));
 
-  app.post("/auth/password/recovery", asyncRoute(async (req, res) => {
+  app.post("/auth/password/recovery", deps.authRateLimiter, asyncRoute(async (req, res) => {
     const email = normalizeEmail(req.body?.email);
     if (email) {
       try {
@@ -77,7 +74,7 @@ export function registerAuthRoutes(app: Express, deps: RouteDeps): void {
     res.json({ sent: true });
   }));
 
-  app.post("/auth/password/update", asyncRoute(async (req, res) => {
+  app.post("/auth/password/update", deps.authRateLimiter, asyncRoute(async (req, res) => {
     const accessToken = typeof req.body?.access_token === "string" ? req.body.access_token : "";
     const password = req.body?.password;
     if (!accessToken || !isValidPassword(password)) {
@@ -91,4 +88,39 @@ export function registerAuthRoutes(app: Express, deps: RouteDeps): void {
     }
     res.json({ updated: true });
   }));
+
+  app.post(
+    "/auth/password",
+    ...deps.requiredAuth,
+    deps.authRateLimiter,
+    asyncRoute(async (req, res) => {
+      const currentPassword =
+        typeof req.body?.current_password === "string" ? req.body.current_password : "";
+      const password = req.body?.password;
+      if (!currentPassword || !isValidPassword(password)) {
+        res.status(400).json({ error: "current_password and password required" });
+        return;
+      }
+      const header = req.headers.authorization ?? "";
+      const accessToken = header.startsWith("Bearer ") ? header.slice(7) : "";
+      if (!accessToken) {
+        res.status(401).json({ error: "Authentication required" });
+        return;
+      }
+      const result = await deps.authAdmin.changePasswordWithCurrentPassword({
+        accessToken,
+        currentPassword,
+        newPassword: password,
+      });
+      if (result === "invalid_token") {
+        res.status(401).json({ error: "Authentication required" });
+        return;
+      }
+      if (result === "wrong_password") {
+        res.status(401).json({ error: "Current password is incorrect" });
+        return;
+      }
+      res.json({ updated: true });
+    }),
+  );
 }

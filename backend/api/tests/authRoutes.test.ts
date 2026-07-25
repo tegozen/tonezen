@@ -49,8 +49,8 @@ describe("auth invite routes", () => {
       display_name: "New User",
     });
 
-    expect(res.status).toBe(404);
-    expect(res.body.error).toBe("Invalid invite code");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Signup failed");
     expect(vi.mocked(mockPool.query)).toHaveBeenCalledTimes(1);
   });
 
@@ -95,7 +95,7 @@ describe("auth invite routes", () => {
     expect(vi.mocked(mockPool.query)).toHaveBeenCalledTimes(4);
   });
 
-  it("returns conflict for duplicate email without creating a redemption", async () => {
+  it("returns generic failure for duplicate email without creating a redemption", async () => {
     vi.mocked(mockPool.query).mockResolvedValueOnce({
       rows: [{ code: "ABCD1234EFGH", owner_user_id: "inviter-1" }],
     } as never);
@@ -114,9 +114,24 @@ describe("auth invite routes", () => {
       password: "secret123",
     });
 
-    expect(res.status).toBe(409);
-    expect(res.body.error).toBe("Email already registered");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Signup failed");
     expect(vi.mocked(mockPool.query)).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns valid true/false without revealing existence via status code", async () => {
+    vi.mocked(mockPool.query).mockResolvedValueOnce({
+      rows: [{ code: "ABCD1234EFGH", owner_user_id: "inviter-1" }],
+    } as never);
+
+    const valid = await request(app).post("/auth/invite/verify").send({ code: "ABCD1234EFGH" });
+    expect(valid.status).toBe(200);
+    expect(valid.body).toEqual({ valid: true });
+
+    vi.mocked(mockPool.query).mockResolvedValueOnce({ rows: [] } as never);
+    const invalid = await request(app).post("/auth/invite/verify").send({ code: "ZZZZZZZZZZZZ" });
+    expect(invalid.status).toBe(200);
+    expect(invalid.body).toEqual({ valid: false });
   });
 
   it("returns or creates the current user's referral code", async () => {
@@ -217,5 +232,69 @@ describe("password recovery routes", () => {
 
     expect(res.status).toBe(401);
     expect(res.body.error).toBe("Invalid recovery token");
+  });
+
+  it("changes password when current password is correct", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ email: "user@example.com" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ access_token: "ok" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: "user-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await request(app)
+      .post("/auth/password")
+      .set("Authorization", `Bearer ${makeToken("user-1")}`)
+      .send({ current_password: "old-secret", password: "secret123" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ updated: true });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("rejects authenticated password change with wrong current password", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ email: "user@example.com" }),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 400,
+          text: async () => "invalid login",
+        }),
+    );
+
+    const res = await request(app)
+      .post("/auth/password")
+      .set("Authorization", `Bearer ${makeToken("user-1")}`)
+      .send({ current_password: "wrong", password: "secret123" });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("Current password is incorrect");
+  });
+
+  it("requires auth for authenticated password change", async () => {
+    const res = await request(app)
+      .post("/auth/password")
+      .send({ current_password: "old", password: "secret123" });
+
+    expect(res.status).toBe(401);
   });
 });

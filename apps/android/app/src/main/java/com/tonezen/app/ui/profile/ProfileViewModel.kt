@@ -158,9 +158,13 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun changePassword(newPassword: String, confirmPassword: String) {
+    fun changePassword(currentPassword: String, newPassword: String, confirmPassword: String) {
         if (!networkMonitor.isOnline()) {
             _uiState.update { it.copy(passwordError = ACCOUNT_OFFLINE_ERROR) }
+            return
+        }
+        if (currentPassword.isBlank()) {
+            _uiState.update { it.copy(passwordError = "Введите текущий пароль") }
             return
         }
         if (newPassword != confirmPassword) {
@@ -176,8 +180,9 @@ class ProfileViewModel @Inject constructor(
             try {
                 val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
                     ?: throw IllegalStateException(NOT_SIGNED_IN_ERROR)
-                authRepository.updateUser(
+                authRepository.changePassword(
                     accessToken = session.accessToken,
+                    currentPassword = currentPassword,
                     newPassword = newPassword,
                 )
                 _uiState.update { it.copy(passwordFormNonce = it.passwordFormNonce + 1) }
@@ -309,6 +314,6 @@ class ProfileViewModel @Inject constructor(
         const val AVATAR_UPLOAD_FAILED_ERROR = "__avatar_upload_failed__"
         const val REFERRAL_CODE_FAILED_ERROR = "__referral_code_failed__"
         const val NOT_SIGNED_IN_ERROR = "__not_signed_in__"
-        private const val MIN_PASSWORD_LENGTH = 6
+        private const val MIN_PASSWORD_LENGTH = 12
     }
 }

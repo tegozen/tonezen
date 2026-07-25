@@ -21,10 +21,47 @@ android {
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwiZXhwIjoyMDk2NTgzNzc3fQ._CP-vbYhhZ9MPZaShAUB_93enHnw9dfh3_sFLep_Jws\"")
     }
 
+    val releaseStoreFile = (System.getenv("TONEZEN_KEYSTORE_PATH")
+        ?: providers.gradleProperty("TONEZEN_KEYSTORE_PATH").orNull)
+        ?.takeIf { it.isNotBlank() }
+    val releaseStorePassword = System.getenv("TONEZEN_KEYSTORE_PASSWORD")
+        ?: providers.gradleProperty("TONEZEN_KEYSTORE_PASSWORD").orNull
+    val releaseKeyAlias = System.getenv("TONEZEN_KEY_ALIAS")
+        ?: providers.gradleProperty("TONEZEN_KEY_ALIAS").orNull
+    val releaseKeyPassword = System.getenv("TONEZEN_KEY_PASSWORD")
+        ?: providers.gradleProperty("TONEZEN_KEY_PASSWORD").orNull
+    val hasReleaseKeystore =
+        !releaseStoreFile.isNullOrBlank() &&
+            !releaseStorePassword.isNullOrBlank() &&
+            !releaseKeyAlias.isNullOrBlank() &&
+            !releaseKeyPassword.isNullOrBlank()
+
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                // Local/CI without a production keystore: keep previous debug-signed
+                // release behavior so assembleRelease still works.
+                signingConfigs.getByName("debug")
+            }
         }
     }
 

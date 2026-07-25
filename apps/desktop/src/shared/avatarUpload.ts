@@ -10,6 +10,23 @@ export function publicAvatarUrl(baseUrl: string, userId: string): string {
 
 const AVATAR_PUBLIC_PATH_RE = /\/storage\/v1\/object\/public\/avatars\/([^/]+)\/avatar\.jpg$/i;
 
+function isAllowedAvatarAbsoluteUrl(url: string, clientBaseUrl: string): boolean {
+  let parsed: URL;
+  let allowed: URL;
+  try {
+    parsed = new URL(url);
+    allowed = new URL(clientBaseUrl);
+  } catch {
+    return false;
+  }
+  const isHttp = parsed.protocol === "https:" || parsed.protocol === "http:";
+  if (!isHttp) return false;
+  if (parsed.protocol === "http:" && !["localhost", "127.0.0.1"].includes(parsed.hostname)) {
+    return false;
+  }
+  return parsed.origin === allowed.origin && AVATAR_PUBLIC_PATH_RE.test(parsed.pathname);
+}
+
 /** Rewrites emulator/host-specific avatar URLs to this client's public base URL. */
 export function normalizeAvatarUrl(
   avatarUrl: string | null | undefined,
@@ -18,10 +35,13 @@ export function normalizeAvatarUrl(
   if (!avatarUrl?.trim()) return null;
   const stripped = avatarUrl.trim().split("?")[0] ?? avatarUrl.trim();
   const match = stripped.match(AVATAR_PUBLIC_PATH_RE);
-  if (match?.[1] && clientBaseUrl.trim()) {
+  if (match?.[1] && clientBaseUrl.trim() && isSafeStorageId(match[1])) {
     return publicAvatarUrl(clientBaseUrl, match[1]);
   }
-  return avatarUrl.trim();
+  if (clientBaseUrl.trim() && isAllowedAvatarAbsoluteUrl(stripped, clientBaseUrl)) {
+    return stripped;
+  }
+  return null;
 }
 
 export async function uploadAvatarToStorage(

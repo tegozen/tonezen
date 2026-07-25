@@ -6,7 +6,11 @@ import {
   DownloadsRepository,
   ProgressRepository,
 } from "../db/index.js";
-import { authMiddleware, requireAuth } from "../middleware/auth.js";
+import { authMiddleware, requireAuth, type JwtVerifyOptions } from "../middleware/auth.js";
+import {
+  authRateLimiter,
+  downloadsSignRateLimiter,
+} from "../middleware/rateLimit.js";
 import type { StorageSignConfig } from "../lib/storageSign.js";
 import { AuthAdminClient, type AuthAdminConfig } from "../lib/authAdmin.js";
 
@@ -18,6 +22,8 @@ export interface RouteDeps {
   progress: ProgressRepository;
   optionalAuth: RequestHandler;
   requiredAuth: RequestHandler[];
+  authRateLimiter: RequestHandler;
+  downloadsSignRateLimiter: RequestHandler;
   storage: StorageSignConfig;
 }
 
@@ -26,6 +32,7 @@ export function createRouteDeps(
   jwtSecret: string,
   storage: StorageSignConfig,
   auth?: AuthAdminConfig,
+  jwtVerify: JwtVerifyOptions = {},
 ): RouteDeps {
   const authConfig = auth ?? {
     authUrl: "http://auth:9999",
@@ -39,7 +46,9 @@ export function createRouteDeps(
     downloads: new DownloadsRepository(pool),
     progress: new ProgressRepository(pool),
     storage,
-    optionalAuth: authMiddleware(jwtSecret, true),
-    requiredAuth: [authMiddleware(jwtSecret), requireAuth],
+    optionalAuth: authMiddleware(jwtSecret, true, jwtVerify),
+    requiredAuth: [authMiddleware(jwtSecret, false, jwtVerify), requireAuth],
+    authRateLimiter,
+    downloadsSignRateLimiter,
   };
 }

@@ -48,7 +48,15 @@ echo "==> Restoring ${ABS_ARCHIVE} into '$VOLUME_NAME'"
 docker run --rm \
   -v "${VOLUME_NAME}:/volume" \
   -v "${ABS_ARCHIVE}:/backup.tar.gz:ro" \
-  alpine sh -c 'find /volume -mindepth 1 -maxdepth 1 -exec rm -rf {} +; tar xzf /backup.tar.gz -C /volume'
+  alpine sh -c '
+    set -e
+    if tar -tzf /backup.tar.gz | grep -E "(^|/)\.\.(/|$)"; then
+      echo "Refusing archive with path traversal entries" >&2
+      exit 1
+    fi
+    find /volume -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+    tar xzf /backup.tar.gz -C /volume
+  '
 
 echo "==> Starting stack"
 docker compose up -d

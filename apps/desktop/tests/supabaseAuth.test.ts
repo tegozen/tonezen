@@ -66,6 +66,23 @@ describe("SupabaseAuthClient", () => {
     );
   });
 
+  it("treats invite verify valid:false as invalid without throwing", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ valid: false }),
+      }),
+    );
+
+    const client = new SupabaseAuthClient({
+      baseUrl: "http://localhost:8000",
+      anonKey: "anon-key",
+    });
+
+    await expect(client.verifyInviteCode("ZZZZZZZZZZZZ")).resolves.toBe(false);
+  });
+
   it("creates invite signups through Tonezen API", async () => {
     vi.stubGlobal(
       "fetch",

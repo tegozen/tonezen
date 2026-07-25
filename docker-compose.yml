@@ -3,7 +3,7 @@ services:
     image: supabase/postgres:15.8.1.060
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: tonezen-postgres-internal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-tonezen}
     volumes:
       - tonezen-postgres:/var/lib/postgresql/data
@@ -23,7 +23,7 @@ services:
     environment:
       PGHOST: db
       PGUSER: supabase_admin
-      PGPASSWORD: tonezen-postgres-internal
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       PGDATABASE: ${POSTGRES_DB:-tonezen}
       MIGRATIONS_DIR: /migrations
     volumes:
@@ -58,7 +58,7 @@ services:
       GOTRUE_API_PORT: 9999
       API_EXTERNAL_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}?search_path=auth
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}?search_path=auth
       GOTRUE_SITE_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       GOTRUE_URI_ALLOW_LIST: ${GOTRUE_URI_ALLOW_LIST:-}
       GOTRUE_DISABLE_SIGNUP: "true"
@@ -108,7 +108,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      PGRST_DB_URI: postgres://authenticator:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}
       PGRST_DB_SCHEMAS: public,storage
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
@@ -137,7 +137,7 @@ services:
       PG_META_DB_PORT: 5432
       PG_META_DB_NAME: ${POSTGRES_DB:-tonezen}
       PG_META_DB_USER: supabase_admin
-      PG_META_DB_PASSWORD: tonezen-postgres-internal
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
     healthcheck:
       disable: true
@@ -156,7 +156,7 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       POSTGRES_DB: ${POSTGRES_DB:-tonezen}
-      POSTGRES_PASSWORD: tonezen-postgres-internal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       PG_META_CRYPTO_KEY: ${PG_META_CRYPTO_KEY}
       SUPABASE_URL: http://kong:8000
       SUPABASE_PUBLIC_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
@@ -190,10 +190,10 @@ services:
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: supabase_admin
-      DB_PASSWORD: tonezen-postgres-internal
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       DB_NAME: ${POSTGRES_DB:-tonezen}
       DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
-      DB_ENC_KEY: supabaserealtime
+      DB_ENC_KEY: ${DB_ENC_KEY:?Set DB_ENC_KEY in .env}
       API_JWT_SECRET: ${JWT_SECRET}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       METRICS_JWT_SECRET: ${JWT_SECRET}
@@ -232,7 +232,7 @@ services:
       SERVICE_KEY: ${SERVICE_ROLE_KEY}
       POSTGREST_URL: http://rest:3000
       AUTH_JWT_SECRET: ${JWT_SECRET}
-      DATABASE_URL: postgres://supabase_storage_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}
       STORAGE_PUBLIC_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       FILE_SIZE_LIMIT: 524288000
       REQUEST_ALLOW_X_FORWARDED_PATH: "true"
@@ -269,6 +269,7 @@ services:
   storage-path-proxy:
     image: node:22-alpine
     restart: unless-stopped
+    user: "node"
     depends_on:
       storage:
         condition: service_healthy
@@ -324,7 +325,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgres://supabase_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
+      DATABASE_URL: postgres://tonezen_api:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}
       JWT_SECRET: ${JWT_SECRET}
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       AUTH_INTERNAL_URL: http://auth:9999
@@ -333,7 +334,7 @@ services:
       PORT: 3001
       PGHOST: db
       PGUSER: supabase_admin
-      PGPASSWORD: tonezen-postgres-internal
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       PGDATABASE: ${POSTGRES_DB:-tonezen}
       MIGRATIONS_DIR: /migrations
     volumes:
@@ -399,6 +400,7 @@ services:
       KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
       DASHBOARD_USERNAME: ${DASHBOARD_USERNAME:-admin}
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:?Set DASHBOARD_PASSWORD in .env (node scripts/gen-env.mjs)}
+      TONEZEN_BASE_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
     ports:
       - "${KONG_HTTP_PORT:-8000}:8000"
     volumes:
@@ -427,7 +429,7 @@ services:
       api:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://supabase_admin:tonezen-postgres-internal@db:5432/${POSTGRES_DB:-tonezen}
+      DATABASE_URL: postgres://supabase_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tonezen}
       STORAGE_URL: http://storage:5000
       STORAGE_BUCKET: content
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}

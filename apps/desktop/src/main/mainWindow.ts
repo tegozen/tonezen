@@ -21,6 +21,17 @@ function enforceMainWindowShellSize(mainWindow: BrowserWindow): void {
   mainWindow.setContentSize(next.width, next.height);
 }
 
+function hardenMainWindowNavigation(mainWindow: BrowserWindow): void {
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    const current = mainWindow.webContents.getURL();
+    if (url !== current) event.preventDefault();
+  });
+  mainWindow.webContents.on("will-attach-webview", (event) => {
+    event.preventDefault();
+  });
+}
+
 export function createMainWindow(
   lifecycle: WindowLifecycleManager,
   onReadyToShow?: () => void,
@@ -41,8 +52,12 @@ export function createMainWindow(
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
     },
   });
+
+  hardenMainWindowNavigation(mainWindow);
 
   mainWindow.on("close", (event) => {
     if (lifecycle.shouldPreventClose()) {

@@ -29,7 +29,7 @@ function resolveAccountError(error: string | null): string | null {
     case NOT_SIGNED_IN_ERROR:
       return "Войдите в аккаунт";
     case PASSWORD_TOO_SHORT_ERROR:
-      return "Пароль должен быть не короче 6 символов";
+      return "Пароль должен быть не короче 12 символов";
     case AVATAR_UPLOAD_FAILED_ERROR:
       return "Не удалось загрузить аватар";
     default:
@@ -45,6 +45,7 @@ export function AccountSettingsPage({
   onProfileUpdated,
 }: AccountSettingsPageProps) {
   const [name, setName] = useState(displayName);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
@@ -136,18 +137,23 @@ export function AccountSettingsPage({
   };
 
   const changePassword = async () => {
+    if (!currentPassword) {
+      setPasswordError("Введите текущий пароль");
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setPasswordError(PASSWORD_MISMATCH_ERROR);
       return;
     }
-    if (newPassword.length < 6) {
+    if (newPassword.length < 12) {
       setPasswordError(PASSWORD_TOO_SHORT_ERROR);
       return;
     }
     setPasswordSaving(true);
     setPasswordError(null);
     try {
-      await window.tonezen.session.changePassword(newPassword);
+      await window.tonezen.session.changePassword(currentPassword, newPassword);
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       setPasswordFormNonce((value) => value + 1);
@@ -235,6 +241,14 @@ export function AccountSettingsPage({
 
           <AccountFormSection title="Смена пароля">
             <AccountLabeledField
+              key={`current-password-${passwordFormNonce}`}
+              label="Текущий пароль"
+              value={currentPassword}
+              onChange={setCurrentPassword}
+              type="password"
+              showPasswordToggle
+            />
+            <AccountLabeledField
               key={`new-password-${passwordFormNonce}`}
               label="Новый пароль"
               value={newPassword}
@@ -256,7 +270,13 @@ export function AccountSettingsPage({
             <button
               type="button"
               className="account-primary-btn"
-              disabled={passwordSaving || !newPassword || !confirmPassword || avatarBusy}
+              disabled={
+                passwordSaving ||
+                !currentPassword ||
+                !newPassword ||
+                !confirmPassword ||
+                avatarBusy
+              }
               onClick={() => void changePassword()}
             >
               Сменить пароль

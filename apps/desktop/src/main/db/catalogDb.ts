@@ -68,8 +68,18 @@ export const CatalogDb = {
     tx(tracks);
   },
 
-  setTrackLocalPath(trackId: string, localPath: string | null): void {
+  setTrackLocalPath(trackId: string, localPath: string | null, downloadsRoot?: string): void {
     if (localPath == null) {
+      getDb()
+        .prepare(`UPDATE tracks SET local_path = NULL, local_downloaded_at = NULL WHERE id = ?`)
+        .run(trackId);
+      return;
+    }
+    const safePath =
+      downloadsRoot != null
+        ? sanitizeLocalAudioPath(localPath, [downloadsRoot])
+        : null;
+    if (!safePath) {
       getDb()
         .prepare(`UPDATE tracks SET local_path = NULL, local_downloaded_at = NULL WHERE id = ?`)
         .run(trackId);
@@ -77,7 +87,7 @@ export const CatalogDb = {
     }
     getDb()
       .prepare(`UPDATE tracks SET local_path = ?, local_downloaded_at = ? WHERE id = ?`)
-      .run(localPath, Date.now(), trackId);
+      .run(safePath, Date.now(), trackId);
   },
 
   getTrackById(trackId: string): Track | null {

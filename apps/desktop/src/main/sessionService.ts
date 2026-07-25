@@ -161,11 +161,15 @@ export class SessionService {
     return { displayName: this.session.displayName };
   }
 
-  async changePassword(newPassword: string): Promise<void> {
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     if (!this.online) throw new Error("__account_offline__");
     await this.refreshIfNeeded();
     if (!this.session || !this.authClient) throw new Error("__not_signed_in__");
-    await this.authClient.updateUser(this.session.accessToken, { password: newPassword });
+    await this.authClient.changePassword(
+      this.session.accessToken,
+      currentPassword,
+      newPassword,
+    );
   }
 
   async uploadAvatar(jpegBytes: Uint8Array | number[] | ArrayBuffer): Promise<{ avatarUrl: string }> {
@@ -281,22 +285,27 @@ export class SessionService {
   }
 
   private persist(session: StoredSession): void {
-    const json = JSON.stringify(session);
-    if (safeStorage.isEncryptionAvailable()) {
-      const encrypted = safeStorage.encryptString(json);
-      fs.writeFileSync(this.sessionPath, encrypted);
-    } else {
-      fs.writeFileSync(this.sessionPath, json, "utf-8");
+    if (!safeStorage.isEncryptionAvailable()) {
+      console.warn(
+        "[session] OS encryption unavailable; keeping session in memory only (not writing session.dat)",
+      );
+      return;
     }
+    const encrypted = safeStorage.encryptString(JSON.stringify(session));
+    fs.writeFileSync(this.sessionPath, encrypted, { mode: 0o600 });
   }
 
   private load(): StoredSession | null {
     if (!this.sessionPath || !fs.existsSync(this.sessionPath)) return null;
+    if (!safeStorage.isEncryptionAvailable()) {
+      console.warn(
+        "[session] OS encryption unavailable; ignoring on-disk session.dat (possible legacy plaintext)",
+      );
+      return null;
+    }
     try {
       const raw = fs.readFileSync(this.sessionPath);
-      const json = safeStorage.isEncryptionAvailable()
-        ? safeStorage.decryptString(raw)
-        : raw.toString("utf-8");
+      const json = safeStorage.decryptString(raw);
       const parsed = JSON.parse(json) as StoredSession;
       const email = parsed.email ?? "";
       const displayName =

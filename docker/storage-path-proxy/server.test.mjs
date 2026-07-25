@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isReadRequest, rewriteRequest } from "./server.mjs";
+import {
+  assertRelativeRequestTarget,
+  assertUpstreamOrigin,
+  isReadRequest,
+  rewriteRequest,
+} from "./server.mjs";
 
 /** @param {{ method: string, url: string, headers?: Record<string, string> }} init */
 function fakeReq(init) {
@@ -60,4 +65,47 @@ test("upload with Cyrillic key is still sanitized to an ASCII storage key", () =
     storagePath: "music/pesnya.mp3",
     displayPath: "music/Песня.mp3",
   });
+});
+
+test("assertRelativeRequestTarget accepts path-only targets", () => {
+  assert.equal(
+    assertRelativeRequestTarget("/object/sign/content/music/track.mp3?token=abc"),
+    "/object/sign/content/music/track.mp3?token=abc",
+  );
+  assert.equal(assertRelativeRequestTarget("/status"), "/status");
+});
+
+test("assertRelativeRequestTarget rejects SSRF request targets", () => {
+  const attacks = [
+    "//evil.com/x",
+    "/\\/evil.com/x",
+    "\\\\evil.com/x",
+    "http://evil.com/x",
+    "//meta:8080/query",
+    "",
+    "object/content/x",
+    "/object/content/foo\\bar",
+  ];
+  for (const target of attacks) {
+    assert.throws(() => assertRelativeRequestTarget(target), /Invalid request target/);
+  }
+});
+
+test("rewriteRequest rejects absolute and protocol-relative URLs", () => {
+  for (const url of ["//evil.com/x", "/\\/evil.com/x", "http://evil.com/x", "//meta:8080/query"]) {
+    assert.throws(
+      () => rewriteRequest(fakeReq({ method: "GET", url })),
+      /Invalid request target|Upstream origin mismatch/,
+    );
+  }
+});
+
+test("assertUpstreamOrigin rejects cross-origin URLs", () => {
+  assert.throws(
+    () => assertUpstreamOrigin(new URL("http://evil.com/x"), "http://storage:5000"),
+    /Upstream origin mismatch/,
+  );
+  assert.doesNotThrow(() =>
+    assertUpstreamOrigin(new URL("http://storage:5000/object/x"), "http://storage:5000"),
+  );
 });

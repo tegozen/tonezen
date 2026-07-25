@@ -23,6 +23,8 @@ const SECRET_KEYS = [
   "SERVICE_ROLE_KEY",
   "SECRET_KEY_BASE",
   "PG_META_CRYPTO_KEY",
+  "POSTGRES_PASSWORD",
+  "DB_ENC_KEY",
 ];
 
 const GENERATED_IF_EMPTY_KEYS = ["ADMIN_PASSWORD", "DASHBOARD_PASSWORD"];
@@ -63,6 +65,8 @@ function generateSecrets() {
     SERVICE_ROLE_KEY: signJwt({ iss: "supabase", role: "service_role", exp }, jwtSecret),
     SECRET_KEY_BASE: randomSecret(64),
     PG_META_CRYPTO_KEY: randomSecret(32),
+    POSTGRES_PASSWORD: randomPassword(24),
+    DB_ENC_KEY: randomSecret(32),
   };
 }
 
@@ -136,15 +140,8 @@ function main() {
   fs.writeFileSync(ENV_PATH, renderEnv(template, values), "utf8");
 
   console.log(`Wrote ${ENV_PATH}`);
-  console.log("Generated: " + SECRET_KEYS.join(", "));
-  if (values.get("DASHBOARD_PASSWORD")) {
-    console.log(`Studio login: ${values.get("DASHBOARD_USERNAME") ?? "admin"}`);
-    console.log(`Studio password: ${values.get("DASHBOARD_PASSWORD")}`);
-  }
-  if (values.get("ADMIN_PASSWORD")) {
-    console.log(`App admin: ${values.get("ADMIN_EMAIL") ?? "admin@tonezen.local"}`);
-    console.log(`App admin password: ${values.get("ADMIN_PASSWORD")}`);
-  }
+  console.log("Generated secrets for: " + SECRET_KEYS.join(", "));
+  console.log("Passwords were written to .env only (not printed).");
   console.log("");
   console.log("Fill S3_* in .env from Beget panel (Object storage → Access keys).");
   console.log("");

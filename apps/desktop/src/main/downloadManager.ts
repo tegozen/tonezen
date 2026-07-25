@@ -55,7 +55,7 @@ export class DownloadManager {
       () => {},
       () => false,
     );
-    LocalDatabase.setTrackLocalPath(trackId, outcome.finalPath);
+    LocalDatabase.setTrackLocalPath(trackId, outcome.finalPath, this.downloadsRoot);
     return outcome.finalPath;
   }
 

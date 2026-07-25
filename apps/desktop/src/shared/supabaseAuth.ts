@@ -55,11 +55,12 @@ export class SupabaseAuthClient {
   }
 
   async verifyInviteCode(code: string): Promise<boolean> {
-    await this.tonezenApiRequest("/auth/invite/verify", {
+    const response = await this.tonezenApiRequest("/auth/invite/verify", {
       method: "POST",
       body: JSON.stringify({ code }),
     });
-    return true;
+    const json = (await response.json()) as { valid?: unknown };
+    return json.valid === true;
   }
 
   async signUpWithInvite(input: {
@@ -98,6 +99,23 @@ export class SupabaseAuthClient {
       throw new Error("Referral code response missing code");
     }
     return json.code;
+  }
+
+  async changePassword(
+    accessToken: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    await this.tonezenApiRequest("/auth/password", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        current_password: currentPassword,
+        password: newPassword,
+      }),
+    });
   }
 
   async refreshSession(refreshToken: string): Promise<GoTrueSession> {

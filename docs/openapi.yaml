@@ -28,7 +28,7 @@ paths:
                   type: string
       responses:
         "200":
-          description: Invite code is valid
+          description: Whether the invite code is valid (always 200 to avoid enumeration)
           content:
             application/json:
               schema:
@@ -37,8 +37,8 @@ paths:
                 properties:
                   valid:
                     type: boolean
-        "404":
-          description: Invalid invite code
+        "429":
+          description: Too many requests
           content:
             application/json:
               schema:
@@ -63,7 +63,7 @@ paths:
                   format: email
                 password:
                   type: string
-                  minLength: 6
+                  minLength: 12
                 display_name:
                   type: string
       responses:
@@ -78,19 +78,13 @@ paths:
                   user:
                     $ref: "#/components/schemas/AuthUser"
         "400":
-          description: Invalid signup request
+          description: Invalid signup request or signup failed (generic; does not reveal email existence)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Invalid invite code
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "409":
-          description: Email already registered
+        "429":
+          description: Too many requests
           content:
             application/json:
               schema:
@@ -147,7 +141,7 @@ paths:
 
   /auth/password/update:
     post:
-      summary: Set a new password with a recovery access token
+      summary: Set a new password with a recovery access token (password-reset landing only)
       security: []
       requestBody:
         required: true
@@ -161,7 +155,7 @@ paths:
                   type: string
                 password:
                   type: string
-                  minLength: 6
+                  minLength: 12
       responses:
         "200":
           description: Password updated
@@ -181,6 +175,58 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Invalid recovery token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/password:
+    post:
+      summary: Change password while authenticated (requires current password)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, password]
+              properties:
+                current_password:
+                  type: string
+                password:
+                  type: string
+                  minLength: 12
+      responses:
+        "200":
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated]
+                properties:
+                  updated:
+                    type: boolean
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required or current password incorrect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many requests
           content:
             application/json:
               schema:

@@ -12,5 +12,5 @@ class RemoteHttpException(
         get() = statusCode == 401 || statusCode == 403
 
     val isInvalidRefreshToken: Boolean
-        get() = statusCode == 401 || statusCode == 403 || statusCode == 400
+        get() = statusCode == 401 || statusCode == 403
 }

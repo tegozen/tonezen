@@ -11,6 +11,7 @@ import type { EnqueueDownloadRequest } from "../shared/downloadQueueState.js";
 import type { DownloadPriority } from "../shared/downloadQueuePolicy.js";
 import type { SessionService } from "./sessionService.js";
 import { isSafeStorageId } from "../shared/safeLocalPaths.js";
+import { coerceAvatarJpegBytes } from "../shared/avatarBytes.js";
 import { appendDiagnosticError, type DiagnosticErrorEntry } from "./diagnosticsLog.js";
 
 function assertSafeDownloadIds(bookId: string, trackId: string): boolean {
@@ -113,11 +114,15 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     const result = await sessionService.updateProfile(displayName);
     return { ...sessionService.getSnapshot(), ...result };
   });
-  ipcMain.handle("session:changePassword", async (_e, newPassword: string) => {
-    await sessionService.changePassword(newPassword);
-    return sessionService.getSnapshot();
-  });
+  ipcMain.handle(
+    "session:changePassword",
+    async (_e, currentPassword: string, newPassword: string) => {
+      await sessionService.changePassword(currentPassword, newPassword);
+      return sessionService.getSnapshot();
+    },
+  );
   ipcMain.handle("session:uploadAvatar", async (_e, jpegBytes: Uint8Array | number[]) => {
+    coerceAvatarJpegBytes(jpegBytes);
     await sessionService.uploadAvatar(jpegBytes);
     return sessionService.getSnapshot();
   });

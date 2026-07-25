@@ -82,7 +82,6 @@ class AuthRepository(
     suspend fun updateUser(
         accessToken: String,
         displayName: String? = null,
-        newPassword: String? = null,
         avatarUrl: String? = null,
     ): StoredSession = withContext(Dispatchers.IO) {
         val body = JSONObject()
@@ -95,9 +94,6 @@ class AuthRepository(
                 data.put("avatar_url", avatarUrl.substringBefore("?"))
             }
             body.put("data", data)
-        }
-        if (newPassword != null) {
-            body.put("password", newPassword)
         }
         val url = "${supabaseUrl.trimEnd('/')}/auth/v1/user"
         val request = Request.Builder()
@@ -125,13 +121,29 @@ class AuthRepository(
         }
     }
 
-    private fun apiPost(path: String, jsonBody: String): JSONObject {
+    suspend fun changePassword(
+        accessToken: String,
+        currentPassword: String,
+        newPassword: String,
+    ) {
+        withContext(Dispatchers.IO) {
+            val body = JSONObject()
+                .put("current_password", currentPassword)
+                .put("password", newPassword)
+                .toString()
+            apiPost("/auth/password", body, accessToken)
+        }
+    }
+
+    private fun apiPost(path: String, jsonBody: String, accessToken: String? = null): JSONObject {
         val url = "${supabaseUrl.trimEnd('/')}/api/v1$path"
-        val request = Request.Builder()
+        val requestBuilder = Request.Builder()
             .url(url)
             .post(jsonBody.toRequestBody("application/json".toMediaType()))
-            .build()
-        httpClient.newCall(request).execute().use { response ->
+        if (accessToken != null) {
+            requestBuilder.header("Authorization", "Bearer $accessToken")
+        }
+        httpClient.newCall(requestBuilder.build()).execute().use { response ->
             if (!response.isSuccessful) {
                 throw RemoteHttpException(response.code, "Tonezen auth request failed (${response.code})")
             }
