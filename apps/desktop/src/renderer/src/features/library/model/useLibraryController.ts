@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AudiobookProgress, Book, Cycle, SessionState, Track } from "@core/types";
 import {
   buildMusicTrackListForCatalogUpdate,
@@ -14,7 +15,13 @@ import {
   filterAndSortCycles,
   isBookFullyDownloaded,
 } from "@/entities/cycle";
-import { getTonezenApi } from "@/shared/api";
+import {
+  getTonezenApi,
+  libraryBundleQueryOptions,
+  queryKeys,
+  type LibraryBundle,
+} from "@/shared/api";
+import { useIpcQueryInvalidation } from "@/app/providers/useIpcQueryInvalidation";
 
 export type RefreshLibraryOptions = { rebuildMusic?: boolean; reconcileLocalPaths?: boolean };
 
@@ -27,108 +34,102 @@ interface UseLibraryControllerOptions {
 
 export function useLibraryController({ sessionState, downloadQueueState }: UseLibraryControllerOptions) {
   const api = getTonezenApi();
+  const queryClient = useQueryClient();
 
-  const [cycles, setCycles] = useState<Cycle[]>([]);
-  const [books, setBooks] = useState<Book[]>([]);
-  const [allTracks, setAllTracks] = useState<Track[]>([]);
   const [selectedCycle, setSelectedCycle] = useState<Cycle | null>(null);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<LibraryFilter>(defaultLibraryFilter);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [storageUsed, setStorageUsed] = useState(0);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [lastSyncAtEpochMs, setLastSyncAtEpochMs] = useState<number | null>(null);
-  const [progressList, setProgressList] = useState<AudiobookProgress[]>([]);
   const [musicTracks, setMusicTracks] = useState<MusicListTrack[]>([]);
+  const [reconcileLocalPaths, setReconcileLocalPaths] = useState(false);
+  const [progressOverride, setProgressOverride] = useState<AudiobookProgress[] | null>(null);
 
   const musicStartedInSessionRef = useRef(false);
-  const refreshLibraryRef = useRef<(options?: RefreshLibraryOptions) => Promise<void>>(async () => {});
+  const authenticated = sessionState !== "Unauthenticated";
+
+  useIpcQueryInvalidation(authenticated);
+
+  const libraryQuery = useQuery({
+    ...libraryBundleQueryOptions(reconcileLocalPaths),
+    enabled: authenticated,
+  });
+
+  useEffect(() => {
+    if (!authenticated) {
+      setReconcileLocalPaths(false);
+      return;
+    }
+    // Cold start: first snapshot without reconcile, then enable path reconcile.
+    if (libraryQuery.isSuccess && !reconcileLocalPaths) {
+      setReconcileLocalPaths(true);
+    }
+  }, [authenticated, libraryQuery.isSuccess, reconcileLocalPaths]);
+
+  useEffect(() => {
+    if (sessionState !== "AuthenticatedOnline") return;
+    void api.catalog.sync().catch(() => {});
+  }, [sessionState, api]);
+
+  const bundle: LibraryBundle | undefined = libraryQuery.data;
+  const cycles = bundle?.cycles ?? [];
+  const books = bundle?.books ?? [];
+  const allTracks = bundle?.tracks ?? [];
+  const storageUsed = bundle?.storageUsedBytes ?? 0;
+  const pendingCount = bundle?.pendingCount ?? 0;
+  const lastSyncAtEpochMs = bundle?.lastSyncAtEpochMs ?? null;
+  const progressList = progressOverride ?? bundle?.progress ?? [];
+
+  useEffect(() => {
+    setProgressOverride(null);
+  }, [libraryQuery.dataUpdatedAt]);
+
+  useEffect(() => {
+    if (!bundle) return;
+    setMusicTracks((current) =>
+      buildMusicTrackListForCatalogUpdate(
+        current,
+        bundle.books,
+        bundle.tracks,
+        musicStartedInSessionRef.current,
+      ),
+    );
+  }, [bundle]);
+
+  const setProgressList = useCallback(
+    (value: AudiobookProgress[] | ((prev: AudiobookProgress[]) => AudiobookProgress[])) => {
+      setProgressOverride((prev) => {
+        const base = prev ?? bundle?.progress ?? [];
+        return typeof value === "function" ? value(base) : value;
+      });
+    },
+    [bundle?.progress],
+  );
 
   const refreshLibrary = useCallback(
     async (options?: RefreshLibraryOptions) => {
-      const rebuildMusic = options?.rebuildMusic ?? true;
-      const reconcileLocalPaths = options?.reconcileLocalPaths ?? true;
-      const [library, stats, sync, progress] = await Promise.all([
-        api.db.getLibrarySnapshot({ reconcileLocalPaths }),
-        api.download.storageStats(),
-        api.sync.status(),
-        api.db.getAllProgress(),
-      ]);
-      setCycles(library.cycles);
-      setBooks(library.books);
-      setAllTracks(library.tracks);
-      setStorageUsed(stats.usedBytes);
-      setPendingCount(sync.pendingCount);
-      setLastSyncAtEpochMs(sync.lastSyncAtEpochMs);
-      setProgressList(progress);
-      if (rebuildMusic) {
+      if (options?.reconcileLocalPaths != null) {
+        setReconcileLocalPaths(options.reconcileLocalPaths);
+      }
+      await queryClient.invalidateQueries({ queryKey: queryKeys.libraryBundleAll });
+      if (options?.rebuildMusic === false) return;
+      const data = queryClient.getQueryData<LibraryBundle>(
+        queryKeys.libraryBundle(options?.reconcileLocalPaths ?? reconcileLocalPaths),
+      );
+      if (data) {
         setMusicTracks((current) =>
           buildMusicTrackListForCatalogUpdate(
             current,
-            library.books,
-            library.tracks,
+            data.books,
+            data.tracks,
             musicStartedInSessionRef.current,
           ),
         );
       }
-      setIsLoading(false);
     },
-    [api],
+    [queryClient, reconcileLocalPaths],
   );
-
-  refreshLibraryRef.current = refreshLibrary;
-
-  // Stable identity so consumer hooks (e.g. music playback) don't need to re-subscribe
-  // whenever refreshLibrary's own dependencies change.
-  const refreshLibraryStable = useCallback(
-    (options?: RefreshLibraryOptions) => refreshLibraryRef.current(options),
-    [],
-  );
-
-  useEffect(() => {
-    if (sessionState === "Unauthenticated") return;
-    if (sessionState === "AuthenticatedOffline") {
-      void refreshLibraryStable({ rebuildMusic: true, reconcileLocalPaths: false }).then(() =>
-        refreshLibraryStable({ rebuildMusic: true, reconcileLocalPaths: true }),
-      );
-      return;
-    }
-    setIsLoading(true);
-    const sync = api.catalog.sync().then(
-      () => true,
-      () => false,
-    );
-    void refreshLibraryStable({ rebuildMusic: true, reconcileLocalPaths: false })
-      .then(() => sync)
-      .then(() => refreshLibraryStable({ rebuildMusic: true, reconcileLocalPaths: true }))
-      .catch(() => refreshLibraryStable({ rebuildMusic: true, reconcileLocalPaths: true }));
-  }, [sessionState, refreshLibraryStable, api]);
-
-  useEffect(() => {
-    if (sessionState === "Unauthenticated" || sessionState === "AuthenticatedOffline") return;
-    return api.catalog.onUpdated(() => {
-      void refreshLibraryStable({ rebuildMusic: true });
-    });
-  }, [sessionState, refreshLibraryStable, api]);
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const unsubscribe = api.download.onQueueState((state) => {
-      if (!state.activeTrackId && state.queuedItems.length === 0) {
-        clearTimeout(timer);
-        timer = setTimeout(() => {
-          void refreshLibraryStable();
-        }, 300);
-      }
-    });
-    return () => {
-      clearTimeout(timer);
-      unsubscribe();
-    };
-  }, [refreshLibraryStable, api]);
 
   const tracksByBookId = useMemo(() => buildTracksByBookId(allTracks), [allTracks]);
 
@@ -180,6 +181,8 @@ export function useLibraryController({ sessionState, downloadQueueState }: UseLi
 
   const resetFilter = useCallback(() => setFilter(defaultLibraryFilter), []);
 
+  const isLoading = authenticated && (libraryQuery.isLoading || libraryQuery.isFetching) && !bundle;
+
   return {
     cycles,
     books,
@@ -198,7 +201,9 @@ export function useLibraryController({ sessionState, downloadQueueState }: UseLi
     showFilterSheet,
     setShowFilterSheet,
     isLoading,
-    setIsLoading,
+    setIsLoading: () => {
+      /* loading is driven by React Query */
+    },
     storageUsed,
     pendingCount,
     lastSyncAtEpochMs,
@@ -208,7 +213,7 @@ export function useLibraryController({ sessionState, downloadQueueState }: UseLi
     setMusicTracks,
     visibleMusicTracks,
     musicStartedInSessionRef,
-    refreshLibrary: refreshLibraryStable,
+    refreshLibrary,
     tracksByBookId,
     downloadedBookIds,
     progressByBook,

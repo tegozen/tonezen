@@ -8,7 +8,7 @@ import {
 } from "@core/playback/cycleListenProgress";
 import { CyclePlaybackResolver } from "@core/playback/cyclePlayback";
 import { completedAudiobookProgress, upsertAudiobookProgress } from "@core/progress/audiobookProgress";
-import { getTonezenApi } from "@/shared/api";
+import { getTonezenApi, useSaveProgressMutation } from "@/shared/api";
 import { logDownloadFailure, type useDownloadQueue } from "@/features/downloads";
 import type { RefreshLibraryOptions } from "@/features/library";
 
@@ -73,6 +73,7 @@ export function useAudiobookSession({
   music,
 }: UseAudiobookSessionOptions) {
   const api = getTonezenApi();
+  const saveProgress = useSaveProgressMutation();
   const [cyclePlayingId, setCyclePlayingId] = useState<string | null>(null);
   const [earlierChapterPrompt, setEarlierChapterPrompt] = useState<Track | null>(null);
 
@@ -276,21 +277,29 @@ export function useAudiobookSession({
       const bookTracks = await api.db.getTracks(book.id);
       if (bookTracks.length === 0) return;
       const track = listened ? bookTracks[bookTracks.length - 1] : bookTracks[0];
-      await api.progress.save(book.id, track.id, listened ? track.durationMs ?? 0 : 0);
+      await saveProgress.mutateAsync({
+        bookId: book.id,
+        trackId: track.id,
+        positionMs: listened ? track.durationMs ?? 0 : 0,
+      });
       await refreshLibrary();
     },
-    [api, refreshLibrary],
+    [api, refreshLibrary, saveProgress],
   );
 
   const markTrackListened = useCallback(
     async (book: Book, track: Track, listened: boolean) => {
-      await api.progress.save(book.id, track.id, listened ? track.durationMs ?? 0 : 0);
+      await saveProgress.mutateAsync({
+        bookId: book.id,
+        trackId: track.id,
+        positionMs: listened ? track.durationMs ?? 0 : 0,
+      });
       await refreshLibrary();
       if (selectedBook?.id === book.id) {
         setTracks(await api.db.getTracks(book.id));
       }
     },
-    [api, refreshLibrary, selectedBook, setTracks],
+    [api, refreshLibrary, saveProgress, selectedBook, setTracks],
   );
 
   const advanceAudiobookTrack = useCallback(
@@ -330,11 +339,11 @@ export function useAudiobookSession({
     const completedProgress = completedAudiobookProgress(selectedBook, currentTrack, durationMs);
     if (completedProgress) {
       setProgressList((current) => upsertAudiobookProgress(current, completedProgress));
-      void api.progress.save(
-        completedProgress.bookId,
-        completedProgress.trackId,
-        completedProgress.positionMs,
-      );
+      void saveProgress.mutate({
+        bookId: completedProgress.bookId,
+        trackId: completedProgress.trackId,
+        positionMs: completedProgress.positionMs,
+      });
     }
 
     if (music.handleTrackEnded()) return;

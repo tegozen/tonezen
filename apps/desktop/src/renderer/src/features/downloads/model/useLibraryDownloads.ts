@@ -1,6 +1,10 @@
 import { useCallback, useEffect } from "react";
 import type { Book, Cycle, SessionState, Track } from "@core/types";
-import { getTonezenApi } from "@/shared/api";
+import {
+  getTonezenApi,
+  useDeleteAllDownloadsMutation,
+  useDeleteDownloadMutation,
+} from "@/shared/api";
 import type { useDownloadQueue } from "./useDownloadQueue";
 import type { RefreshLibraryOptions } from "@/features/library";
 
@@ -49,6 +53,8 @@ export function useLibraryDownloads({
   showToast,
 }: UseLibraryDownloadsOptions) {
   const api = getTonezenApi();
+  const deleteDownload = useDeleteDownloadMutation();
+  const deleteAllDownloadsMutation = useDeleteAllDownloadsMutation();
 
   useEffect(() => {
     return api.download.onFailed(() => {
@@ -164,7 +170,7 @@ export function useLibraryDownloads({
       }
       for (const track of bookTracks) {
         if (track.localPath) {
-          await api.download.delete(book.id, track.id);
+          await deleteDownload.mutateAsync({ bookId: book.id, trackId: track.id });
         }
       }
       await refreshLibrary();
@@ -172,7 +178,7 @@ export function useLibraryDownloads({
         setTracks(await api.db.getTracks(book.id));
       }
     },
-    [api, currentTrack, refreshLibrary, selectedBook, setTracks, stopPlayback],
+    [api, currentTrack, deleteDownload, refreshLibrary, selectedBook, setTracks, stopPlayback],
   );
 
   const removeTrackDownload = useCallback(
@@ -182,13 +188,13 @@ export function useLibraryDownloads({
         stopPlayback();
         await delay(50);
       }
-      await api.download.delete(book.id, track.id);
+      await deleteDownload.mutateAsync({ bookId: book.id, trackId: track.id });
       await refreshLibrary();
       if (selectedBook?.id === book.id) {
         setTracks(await api.db.getTracks(book.id));
       }
     },
-    [api, currentTrack, refreshLibrary, selectedBook, setTracks, stopPlayback],
+    [api, currentTrack, deleteDownload, refreshLibrary, selectedBook, setTracks, stopPlayback],
   );
 
   const deleteAllDownloads = useCallback(async () => {
@@ -196,9 +202,15 @@ export function useLibraryDownloads({
     closeExpandedPlayer();
     await delay(50);
     await downloadQueue.cancelAll();
-    await api.download.deleteAll();
+    await deleteAllDownloadsMutation.mutateAsync();
     await refreshLibrary();
-  }, [api, closeExpandedPlayer, downloadQueue, refreshLibrary, stopPlayback]);
+  }, [
+    closeExpandedPlayer,
+    deleteAllDownloadsMutation,
+    downloadQueue,
+    refreshLibrary,
+    stopPlayback,
+  ]);
 
   return {
     downloadAllBookTracks,

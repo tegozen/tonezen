@@ -8,7 +8,7 @@ import { LoginView } from "@/pages/login";
 import { NowPlayingSheet } from "@/widgets/now-playing";
 import { ToastMessage } from "@/shared/ui/ToastMessage";
 import { useToast } from "@/shared/lib/useToast";
-import { getTonezenApi } from "@/shared/api";
+import { getTonezenApi, useDeleteDownloadMutation, useTriggerSyncMutation } from "@/shared/api";
 import { useDownloadQueue, useLibraryDownloads } from "@/features/downloads";
 import { useMusicPlayback } from "@/features/music-queue";
 import { EarlierChapterPrompt, useAudiobookSession, usePlayback } from "@/features/playback";
@@ -164,15 +164,15 @@ export function App() {
     [library, music],
   );
 
+  const deleteDownload = useDeleteDownloadMutation();
+  const triggerSync = useTriggerSyncMutation();
+
   const syncCatalog = async () => {
-    library.setIsLoading(true);
     try {
       await getTonezenApi().catalog.sync();
       await library.refreshLibrary({ rebuildMusic: true });
     } catch {
       await library.refreshLibrary({ rebuildMusic: true });
-    } finally {
-      library.setIsLoading(false);
     }
   };
 
@@ -383,9 +383,7 @@ export function App() {
           onCancelAll={() => void downloadQueue.cancelAll()}
           onDeleteCompleted={(bookId, trackId) => {
             void downloadQueue.cancelTrack(bookId, trackId);
-            void getTonezenApi()
-              .download.delete(bookId, trackId)
-              .then(() => library.refreshLibrary());
+            void deleteDownload.mutateAsync({ bookId, trackId }).then(() => library.refreshLibrary());
           }}
         />
       ) : (
@@ -413,8 +411,8 @@ export function App() {
               return;
             }
             setSyncing(true);
-            void getTonezenApi()
-              .sync.trigger()
+            void triggerSync
+              .mutateAsync()
               .then(() => library.refreshLibrary())
               .finally(() => setSyncing(false));
           }}
