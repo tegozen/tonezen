@@ -1,4 +1,6 @@
 export { usePlayback, type PlaybackSkipHandlers } from "./model/usePlayback";
+export { useAudiobookSession } from "./model/useAudiobookSession";
+export { EarlierChapterPrompt } from "./ui/EarlierChapterPrompt";
 export {
   clearMediaSession,
   setupMediaSession,

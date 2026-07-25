@@ -38,6 +38,19 @@ export function canContinueBookListening(
   return { trackTitle: savedTrack.title, positionMs: progress.positionMs };
 }
 
+export function isBookFullyListened(
+  tracks: Track[],
+  progress: Pick<AudiobookProgress, "trackId" | "positionMs"> | null | undefined,
+): boolean {
+  if (tracks.length === 0 || !progress) return false;
+  const savedTrack = tracks.find((item) => item.id === progress.trackId);
+  return tracks.every(
+    (track) =>
+      track.sortOrder < (savedTrack?.sortOrder ?? Infinity) ||
+      (track.id === progress.trackId && progress.positionMs >= (track.durationMs ?? 0) * 0.95),
+  );
+}
+
 export function resolveChapterTrackState(
   track: Track,
   progressFraction: number | null | undefined,
