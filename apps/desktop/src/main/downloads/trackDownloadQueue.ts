@@ -4,16 +4,12 @@ import type { BrowserWindow } from "electron";
 import {
   computeBulkDownloaded,
   mergePriority,
-  sortPending,
   type DownloadPriority,
 } from "@core/downloads/downloadQueuePolicy.js";
 import type { DownloadQueueRow } from "./downloadQueueDb.js";
 import {
   emptyDownloadQueueState,
-  trimCompletedHistory,
   type DownloadAwaitResult,
-  type DownloadQueueItem,
-  type DownloadQueueItemStatus,
   type DownloadQueueState,
   type EnqueueDownloadRequest,
 } from "@core/downloads/downloadQueueState.js";
@@ -22,22 +18,16 @@ import { DownloadCancelledError, type DownloadManager } from "./downloadManager.
 import { LocalDatabase } from "../db/localDatabase.js";
 import type { SessionService } from "../session/sessionService.js";
 import type { DiagnosticErrorEntry } from "../app/diagnosticsLog.js";
+import { AsyncMutex, delay, queueKey } from "./asyncMutex.js";
+import {
+  appendCompletedHistory,
+  buildNotifierState,
+  pickNextQueueRow,
+  type BulkCounters,
+} from "./downloadQueueStateBuilder.js";
 
 const STATUS_QUEUED = "queued";
 const MAX_DOWNLOAD_FAILURES = 3;
-
-class AsyncMutex {
-  private chain: Promise<void> = Promise.resolve();
-
-  run<T>(fn: () => Promise<T> | T): Promise<T> {
-    const next = this.chain.then(fn, fn);
-    this.chain = next.then(
-      () => undefined,
-      () => undefined,
-    );
-    return next;
-  }
-}
 
 type Awaiter = {
   resolve: (result: DownloadAwaitResult) => void;
@@ -53,9 +43,7 @@ export class TrackDownloadQueue {
   private readonly userCancelledKeys = new Set<string>();
   private readonly failureCounts = new Map<string, number>();
   private readonly awaiters = new Map<string, Awaiter>();
-  private bulkBatchId: string | null = null;
-  private bulkTotal = 0;
-  private bulkSkipped = 0;
+  private bulk: BulkCounters = { bulkBatchId: null, bulkTotal: 0, bulkSkipped: 0 };
   private mainWindow: BrowserWindow | null = null;
 
   constructor(
@@ -95,8 +83,7 @@ export class TrackDownloadQueue {
   enqueueBatch(requests: EnqueueDownloadRequest[], batchId: string = randomUUID()): void {
     if (requests.length === 0) return;
     void this.mutex.run(async () => {
-      this.bulkBatchId = batchId;
-      this.bulkTotal = requests.length;
+      this.bulk = { bulkBatchId: batchId, bulkTotal: requests.length, bulkSkipped: 0 };
       let skipped = 0;
       for (const request of requests) {
         const req = { ...request, batchId };
@@ -108,7 +95,7 @@ export class TrackDownloadQueue {
           await this.enqueueLocked(req, false);
         }
       }
-      this.bulkSkipped = skipped;
+      this.bulk.bulkSkipped = skipped;
       this.refreshNotifierFromDb();
     });
   }
@@ -165,10 +152,8 @@ export class TrackDownloadQueue {
       for (const item of items) {
         await this.cancelTrackLocked(item.bookId, item.trackId);
       }
-      if (this.bulkBatchId === batchId) {
-        this.bulkBatchId = null;
-        this.bulkTotal = 0;
-        this.bulkSkipped = 0;
+      if (this.bulk.bulkBatchId === batchId) {
+        this.bulk = { bulkBatchId: null, bulkTotal: 0, bulkSkipped: 0 };
       }
       this.refreshNotifierFromDb();
       this.stopWorkerIfIdle();
@@ -184,9 +169,7 @@ export class TrackDownloadQueue {
       }
       this.failureCounts.clear();
       LocalDatabase.deleteAll();
-      this.bulkBatchId = null;
-      this.bulkTotal = 0;
-      this.bulkSkipped = 0;
+      this.bulk = { bulkBatchId: null, bulkTotal: 0, bulkSkipped: 0 };
       this.refreshNotifierFromDb();
       this.stopWorkerIfIdle();
     });
@@ -275,7 +258,7 @@ export class TrackDownloadQueue {
       while (true) {
         if (this.pausedForNetwork || !this.sessionService.isOnline()) break;
 
-        const next = await this.mutex.run(() => this.pickNextLocked());
+        const next = await this.mutex.run(() => pickNextQueueRow(LocalDatabase.getAll()));
         if (!next) break;
 
         const key = queueKey(next.bookId, next.trackId);
@@ -288,7 +271,7 @@ export class TrackDownloadQueue {
           await this.mutex.run(async () => {
             this.failureCounts.delete(key);
             LocalDatabase.delete(next.bookId, next.trackId);
-            if (next.batchId != null && next.batchId === this.bulkBatchId) {
+            if (next.batchId != null && next.batchId === this.bulk.bulkBatchId) {
               this.addCompletedHistory(next);
             }
             this.completeAwaiter(key, "COMPLETED");
@@ -319,27 +302,27 @@ export class TrackDownloadQueue {
           } else if (result === "CANCELLED") {
             this.failureCounts.delete(key);
             LocalDatabase.delete(next.bookId, next.trackId);
+          } else if (
+            LocalDatabase.resolveLocalTrackPath(next.bookId, next.trackId, this.downloadsRoot)
+          ) {
+            this.failureCounts.delete(key);
+            LocalDatabase.delete(next.bookId, next.trackId);
+            if (next.batchId != null && next.batchId === this.bulk.bulkBatchId) {
+              this.addCompletedHistory(next);
+            }
+            effectiveResult = "COMPLETED";
+          } else if (result === "OFFLINE") {
+            await this.persistPartProgress(next.bookId, next.trackId);
           } else {
-            if (LocalDatabase.resolveLocalTrackPath(next.bookId, next.trackId, this.downloadsRoot)) {
+            await this.persistPartProgress(next.bookId, next.trackId);
+            const attempts = (this.failureCounts.get(key) ?? 0) + 1;
+            if (attempts >= MAX_DOWNLOAD_FAILURES) {
               this.failureCounts.delete(key);
+              this.reportDownloadFailure(next, result);
               LocalDatabase.delete(next.bookId, next.trackId);
-              if (next.batchId != null && next.batchId === this.bulkBatchId) {
-                this.addCompletedHistory(next);
-              }
-              effectiveResult = "COMPLETED";
-            } else if (result === "OFFLINE") {
-              await this.persistPartProgress(next.bookId, next.trackId);
             } else {
-              await this.persistPartProgress(next.bookId, next.trackId);
-              const attempts = (this.failureCounts.get(key) ?? 0) + 1;
-              if (attempts >= MAX_DOWNLOAD_FAILURES) {
-                this.failureCounts.delete(key);
-                this.reportDownloadFailure(next, result);
-                LocalDatabase.delete(next.bookId, next.trackId);
-              } else {
-                this.failureCounts.set(key, attempts);
-                completeAwaiter = false;
-              }
+              this.failureCounts.set(key, attempts);
+              completeAwaiter = false;
             }
           }
           if (completeAwaiter) {
@@ -433,33 +416,6 @@ export class TrackDownloadQueue {
     }
   }
 
-  private pickNextLocked(): DownloadQueueRow | null {
-    const pending = LocalDatabase.getAll()
-      .map((entity) => {
-        try {
-          return {
-            sortable: {
-              key: { bookId: entity.bookId, trackId: entity.trackId },
-              priority: entity.priority as DownloadPriority,
-              enqueuedAt: entity.enqueuedAt,
-            },
-            entity,
-          };
-        } catch {
-          return null;
-        }
-      })
-      .filter((item): item is NonNullable<typeof item> => item != null);
-
-    const sorted = sortPending(pending.map((item) => item.sortable));
-    const firstKey = sorted[0]?.key;
-    if (!firstKey) return null;
-    return pending.find(
-      (item) =>
-        item.entity.bookId === firstKey.bookId && item.entity.trackId === firstKey.trackId,
-    )?.entity ?? null;
-  }
-
   private async persistActivePartProgress(): Promise<void> {
     const activeBookId = this.state.activeBookId;
     const activeTrackId = this.state.activeTrackId;
@@ -491,106 +447,19 @@ export class TrackDownloadQueue {
   }
 
   private refreshNotifierFromDb(paused: boolean = this.pausedForNetwork): void {
-    const rows = LocalDatabase.getAll();
-    const activeBookId = this.state.activeBookId;
-    const activeTrackId = this.state.activeTrackId;
-    const activeProgress = this.state.trackProgress;
-    const entityByKey = new Map(rows.map((entity) => [queueKey(entity.bookId, entity.trackId), entity]));
-
-    const items: DownloadQueueItem[] = rows.map((entity) => {
-      const isActive =
-        !paused && entity.bookId === activeBookId && entity.trackId === activeTrackId;
-      let status: DownloadQueueItemStatus;
-      if (paused) {
-        status = "PAUSED_OFFLINE";
-      } else if (isActive) {
-        status = "DOWNLOADING";
-      } else {
-        status = "QUEUED";
-      }
-      return {
-        bookId: entity.bookId,
-        trackId: entity.trackId,
-        title: entity.title,
-        subtitle: entity.subtitle,
-        contentType: entity.contentType,
-        status,
-        progress: isActive ? activeProgress : null,
-        batchId: entity.batchId,
-        enqueuedAt: entity.enqueuedAt,
-        completedAt: null,
-      };
+    const built = buildNotifierState({
+      rows: LocalDatabase.getAll(),
+      previous: this.state,
+      paused,
+      bulk: this.bulk,
     });
-
-    const itemsByKey = new Map(items.map((item) => [queueKey(item.bookId, item.trackId), item]));
-    const sortables = items.map((item) => {
-      const row = entityByKey.get(queueKey(item.bookId, item.trackId))!;
-      return {
-        key: { bookId: item.bookId, trackId: item.trackId },
-        priority: row.priority as DownloadPriority,
-        enqueuedAt: item.enqueuedAt,
-      };
-    });
-    const sortedItems = sortPending(sortables)
-      .map((sortable) => itemsByKey.get(queueKey(sortable.key.bookId, sortable.key.trackId)))
-      .filter((item): item is DownloadQueueItem => item != null);
-
-    const bulkBatch = this.bulkBatchId;
-    const bulkDone = computeBulkDownloaded(
-      this.bulkSkipped,
-      bulkBatch,
-      this.state.completedHistory,
-    );
-    this.maybeFinishBulkBatchLocked(bulkDone);
-    const activeBatch = this.bulkBatchId;
-
-    this.state = trimCompletedHistory({
-      ...this.state,
-      queuedItems: sortedItems,
-      activeBookId: paused ? null : activeBookId,
-      activeTrackId: paused ? null : activeTrackId,
-      trackProgress: paused ? null : activeProgress,
-      bulkTotal: activeBatch != null ? this.bulkTotal : 0,
-      bulkDownloaded: activeBatch != null ? bulkDone : 0,
-      activeBatchId: activeBatch,
-      pausedForNetwork: paused,
-    });
+    this.state = built.state;
+    this.bulk = built.bulk;
     this.broadcastState();
   }
 
-  private maybeFinishBulkBatchLocked(bulkDone: number): void {
-    if (this.bulkBatchId == null || this.bulkTotal <= 0 || bulkDone < this.bulkTotal) {
-      return;
-    }
-    this.bulkBatchId = null;
-    this.bulkTotal = 0;
-    this.bulkSkipped = 0;
-  }
-
   private addCompletedHistory(entity: DownloadQueueRow): void {
-    const completed: DownloadQueueItem = {
-      bookId: entity.bookId,
-      trackId: entity.trackId,
-      title: entity.title,
-      subtitle: entity.subtitle,
-      contentType: entity.contentType,
-      status: "COMPLETED",
-      progress: 1,
-      batchId: entity.batchId,
-      enqueuedAt: entity.enqueuedAt,
-      completedAt: Date.now(),
-    };
-    this.state = trimCompletedHistory({
-      ...this.state,
-      completedHistory: [...this.state.completedHistory, completed],
-      activeBookId: null,
-      activeTrackId: null,
-      trackProgress: null,
-      bulkDownloaded:
-        entity.batchId != null && entity.batchId === this.bulkBatchId
-          ? this.state.bulkDownloaded + 1
-          : this.state.bulkDownloaded,
-    });
+    this.state = appendCompletedHistory(this.state, entity, this.bulk.bulkBatchId);
   }
 
   private patchState(patch: Partial<DownloadQueueState>): void {
@@ -600,11 +469,13 @@ export class TrackDownloadQueue {
   private stopWorkerIfIdle(): void {
     if (LocalDatabase.getAll().length > 0) return;
     const bulkDone = computeBulkDownloaded(
-      this.bulkSkipped,
-      this.bulkBatchId,
+      this.bulk.bulkSkipped,
+      this.bulk.bulkBatchId,
       this.state.completedHistory,
     );
-    this.maybeFinishBulkBatchLocked(bulkDone);
+    if (this.bulk.bulkBatchId != null && this.bulk.bulkTotal > 0 && bulkDone >= this.bulk.bulkTotal) {
+      this.bulk = { bulkBatchId: null, bulkTotal: 0, bulkSkipped: 0 };
+    }
     this.workerRunning = false;
     this.patchState({
       activeBookId: null,
@@ -644,12 +515,4 @@ export class TrackDownloadQueue {
     if (!window || window.isDestroyed()) return;
     window.webContents.send("download:failed", entry);
   }
-}
-
-function queueKey(bookId: string, trackId: string): string {
-  return `${bookId}\0${trackId}`;
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
