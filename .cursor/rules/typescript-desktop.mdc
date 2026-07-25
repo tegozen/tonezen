@@ -7,9 +7,13 @@ alwaysApply: false
 # Desktop (Electron)
 
 - electron-vite + React + strict TypeScript
-- Main process: tray-first lifecycle, SessionService, IPC, sqlite
+- Aliases: `@core/*` → `src/core/*`, `@/*` → `src/renderer/src/*`
+- Cross-process domain in `src/core/` (auth, catalog, downloads, playback, profile, progress, platform, ipc)
+- Main process by domain: `main/{app,window,media,catalog,downloads,progress,profile,session,db,ipc}/`
+- Renderer: Feature-Sliced Design — `app/ pages/ widgets/ features/ entities/ shared/` with slice `index.ts` public APIs
+- Enforce FSD with steiger (`npm run lint:fsd`)
 - Close/minimize → hide to tray; `app.quit()` only from tray «Exit»
 - `WindowLifecycleManager` with `isQuitting` flag
-- Domain logic in `src/core` TS modules; renderer uses Feature-Sliced Design
 - Supabase JS auth with offline-safe session handling
 - UI copy: Russian literals inline at usage sites (no central i18n module)
+- Modules ideally ~≤200 lines; prefer splitting over god-files

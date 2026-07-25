@@ -98,6 +98,22 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 - Close (X) and minimize → hide to system tray
 - `app.quit()` only from tray context menu «Exit» with explicit quit flag
 
+### Desktop structure
+
+```
+apps/desktop/src/
+  core/           # Cross-process domain (@core/*): auth, catalog, downloads, playback, profile, progress, platform, ipc
+  main/           # Electron main by domain: app, window, media, catalog, downloads, progress, profile, session, db, ipc
+  preload/
+  renderer/src/   # Feature-Sliced Design (@/*)
+    app/ pages/ widgets/ features/ entities/ shared/
+```
+
+- Pure rules live in `src/core/` (no Electron/React imports).
+- Renderer layers: `app → pages → widgets → features → entities → shared`; import only downward; slice public API via `index.ts`.
+- Enforce with `npm run lint:fsd` (steiger) as part of `make lint`.
+- Main process: tray-first lifecycle; IPC handlers register in `main/ipc/`.
+
 ## Agent Skills
 
 - Create shared skills under `.agents/skills/<skill-name>/SKILL.md` so Codex and Cursor can both discover them.
