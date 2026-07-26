@@ -55,12 +55,7 @@ cd apps/android
 .\gradlew.bat assembleRelease
 ```
 
-On failure: check JDK 17+, Android SDK, `ANDROID_HOME`. Run unit tests only if user asked or build failed for code reasons:
-
-```powershell
-.\gradlew.bat testDebugUnitTest
-```
-
+On failure: check JDK 17+, Android SDK, `ANDROID_HOME`. Android has no unit-test suite; do not run `testDebugUnitTest`.
 ### 2. Windows desktop
 
 Ensure dependencies once per machine / after `package.json` changes:

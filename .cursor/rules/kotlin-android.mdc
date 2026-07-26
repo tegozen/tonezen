@@ -100,8 +100,13 @@ Repositories align with OpenAPI domains: `catalog`, `downloads`, `progress`, `au
 
 ## Verify
 
+Only when the user explicitly asks for verification:
+
 ```bash
-cd apps/android && ./gradlew testDebugUnitTest
+cd apps/android && ./gradlew assembleDebug
 rg "import android\.|import androidx\.|CatalogDao|BookEntity" apps/android/app/src/main/java/com/tonezen/app/domain/
 rg "CatalogDao" apps/android/app/src/main/java/com/tonezen/app/ui/
+rg "DownloadQueueDao|CatalogDao" apps/android/app/src/main/java/com/tonezen/app/playback/
 ```
+
+Android has no unit-test suite (aligned with desktop).

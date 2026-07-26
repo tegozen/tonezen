@@ -58,12 +58,15 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 - **Compose is dumb UI** — no repository calls, no content-type/sync branching; UI copy inline at usage sites (**Russian only**).
 - **IO on background** — all Room/HTTP via `suspend` or `Flow`; no `while (true)` polling in ViewModel.
 - **Modules ~≤200 lines** — split screens, DAOs, and API clients by feature/domain.
-- **Domain tests** for business logic (JUnit + coroutines-test; Turbine for Flow) — only when the user explicitly asks for tests.
+- **Tests** — Android has no unit/instrumentation suite (same policy as desktop); add tests only when the user explicitly asks.
 
 **Known debt (fix when touching the area)**
 
-- Keep this section evidence-based and update it with exact files when new debt is found.
-- Do not re-add stale items without verifying the current code first.
+- `ui/library/LibraryViewModel.kt` (~400) — still a large books/cycles orchestrator; prefer extracting more catalog-refresh/load collaborators.
+- `playback/PlaybackClient.kt` (~309), `data/remote/DownloadRepository.kt` (~241), `data/remote/AuthRepository.kt` (~207) — over the ~200-line guideline.
+- Shared kit slightly over budget: `ui/components/TonezenPlaybackControls.kt`, `TonezenSheets.kt`, `TonezenChromeBars.kt` (~222–225).
+- `ui/music/MusicViewModel.kt` (~237), `ui/library/LibraryScreen.kt` (~267), `ui/music/MusicTrackList.kt` (~250) — UI/VM hotspots remaining after feature split.
+- Cleared in debt cleanup: god `CatalogRepository`, DAO-in-`playback/` download queue, mega `LibraryMusicHandler` / monolithic cycle handler, Android test suite.
 
 ### API-first
 
@@ -152,7 +155,7 @@ apps/desktop/src/
 
 - Tests are **not** mandatory for merges or PRs.
 - Write or update tests only when the user explicitly asks.
-- Backend (`make test` targets for api/indexer) and Android unit tests remain available; desktop has no unit-test suite.
+- Backend (`make test` targets for api/indexer) remain available; desktop and Android have no unit-test suite.
 
 ## Forbidden
 
