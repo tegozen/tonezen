@@ -53,6 +53,10 @@ export class ProgressSyncService {
   private serverHydrated = false;
   private preferRemoteOnHydrate = false;
 
+  private showSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastShowSyncAtMs = 0;
+  private onMainWindowShow: (() => void) | null = null;
+
   constructor(
     private getAccessToken: () => string | null,
     private refreshSession: () => Promise<unknown>,
@@ -61,7 +65,25 @@ export class ProgressSyncService {
   ) {}
 
   setMainWindow(window: BrowserWindow | null): void {
+    if (this.mainWindow && this.onMainWindowShow) {
+      this.mainWindow.removeListener("show", this.onMainWindowShow);
+    }
     this.mainWindow = window;
+    this.onMainWindowShow = null;
+    if (!window) return;
+    // Tray restore / reopen: Realtime may have missed mobile writes — pull again.
+    this.onMainWindowShow = () => {
+      const now = Date.now();
+      if (now - this.lastShowSyncAtMs < 5_000) return;
+      if (this.showSyncTimer) clearTimeout(this.showSyncTimer);
+      this.showSyncTimer = setTimeout(() => {
+        this.showSyncTimer = null;
+        if (!net.isOnline() || !this.userId || !this.isAccessTokenUsable()) return;
+        this.lastShowSyncAtMs = Date.now();
+        void this.triggerSync().catch(() => undefined);
+      }, 400);
+    };
+    window.on("show", this.onMainWindowShow);
   }
 
   /** Bind active user for local progress reads before splash pull/start. */
@@ -96,6 +118,7 @@ export class ProgressSyncService {
 
     LocalDatabase.setActiveUserId(session.userId);
     this.userId = session.userId;
+    // Push gate only — must not skip pull (cross-device refresh).
     this.serverHydrated = keepHydration;
 
     await this.refreshSession();
@@ -110,15 +133,30 @@ export class ProgressSyncService {
 
     if (!this.serverHydrated) {
       this.prepareHydrateFromLocalCache();
-      if (net.isOnline()) {
-        const timeoutMs = options?.splashTimeoutMs;
-        if (timeoutMs != null) {
-          await withTimeout(this.pullAll(), timeoutMs);
-        } else {
-          await this.pullAll();
+    }
+
+    // Always pull when online so Desktop picks up progress written on mobile.
+    // Hydration flag only gates push, not pull (matches Android syncBestEffort).
+    if (net.isOnline()) {
+      const timeoutMs = options?.splashTimeoutMs;
+      if (timeoutMs != null) {
+        const finished = await withTimeout(this.pullAll(), timeoutMs);
+        if (finished === null) {
+          // Fail-open splash: keep retrying in background (docs S2).
+          void this.pullAll()
+            .then(async () => {
+              if (this.serverHydrated) {
+                await this.flushPending();
+                this.recordLastSyncAt();
+              }
+            })
+            .catch(() => undefined);
         }
+      } else {
+        await this.pullAll();
       }
     }
+
     if (this.serverHydrated) {
       await this.flushPending();
       this.recordLastSyncAt();

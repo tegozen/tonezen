@@ -58,6 +58,7 @@
 - Offline path must be fast — do not block on network timeouts.
 - Desktop splash closes on `bootstrap-complete`, not only `ready-to-show`. Cold start attempts audiobook progress pull/`progressSync.start` **before** closing splash, but **fail-open** on offline or pull timeout (~4s) so local downloads stay playable.
 - After bootstrap hydrate, `progressSync.start` must **not** clear the push gate and re-open a wipe window while the UI is up (keep hydration for the same user).
+- **Cross-device refresh:** Desktop must still **pull** audiobook progress on every online `start` / window show even when already hydrated — hydration only gates **push**, not pull. Skipping pull leaves stale SQLite after listening on another device.
 - **Online Auth → login (incl. reinstall):** brief splash for a **bounded** progress pull; on timeout/offline open the shell with local cache. Do not hang the UI on bad network.
 - **Push gate:** do not HTTP-push audiobook progress until a successful progress pull for the current hydrated user. Persist hydrated user id across process starts for the same account; clear on logout.
 - **Wipe-safe hydrate:** if local progress was empty at session start (reinstall), the first successful pull applies server rows to both play head and server snapshot. If local play head already existed, pull/Realtime update **server snapshot only** while `pending_sync` (do not silently overwrite listening). Do not auto-flush pending for a book with an active local↔server conflict.
