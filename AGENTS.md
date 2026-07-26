@@ -106,7 +106,7 @@ apps/desktop/src/
   main/           # Electron main by domain: app, window, media, catalog, downloads, progress, profile, session, db, ipc
   preload/
   renderer/src/   # Feature-Sliced Design (@/*)
-    app/          # segments: providers/, model/, routes/, styles/ (no slices)
+    app/          # segments: providers/, model/, shell/, styles/ (no slices)
     pages/ widgets/ features/ entities/ shared/
 ```
 

@@ -4,7 +4,7 @@ import { LoginView } from "@/pages/login";
 import { NowPlayingSheet } from "@/widgets/now-playing";
 import { ToastMessage } from "@/shared/ui/ToastMessage";
 import { EarlierChapterPrompt } from "@/features/playback";
-import { AppShellRoutes } from "@/app/routes";
+import { AppShellRoutes } from "@/app/shell";
 import { useAppShellWiring } from "@/app/model";
 
 export function App() {
