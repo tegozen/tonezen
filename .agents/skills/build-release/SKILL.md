@@ -20,10 +20,12 @@ Landing page expects these names under `docker/landing/public/downloads/` (git-i
 - `tonezen-android.apk`
 - `tonezen-windows.exe`
 - `tonezen-macos.dmg`
+- `tonezen-android-mapping.txt.gz` (+ `tonezen-android-proguard-uuid.txt`)
+- `tonezen-desktop-sourcemaps.tar.gz`
 
 ## Pre-flight
 
-1. **Root `.env`** must exist with `TONEZEN_BASE_URL`, `ANON_KEY`, and GlitchTip keys (`GLITCHTIP_DESKTOP_PUBLIC_KEY`, `GLITCHTIP_ANDROID_PUBLIC_KEY`, `GLITCHTIP_AUTH_TOKEN`, … — from `node scripts/gen-env.mjs`). Desktop `dist:win` / `dist:mac` bake the desktop DSN via `prepare-client-env.mjs`.
+1. **Root `.env`** must exist with `TONEZEN_BASE_URL`, `ANON_KEY`, and GlitchTip keys (`GLITCHTIP_DESKTOP_PUBLIC_KEY`, `GLITCHTIP_ANDROID_PUBLIC_KEY`, … — from `node scripts/gen-env.mjs`). Desktop `dist:win` / `dist:mac` bake the desktop DSN via `prepare-client-env.mjs`. Android `assembleRelease` reads Android DSN into `BuildConfig`. Crash symbols are collected **locally** next to the binaries (`node scripts/collect-release-symbols.mjs`) — no network upload during build.
 2. **Android config** — verify `BASE_URL` and `SUPABASE_ANON_KEY` in `apps/android/app/build.gradle.kts` match production (not localhost). `GLITCHTIP_DSN` is filled from root `.env` at build time.
 3. **Versions aligned** — `versionName` / `versionCode` in `build.gradle.kts` and `version` in `apps/desktop/package.json` should match before release.
 4. **Desktop package icons** — verify `apps/desktop/package.json` sets `build.win.icon` to `resources/app-icon.ico`, `build.mac.icon` to `resources/app-icon.icns`, and NSIS installer/uninstaller icons to `resources/app-icon.ico`; both icon files must exist.
@@ -43,6 +45,7 @@ Release build:
 - [ ] Windows installer EXE built
 - [ ] macOS DMG built when running on macOS
 - [ ] Artifacts copied to landing downloads
+- [ ] Crash symbols collected next to apps
 - [ ] Paths and sizes reported to user
 ```
 
@@ -102,6 +105,14 @@ If the macOS step ran and produced a DMG, also copy:
 Copy-Item -Force apps/desktop/release/tonezen-macos.dmg "$dest/tonezen-macos.dmg"
 ```
 
+Then collect crash symbols into the same folder (no network):
+
+```powershell
+node scripts/collect-release-symbols.mjs
+```
+
+Produces (when sources exist): `tonezen-android-mapping.txt.gz`, `tonezen-android-proguard-uuid.txt`, `tonezen-desktop-sourcemaps.tar.gz`. FTP them with the apps; landing does not link them.
+
 Copy only files that exist — skip missing platform outputs (e.g. no DMG on Windows hosts).
 
 If landing is already running locally, refreshed static files are served from that folder (`docker compose up -d`); no container restart required for file swaps.
@@ -113,8 +124,8 @@ Report to the user:
 - Full paths to all built artifacts (source + landing copy)
 - File sizes
 - App version from `build.gradle.kts` / `package.json`
-- Confirm landing copies under `docker/landing/public/downloads/`
-- Reminder: binaries are not in git; for production VPS, upload landing downloads separately if not deploying from this machine
+- Confirm landing copies under `docker/landing/public/downloads/` (apps + symbol archives)
+- Reminder: binaries/symbols are not in git; for production VPS, upload the whole `downloads/` folder (apps + mapping/sourcemaps) together
 
 ## Do not
 

@@ -151,7 +151,7 @@ android {
 sentry {
     org.set("tonezen")
     projectName.set("tonezen-android")
-    // sentry-cli rejects path-prefixed self-host URLs (/glitchtip); upload is best-effort offline.
+    // No network upload at build time — optional: node scripts/upload-android-proguard.mjs
     url.set(glitchtipBaseUrl)
     authToken.set(glitchtipAuthToken)
     autoUploadProguardMapping.set(false)

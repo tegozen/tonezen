@@ -1,37 +1,30 @@
 /**
- * Best-effort upload of desktop source maps to self-hosted GlitchTip.
- * Skips cleanly when token/base URL are missing or upload fails (build must not break).
+ * Optional: upload desktop source maps from downloads/ archive to GlitchTip.
+ * Prefer deploying the archive with the apps; run this only for GlitchTip ingest.
  */
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
+import {
+  apiRoot,
+  ensureRelease,
+  glitchtipOrigin,
+  parseEnvFile,
+  uploadReleaseFile,
+  walkFiles,
+} from "../../scripts/glitchtip-api.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootEnv = path.resolve(__dirname, "../../../.env");
+const downloads = path.resolve(__dirname, "../../../docker/landing/public/downloads");
 const packageJson = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, "../package.json"), "utf8"),
 );
 
-function parseEnv(content) {
-  const map = new Map();
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq === -1) continue;
-    map.set(trimmed.slice(0, eq), trimmed.slice(eq + 1));
-  }
-  return map;
-}
-
-function main() {
-  if (!fs.existsSync(rootEnv)) {
-    console.log("upload-glitchtip-sourcemaps: no root .env, skip");
-    return;
-  }
-  const values = parseEnv(fs.readFileSync(rootEnv, "utf8"));
+async function main() {
+  const values = parseEnvFile(rootEnv);
   const baseUrl = (values.get("TONEZEN_BASE_URL") || "").replace(/\/$/, "");
   const token = (values.get("GLITCHTIP_AUTH_TOKEN") || "").trim();
   if (!baseUrl || !token) {
@@ -39,61 +32,54 @@ function main() {
     return;
   }
 
-  const release = `tonezen-desktop@${packageJson.version}`;
-  const url = `${baseUrl}/glitchtip`;
+  const archive = path.join(downloads, "tonezen-desktop-sourcemaps.tar.gz");
   const outDir = path.resolve(__dirname, "../out");
-  if (!fs.existsSync(outDir)) {
-    console.log("upload-glitchtip-sourcemaps: no out/, skip");
-    return;
-  }
-
-  let sentryCli;
-  try {
-    const require = createRequire(import.meta.url);
-    sentryCli = require.resolve("@sentry/cli/bin/sentry-cli");
-  } catch {
-    console.log("upload-glitchtip-sourcemaps: @sentry/cli not installed, skip");
-    return;
-  }
-
-  const env = {
-    ...process.env,
-    SENTRY_AUTH_TOKEN: token,
-    SENTRY_URL: url,
-    SENTRY_ORG: "tonezen",
-    SENTRY_PROJECT: "tonezen-desktop",
-  };
-
-  const steps = [
-    ["releases", "new", release],
-    [
-      "releases",
-      "files",
-      release,
-      "upload-sourcemaps",
-      outDir,
-      "--rewrite",
-      "--ext",
-      "js",
-      "--ext",
-      "map",
-    ],
-  ];
-
-  for (const args of steps) {
-    const result = spawnSync(process.execPath, [sentryCli, "--url", url, ...args], {
-      env,
-      encoding: "utf8",
-    });
-    if (result.status !== 0) {
-      console.warn(
-        `upload-glitchtip-sourcemaps: step failed (${args.join(" ")}), continuing build`,
-      );
-      if (result.stderr) console.warn(result.stderr.trim());
+  let sourceDir = outDir;
+  let tmp = null;
+  if (fs.existsSync(archive)) {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "tonezen-maps-"));
+    const extracted = spawnSync("tar", ["-xzf", archive, "-C", tmp], { encoding: "utf8" });
+    if (extracted.status !== 0) {
+      console.warn("upload-glitchtip-sourcemaps: extract failed", extracted.stderr);
       return;
     }
+    sourceDir = tmp;
+  } else if (!fs.existsSync(outDir)) {
+    console.log("upload-glitchtip-sourcemaps: no archive/out, skip");
+    return;
   }
-  console.log(`upload-glitchtip-sourcemaps: uploaded ${release}`);
+
+  const origin = glitchtipOrigin(baseUrl);
+  const apiBase = apiRoot(origin);
+  const org = "tonezen";
+  const project = "tonezen-desktop";
+  const release = `tonezen-desktop@${packageJson.version}`;
+
+  const ensured = await ensureRelease(apiBase, token, org, project, release);
+  if (!ensured.ok && ensured.status !== 208 && ensured.status !== 409) {
+    console.warn(
+      `upload-glitchtip-sourcemaps: create release failed (${ensured.status})`,
+      typeof ensured.body === "string" ? ensured.body.slice(0, 200) : ensured.body,
+    );
+    return;
+  }
+
+  const maps = walkFiles(sourceDir, [".js", ".map"]);
+  let uploaded = 0;
+  for (const filePath of maps) {
+    const rel = path.relative(sourceDir, filePath).split(path.sep).join("/");
+    const name = `~/${rel}`;
+    const res = await uploadReleaseFile(apiBase, token, org, project, release, filePath, name);
+    if (!res.ok && res.status !== 409) {
+      console.warn(`upload-glitchtip-sourcemaps: fail ${name} (${res.status})`);
+      continue;
+    }
+    uploaded += 1;
+  }
+  console.log(`upload-glitchtip-sourcemaps: ${uploaded}/${maps.length} files → ${release}`);
+  if (tmp) fs.rmSync(tmp, { recursive: true, force: true });
 }
 
-main();
+main().catch((err) => {
+  console.warn("upload-glitchtip-sourcemaps:", err?.message || err);
+});

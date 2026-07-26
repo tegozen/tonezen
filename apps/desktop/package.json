@@ -7,8 +7,9 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "dist:win": "node scripts/prepare-client-env.mjs && npm run build && node scripts/upload-glitchtip-sourcemaps.mjs && electron-builder --win nsis",
-    "dist:mac": "node scripts/prepare-client-env.mjs && npm run build && node scripts/upload-glitchtip-sourcemaps.mjs && electron-builder --mac dmg",
+    "dist:win": "node scripts/prepare-client-env.mjs && npm run build && electron-builder --win nsis",
+    "dist:mac": "node scripts/prepare-client-env.mjs && npm run build && electron-builder --mac dmg",
+    "upload:glitchtip-sourcemaps": "node scripts/upload-glitchtip-sourcemaps.mjs",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src electron.vite.config.ts",

@@ -153,6 +153,9 @@ Self-hosted GlitchTip is part of `docker compose` (zero-touch):
 - **View errors:** `https://<TONEZEN_BASE_URL>/glitchtip` — login with `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
 - **DSN shape:** `https://<PUBLIC_KEY>@<host>/glitchtip/<PROJECT_ID>` (Android=`1`, Desktop=`2`, hardcoded).
 - Keep the same `GLITCHTIP_*_PUBLIC_KEY` / `GLITCHTIP_AUTH_TOKEN` on the VPS and on the machine that builds clients.
+- After a release build, run `node scripts/collect-release-symbols.mjs` — mapping / source maps land in `docker/landing/public/downloads/` next to the APK/EXE/DMG. FTP that folder to prod with the apps (landing does not link the symbol files).
+- Optional later: ingest into GlitchTip with `node scripts/upload-android-proguard.mjs` / `cd apps/desktop && npm run upload:glitchtip-sourcemaps` (needs `CLIENT_MAX_BODY_SIZE=40m` on the reverse proxy).
+- Reverse proxy in front of Kong: `FULL_PROXY=1` so `/glitchtip` is not 403.
 - Do not point SDKs at `*.sentry.io` (data stays on your host).
 
 ## Project structure

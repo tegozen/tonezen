@@ -223,6 +223,12 @@ If the bump workflow is running on macOS and `dist:mac` produced a DMG, also cop
 Copy-Item -Force apps/desktop/release/tonezen-macos.dmg docker/landing/public/downloads/tonezen-macos.dmg
 ```
 
+Then collect crash symbols next to the binaries:
+
+```powershell
+node scripts/collect-release-symbols.mjs
+```
+
 ### 8. Tag release
 
 Create the tag only after successful builds and landing copies:
