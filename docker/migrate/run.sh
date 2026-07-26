@@ -32,8 +32,10 @@ ALTER ROLE authenticator WITH PASSWORD :'pwd';
 SQL
   if PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -tAc \
     "SELECT 1 FROM pg_roles WHERE rolname = 'tonezen_api'" | grep -q 1; then
-    PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -v pwd="$pwd" \
-      -c "ALTER ROLE tonezen_api WITH PASSWORD :'pwd'"
+    # Use heredoc — psql -c does not expand :'pwd' on this client.
+    PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -v pwd="$pwd" <<'SQL'
+ALTER ROLE tonezen_api WITH PASSWORD :'pwd';
+SQL
   fi
   PGPASSWORD="$pwd"
   export PGPASSWORD
