@@ -60,3 +60,9 @@ fun resolveBookDetailPlaybackState(
 }
 
 fun bookDetailTracksForDisplay(tracks: List<Track>): List<Track> = tracks.sortedBy { it.sortOrder }
+
+fun bookDetailDownloadErrorMessage(error: String?): String? = when (error) {
+    BookDetailViewModel.DOWNLOAD_FAILED_ERROR -> "Не удалось скачать трек"
+    BookDetailViewModel.DOWNLOAD_OFFLINE_ERROR -> "Нет сети"
+    else -> null
+}

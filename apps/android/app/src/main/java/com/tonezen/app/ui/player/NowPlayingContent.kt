@@ -5,14 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -22,52 +19,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.tonezen.app.ui.components.PlayButton
-import com.tonezen.app.ui.components.ProgressBar
-import com.tonezen.app.ui.components.RoundControl
-import com.tonezen.app.ui.components.RoundIconControl
-import com.tonezen.app.ui.components.SkipNextGlyph
-import com.tonezen.app.ui.components.SkipPreviousGlyph
-import com.tonezen.app.ui.components.SpectrumCoverArt
-import com.tonezen.app.ui.components.TonezenGlassModalBottomSheet
-import com.tonezen.app.ui.components.WaveformProgressBar
 import com.tonezen.app.playback.MusicDownloadState
+import com.tonezen.app.ui.components.ProgressBar
+import com.tonezen.app.ui.music.SpectrumCoverArt
 import com.tonezen.app.ui.shell.AppShellUiState
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
 import com.tonezen.app.ui.theme.durationLabel
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
-@Composable
-internal fun NowPlayingSheet(
-    visible: Boolean,
-    hazeState: HazeState,
-    shellState: AppShellUiState,
-    musicDownload: MusicDownloadState,
-    onDismiss: () -> Unit,
-    viewModel: NowPlayingViewModel = hiltViewModel(),
-) {
-    LaunchedEffect(visible) {
-        if (visible) {
-            viewModel.refreshCatalogContext()
-        }
-    }
-
-    TonezenGlassModalBottomSheet(
-        visible = visible,
-        hazeState = hazeState,
-        onDismiss = onDismiss,
-    ) {
-        NowPlayingContent(
-            shellState = shellState,
-            musicDownload = musicDownload,
-            viewModel = viewModel,
-        )
-    }
-}
 
 @Composable
 internal fun NowPlayingContent(
@@ -167,59 +126,16 @@ internal fun NowPlayingContent(
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            RoundControl(
-                label = "-15",
-                outlined = true,
-                size = 40.dp,
-                enabled = !isDownloading,
-            ) {
-                viewModel.seekBy(-15_000L)
-            }
-            RoundIconControl(
-                outlined = true,
-                enabled = state.canSkipPrevious && !isDownloading,
-                onClick = viewModel::skipPrevious,
-            ) {
-                SkipPreviousGlyph(
-                    tint = when {
-                        isDownloading -> TonezenMuted.copy(alpha = 0.38f)
-                        state.canSkipPrevious -> TonezenInk
-                        else -> TonezenMuted.copy(alpha = 0.38f)
-                    },
-                )
-            }
-            PlayButton(
-                isPlaying = state.isPlaying && !isDownloading,
-                downloadProgress = downloadProgress,
-                modifier = Modifier.size(64.dp),
-                onClick = viewModel::pauseOrResume,
-            )
-            RoundIconControl(
-                outlined = true,
-                enabled = state.canSkipNext && !isDownloading,
-                onClick = viewModel::skipNext,
-            ) {
-                SkipNextGlyph(
-                    tint = when {
-                        isDownloading -> TonezenMuted.copy(alpha = 0.38f)
-                        state.canSkipNext -> TonezenInk
-                        else -> TonezenMuted.copy(alpha = 0.38f)
-                    },
-                )
-            }
-            RoundControl(
-                label = "+15",
-                outlined = true,
-                size = 40.dp,
-                enabled = !isDownloading,
-            ) {
-                viewModel.seekBy(15_000L)
-            }
-        }
+        NowPlayingTransportControls(
+            isPlaying = state.isPlaying,
+            canSkipPrevious = state.canSkipPrevious,
+            canSkipNext = state.canSkipNext,
+            isDownloading = isDownloading,
+            downloadProgress = downloadProgress,
+            onSeekBy = viewModel::seekBy,
+            onSkipPrevious = viewModel::skipPrevious,
+            onSkipNext = viewModel::skipNext,
+            onPauseOrResume = viewModel::pauseOrResume,
+        )
     }
 }

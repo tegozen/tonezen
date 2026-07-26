@@ -5,14 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.tonezen.app.data.local.CatalogRepository
 import com.tonezen.app.data.local.TrackDownloadEnsurer
 import com.tonezen.app.data.network.NetworkMonitor
-import com.tonezen.app.domain.model.Book
-import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
-import com.tonezen.app.domain.downloads.DownloadAwaitResult
-import com.tonezen.app.domain.downloads.DownloadPriority
-import com.tonezen.app.domain.music.MusicLibraryTrack
-import com.tonezen.app.domain.music.MusicPlaybackAdvanceRules
-import com.tonezen.app.domain.music.MusicShuffleQueue
 import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackQueueBuilder
@@ -26,46 +19,44 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
-data class NowPlayingUiState(
-    val title: String? = null,
-    val subtitle: String? = null,
-    val coverSeed: String? = null,
-    val isPlaying: Boolean = false,
-    val positionMs: Long = 0L,
-    val durationMs: Long = 0L,
-    val contentType: ContentType? = null,
-    val activeBook: Book? = null,
-    val upNext: List<Track> = emptyList(),
-    val canSkipPrevious: Boolean = true,
-    val canSkipNext: Boolean = false,
-    val waveformPeaks: List<Int>? = null,
-)
-
-private data class AlbumTrackEntry(
-    val book: Book,
-    val track: Track,
-)
-
+/**
+ * Facade ViewModel for the now-playing sheet.
+ * Album/up-next context lives in [NowPlayingCatalogContext], queue building/playback in
+ * [NowPlayingQueueExecutor]; this class owns [NowPlayingUiState] and playback transport.
+ */
 @HiltViewModel
 class NowPlayingViewModel @Inject constructor(
     private val playbackClient: PlaybackClient,
-    private val catalogRepository: CatalogRepository,
-    private val playbackQueueBuilder: PlaybackQueueBuilder,
-    private val trackDownloadEnsurer: TrackDownloadEnsurer,
-    private val downloadQueueController: TrackDownloadQueueController,
-    private val musicPlaybackQueue: MusicPlaybackQueue,
-    private val networkMonitor: NetworkMonitor,
+    catalogRepository: CatalogRepository,
+    playbackQueueBuilder: PlaybackQueueBuilder,
+    trackDownloadEnsurer: TrackDownloadEnsurer,
+    downloadQueueController: TrackDownloadQueueController,
+    musicPlaybackQueue: MusicPlaybackQueue,
+    networkMonitor: NetworkMonitor,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(NowPlayingUiState())
     val uiState: StateFlow<NowPlayingUiState> = _uiState.asStateFlow()
 
-    private var libraryTracks: List<AlbumTrackEntry> = emptyList()
-    private var currentTrackIndex: Int = -1
+    private val catalogContext = NowPlayingCatalogContext(
+        uiState = _uiState,
+        catalogRepository = catalogRepository,
+        musicPlaybackQueue = musicPlaybackQueue,
+        networkMonitor = networkMonitor,
+    )
+    private val queueExecutor = NowPlayingQueueExecutor(
+        uiState = _uiState,
+        catalogContext = catalogContext,
+        catalogRepository = catalogRepository,
+        playbackClient = playbackClient,
+        playbackQueueBuilder = playbackQueueBuilder,
+        trackDownloadEnsurer = trackDownloadEnsurer,
+        downloadQueueController = downloadQueueController,
+        networkMonitor = networkMonitor,
+    )
+
     private var playJob: Job? = null
     private var catalogJob: Job? = null
-    private var preserveShuffleOrder = false
 
     init {
         playbackClient.connect()
@@ -111,14 +102,14 @@ class NowPlayingViewModel @Inject constructor(
 
     fun refreshCatalogContext() {
         val trackId = playbackClient.snapshot.value.trackId ?: return
-        preserveShuffleOrder = true
+        catalogContext.preserveShuffleOrder = true
         scheduleAlbumRefresh(trackId)
     }
 
     private fun scheduleAlbumRefresh(trackId: String) {
         catalogJob?.cancel()
         catalogJob = viewModelScope.launch(Dispatchers.IO) {
-            refreshUpNext(trackId)
+            catalogContext.refreshUpNext(trackId)
         }
     }
 
@@ -143,211 +134,18 @@ class NowPlayingViewModel @Inject constructor(
     }
 
     fun playTrack(track: Track) {
-        val index = libraryTracks.indexOfFirst { it.track.id == track.id }
+        val index = catalogContext.libraryTracks.indexOfFirst { it.track.id == track.id }
         if (index >= 0) {
-            preserveShuffleOrder = true
+            catalogContext.preserveShuffleOrder = true
             skipToIndex(index)
         }
     }
 
     private fun skipToIndex(index: Int) {
-        if (index !in libraryTracks.indices) return
+        if (index !in catalogContext.libraryTracks.indices) return
         playJob?.cancel()
         playJob = viewModelScope.launch {
-            playQueueAt(index)
-        }
-    }
-
-    private suspend fun playQueueAt(index: Int) {
-        val entry = libraryTracks.getOrNull(index) ?: return
-        val book = entry.book
-        val target = entry.track
-        val needsDownload = withContext(Dispatchers.IO) {
-            target.localPath.isNullOrBlank() && !trackDownloadEnsurer.isTrackLocal(book.id, target.id)
-        }
-
-        if (needsDownload) {
-            playbackClient.pause()
-            val awaitResult = downloadQueueController.awaitTrack(
-                bookId = book.id,
-                trackId = target.id,
-                priority = DownloadPriority.PLAY,
-                title = target.title,
-                subtitle = book.title,
-                contentType = book.contentType.name.lowercase(),
-            )
-            if (awaitResult != DownloadAwaitResult.COMPLETED) {
-                if (awaitResult == DownloadAwaitResult.FAILED && networkMonitor.isOnline()) {
-                    return
-                }
-                val nextIndex = MusicPlaybackAdvanceRules.findNextPlayable(
-                    items = libraryTracks,
-                    currentIndex = index,
-                    isPlayable = { entry -> isAlbumEntryPlayable(entry) },
-                ) ?: return
-                playQueueAt(nextIndex)
-                return
-            }
-        }
-
-        val ensured = withContext(Dispatchers.IO) {
-            catalogRepository.getTracksForBook(book.id)
-                .find { it.id == target.id }
-                ?.let { trackDownloadEnsurer.resolveLocalTrack(book.id, it) } != null
-        }
-        if (!ensured) {
-            if (networkMonitor.isOnline()) {
-                return
-            }
-            val nextIndex = MusicPlaybackAdvanceRules.findNextPlayable(
-                items = libraryTracks,
-                currentIndex = index,
-                isPlayable = { entry -> isAlbumEntryPlayable(entry) },
-            ) ?: return
-            playQueueAt(nextIndex)
-            return
-        }
-
-        _uiState.update {
-            it.copy(
-                title = target.title,
-                subtitle = formatSubtitle(book.author, book.title),
-                coverSeed = target.id,
-                waveformPeaks = target.waveformPeaks,
-            )
-        }
-
-        val queue = buildLocalQueue()
-        if (queue.isEmpty()) return
-        val startIndex = queue.indexOfFirst { it.trackId == target.id }.takeIf { it >= 0 } ?: return
-        playbackClient.playQueue(queue, startIndex)
-        updateAlbumNavigation(index, book)
-    }
-
-    private suspend fun buildLocalQueue() =
-        playbackQueueBuilder.buildLocalMusicLibraryQueue(
-            libraryTracks.map { MusicLibraryTrack(it.book, it.track) },
-        ) { entry ->
-            catalogRepository.getTracksForBook(entry.book.id)
-                .find { it.id == entry.track.id }
-                ?.takeIf { !it.localPath.isNullOrBlank() }
-        }
-
-    private fun updateAlbumNavigation(index: Int, book: Book) {
-        currentTrackIndex = index
-        _uiState.update {
-            it.copy(
-                activeBook = book,
-                waveformPeaks = libraryTracks.getOrNull(index)?.track?.waveformPeaks,
-                upNext = when (book.contentType) {
-                    ContentType.MUSIC -> musicUpNext(index, libraryTracks.size)
-                    else -> libraryTracks.drop(index + 1).map { entry -> entry.track }
-                },
-            )
-        }
-    }
-
-    private fun musicUpNext(index: Int, trackCount: Int): List<Track> {
-        if (trackCount <= 1) return emptyList()
-        val entries = libraryTracks
-        return (1 until trackCount.coerceAtMost(4)).map { offset ->
-            entries[(index + offset) % trackCount].track
-        }
-    }
-
-    private suspend fun refreshUpNext(activeTrackId: String) {
-        val book = catalogRepository.findBookForTrack(activeTrackId) ?: run {
-            clearAlbumContext()
-            return
-        }
-
-        val entries = when (book.contentType) {
-            ContentType.MUSIC -> resolveMusicShuffle(activeTrackId)
-            ContentType.AUDIOBOOK -> catalogRepository.getTracksForBook(book.id)
-                .sortedBy { it.sortOrder }
-                .map { AlbumTrackEntry(book, it) }
-        }
-        val index = entries.indexOfFirst { it.track.id == activeTrackId }
-        if (index < 0) {
-            clearAlbumContext()
-            return
-        }
-
-        libraryTracks = entries
-        currentTrackIndex = index
-        _uiState.update {
-            it.copy(
-                activeBook = entries[index].book,
-                contentType = book.contentType,
-                waveformPeaks = entries[index].track.waveformPeaks,
-                upNext = if (book.contentType == ContentType.MUSIC) {
-                    musicUpNext(index, entries.size)
-                } else {
-                    entries.drop(index + 1).map { entry -> entry.track }
-                },
-            )
-        }
-        preserveShuffleOrder = false
-    }
-
-    private suspend fun resolveMusicShuffle(activeTrackId: String): List<AlbumTrackEntry> {
-        val sessionQueue = musicPlaybackQueue.get()
-        if (sessionQueue.isNotEmpty()) {
-            return sessionQueue.map { AlbumTrackEntry(it.book, it.track) }
-        }
-
-        val catalog = catalogRepository.resolveMusicLibraryTracks()
-            .map { AlbumTrackEntry(it.book, it.track) }
-        if (catalog.isEmpty()) return emptyList()
-
-        val catalogIds = catalog.map { it.track.id }.toSet()
-        val currentIds = libraryTracks.map { it.track.id }.toSet()
-        val newIndex = libraryTracks.indexOfFirst { it.track.id == activeTrackId }
-        val adjacentSkip = libraryTracks.isNotEmpty() && currentTrackIndex >= 0 && newIndex >= 0 && (
-            newIndex == MusicShuffleQueue.nextIndex(currentTrackIndex, libraryTracks.size) ||
-                newIndex == MusicShuffleQueue.previousIndex(currentTrackIndex, libraryTracks.size) ||
-                newIndex == currentTrackIndex
-            )
-
-        val useExistingOrder = preserveShuffleOrder || adjacentSkip || (
-            catalogIds == currentIds && newIndex >= 0
-            )
-
-        if (useExistingOrder && libraryTracks.isNotEmpty() && catalogIds == currentIds) {
-            return libraryTracks
-        }
-
-        return MusicShuffleQueue.order(
-            catalog.map { MusicLibraryTrack(it.book, it.track) },
-            activeTrackId,
-        ).map { AlbumTrackEntry(it.book, it.track) }
-    }
-
-    private fun clearAlbumContext() {
-        libraryTracks = emptyList()
-        currentTrackIndex = -1
-        preserveShuffleOrder = false
-        _uiState.update {
-            it.copy(upNext = emptyList(), waveformPeaks = null)
-        }
-    }
-
-    private fun isAlbumEntryPlayable(entry: AlbumTrackEntry): Boolean {
-        val hasLocal = !entry.track.localPath.isNullOrBlank()
-        return MusicPlaybackAdvanceRules.isTrackPlayable(
-            isDownloaded = hasLocal,
-            isNetworkOnline = networkMonitor.isOnline(),
-        )
-    }
-
-    private fun formatSubtitle(artist: String?, album: String?): String? {
-        val cleanArtist = artist?.takeIf { it.isNotBlank() }
-        val cleanAlbum = album?.takeIf { it.isNotBlank() }
-        return when {
-            cleanArtist != null && cleanAlbum != null -> "$cleanArtist · $cleanAlbum"
-            cleanArtist != null -> cleanArtist
-            cleanAlbum != null -> cleanAlbum
-            else -> null
+            queueExecutor.playQueueAt(index)
         }
     }
 }
