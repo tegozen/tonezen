@@ -213,7 +213,6 @@ class NearbyPeerTransport @Inject constructor(
         val code = (error as? ApiException)?.statusCode
         val message = when (code) {
             ConnectionsStatusCodes.STATUS_BLUETOOTH_ERROR -> "bluetooth"
-            ConnectionsStatusCodes.STATUS_API_NOT_CONNECTED -> "play_services"
             else -> error.message ?: "nearby_error"
         }
         return IllegalStateException(message, error)
