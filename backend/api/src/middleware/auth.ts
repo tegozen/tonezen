@@ -45,11 +45,13 @@ export function authMiddleware(
       }
       req.user = { id: sub, role: String(payload.role ?? "authenticated") };
       next();
-    } catch {
+    } catch (err) {
       if (optional) {
         next();
         return;
       }
+      const reason = err instanceof Error ? err.message : "verify failed";
+      console.warn(`[api] jwt verify failed: ${reason}`);
       res.status(401).json({ error: "Invalid token" });
     }
   };

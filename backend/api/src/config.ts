@@ -11,7 +11,9 @@ export function loadConfig(): AppConfig & { port: number; databaseUrl: string } 
   const storageSignExpiresIn = Number(process.env.STORAGE_SIGN_EXPIRES_IN ?? "900");
   const publicBaseUrl =
     process.env.TONEZEN_BASE_URL ?? process.env.STORAGE_PUBLIC_URL ?? "http://localhost:8000";
-  const jwtAudience = process.env.JWT_AUD ?? "authenticated";
+  // Only enforce aud/iss when explicitly configured. GoTrue access tokens on this
+  // stack often omit `aud`; a default of "authenticated" rejects every download sign.
+  const jwtAudience = process.env.JWT_AUD?.trim() || undefined;
   const jwtIssuer = process.env.JWT_ISS?.trim() || undefined;
   const corsOrigins = (process.env.CORS_ORIGINS ?? "")
     .split(",")
