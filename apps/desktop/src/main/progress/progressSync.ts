@@ -1,33 +1,23 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowserWindow } from "electron";
-import { mergeProgressLww } from "@core/progress/progressMerge.js";
 import type { AudiobookProgress, StoredSession } from "@core/types.js";
 import { LocalDatabase } from "../db/localDatabase.js";
 import { createSupabaseClient } from "../session/supabaseClient.js";
 import { isAuthSubscriptionError } from "../catalog/catalogRealtimeSync.js";
+import {
+  applyRemoteProgress,
+  getProgressSyncStatus,
+  pullAllProgress,
+  recordLastSyncAt,
+  triggerProgressSync,
+} from "./progressSyncPullMerge.js";
+import { flushPendingProgress, pushProgress } from "./progressSyncPush.js";
+import type { ProgressRow, ProgressSyncConfig } from "./progressSyncTypes.js";
 
-import { apiV1Url } from "@core/platform/serverPaths.js";
-
-export interface ProgressSyncConfig {
-  baseUrl: string;
-  anonKey: string;
-}
+export type { ProgressSyncConfig } from "./progressSyncTypes.js";
 
 const AUTH_RECOVERY_DELAY_MS = 2000;
-
-type ProgressRow = {
-  book_id: string;
-  track_id: string;
-  position_ms: number;
-  updated_at: string;
-  user_id?: string;
-};
-
-type ProgressPushResponse = {
-  skipped?: boolean;
-  progress?: ProgressRow;
-};
 
 export class ProgressSyncService {
   private supabase: SupabaseClient | null = null;
@@ -179,102 +169,47 @@ export class ProgressSyncService {
   }
 
   async pullAll(): Promise<void> {
-    await this.refreshSession();
-    const token = this.getAccessToken();
-    if (!token) return;
-
-    const res = await fetch(apiV1Url(this.config.baseUrl, "/progress/audiobooks"), {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) return;
-
-    const data = (await res.json()) as {
-      progress?: Array<{
-        book_id: string;
-        track_id: string;
-        position_ms: number;
-        updated_at: string;
-      }>;
-    };
-
-    for (const row of data.progress ?? []) {
-      this.applyRemote({
-        book_id: row.book_id,
-        track_id: row.track_id,
-        position_ms: row.position_ms,
-        updated_at: row.updated_at,
-      });
-    }
+    await pullAllProgress(this.getPullMergeDeps());
   }
 
   async flushPending(): Promise<void> {
-    for (const progress of LocalDatabase.getPendingProgress()) {
-      await this.pushProgress(progress);
-    }
+    await flushPendingProgress(this.getPushDeps(), (row) => this.applyRemote(row));
   }
 
   getSyncStatus(): { pendingCount: number; lastSyncAtEpochMs: number | null } {
-    return {
-      pendingCount: LocalDatabase.getPendingSyncCount(),
-      lastSyncAtEpochMs: LocalDatabase.getLastSyncAtEpochMs(),
-    };
+    return getProgressSyncStatus();
   }
 
   async triggerSync(): Promise<void> {
-    await this.pullAll();
-    await this.flushPending();
-    this.recordLastSyncAt();
+    await triggerProgressSync(() => this.pullAll(), () => this.flushPending());
   }
 
   private async pushProgress(progress: AudiobookProgress): Promise<void> {
-    await this.refreshSession();
-    const token = this.getAccessToken();
-    if (!token) return;
-
-    const res = await fetch(apiV1Url(this.config.baseUrl, `/progress/audiobooks/${progress.bookId}`), {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        track_id: progress.trackId,
-        position_ms: progress.positionMs,
-        updated_at: progress.updatedAt,
-      }),
-    });
-    if (!res.ok) return;
-
-    const data = (await res.json().catch(() => null)) as ProgressPushResponse | null;
-    if (data?.progress) {
-      this.applyRemote(data.progress);
-      return;
-    }
-    LocalDatabase.markProgressSynced(progress.bookId);
+    await pushProgress(this.getPushDeps(), progress, (row) => this.applyRemote(row));
   }
 
   private applyRemote(row: ProgressRow): void {
-    const remote: AudiobookProgress = {
-      bookId: row.book_id,
-      trackId: row.track_id,
-      positionMs: row.position_ms,
-      updatedAt: row.updated_at,
-    };
-    const local = LocalDatabase.getProgress(remote.bookId);
-    const merged = mergeProgressLww(local, remote);
-    if (!merged) return;
-
-    const pendingLocal =
-      local?.pendingSync &&
-      local.updatedAt &&
-      new Date(local.updatedAt) > new Date(remote.updatedAt);
-    if (pendingLocal) return;
-
-    LocalDatabase.upsertProgress(merged, false);
-    this.mainWindow?.webContents.send("progress:updated", merged);
+    applyRemoteProgress(row, this.mainWindow);
   }
 
   private recordLastSyncAt(): void {
-    LocalDatabase.setLastSyncAtEpochMs(Date.now());
+    recordLastSyncAt();
+  }
+
+  private getPullMergeDeps() {
+    return {
+      config: this.config,
+      getAccessToken: () => this.getAccessToken(),
+      refreshSession: () => this.refreshSession(),
+      mainWindow: this.mainWindow,
+    };
+  }
+
+  private getPushDeps() {
+    return {
+      config: this.config,
+      getAccessToken: () => this.getAccessToken(),
+      refreshSession: () => this.refreshSession(),
+    };
   }
 }
