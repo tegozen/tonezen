@@ -1,5 +1,6 @@
 package com.tonezen.app.data.local
 
+import android.content.Context
 import com.tonezen.app.data.remote.progress.ProgressRemoteApi
 import com.tonezen.app.data.waveformPeaksFromJson
 import com.tonezen.app.domain.model.AudiobookProgress
@@ -31,6 +32,22 @@ fun TrackEntity.toDomain() = Track(
     localDownloadedAt = localDownloadedAt,
     waveformPeaks = waveformPeaksFromJson(waveformPeaksJson),
 )
+
+fun TrackEntity.toSanitizedDomain(context: Context): Track {
+    val safePath = SafeLocalStorage.sanitizeStoredLocalPath(context.filesDir, localPath)
+    return Track(
+        id = id,
+        bookId = bookId,
+        sortOrder = sortOrder,
+        title = title,
+        filename = filename,
+        artist = normalizeAuthor(artist),
+        durationMs = durationMs,
+        localPath = safePath,
+        localDownloadedAt = localDownloadedAt,
+        waveformPeaks = waveformPeaksFromJson(waveformPeaksJson),
+    )
+}
 
 fun AudiobookProgressEntity.toDomain() = AudiobookProgress(
     bookId = bookId,

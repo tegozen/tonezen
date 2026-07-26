@@ -1,198 +1,67 @@
 package com.tonezen.app.data.local
 
-import android.content.Context
-import android.os.StatFs
-import com.tonezen.app.data.remote.catalog.CatalogRemoteApi
-import com.tonezen.app.data.waveformPeaksFromJson
-import com.tonezen.app.data.waveformPeaksToJson
 import com.tonezen.app.domain.downloads.DownloadedBookSummary
 import com.tonezen.app.domain.downloads.StorageStats
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Cycle
-import com.tonezen.app.domain.model.normalizeAuthor
 import com.tonezen.app.domain.model.Track
-import com.tonezen.app.domain.music.MusicLibraryResolver
 import com.tonezen.app.domain.music.MusicLibraryTrack
-import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.withContext
-import org.json.JSONArray
 
+/** Thin facade over domain catalog repositories for existing inject sites. */
 @Singleton
 class CatalogRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val catalogDao: CatalogDao,
-    private val catalogRemoteApi: CatalogRemoteApi,
+    private val booksRepository: CatalogBooksRepository,
+    private val tracksRepository: CatalogTracksRepository,
+    private val cyclesRepository: CatalogCyclesRepository,
+    private val localPathsRepository: CatalogLocalPathsRepository,
+    private val downloadStatsRepository: CatalogDownloadStatsRepository,
+    private val remoteSyncRepository: CatalogRemoteSyncRepository,
     private val progressRepository: ProgressRepository,
 ) {
-    private val syncLock = Mutex()
-    private var syncDeferred: Deferred<List<Book>>? = null
-    private val downloadedTrackIdsCacheLock = Mutex()
-    private var downloadedTrackIdsCache: Set<String>? = null
-    private var downloadedTrackIdsCacheGeneration: Long = 0
-
-    suspend fun getAllBooks(limit: Int? = null): List<Book> {
-        val entities = if (limit != null) {
-            catalogDao.getAllBooksLimited(limit)
-        } else {
-            catalogDao.getAllBooks()
-        }
-        return entities.map { it.toDomain() }
-    }
+    suspend fun getAllBooks(limit: Int? = null): List<Book> = booksRepository.getAllBooks(limit)
 
     suspend fun loadAllBooksPaged(
         pageSize: Int,
         onPage: suspend (List<Book>) -> Unit = {},
-    ): List<Book> = withContext(Dispatchers.IO) {
-        val accumulated = mutableListOf<Book>()
-        var offset = 0
-        while (true) {
-            val page = catalogDao.getBooksPage(pageSize, offset).map { it.toDomain() }
-            if (page.isEmpty()) break
-            accumulated.addAll(page)
-            onPage(accumulated.toList())
-            offset += page.size
-            if (page.size < pageSize) break
-        }
-        accumulated
-    }
+    ): List<Book> = booksRepository.loadAllBooksPaged(pageSize, onPage)
 
-    suspend fun canonicalBookIdForTrack(trackId: String): String? = withContext(Dispatchers.IO) {
-        catalogDao.getBookIdForTrack(trackId)
-    }
+    suspend fun canonicalBookIdForTrack(trackId: String): String? =
+        tracksRepository.canonicalBookIdForTrack(trackId)
 
-    suspend fun findTrackInCatalog(trackId: String): Track? = withContext(Dispatchers.IO) {
-        val bookId = catalogDao.getBookIdForTrack(trackId) ?: return@withContext null
-        catalogDao.getTracksForBook(bookId).find { it.id == trackId }?.toDomainTrack()
-    }
+    suspend fun findTrackInCatalog(trackId: String): Track? =
+        tracksRepository.findTrackInCatalog(trackId)
 
-    suspend fun findBookForTrack(trackId: String): Book? {
-        val bookId = canonicalBookIdForTrack(trackId) ?: return null
-        return getBook(bookId)
-    }
+    suspend fun findBookForTrack(trackId: String): Book? =
+        tracksRepository.findBookForTrack(trackId)
 
-    suspend fun getBook(bookId: String): Book? = withContext(Dispatchers.IO) {
-        catalogDao.getBook(bookId)?.toDomain()
-    }
+    suspend fun getBook(bookId: String): Book? = booksRepository.getBook(bookId)
 
-    suspend fun resolveMusicLibraryTracks(): List<MusicLibraryTrack> {
-        val allBooks = getAllBooks()
-        val tracksByBookId = getAllTracksByBookId()
-        return MusicLibraryResolver.resolve(allBooks) { bookId ->
-            tracksByBookId[bookId].orEmpty()
-        }
-    }
+    suspend fun resolveMusicLibraryTracks(): List<MusicLibraryTrack> =
+        tracksRepository.resolveMusicLibraryTracks()
 
-    suspend fun getAllTracksByBookId(limit: Int? = null): Map<String, List<Track>> {
-        val entities = if (limit != null) {
-            catalogDao.getAllTracksLimited(limit)
-        } else {
-            catalogDao.getAllTracks()
-        }
-        return entities.map { it.toDomainTrack() }.groupBy { it.bookId }
-    }
+    suspend fun getAllTracksByBookId(limit: Int? = null): Map<String, List<Track>> =
+        tracksRepository.getAllTracksByBookId(limit)
 
-    suspend fun getTracksByBookIds(bookIds: Collection<String>): Map<String, List<Track>> {
-        if (bookIds.isEmpty()) return emptyMap()
-        return catalogDao.getTracksForBooks(bookIds.distinct())
-            .map { it.toDomainTrack() }
-            .groupBy { it.bookId }
-    }
+    suspend fun getTracksByBookIds(bookIds: Collection<String>): Map<String, List<Track>> =
+        tracksRepository.getTracksByBookIds(bookIds)
 
     suspend fun getProgressByBookIds(bookIds: Collection<String>): Map<String, AudiobookProgress?> =
         progressRepository.getProgressForBooks(bookIds)
 
-    suspend fun getDownloadedTrackIds(): Set<String> = withContext(Dispatchers.IO) {
-        val cacheGenerationAtRead = downloadedTrackIdsCacheLock.withLock {
-            downloadedTrackIdsCacheGeneration to downloadedTrackIdsCache
-        }
-        cacheGenerationAtRead.second?.let { return@withContext it }
-        val onDiskTrackIds = scanDownloadedFilesOnDisk().keys.map { (_, trackId) -> trackId }
-        val ids = catalogDao.getTracksWithLocalPath()
-            .asSequence()
-            .mapNotNull { entity ->
-                SafeLocalStorage.sanitizeStoredLocalPath(context.filesDir, entity.localPath)
-                    ?.let { entity.id }
-            }
-            .toMutableSet()
-        ids.addAll(onDiskTrackIds)
-        downloadedTrackIdsCacheLock.withLock {
-            if (downloadedTrackIdsCacheGeneration == cacheGenerationAtRead.first) {
-                downloadedTrackIdsCache = ids
-            }
-        }
-        ids
-    }
+    suspend fun getDownloadedTrackIds(): Set<String> = localPathsRepository.getDownloadedTrackIds()
 
-    suspend fun getDownloadedTrackIdsFromCatalog(): Set<String> = withContext(Dispatchers.IO) {
-        catalogDao.getTracksWithLocalPath()
-            .asSequence()
-            .mapNotNull { entity ->
-                SafeLocalStorage.sanitizeStoredLocalPath(context.filesDir, entity.localPath)
-                    ?.let { entity.id }
-            }
-            .toSet()
-    }
+    suspend fun getDownloadedTrackIdsFromCatalog(): Set<String> =
+        localPathsRepository.getDownloadedTrackIdsFromCatalog()
 
-    /** Backfill DB localPath from files on disk (e.g. after mark failed or offline reopen). */
-    suspend fun reconcileLocalDownloadPaths() = withContext(Dispatchers.IO) {
-        val updates = mutableListOf<TrackEntity>()
-        val onDiskByKey = scanDownloadedFilesOnDisk()
-
-        for (entity in catalogDao.getTracksWithoutLocalPath()) {
-            val safePath = onDiskByKey[entity.bookId to entity.id]
-                ?: onDiskByKey.entries.firstOrNull { it.key.second == entity.id }?.value
-                ?: SafeLocalStorage.findDownloadedTrack(context.filesDir, entity.id, entity.bookId)?.path
-                ?: continue
-            updates.add(entity.copy(localPath = safePath))
-        }
-
-        for (entity in catalogDao.getTracksWithLocalPath()) {
-            val validPath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, entity.localPath)
-            when {
-                validPath == null -> {
-                    val diskPath = onDiskByKey[entity.bookId to entity.id]
-                        ?: onDiskByKey.entries.firstOrNull { it.key.second == entity.id }?.value
-                        ?: SafeLocalStorage.findDownloadedTrack(context.filesDir, entity.id, entity.bookId)?.path
-                    if (diskPath != null) {
-                        updates.add(entity.copy(localPath = diskPath))
-                    } else {
-                        updates.add(entity.copy(localPath = null))
-                    }
-                }
-                validPath != entity.localPath -> updates.add(entity.copy(localPath = validPath))
-            }
-        }
-
-        if (updates.isNotEmpty()) {
-            catalogDao.upsertTracks(updates)
-            invalidateDownloadedTrackIdsCache()
-        }
-    }
-
-    private suspend fun invalidateDownloadedTrackIdsCache() {
-        downloadedTrackIdsCacheLock.withLock {
-            downloadedTrackIdsCache = null
-            downloadedTrackIdsCacheGeneration++
-        }
-    }
+    suspend fun reconcileLocalDownloadPaths() = localPathsRepository.reconcileLocalDownloadPaths()
 
     suspend fun getTracksForBook(bookId: String): List<Track> =
-        catalogDao.getTracksForBook(bookId).map { it.toDomainTrack() }
+        tracksRepository.getTracksForBook(bookId)
 
     suspend fun getProgress(bookId: String): AudiobookProgress? =
         progressRepository.getProgress(bookId)
@@ -201,284 +70,47 @@ class CatalogRepository @Inject constructor(
         progressRepository.deleteProgress(bookId)
     }
 
-    suspend fun downloadedBookIds(books: List<Book>): Set<String> {
-        val withDownloads = catalogDao.getBookIdsWithDownloads().toSet()
-        return books.asSequence().map { it.id }.filter { it in withDownloads }.toSet()
-    }
+    suspend fun downloadedBookIds(books: List<Book>): Set<String> =
+        booksRepository.downloadedBookIds(books)
 
-    suspend fun getAllCycles(booksById: Map<String, Book>? = null): List<Cycle> = withContext(Dispatchers.IO) {
-        val resolvedBooksById = booksById ?: getAllBooks().associateBy { it.id }
-        catalogDao.getAllCycles().mapNotNull { it.toDomain(resolvedBooksById) }
-    }
+    suspend fun getAllCycles(booksById: Map<String, Book>? = null): List<Cycle> =
+        cyclesRepository.getAllCycles(booksById)
 
-    suspend fun syncFromRemote(accessToken: String?): List<Book> = coroutineScope {
-        val deferred = syncLock.withLock {
-            syncDeferred?.takeIf { it.isActive } ?: async(Dispatchers.IO) {
-                performSyncFromRemote(accessToken)
-            }.also { syncDeferred = it }
-        }
-        try {
-            deferred.await()
-        } finally {
-            syncLock.withLock {
-                if (syncDeferred == deferred && !deferred.isActive) {
-                    syncDeferred = null
-                }
-            }
-        }
-    }
+    suspend fun syncFromRemote(accessToken: String?): List<Book> =
+        remoteSyncRepository.syncFromRemote(accessToken)
 
-    private suspend fun performSyncFromRemote(accessToken: String?): List<Book> = withContext(Dispatchers.IO) {
-        val remoteCycles = catalogRemoteApi.fetchCycles(accessToken)
-        val remoteBooks = catalogRemoteApi.fetchBooks(accessToken)
-        catalogDao.upsertBooks(
-            remoteBooks.map { book ->
-                BookEntity(
-                    book.id,
-                    book.slug,
-                    book.contentType.name.lowercase(),
-                    book.title,
-                    normalizeAuthor(book.author),
-                    null,
-                    "",
-                )
-            },
-        )
-        catalogDao.upsertCycles(
-            remoteCycles.map { cycle ->
-                CycleEntity(
-                    id = cycle.id,
-                    slug = cycle.slug,
-                    title = cycle.title,
-                    bookOrderJson = JSONArray(cycle.books.map { it.id }).toString(),
-                )
-            },
-        )
-        val remoteCycleIds = remoteCycles.map { it.id }
-        if (remoteCycleIds.isNotEmpty()) {
-            catalogDao.deleteCyclesNotIn(remoteCycleIds)
-        }
-        val semaphore = Semaphore(8)
-        coroutineScope {
-            remoteBooks.map { book ->
-                async {
-                    semaphore.withPermit {
-                        syncBookTracks(book, accessToken)
-                    }
-                }
-            }.awaitAll()
-        }
-        val remoteIds = remoteBooks.map { it.id }
-        if (remoteIds.isNotEmpty()) {
-            catalogDao.deleteTracksForBooksNotIn(remoteIds)
-            catalogDao.deleteBooksNotIn(remoteIds)
-        }
-        invalidateDownloadedTrackIdsCache()
-        remoteBooks
-    }
-
-    private suspend fun syncBookTracks(book: Book, accessToken: String?) {
-        val existingById = catalogDao.getTracksForBook(book.id).associateBy { it.id }
-        val (_, tracks) = catalogRemoteApi.fetchBookDetail(book.id, accessToken)
-        catalogDao.upsertTracks(
-            tracks.map { track ->
-                val existing = existingById[track.id]
-                val localPath = existing?.localPath?.takeIf {
-                    SafeLocalStorage.isUnderAppFilesRoot(context.filesDir, it) &&
-                        File(it).isFile &&
-                        File(it).length() > 0L
-                }
-                    ?: expectedTrackFile(book.id, track.id)
-                        ?.takeIf { it.isFile && it.length() > 0L }
-                        ?.absolutePath
-                TrackEntity(
-                    track.id,
-                    track.bookId,
-                    track.sortOrder,
-                    track.title,
-                    track.filename,
-                    normalizeAuthor(track.artist),
-                    track.durationMs,
-                    localPath,
-                    localDownloadedAt = existing?.localDownloadedAt
-                        ?: localPath?.let { System.currentTimeMillis() },
-                    waveformPeaksJson = waveformPeaksToJson(track.waveformPeaks),
-                )
-            },
-        )
-    }
-
-    suspend fun markTrackDownloaded(bookId: String, trackId: String, localPath: String): Boolean {
-        val safePath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, localPath) ?: return false
-        val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId }
-            ?: catalogDao.getBookIdForTrack(trackId)?.let { resolvedBookId ->
-                catalogDao.getTracksForBook(resolvedBookId).find { it.id == trackId }
-            }
-        if (track != null) {
-            catalogDao.upsertTracks(
-                listOf(
-                    track.copy(
-                        localPath = safePath,
-                        localDownloadedAt = System.currentTimeMillis(),
-                    ),
-                ),
-            )
-            invalidateDownloadedTrackIdsCache()
-            return true
-        }
-        if (catalogDao.getBookIdForTrack(trackId) == null) return false
-        catalogDao.updateTrackLocalPathById(trackId, safePath, System.currentTimeMillis())
-        invalidateDownloadedTrackIdsCache()
-        return true
-    }
+    suspend fun markTrackDownloaded(bookId: String, trackId: String, localPath: String): Boolean =
+        localPathsRepository.markTrackDownloaded(bookId, trackId, localPath)
 
     suspend fun getTracksOrderedByDownloadedAt(limit: Int): List<Track> =
-        catalogDao.getTracksOrderedByDownloadedAt(limit).map { it.toDomainTrack() }
+        tracksRepository.getTracksOrderedByDownloadedAt(limit)
 
-    suspend fun resolveLocalTrackPath(bookId: String, trackId: String): String? = withContext(Dispatchers.IO) {
-        resolveLocalTrackPathForBook(bookId, trackId)
-            ?: findOnDiskTrackPath(trackId)?.let { (diskBookId, path) ->
-                markTrackDownloaded(diskBookId, trackId, path)
-                path
-            }
-    }
-
-    private suspend fun resolveLocalTrackPathForBook(bookId: String, trackId: String): String? {
-        val fromDb = catalogDao.getTracksForBook(bookId).find { it.id == trackId }?.localPath
-        if (fromDb != null && SafeLocalStorage.isUnderAppFilesRoot(context.filesDir, fromDb)) {
-            val file = File(fromDb)
-            if (file.isFile && file.length() > 0L) return fromDb
-        }
-        val onDisk = expectedTrackFile(bookId, trackId)
-            ?: SafeLocalStorage.findDownloadedTrack(context.filesDir, trackId, bookId)?.file
-        if (onDisk?.isFile == true && onDisk.length() > 0L) {
-            markTrackDownloaded(bookId, trackId, onDisk.absolutePath)
-            return onDisk.absolutePath
-        }
-        if (fromDb != null) clearTrackLocalPath(bookId, trackId)
-        return null
-    }
-
-    private fun findOnDiskTrackPath(trackId: String): Pair<String, String>? =
-        SafeLocalStorage.findDownloadedTrack(context.filesDir, trackId)?.let { it.bookId to it.path }
-
-    private fun expectedTrackFile(bookId: String, trackId: String): File? =
-        SafeLocalStorage.trackFile(context.filesDir, bookId, trackId)
-
-    private fun scanDownloadedFilesOnDisk(): Map<Pair<String, String>, String> {
-        val downloadsRoot = File(context.filesDir, "downloads")
-        if (!downloadsRoot.isDirectory) return emptyMap()
-        val result = mutableMapOf<Pair<String, String>, String>()
-        downloadsRoot.listFiles()?.forEach { bookDir ->
-            if (!bookDir.isDirectory) return@forEach
-            val bookId = bookDir.name
-            if (!SafeLocalStorage.isSafeId(bookId)) return@forEach
-            bookDir.listFiles()?.forEach { file ->
-                if (!file.isFile || file.length() <= 0L) return@forEach
-                val trackId = file.name.removeSuffix(".mp3")
-                if (trackId == file.name || !SafeLocalStorage.isSafeId(trackId)) return@forEach
-                SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, file.absolutePath)?.let { safePath ->
-                    result[bookId to trackId] = safePath
-                }
-            }
-        }
-        return result
-    }
+    suspend fun resolveLocalTrackPath(bookId: String, trackId: String): String? =
+        localPathsRepository.resolveLocalTrackPath(bookId, trackId)
 
     suspend fun clearLocalDownloads(bookId: String) {
-        catalogDao.clearLocalPathsForBook(bookId)
-        invalidateDownloadedTrackIdsCache()
+        localPathsRepository.clearLocalDownloads(bookId)
     }
 
     suspend fun isProgressPendingSync(bookId: String): Boolean =
         progressRepository.isProgressPendingSync(bookId)
 
     suspend fun clearTrackLocalPath(bookId: String, trackId: String) {
-        val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId }
-            ?: catalogDao.getBookIdForTrack(trackId)?.let { resolvedBookId ->
-                catalogDao.getTracksForBook(resolvedBookId).find { it.id == trackId }
-            }
-            ?: return
-        catalogDao.upsertTracks(listOf(track.copy(localPath = null, localDownloadedAt = null)))
-        invalidateDownloadedTrackIdsCache()
+        localPathsRepository.clearTrackLocalPath(bookId, trackId)
     }
 
-    suspend fun getDownloadedBookSummaries(): List<DownloadedBookSummary> = withContext(Dispatchers.IO) {
-        val books = catalogDao.getAllBooks()
-        val tracksByBookId = catalogDao.getAllTracks().groupBy { it.bookId }
-        books.mapNotNull { entity ->
-            val book = entity.toDomain()
-            val trackEntities = tracksByBookId[book.id].orEmpty()
-            var safeDownloaded = 0
-            var sizeBytes = 0L
-            for (trackEntity in trackEntities) {
-                val path = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, trackEntity.localPath)
-                    ?: continue
-                safeDownloaded++
-                sizeBytes += File(path).length()
-            }
-            if (safeDownloaded == 0) return@mapNotNull null
-            DownloadedBookSummary(
-                bookId = book.id,
-                title = book.title,
-                author = book.author,
-                contentType = book.contentType.name.lowercase(),
-                downloadedTracks = safeDownloaded,
-                totalTracks = trackEntities.size,
-                sizeBytes = sizeBytes,
-                downloadProgress = if (safeDownloaded == trackEntities.size) {
-                    1f
-                } else {
-                    safeDownloaded.toFloat() / trackEntities.size
-                },
-            )
-        }.sortedBy { it.title.lowercase() }
-    }
+    suspend fun getDownloadedBookSummaries(): List<DownloadedBookSummary> =
+        downloadStatsRepository.getDownloadedBookSummaries()
 
-    suspend fun getStorageStats(): StorageStats = withContext(Dispatchers.IO) {
-        val downloadsDir = File(context.filesDir, "downloads")
-        val usedBytes = downloadsDir.walkTopDown()
-            .filter { it.isFile }
-            .sumOf { it.length() }
-        val statFs = StatFs(context.filesDir.absolutePath)
-        val totalBytes = statFs.totalBytes
-        StorageStats(usedBytes = usedBytes, totalBytes = totalBytes)
-    }
+    suspend fun getStorageStats(): StorageStats = downloadStatsRepository.getStorageStats()
 
-    suspend fun getPendingSyncCount(): Int =
-        progressRepository.getPendingSyncCount()
+    suspend fun getPendingSyncCount(): Int = progressRepository.getPendingSyncCount()
 
     suspend fun deleteAllDownloads() {
-        val books = catalogDao.getAllBooks()
-        books.forEach { book ->
-            clearLocalDownloads(book.id)
-            catalogDao.getTracksForBook(book.id).forEach { track ->
-                track.localPath
-                    ?.takeIf { SafeLocalStorage.isUnderAppFilesRoot(context.filesDir, it) }
-                    ?.let { File(it).delete() }
-            }
-        }
-        File(context.filesDir, "downloads").deleteRecursively()
-        invalidateDownloadedTrackIdsCache()
+        downloadStatsRepository.deleteAllDownloads()
     }
 
     fun observeLibraryRefresh(): Flow<Unit> = flow {
         emit(Unit)
-    }
-
-    private fun TrackEntity.toDomainTrack(): Track {
-        val safePath = SafeLocalStorage.sanitizeStoredLocalPath(context.filesDir, localPath)
-        return Track(
-            id = id,
-            bookId = bookId,
-            sortOrder = sortOrder,
-            title = title,
-            filename = filename,
-            artist = normalizeAuthor(artist),
-            durationMs = durationMs,
-            localPath = safePath,
-            localDownloadedAt = localDownloadedAt,
-            waveformPeaks = waveformPeaksFromJson(waveformPeaksJson),
-        )
     }
 }
