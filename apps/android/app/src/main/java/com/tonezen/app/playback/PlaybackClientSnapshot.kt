@@ -1,7 +1,6 @@
 package com.tonezen.app.playback
 
 import android.content.ComponentName
-import android.content.Intent
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -21,8 +20,7 @@ internal class PlaybackClientSnapshot(
     fun connect() {
         if (shared.controllerFuture != null) return
 
-        shared.context.startForegroundService(Intent(shared.context, PlaybackService::class.java))
-
+        // Bind only; MediaSessionService calls startForeground when playback starts.
         val sessionToken = SessionToken(
             shared.context,
             ComponentName(shared.context, PlaybackService::class.java),
