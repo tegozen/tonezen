@@ -1,6 +1,6 @@
 import type { ReactNode, CSSProperties } from "react";
 import { scrollPadBottomCss } from "@/shared/lib/layoutChrome";
-import styles from "./AppShell.module.scss";
+import styles from "./AppShell.module.css";
 
 interface AppShellProps {
   showMiniPlayer: boolean;

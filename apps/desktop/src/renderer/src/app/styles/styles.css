@@ -17,7 +17,6 @@
     display: none;
   }
 
-  /* Legacy global component classes — migrate to *.module.scss when touching a feature. */
   .app-frame {
     @apply mx-auto flex h-dvh max-h-dvh w-full max-w-[var(--app-shell-width)] flex-col overflow-hidden bg-[#00142B];
   }

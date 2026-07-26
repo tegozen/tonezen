@@ -96,7 +96,6 @@
     "electron-vite": "^2.3.0",
     "eslint": "^9.16.0",
     "eslint-plugin-react-hooks": "^5.0.0",
-    "sass": "^1.102.0",
     "steiger": "^0.6.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^5.7.2",

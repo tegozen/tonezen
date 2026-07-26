@@ -1,4 +1,4 @@
-import styles from "./EarlierChapterPrompt.module.scss";
+import styles from "./EarlierChapterPrompt.module.css";
 
 interface EarlierChapterPromptProps {
   visible: boolean;

@@ -1,4 +1,4 @@
-import styles from "./ToastMessage.module.scss";
+import styles from "./ToastMessage.module.css";
 
 interface ToastMessageProps {
   message: string;
