@@ -9,7 +9,6 @@ import {
 import { authMiddleware, requireAuth, type JwtVerifyOptions } from "../middleware/auth.js";
 import {
   authRateLimiter,
-  downloadsSignRateLimiter,
 } from "../middleware/rateLimit.js";
 import type { StorageSignConfig } from "../lib/storageSign.js";
 import { AuthAdminClient, type AuthAdminConfig } from "../lib/authAdmin.js";
@@ -23,7 +22,6 @@ export interface RouteDeps {
   optionalAuth: RequestHandler;
   requiredAuth: RequestHandler[];
   authRateLimiter: RequestHandler;
-  downloadsSignRateLimiter: RequestHandler;
   storage: StorageSignConfig;
 }
 
@@ -49,6 +47,5 @@ export function createRouteDeps(
     optionalAuth: authMiddleware(jwtSecret, true, jwtVerify),
     requiredAuth: [authMiddleware(jwtSecret, false, jwtVerify), requireAuth],
     authRateLimiter,
-    downloadsSignRateLimiter,
   };
 }

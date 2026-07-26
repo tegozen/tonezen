@@ -15,7 +15,6 @@ export function registerDownloadRoutes(app: Express, deps: RouteDeps): void {
   app.post(
     "/downloads/sign",
     ...deps.requiredAuth,
-    deps.downloadsSignRateLimiter,
     asyncRoute(async (req, res) => {
       const trackIds = req.body?.track_ids as string[] | undefined;
       if (!Array.isArray(trackIds) || trackIds.length === 0) {
