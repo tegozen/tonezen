@@ -73,14 +73,20 @@ internal class LibrarySessionObserver(
         }
         scope.launch {
             sessionRepository.session.collectLatest { sessionData ->
-                catalogLoader.refreshSessionState(sessionData)
-                if (sessionRepository.resolveState(sessionData) != SessionState.UNAUTHENTICATED) {
-                    playbackClient.connect()
-                }
                 val ownerKey = sessionData?.userId ?: "__anonymous__"
                 if (ownerKey != catalogOwnerKey) {
                     catalogOwnerKey = ownerKey
+                    // Keep splash until loadLibrary finishes progress pull — otherwise
+                    // AppShell is interactive on empty local DB and can LWW-wipe server.
+                    if (sessionData != null) {
+                        uiState.update { it.copy(isBootstrapComplete = false) }
+                    }
                     catalogLoader.loadLibrary(sessionData)
+                } else {
+                    catalogLoader.refreshSessionState(sessionData)
+                }
+                if (sessionRepository.resolveState(sessionData) != SessionState.UNAUTHENTICATED) {
+                    playbackClient.connect()
                 }
             }
         }

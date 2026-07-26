@@ -58,6 +58,14 @@ class ProgressSyncRepository @Inject constructor(
     private val _lastSyncAtEpochMs = MutableStateFlow<Long?>(null)
     val lastSyncAtEpochMs: StateFlow<Long?> = _lastSyncAtEpochMs.asStateFlow()
 
+    /**
+     * After reinstall/login, local DB is empty. Pushing zeros with a fresh `updated_at`
+     * before the first successful pull would LWW-wipe server progress. Gate HTTP push
+     * until [pullAll] succeeds once for this process/session.
+     */
+    @Volatile
+    private var serverHydrated = false
+
     fun start(session: StoredSession) {
         scope.launch {
             val refreshed = binder.ensureStarted(session) ?: return@launch
@@ -67,6 +75,7 @@ class ProgressSyncRepository @Inject constructor(
 
     fun stop() {
         binder.stop()
+        serverHydrated = false
     }
 
     suspend fun updateAuth() {
@@ -75,22 +84,25 @@ class ProgressSyncRepository @Inject constructor(
         binder.ensureConnected(session)
     }
 
-    suspend fun pullAll(accessToken: String) {
-        if (!networkMonitor.isOnline()) return
-        try {
+    suspend fun pullAll(accessToken: String): Boolean {
+        if (!networkMonitor.isOnline()) return false
+        return try {
             for (row in progressRemoteApi.fetchProgress(accessToken)) {
                 applyRemoteEntity(row.toProgressEntity())
             }
+            serverHydrated = true
             markSynced()
+            true
         } catch (_: Exception) {
-            // Best-effort; local cache remains authoritative offline.
+            // Best-effort; local cache remains authoritative offline. Do not arm push.
+            false
         }
     }
 
     suspend fun saveLocal(progress: AudiobookProgress, pendingSync: Boolean, accessToken: String?) {
         val entity = progress.toEntity(pendingSync)
         progressRepository.upsertProgressEntity(entity)
-        if (accessToken != null && networkMonitor.isOnline()) {
+        if (serverHydrated && accessToken != null && networkMonitor.isOnline()) {
             try {
                 pushProgress(accessToken, entity)
             } catch (_: Exception) {
@@ -100,6 +112,7 @@ class ProgressSyncRepository @Inject constructor(
     }
 
     suspend fun pushProgress(accessToken: String, entity: AudiobookProgressEntity) {
+        if (!serverHydrated) return
         val serverEntity = progressRemoteApi.pushProgress(
             accessToken,
             entity.bookId,
@@ -112,7 +125,7 @@ class ProgressSyncRepository @Inject constructor(
     }
 
     suspend fun flushPending(accessToken: String) {
-        if (!networkMonitor.isOnline()) return
+        if (!serverHydrated || !networkMonitor.isOnline()) return
         for (entity in progressRepository.getPendingProgress()) {
             try {
                 pushProgress(accessToken, entity)

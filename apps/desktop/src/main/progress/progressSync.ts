@@ -27,6 +27,8 @@ export class ProgressSyncService {
   private subscribed = false;
   private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private recoveryInFlight = false;
+  /** Block HTTP push until first successful pull — avoids LWW wipe after reinstall. */
+  private serverHydrated = false;
 
   constructor(
     private getAccessToken: () => string | null,
@@ -69,6 +71,7 @@ export class ProgressSyncService {
     this.supabase = null;
     this.userId = null;
     this.subscribed = false;
+    this.serverHydrated = false;
   }
 
   async updateAuth(): Promise<void> {
@@ -165,14 +168,18 @@ export class ProgressSyncService {
       updatedAt: new Date().toISOString(),
     };
     LocalDatabase.upsertProgress(progress, true);
-    await this.pushProgress(progress);
+    if (this.serverHydrated) {
+      await this.pushProgress(progress);
+    }
   }
 
   async pullAll(): Promise<void> {
-    await pullAllProgress(this.getPullMergeDeps());
+    const ok = await pullAllProgress(this.getPullMergeDeps());
+    if (ok) this.serverHydrated = true;
   }
 
   async flushPending(): Promise<void> {
+    if (!this.serverHydrated) return;
     await flushPendingProgress(this.getPushDeps(), (row) => this.applyRemote(row));
   }
 
@@ -185,6 +192,7 @@ export class ProgressSyncService {
   }
 
   private async pushProgress(progress: AudiobookProgress): Promise<void> {
+    if (!this.serverHydrated) return;
     await pushProgress(this.getPushDeps(), progress, (row) => this.applyRemote(row));
   }
 

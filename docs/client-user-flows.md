@@ -56,6 +56,8 @@
 - Music progress is **not** pulled on splash.
 - Offline path must be fast — do not block on network timeouts.
 - Desktop splash closes on `bootstrap-complete`, not only `ready-to-show`.
+- **Online Auth → login (and reinstall → login):** keep splash until audiobook progress pull finishes; do **not** open the main shell on an empty local DB first.
+- **Push gate:** do not HTTP-push audiobook progress until a successful progress pull for the current session/process. Otherwise fresh local zeros with a newer `updated_at` LWW-wipe server progress.
 
 ```mermaid
 flowchart TD
@@ -69,6 +71,23 @@ flowchart TD
     catalog --> onlineUi[Show UI]
 ```
 
+### S2. Login after Auth (incl. reinstall)
+
+**Trigger:** User signs in on the Auth screen (fresh install or after logout).
+
+**Preconditions:** Online (typical); local audiobook progress DB empty after reinstall.
+
+**Expected behavior:**
+
+1. Show splash (or keep blocking shell) immediately on session flip.
+2. `refreshIfNeeded` → **pull** `GET /progress/audiobooks` → merge into local.
+3. Only then show main UI; arm progress HTTP push.
+4. Catalog sync may continue in background after UI.
+
+**Invariants:**
+
+- Never push pending local progress before the first successful pull after login/reinstall.
+- LWW remains timestamp-only on the server; clients must not invent newer empty rows before hydrate.
 ---
 
 ## Music

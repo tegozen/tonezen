@@ -36,15 +36,15 @@ export function applyRemoteProgress(
   mainWindow?.webContents.send("progress:updated", merged);
 }
 
-export async function pullAllProgress(deps: ProgressPullMergeDeps): Promise<void> {
+export async function pullAllProgress(deps: ProgressPullMergeDeps): Promise<boolean> {
   await deps.refreshSession();
   const token = deps.getAccessToken();
-  if (!token) return;
+  if (!token) return false;
 
   const res = await fetch(apiV1Url(deps.config.baseUrl, "/progress/audiobooks"), {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) return;
+  if (!res.ok) return false;
 
   const data = (await res.json()) as {
     progress?: Array<{
@@ -66,6 +66,7 @@ export async function pullAllProgress(deps: ProgressPullMergeDeps): Promise<void
       deps.mainWindow,
     );
   }
+  return true;
 }
 
 export function recordLastSyncAt(): void {

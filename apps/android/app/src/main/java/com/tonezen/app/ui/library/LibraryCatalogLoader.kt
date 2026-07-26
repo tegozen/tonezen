@@ -49,6 +49,7 @@ internal class LibraryCatalogLoader(
     suspend fun loadLibrary(sessionData: StoredSession?) {
         if (sessionData == null) {
             catalogSyncRepository.stop()
+            progressSyncRepository.stop()
             withContext(Dispatchers.Main) {
                 refreshSessionState(null)
                 uiState.update {
@@ -71,7 +72,8 @@ internal class LibraryCatalogLoader(
                 sessionData
             }
         }
-        refreshSessionState(refreshed)
+        // Pull audiobook progress before flipping session UI / allowing playback.
+        // refreshSessionState after pull so Auth→login cannot open an empty shell early.
         if (networkMonitor.isOnline()) {
             refreshed?.accessToken?.let { token ->
                 withContext(Dispatchers.IO) {
@@ -79,6 +81,7 @@ internal class LibraryCatalogLoader(
                 }
             }
         }
+        refreshSessionState(refreshed)
         refreshed?.let {
             progressSyncRepository.start(it)
             profileSyncRepository.start(it)
