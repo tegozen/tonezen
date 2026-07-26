@@ -165,6 +165,10 @@ class BookDetailViewModel @Inject constructor(
 
     fun dismissEarlierChapterPrompt() = playbackActions.dismissEarlierChapterPrompt()
 
+    fun confirmEarlierCycleBookPlayback() = playbackActions.confirmEarlierCycleBookPlayback()
+
+    fun dismissEarlierCycleBookPrompt() = playbackActions.dismissEarlierCycleBookPrompt()
+
     fun dismissProgressSyncConflictPrompt() = playbackActions.dismissProgressSyncConflictPrompt()
 
     fun chooseProgressSyncLocal() = playbackActions.chooseProgressSyncLocal()

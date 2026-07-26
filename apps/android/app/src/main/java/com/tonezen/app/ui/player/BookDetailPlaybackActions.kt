@@ -10,7 +10,9 @@ import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.AudiobookPlaybackIntent
+import com.tonezen.app.domain.progress.findCycleContainingBook
 import com.tonezen.app.domain.progress.resolveAudiobookPlaybackIntent
+import com.tonezen.app.domain.progress.resolveEarlierCycleBookConfirm
 import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackQueueBuilder
@@ -91,7 +93,11 @@ internal class BookDetailPlaybackActions(
         return "$title · $min:${sec.toString().padStart(2, '0')}"
     }
 
-    fun playTrack(track: Track, skipSyncConflictPrompt: Boolean = false) {
+    fun playTrack(
+        track: Track,
+        skipSyncConflictPrompt: Boolean = false,
+        skipEarlierCyclePrompt: Boolean = false,
+    ) {
         val book = uiState.value.book ?: return
         scope.launch {
             when (book.contentType) {
@@ -103,34 +109,54 @@ internal class BookDetailPlaybackActions(
                     val progress = withContext(Dispatchers.IO) {
                         catalogRepository.getProgress(book.id)
                     }
-                    when (
-                        val intent = resolveAudiobookPlaybackIntent(
-                            tracks,
-                            progress,
-                            targetTrack,
-                            skipSyncConflictPrompt = skipSyncConflictPrompt,
-                        )
-                    ) {
-                        is AudiobookPlaybackIntent.ConfirmProgressSyncConflict -> {
+                    val intent = resolveAudiobookPlaybackIntent(
+                        tracks,
+                        progress,
+                        targetTrack,
+                        skipSyncConflictPrompt = skipSyncConflictPrompt,
+                    )
+                    if (intent is AudiobookPlaybackIntent.ConfirmProgressSyncConflict) {
+                        uiState.update {
+                            it.copy(
+                                confirmProgressSyncConflict = ConfirmProgressSyncConflictPrompt(
+                                    pendingTrack = targetTrack,
+                                    localLabel = formatProgressLabel(
+                                        tracks,
+                                        intent.localTrackId,
+                                        intent.localPositionMs,
+                                    ),
+                                    serverLabel = formatProgressLabel(
+                                        tracks,
+                                        intent.server.trackId,
+                                        intent.server.positionMs,
+                                    ),
+                                ),
+                            )
+                        }
+                        return@launch
+                    }
+                    if (!skipEarlierCyclePrompt) {
+                        val laterBook = withContext(Dispatchers.IO) {
+                            val cycles = catalogRepository.getAllCycles()
+                            val cycle = findCycleContainingBook(cycles, book.id) ?: return@withContext null
+                            val bookIds = cycle.books.map { it.id }
+                            val tracksByBookId = catalogRepository.getTracksByBookIds(bookIds)
+                            val progressByBookId = catalogRepository.getProgressByBookIds(bookIds)
+                            resolveEarlierCycleBookConfirm(cycle, book, tracksByBookId, progressByBookId)
+                        }
+                        if (laterBook != null) {
                             uiState.update {
                                 it.copy(
-                                    confirmProgressSyncConflict = ConfirmProgressSyncConflictPrompt(
-                                        pendingTrack = targetTrack,
-                                        localLabel = formatProgressLabel(
-                                            tracks,
-                                            intent.localTrackId,
-                                            intent.localPositionMs,
-                                        ),
-                                        serverLabel = formatProgressLabel(
-                                            tracks,
-                                            intent.server.trackId,
-                                            intent.server.positionMs,
-                                        ),
+                                    confirmEarlierCycleBook = ConfirmEarlierCycleBookPrompt(
+                                        track = targetTrack,
+                                        laterBookTitle = laterBook.title,
                                     ),
                                 )
                             }
                             return@launch
                         }
+                    }
+                    when (intent) {
                         is AudiobookPlaybackIntent.ConfirmEarlierChapter -> {
                             uiState.update {
                                 it.copy(
@@ -141,12 +167,12 @@ internal class BookDetailPlaybackActions(
                                     ),
                                 )
                             }
-                            return@launch
                         }
                         is AudiobookPlaybackIntent.Resume ->
                             executor.playAudiobookTrack(book, tracks, targetTrack, intent.positionMs)
                         AudiobookPlaybackIntent.StartFromZero ->
                             executor.playAudiobookTrack(book, tracks, targetTrack, 0L)
+                        is AudiobookPlaybackIntent.ConfirmProgressSyncConflict -> Unit
                     }
                 }
                 ContentType.MUSIC -> executor.playMusicTrack(book, track)
@@ -168,6 +194,16 @@ internal class BookDetailPlaybackActions(
 
     fun dismissEarlierChapterPrompt() {
         uiState.update { it.copy(confirmEarlierChapter = null) }
+    }
+
+    fun confirmEarlierCycleBookPlayback() {
+        val prompt = uiState.value.confirmEarlierCycleBook ?: return
+        uiState.update { it.copy(confirmEarlierCycleBook = null) }
+        playTrack(prompt.track, skipEarlierCyclePrompt = true)
+    }
+
+    fun dismissEarlierCycleBookPrompt() {
+        uiState.update { it.copy(confirmEarlierCycleBook = null) }
     }
 
     fun dismissProgressSyncConflictPrompt() {

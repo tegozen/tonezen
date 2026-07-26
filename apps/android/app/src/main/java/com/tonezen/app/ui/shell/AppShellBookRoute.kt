@@ -61,6 +61,8 @@ internal fun AppShellBookDetailRoute(
         onDismissDownloadError = bookDetailViewModel::clearDownloadError,
         onConfirmEarlierChapter = bookDetailViewModel::confirmEarlierChapterPlayback,
         onDismissEarlierChapter = bookDetailViewModel::dismissEarlierChapterPrompt,
+        onConfirmEarlierCycleBook = bookDetailViewModel::confirmEarlierCycleBookPlayback,
+        onDismissEarlierCycleBook = bookDetailViewModel::dismissEarlierCycleBookPrompt,
         onChooseProgressSyncLocal = bookDetailViewModel::chooseProgressSyncLocal,
         onChooseProgressSyncServer = bookDetailViewModel::chooseProgressSyncServer,
         onDismissProgressSyncConflict = bookDetailViewModel::dismissProgressSyncConflictPrompt,

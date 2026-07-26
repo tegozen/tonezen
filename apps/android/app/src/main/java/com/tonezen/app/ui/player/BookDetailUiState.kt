@@ -17,6 +17,11 @@ data class ConfirmEarlierChapterPrompt(
     val savedPositionMs: Long,
 )
 
+data class ConfirmEarlierCycleBookPrompt(
+    val track: Track,
+    val laterBookTitle: String,
+)
+
 data class ConfirmProgressSyncConflictPrompt(
     val pendingTrack: Track?,
     val localLabel: String,
@@ -35,6 +40,7 @@ data class BookDetailUiState(
     val error: String? = null,
     val playbackErrorMessage: String? = null,
     val confirmEarlierChapter: ConfirmEarlierChapterPrompt? = null,
+    val confirmEarlierCycleBook: ConfirmEarlierCycleBookPrompt? = null,
     val confirmProgressSyncConflict: ConfirmProgressSyncConflictPrompt? = null,
 )
 

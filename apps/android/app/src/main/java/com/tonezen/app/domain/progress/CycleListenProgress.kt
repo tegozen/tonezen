@@ -62,18 +62,21 @@ fun resolveCycleResumeTarget(
     tracksByBookId: Map<String, List<Track>>,
     progressByBookId: Map<String, AudiobookProgress?>,
 ): CycleResumeTarget? {
-    var lastBookWithProgress: Book? = null
-    var lastProgress: AudiobookProgress? = null
+    // Most recently listened book wins (same clock as Continue UI). Ignore reset / pos-0 heads.
+    var bestBook: Book? = null
+    var bestProgress: AudiobookProgress? = null
     for (bookSlug in cycle.bookOrder) {
         val book = cycle.books.find { it.slug == bookSlug } ?: continue
-        val progress = progressByBookId[book.id]
-        if (progress != null) {
-            lastBookWithProgress = book
-            lastProgress = progress
+        val progress = progressByBookId[book.id] ?: continue
+        val tracks = tracksByBookId[book.id].orEmpty()
+        if (resolveBookListenedMs(tracks, progress) <= 0L) continue
+        if (bestProgress == null || progress.updatedAtEpochMs >= bestProgress.updatedAtEpochMs) {
+            bestBook = book
+            bestProgress = progress
         }
     }
-    if (lastBookWithProgress != null && lastProgress != null) {
-        return resolveBookResumeTarget(cycle, lastBookWithProgress, tracksByBookId, lastProgress)
+    if (bestBook != null && bestProgress != null) {
+        return resolveBookResumeTarget(cycle, bestBook, tracksByBookId, bestProgress)
     }
     val firstBook = cycle.bookOrder.firstOrNull()
         ?.let { slug -> cycle.books.find { it.slug == slug } }
@@ -124,6 +127,46 @@ private fun resolveBookResumeTarget(
     val firstTracks = tracksByBookId[firstBook.id].orEmpty().sortedBy { it.sortOrder }
     val restartTrack = firstTracks.firstOrNull() ?: return null
     return CycleResumeTarget(firstBook, restartTrack, 0L)
+}
+
+fun orderedCycleBooks(cycle: Cycle): List<Book> {
+    val ordered = cycle.bookOrder.mapNotNull { slug -> cycle.books.find { it.slug == slug } }
+    return ordered.ifEmpty { cycle.books }
+}
+
+fun findCycleContainingBook(cycles: List<Cycle>, bookId: String): Cycle? =
+    cycles.firstOrNull { cycle -> cycle.books.any { it.id == bookId } }
+
+/**
+ * When starting [startingBook], if the cycle's most recent real listen is on a **later** book,
+ * return that later book so UI can confirm. Same/earlier last listen → null (no prompt).
+ * Play-cycle resume must not use this — it already targets the latest listen.
+ */
+fun resolveEarlierCycleBookConfirm(
+    cycle: Cycle,
+    startingBook: Book,
+    tracksByBookId: Map<String, List<Track>>,
+    progressByBookId: Map<String, AudiobookProgress?>,
+): Book? {
+    val ordered = orderedCycleBooks(cycle)
+    val startIndex = ordered.indexOfFirst { it.id == startingBook.id }
+    if (startIndex < 0) return null
+
+    var bestBook: Book? = null
+    var bestUpdatedAt = Long.MIN_VALUE
+    for (book in ordered) {
+        val progress = progressByBookId[book.id] ?: continue
+        val tracks = tracksByBookId[book.id].orEmpty()
+        if (resolveBookListenedMs(tracks, progress) <= 0L) continue
+        if (progress.updatedAtEpochMs >= bestUpdatedAt) {
+            bestUpdatedAt = progress.updatedAtEpochMs
+            bestBook = book
+        }
+    }
+    val latest = bestBook ?: return null
+    val latestIndex = ordered.indexOfFirst { it.id == latest.id }
+    if (latestIndex <= startIndex) return null
+    return latest
 }
 
 fun resolveCycleContinueState(

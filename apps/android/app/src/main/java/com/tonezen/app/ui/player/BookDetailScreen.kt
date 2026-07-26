@@ -59,6 +59,8 @@ internal fun BookDetailScreen(
     onDismissDownloadError: () -> Unit,
     onConfirmEarlierChapter: () -> Unit,
     onDismissEarlierChapter: () -> Unit,
+    onConfirmEarlierCycleBook: () -> Unit,
+    onDismissEarlierCycleBook: () -> Unit,
     onChooseProgressSyncLocal: () -> Unit,
     onChooseProgressSyncServer: () -> Unit,
     onDismissProgressSyncConflict: () -> Unit,
@@ -199,6 +201,13 @@ internal fun BookDetailScreen(
         hazeState = hazeState,
         onDismiss = onDismissEarlierChapter,
         onConfirm = onConfirmEarlierChapter,
+    )
+    EarlierCycleBookConfirmDialog(
+        visible = uiState.confirmEarlierCycleBook != null,
+        laterBookTitle = uiState.confirmEarlierCycleBook?.laterBookTitle.orEmpty(),
+        hazeState = hazeState,
+        onDismiss = onDismissEarlierCycleBook,
+        onConfirm = onConfirmEarlierCycleBook,
     )
     ProgressSyncConflictDialog(
         visible = uiState.confirmProgressSyncConflict != null,

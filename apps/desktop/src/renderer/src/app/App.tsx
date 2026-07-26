@@ -3,7 +3,7 @@ import { MiniPlayerBar } from "@/widgets/mini-player";
 import { LoginView } from "@/pages/login";
 import { NowPlayingSheet } from "@/widgets/now-playing";
 import { ToastMessage } from "@/shared/ui/ToastMessage";
-import { EarlierChapterPrompt, ProgressSyncConflictPrompt } from "@/features/playback";
+import { EarlierChapterPrompt, EarlierCycleBookPrompt, ProgressSyncConflictPrompt } from "@/features/playback";
 import { AppShellRoutes } from "@/app/shell";
 import { useAppShellWiring } from "@/app/model";
 
@@ -95,6 +95,12 @@ export function App() {
         visible={Boolean(audiobook.earlierChapterPrompt && library.selectedBook)}
         onCancel={audiobook.dismissEarlierChapterPrompt}
         onConfirm={audiobook.confirmEarlierChapterPrompt}
+      />
+      <EarlierCycleBookPrompt
+        visible={Boolean(audiobook.earlierCycleBookPrompt && library.selectedBook)}
+        laterBookTitle={audiobook.earlierCycleBookPrompt?.laterBookTitle ?? ""}
+        onCancel={audiobook.dismissEarlierCycleBookPrompt}
+        onConfirm={audiobook.confirmEarlierCycleBookPrompt}
       />
       <ProgressSyncConflictPrompt
         visible={Boolean(audiobook.syncConflictModel && library.selectedBook)}

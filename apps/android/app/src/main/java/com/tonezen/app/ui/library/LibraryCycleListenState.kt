@@ -56,8 +56,13 @@ internal fun LibraryCycleHandlerContext.markCycleListened(cycle: Cycle) {
 internal fun LibraryCycleHandlerContext.markCycleUnlistened(cycle: Cycle) {
     scope.launch {
         withContext(Dispatchers.IO) {
-            cycle.books.forEach { book ->
-                catalogRepository.clearProgress(book.id)
+            val bookIds = cycle.books.map { it.id }
+            val tracksByBookId = catalogRepository.getTracksByBookIds(bookIds)
+            for (book in cycle.books) {
+                val firstTrack = tracksByBookId[book.id].orEmpty().sortedBy { it.sortOrder }.firstOrNull()
+                    ?: continue
+                // Reset via synced play head (pos 0) — local delete alone is restored by pull.
+                persistAudiobookProgress(book.id, firstTrack.id, 0L)
             }
         }
         refreshCycleCardStates(listOf(cycle), uiState.value.downloadedBookIds)

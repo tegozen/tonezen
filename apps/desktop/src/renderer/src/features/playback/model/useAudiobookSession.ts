@@ -19,6 +19,9 @@ export function useAudiobookSession(options: UseAudiobookSessionOptions) {
     earlierChapterPrompt,
     dismissEarlierChapterPrompt,
     confirmEarlierChapterPrompt,
+    earlierCycleBookPrompt,
+    dismissEarlierCycleBookPrompt,
+    confirmEarlierCycleBookPrompt,
     syncConflictModel,
     dismissSyncConflictPrompt,
     chooseSyncConflictLocal,
@@ -33,6 +36,8 @@ export function useAudiobookSession(options: UseAudiobookSessionOptions) {
     progressByBook: options.progressByBook,
     refreshLibrary: options.refreshLibrary,
     setTracks: options.setTracks,
+    cycles: options.cycles,
+    tracksByBookId: options.tracksByBookId,
     playAudiobookTrackResolved,
   });
 
@@ -58,6 +63,9 @@ export function useAudiobookSession(options: UseAudiobookSessionOptions) {
     earlierChapterPrompt,
     dismissEarlierChapterPrompt,
     confirmEarlierChapterPrompt,
+    earlierCycleBookPrompt,
+    dismissEarlierCycleBookPrompt,
+    confirmEarlierCycleBookPrompt,
     syncConflictModel,
     dismissSyncConflictPrompt,
     chooseSyncConflictLocal,

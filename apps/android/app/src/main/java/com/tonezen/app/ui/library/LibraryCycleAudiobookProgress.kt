@@ -31,12 +31,14 @@ internal suspend fun LibraryCycleHandlerContext.onAudiobookSnapshot(snapshot: Pl
 }
 
 internal fun LibraryCycleHandlerContext.flushActiveAudiobookProgress(snapshot: PlaybackSnapshot) {
-    if (snapshot.contentType != ContentType.AUDIOBOOK || !snapshot.isPlaying) return
-    val trackId = snapshot.trackId ?: return
+    if (snapshot.contentType != ContentType.AUDIOBOOK) return
+    val trackId = snapshot.trackId ?: session.activeAudiobookTrackId ?: return
     scope.launch {
-        val bookId = withContext(Dispatchers.IO) {
-            catalogRepository.findBookForTrack(trackId)?.id
-        } ?: return@launch
+        val bookId = session.activeAudiobookBookId
+            ?: withContext(Dispatchers.IO) {
+                catalogRepository.findBookForTrack(trackId)?.id
+            }
+            ?: return@launch
         flushAudiobookProgress(bookId, trackId, snapshot.positionMs)
     }
 }

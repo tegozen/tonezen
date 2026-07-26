@@ -71,17 +71,25 @@ export function resolveCycleResumeTarget(
   tracksByBookId: Map<string, Track[]>,
   progressByBookId: Map<string, AudiobookProgress | null | undefined>,
 ): CycleResumeTarget | null {
-  let lastBookWithProgress: Book | null = null;
-  let lastProgress: AudiobookProgress | null = null;
+  // Most recently listened book wins (same clock as Continue UI). Ignore reset / pos-0 heads.
+  let bestBook: Book | null = null;
+  let bestProgress: AudiobookProgress | null = null;
   for (const book of orderedCycleBooks(cycle)) {
     const progress = progressByBookId.get(book.id);
-    if (progress) {
-      lastBookWithProgress = book;
-      lastProgress = progress;
+    if (!progress) continue;
+    const tracks = tracksByBookId.get(book.id) ?? [];
+    if (resolveBookListenedMs(tracks, progress) <= 0) continue;
+    const updatedAt = Date.parse(progress.updatedAt);
+    const ts = Number.isFinite(updatedAt) ? updatedAt : 0;
+    const bestTs = bestProgress ? Date.parse(bestProgress.updatedAt) : Number.NEGATIVE_INFINITY;
+    const bestTsSafe = Number.isFinite(bestTs) ? bestTs : Number.NEGATIVE_INFINITY;
+    if (!bestProgress || ts >= bestTsSafe) {
+      bestBook = book;
+      bestProgress = progress;
     }
   }
-  if (lastBookWithProgress && lastProgress) {
-    return resolveBookResumeTarget(cycle, lastBookWithProgress, tracksByBookId, lastProgress);
+  if (bestBook && bestProgress) {
+    return resolveBookResumeTarget(cycle, bestBook, tracksByBookId, bestProgress);
   }
   const firstBook = orderedCycleBooks(cycle)[0];
   if (!firstBook) return null;
@@ -137,6 +145,45 @@ function resolveBookResumeTarget(
   const restartTrack = restartTracks[0];
   if (!restartTrack) return null;
   return { book: restartBook, track: restartTrack, startPositionMs: 0 };
+}
+
+export function findCycleContainingBook(cycles: Cycle[], bookId: string): Cycle | null {
+  return cycles.find((cycle) => cycle.books.some((book) => book.id === bookId)) ?? null;
+}
+
+/**
+ * When starting `startingBook`, if the cycle's most recent real listen is on a **later** book,
+ * return that later book so UI can confirm. Same/earlier last listen → null (no prompt).
+ * Play-cycle resume must not use this — it already targets the latest listen.
+ */
+export function resolveEarlierCycleBookConfirm(
+  cycle: Cycle,
+  startingBook: Book,
+  tracksByBookId: Map<string, Track[]>,
+  progressByBookId: Map<string, AudiobookProgress | null | undefined>,
+): Book | null {
+  const ordered = orderedCycleBooks(cycle);
+  const startIndex = ordered.findIndex((book) => book.id === startingBook.id);
+  if (startIndex < 0) return null;
+
+  let bestBook: Book | null = null;
+  let bestUpdatedAt = Number.NEGATIVE_INFINITY;
+  for (const book of ordered) {
+    const progress = progressByBookId.get(book.id);
+    if (!progress) continue;
+    const tracks = tracksByBookId.get(book.id) ?? [];
+    if (resolveBookListenedMs(tracks, progress) <= 0) continue;
+    const updatedAt = Date.parse(progress.updatedAt);
+    const ts = Number.isFinite(updatedAt) ? updatedAt : 0;
+    if (ts >= bestUpdatedAt) {
+      bestUpdatedAt = ts;
+      bestBook = book;
+    }
+  }
+  if (!bestBook) return null;
+  const latestIndex = ordered.findIndex((book) => book.id === bestBook.id);
+  if (latestIndex <= startIndex) return null;
+  return bestBook;
 }
 
 export function orderedCycleEntriesFromResume(

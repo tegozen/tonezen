@@ -76,6 +76,45 @@ internal fun EarlierChapterConfirmDialog(
 }
 
 @Composable
+internal fun EarlierCycleBookConfirmDialog(
+    visible: Boolean,
+    laterBookTitle: String,
+    hazeState: HazeState,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    TonezenGlassAlertDialog(
+        visible = visible,
+        hazeState = hazeState,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Начать эту книгу?",
+                color = TonezenInk,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        text = {
+            Text(
+                "Последнее прослушивание в цикле — «$laterBookTitle». Начать выбранную книгу?",
+                color = TonezenMuted,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Начать", color = TonezenTeal)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена")
+            }
+        },
+    )
+}
+
+@Composable
 internal fun ProgressSyncConflictDialog(
     visible: Boolean,
     localLabel: String,

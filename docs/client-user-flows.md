@@ -167,7 +167,7 @@ flowchart TD
 
 **Expected behavior:**
 
-1. Resolve target via `resolveCycleResumeTarget` (last progress in cycle) or first chapter if no history.
+1. Resolve target via `resolveCycleResumeTarget`: book with the **most recent** real listen progress (`updatedAt`, `listenedMs > 0`) — same winner as Continue UI. Reset heads (first chapter @ 0 / «не прослушанным») are ignored. If none → first chapter of first book.
 2. **Online:** `awaitTrack` `PLAY` for target chapter → `playQueue` from resume position.
 3. **Offline** without local target file → error, playback does **not** start; **no** forward walk to another downloaded chapter.
 
@@ -179,9 +179,15 @@ flowchart TD
 
 ### A2. Open cycle + header menu ⋮
 
-**Trigger:** Tap cycle → cycle detail; ⋮ on cycle card.
+**Trigger:** Tap cycle → cycle detail; ⋮ on cycle card / book.
 
-**Expected behavior:** Navigate to books list; menu: mark listened, download entire cycle, remove downloads.
+**Expected behavior:** Navigate to books list; menu: mark listened / unlistened, download entire cycle, remove downloads.
+
+**Mark listened / unlistened:**
+
+1. **Listened:** write play head to last chapter @ duration (pending sync → push).
+2. **Unlistened:** write play head to **first chapter @ 0** and sync — do **not** only delete the local row (pull/Realtime would restore the old server head).
+3. Same rules for a single book and for the whole cycle (per book).
 
 **UI signals:** `CycleDetailScreen` / `CycleDetailPage`; overflow menu actions.
 
@@ -217,7 +223,7 @@ flowchart TD
 3. **«На устройстве»:** start from local play head; keep/set `pending_sync`; push with CAS using known server revision as `base_revision`.
 4. **«В облаке»:** apply server snapshot to play head; clear `pending_sync`; start from cloud point; CAS base = `server_revision`.
 5. After a choice, do not re-prompt until play head or snapshot diverges again.
-6. If **A3b** and **A7** `ConfirmEarlierChapter` both apply: resolve A3b first, then earlier-chapter if still needed.
+6. If **A3b**, **A7b**, and/or **A7** apply: resolve A3b first, then earlier-cycle-book (A7b), then earlier-chapter (A7).
 
 **UI signals:** Dedicated sync-conflict dialog (Desktop/Android); Russian copy inline.
 
@@ -270,7 +276,7 @@ flowchart TD
 
 **Expected behavior:**
 
-1. Resolve intent via `resolveAudiobookPlaybackIntent`:
+1. Resolve intent via `resolveAudiobookPlaybackIntent` (after **A3b** and **A7b** if they apply):
    - Same track as saved progress → `Resume(positionMs)`.
    - Later chapter than saved → `StartFromZero`.
    - Earlier chapter than saved → `ConfirmEarlierChapter` → dialog; Cancel aborts; OK starts from 0.
@@ -288,6 +294,26 @@ flowchart TD
 ```
 
 **Domain anchors:** `resolveAudiobookPlaybackIntent`, `resolveAudiobookPlaybackStartMs`.
+
+---
+
+### A7b. Start earlier book in cycle
+
+**Trigger:** Continue / Play / tap chapter on a book that belongs to a cycle (book detail; Android cycle-detail «Продолжить» → auto-resume).
+
+**Preconditions:** Cycle has real listen progress (`listenedMs > 0`) on some book.
+
+**Expected behavior:**
+
+1. Find the book with the **most recent** real progress in the cycle (`updatedAt`).
+2. If that book is **later** in cycle order than the book being started → show confirm: last listen was «{later title}»; Cancel aborts; OK continues into normal A3b/A7/start for the chosen book.
+3. If last listen is the same book or an earlier book → no cycle confirm.
+4. Prompt order: **A3b** (sync conflict) → **A7b** (earlier cycle book) → **A7** (earlier chapter).
+5. **Play cycle** (A1) does **not** use this prompt — it already resumes the latest listen.
+
+**UI signals:** Same glass/modal pattern as earlier-chapter confirm (Android/Desktop); Russian copy inline.
+
+**Domain anchors:** `resolveEarlierCycleBookConfirm`, `findCycleContainingBook`.
 
 ---
 
@@ -378,7 +404,8 @@ flowchart TD
 | Function | Platform | Path |
 |----------|----------|------|
 | `resolveCycleResumeTarget` | Android | `domain/progress/CycleListenProgress.kt` |
-| `resolveCycleResumeTarget` | Desktop | `shared/cycleListenProgress.ts` |
+| `resolveCycleResumeTarget` | Desktop | `core/playback/cycleListenProgress.ts` |
+| `resolveEarlierCycleBookConfirm` | Both | `CycleListenProgress` / `cycleListenProgress.ts` |
 | `resolveAudiobookPlaybackIntent` | Both | `shared/` + `domain/progress/` |
 | `resolveAudiobookPlaybackStartMs` | Android | `domain/progress/TrackListenProgress.kt` |
 | `nextAudiobookDownloadRequest` | Desktop | `shared/audiobookDownloadTarget.ts` |

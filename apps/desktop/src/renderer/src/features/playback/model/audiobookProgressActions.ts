@@ -1,13 +1,23 @@
 import { useCallback, useState } from "react";
 import type { Book, Track } from "@core/types";
 import { resolveAudiobookPlaybackIntent } from "@core/playback/audiobookPlaybackIntent";
+import {
+  findCycleContainingBook,
+  resolveEarlierCycleBookConfirm,
+} from "@core/playback/cycleListenProgress";
 import { getTonezenApi, useSaveProgressMutation } from "@/shared/api";
 import type { UseAudiobookSessionOptions } from "./audiobookSessionTypes";
 import type { ProgressSyncConflictPromptModel } from "../ui/ProgressSyncConflictPrompt";
 
 type UseAudiobookProgressActionsOptions = Pick<
   UseAudiobookSessionOptions,
-  "selectedBook" | "tracks" | "progressByBook" | "refreshLibrary" | "setTracks"
+  | "selectedBook"
+  | "tracks"
+  | "progressByBook"
+  | "refreshLibrary"
+  | "setTracks"
+  | "cycles"
+  | "tracksByBookId"
 > & {
   playAudiobookTrackResolved: (
     book: Book,
@@ -15,6 +25,11 @@ type UseAudiobookProgressActionsOptions = Pick<
     track: Track,
     startMs: number,
   ) => Promise<void>;
+};
+
+export type EarlierCycleBookPromptModel = {
+  track: Track;
+  laterBookTitle: string;
 };
 
 function formatPositionLabel(tracks: Track[], trackId: string, positionMs: number): string {
@@ -32,18 +47,25 @@ export function useAudiobookProgressActions({
   progressByBook,
   refreshLibrary,
   setTracks,
+  cycles,
+  tracksByBookId,
   playAudiobookTrackResolved,
 }: UseAudiobookProgressActionsOptions) {
   const api = getTonezenApi();
   const saveProgress = useSaveProgressMutation();
   const [earlierChapterPrompt, setEarlierChapterPrompt] = useState<Track | null>(null);
+  const [earlierCycleBookPrompt, setEarlierCycleBookPrompt] =
+    useState<EarlierCycleBookPromptModel | null>(null);
   const [syncConflictTrack, setSyncConflictTrack] = useState<Track | null>(null);
   const [syncConflictModel, setSyncConflictModel] = useState<ProgressSyncConflictPromptModel | null>(
     null,
   );
 
   const playBookTrack = useCallback(
-    async (track: Track, options?: { skipSyncConflictPrompt?: boolean }) => {
+    async (
+      track: Track,
+      options?: { skipSyncConflictPrompt?: boolean; skipEarlierCyclePrompt?: boolean },
+    ) => {
       if (!selectedBook) return;
       const sortedTracks = [...tracks].sort((a, b) => a.sortOrder - b.sortOrder);
       const saved = progressByBook.get(selectedBook.id) ?? null;
@@ -62,6 +84,16 @@ export function useAudiobookProgressActions({
         });
         return;
       }
+      if (!options?.skipEarlierCyclePrompt) {
+        const cycle = findCycleContainingBook(cycles, selectedBook.id);
+        const laterBook = cycle
+          ? resolveEarlierCycleBookConfirm(cycle, selectedBook, tracksByBookId, progressByBook)
+          : null;
+        if (laterBook) {
+          setEarlierCycleBookPrompt({ track, laterBookTitle: laterBook.title });
+          return;
+        }
+      }
       if (intent.kind === "ConfirmEarlierChapter") {
         setEarlierChapterPrompt(track);
         return;
@@ -69,7 +101,14 @@ export function useAudiobookProgressActions({
       const startMs = intent.kind === "Resume" ? intent.positionMs : 0;
       await playAudiobookTrackResolved(selectedBook, tracks, track, startMs);
     },
-    [playAudiobookTrackResolved, progressByBook, selectedBook, tracks],
+    [
+      cycles,
+      playAudiobookTrackResolved,
+      progressByBook,
+      selectedBook,
+      tracks,
+      tracksByBookId,
+    ],
   );
 
   const markBookListened = useCallback(
@@ -120,6 +159,14 @@ export function useAudiobookProgressActions({
     if (track && selectedBook) void playAudiobookTrackResolved(selectedBook, tracks, track, 0);
   }, [earlierChapterPrompt, playAudiobookTrackResolved, selectedBook, tracks]);
 
+  const dismissEarlierCycleBookPrompt = useCallback(() => setEarlierCycleBookPrompt(null), []);
+
+  const confirmEarlierCycleBookPrompt = useCallback(() => {
+    const prompt = earlierCycleBookPrompt;
+    setEarlierCycleBookPrompt(null);
+    if (prompt) void playBookTrack(prompt.track, { skipEarlierCyclePrompt: true });
+  }, [earlierCycleBookPrompt, playBookTrack]);
+
   const dismissSyncConflictPrompt = useCallback(() => {
     setSyncConflictTrack(null);
     setSyncConflictModel(null);
@@ -166,6 +213,9 @@ export function useAudiobookProgressActions({
     earlierChapterPrompt,
     dismissEarlierChapterPrompt,
     confirmEarlierChapterPrompt,
+    earlierCycleBookPrompt,
+    dismissEarlierCycleBookPrompt,
+    confirmEarlierCycleBookPrompt,
     syncConflictModel,
     dismissSyncConflictPrompt,
     chooseSyncConflictLocal,

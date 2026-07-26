@@ -73,15 +73,12 @@ internal class BookDetailProgressActions(
         val book = uiState.value.book ?: return
         if (book.contentType != ContentType.AUDIOBOOK) return
         scope.launch {
-            withContext(Dispatchers.IO) {
-                catalogRepository.clearProgress(book.id)
+            val tracks = withContext(Dispatchers.IO) {
+                catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
             }
-            uiState.update {
-                it.copy(
-                    audiobookProgress = null,
-                    syncStatus = SyncDisplayStatus.NONE,
-                )
-            }
+            val firstTrack = tracks.firstOrNull() ?: return@launch
+            // Reset via synced play head (pos 0) — local delete alone is restored by pull.
+            persistAudiobookProgress(book.id, firstTrack.id, 0L)
         }
     }
 
