@@ -114,10 +114,16 @@ class SessionRepository @Inject constructor(
 
     private suspend fun performRefresh(): StoredSession? {
         val session = loadSession() ?: return null
+        val userId = session.userId
         if (!networkMonitor.isOnline()) return session
         return try {
             val refreshed = authRepository.refreshSession(session.refreshToken)
-            val merged = mergeProfileOnRefresh(session, refreshed)
+            // Logout (or account switch) may have cleared session while refresh was in flight.
+            val current = loadSession()
+            if (current == null || current.userId != userId) {
+                return current
+            }
+            val merged = mergeProfileOnRefresh(current, refreshed)
             saveSession(merged)
             merged
         } catch (e: RemoteHttpException) {
@@ -125,10 +131,10 @@ class SessionRepository @Inject constructor(
                 clearSession()
                 null
             } else {
-                session
+                loadSession() ?: session
             }
         } catch (_: Exception) {
-            session
+            loadSession() ?: session
         }
     }
 
