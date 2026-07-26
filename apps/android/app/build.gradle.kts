@@ -29,16 +29,13 @@ fun loadMonorepoEnv(): Map<String, String> {
 fun buildGlitchtipDsn(baseUrl: String, publicKey: String, projectId: String): String {
     if (baseUrl.isBlank() || publicKey.isBlank() || projectId.isBlank()) return ""
     val normalized = baseUrl.trimEnd('/')
-    val uri = java.net.URI(normalized)
-    val host = buildString {
-        append(uri.host ?: return "")
-        val port = uri.port
-        if (port != -1 && port != 80 && port != 443) {
-            append(':')
-            append(port)
-        }
-    }
-    return "${uri.scheme}://$publicKey@$host/glitchtip/$projectId"
+    val schemeEnd = normalized.indexOf("://")
+    if (schemeEnd <= 0) return ""
+    val scheme = normalized.substring(0, schemeEnd)
+    val hostAndPath = normalized.substring(schemeEnd + 3)
+    val host = hostAndPath.substringBefore('/')
+    if (host.isBlank()) return ""
+    return "$scheme://$publicKey@$host/glitchtip/$projectId"
 }
 
 val monorepoEnv = loadMonorepoEnv()
@@ -154,11 +151,11 @@ android {
 sentry {
     org.set("tonezen")
     projectName.set("tonezen-android")
-    url.set("$glitchtipBaseUrl/glitchtip/")
+    // sentry-cli rejects path-prefixed self-host URLs (/glitchtip); upload is best-effort offline.
+    url.set(glitchtipBaseUrl)
     authToken.set(glitchtipAuthToken)
-    autoUploadProguardMapping.set(glitchtipAuthToken.isNotEmpty())
+    autoUploadProguardMapping.set(false)
     includeProguardMapping.set(true)
-    errorOnUploadFailure.set(false)
     autoInstallation {
         enabled.set(false)
     }
