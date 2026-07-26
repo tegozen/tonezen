@@ -1,9 +1,9 @@
 import fs from "node:fs";
-import { net, protocol } from "electron";
+import { protocol } from "electron";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 import { LOCAL_AUDIO_SCHEME, localAudioPathFromUrl } from "@core/platform/localAudioUrl.js";
 import { isPathUnderRoot, sanitizeLocalAudioPath } from "@core/platform/safeLocalPaths.js";
+import { createLocalAudioResponse } from "./mediaProtocolRange.js";
 
 let allowedAudioRoots: string[] = [];
 
@@ -49,6 +49,11 @@ export function setupLocalAudioProtocol(allowedRoots: readonly string[]): void {
     if (!filePath) {
       return new Response("Forbidden", { status: 403 });
     }
-    return net.fetch(pathToFileURL(filePath).href);
+    try {
+      return createLocalAudioResponse(filePath, request);
+    } catch (error) {
+      console.error("Local audio protocol failed", filePath, error);
+      return new Response("Not Found", { status: 404 });
+    }
   });
 }
