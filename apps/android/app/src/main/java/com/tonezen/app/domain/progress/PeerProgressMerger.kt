@@ -7,7 +7,8 @@ import com.tonezen.app.domain.model.Track
  * Merge peer cycle offer into local play heads without touching server snapshots.
  *
  * Total order: book index in cycle → track sortOrder → positionMs.
- * Missing catalog book → [PeerBookMergeAction.SKIP].
+ * Empty tracks + no local head → [PeerBookMergeAction.TAKE_PEER].
+ * Empty tracks + existing local head → [PeerBookMergeAction.CONFLICT].
  * Uncomparable track ids → [PeerBookMergeAction.CONFLICT].
  */
 object PeerProgressMerger {
@@ -48,11 +49,15 @@ object PeerProgressMerger {
         bookIndex: Int?,
         tracks: List<Track>?,
     ): PeerBookMergeAction {
-        if (bookIndex == null || tracks.isNullOrEmpty()) return PeerBookMergeAction.SKIP
-        if (local == null || local.positionMs <= 0L) return PeerBookMergeAction.TAKE_PEER
-        val peerKey = listenKey(bookIndex, tracks, peer.trackId, peer.positionMs)
+        val localEmpty = local == null || local.positionMs <= 0L
+        if (tracks.isNullOrEmpty()) {
+            return if (localEmpty) PeerBookMergeAction.TAKE_PEER else PeerBookMergeAction.CONFLICT
+        }
+        val index = bookIndex ?: 0
+        if (localEmpty) return PeerBookMergeAction.TAKE_PEER
+        val peerKey = listenKey(index, tracks, peer.trackId, peer.positionMs)
             ?: return PeerBookMergeAction.CONFLICT
-        val localKey = listenKey(bookIndex, tracks, local.trackId, local.positionMs)
+        val localKey = listenKey(index, tracks, local!!.trackId, local.positionMs)
             ?: return PeerBookMergeAction.CONFLICT
         return when {
             peerKey > localKey -> PeerBookMergeAction.TAKE_PEER
@@ -69,7 +74,6 @@ object PeerProgressMerger {
         val sorted = tracks.sortedBy { it.sortOrder }
         val trackIndex = sorted.indexOfFirst { it.id == trackId }
         if (trackIndex < 0) return null
-        // Pack into a single comparable long (enough for typical catalogs).
         val pos = positionMs.coerceIn(0L, 999_999_999L)
         return bookIndex * 1_000_000_000_000L + trackIndex * 1_000_000_000L + pos
     }

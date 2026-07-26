@@ -161,7 +161,11 @@ class PeerProgressViewModel @Inject constructor(
             _uiState.update {
                 it.copy(mode = PeerSessionMode.Sending, statusMessage = "Отправка…")
             }
-            val result = peerRepository.sendCycle(device.endpointId, choice)
+            val result = peerRepository.sendCycle(
+                endpointId = device.endpointId,
+                cycleId = choice.cycleId,
+                cycleTitle = choice.cycleTitle,
+            )
             stopSessionInternal(clearAlert = false)
             result.fold(
                 onSuccess = { accepted ->

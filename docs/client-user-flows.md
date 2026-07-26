@@ -425,7 +425,7 @@ flowchart TD
 
 1. Both buttons exist on every Android device (no phone/tablet role binding). Modes are mutually exclusive on one device.
 2. **«Принять»** opens a waiting modal and advertises readiness with `userId` in presence. Closing the modal stops accept. Timeout **120 s**.
-3. **«Отправить»** discovers peers with the **same `userId`** and active accept → user picks a device → picks **exactly one cycle** (only cycles with audiobook `positionMs > 0`) → then Nearby **connect** + offer payload (connect only after cycle choice).
+3. **«Отправить»** discovers peers with the **same `userId`** and active accept → user picks a device → picks **exactly one cycle** (only cycles with audiobook `positionMs > 0`) → flush live audiobook play head to local DB → rebuild cycle progress from DB → then Nearby **connect** + offer payload (connect only after cycle choice).
 4. Receiver confirm: «{device} предлагает прогресс по циклу «{cycle}». Сверить и принять?» → **«Да»** / **«Отключить приём»** (reject + stop accept). Sender gets ACK accept/reject; success/error alert; send mode stops.
 5. After **«Да»**: do **not** overwrite blindly. Per book: skip if missing from local catalog; take peer if unambiguously further in cycle order; keep local if local is further; otherwise one conflict dialog for the cycle — **«На этом устройстве»** / **«На другом устройстве»**. Server snapshot / revision untouched; applied heads get `pending_sync` for later cloud flush.
 6. Device label: system/Bluetooth device name → else `Build.MODEL` → else `Android`.

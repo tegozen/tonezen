@@ -14,6 +14,7 @@ import com.tonezen.app.domain.progress.PeerProgressItem
 import com.tonezen.app.domain.progress.PeerProgressMerger
 import com.tonezen.app.domain.progress.PeerProgressOffer
 import com.tonezen.app.domain.progress.orderedCycleBooks
+import com.tonezen.app.playback.PlaybackClient
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.SharedFlow
@@ -27,6 +28,7 @@ class PeerProgressSyncRepository @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val progressRepository: ProgressRepository,
     private val progressSyncRepository: ProgressSyncRepository,
+    private val playbackClient: PlaybackClient,
 ) {
     val devices: StateFlow<List<PeerDeviceInfo>> = transport.devices
     val incomingOffers: SharedFlow<NearbyPeerTransport.IncomingOffer> = transport.incomingOffers
@@ -49,7 +51,28 @@ class PeerProgressSyncRepository @Inject constructor(
 
     fun stopSync() = transport.stopSync()
 
+    /** Persist live audiobook play head so peer send includes the book currently playing. */
+    suspend fun flushLiveAudiobookProgress() {
+        val snap = playbackClient.snapshot.value
+        if (snap.contentType != ContentType.AUDIOBOOK) return
+        val trackId = snap.trackId ?: return
+        val book = catalogRepository.findBookForTrack(trackId) ?: return
+        val positionMs = snap.positionMs.coerceAtLeast(1L)
+        val session = sessionRepository.loadSession()
+        progressSyncRepository.saveLocal(
+            AudiobookProgress(
+                bookId = book.id,
+                trackId = trackId,
+                positionMs = positionMs,
+                updatedAtEpochMs = System.currentTimeMillis(),
+            ),
+            pendingSync = true,
+            accessToken = session?.accessToken,
+        )
+    }
+
     suspend fun listSendableCycles(): List<PeerCycleChoice> {
+        flushLiveAudiobookProgress()
         val allProgress = progressRepository.getAllProgress().filter { it.positionMs > 0L }
         if (allProgress.isEmpty()) return emptyList()
         val progressByBook = allProgress.associateBy { it.bookId }
@@ -57,20 +80,10 @@ class PeerProgressSyncRepository @Inject constructor(
         val choices = mutableListOf<PeerCycleChoice>()
         val coveredBooks = mutableSetOf<String>()
         for (cycle in cycles) {
-            val items = orderedCycleBooks(cycle).mapNotNull { book ->
-                if (book.contentType != ContentType.AUDIOBOOK) return@mapNotNull null
-                val progress = progressByBook[book.id] ?: return@mapNotNull null
-                if (progress.positionMs <= 0L) return@mapNotNull null
-                coveredBooks += book.id
-                PeerProgressItem(
-                    bookId = book.id,
-                    trackId = progress.trackId,
-                    positionMs = progress.positionMs,
-                    updatedAtEpochMs = progress.updatedAtEpochMs,
-                )
-            }
-            if (items.isNotEmpty()) {
-                choices += PeerCycleChoice(cycle.id, cycle.title, items)
+            val items = progressItemsForCycle(cycle.id, cycle.title, progressByBook)
+            if (items != null) {
+                items.progress.forEach { coveredBooks += it.bookId }
+                choices += items
             }
         }
         for (progress in allProgress) {
@@ -80,22 +93,25 @@ class PeerProgressSyncRepository @Inject constructor(
             choices += PeerCycleChoice(
                 cycleId = "book:${book.id}",
                 cycleTitle = book.title,
-                progress = listOf(
-                    PeerProgressItem(
-                        bookId = progress.bookId,
-                        trackId = progress.trackId,
-                        positionMs = progress.positionMs,
-                        updatedAtEpochMs = progress.updatedAtEpochMs,
-                    ),
-                ),
+                progress = listOf(progress.toPeerItem()),
             )
         }
         return choices.sortedBy { it.cycleTitle.lowercase() }
     }
 
-    suspend fun sendCycle(endpointId: String, choice: PeerCycleChoice): Result<Boolean> {
+    /**
+     * Rebuild progress for [cycleId] from DB at send time (after live flush),
+     * not the stale snapshot from the cycle picker.
+     */
+    suspend fun sendCycle(endpointId: String, cycleId: String, cycleTitle: String): Result<Boolean> {
+        flushLiveAudiobookProgress()
         val session = sessionRepository.loadSession()
             ?: return Result.failure(IllegalStateException("no_session"))
+        val progressByBook = progressRepository.getAllProgress()
+            .filter { it.positionMs > 0L }
+            .associateBy { it.bookId }
+        val choice = progressItemsForCycle(cycleId, cycleTitle, progressByBook)
+            ?: return Result.failure(IllegalStateException("empty_cycle"))
         val offer = PeerProgressOffer(
             userId = session.userId,
             deviceLabel = deviceLabel(),
@@ -159,15 +175,46 @@ class PeerProgressSyncRepository @Inject constructor(
         applyPeerItems(conflicts, token)
     }
 
+    private suspend fun progressItemsForCycle(
+        cycleId: String,
+        fallbackTitle: String,
+        progressByBook: Map<String, AudiobookProgress>,
+    ): PeerCycleChoice? {
+        if (cycleId.startsWith("book:")) {
+            val bookId = cycleId.removePrefix("book:")
+            val progress = progressByBook[bookId] ?: return null
+            val book = catalogRepository.getBook(bookId) ?: return null
+            return PeerCycleChoice(cycleId, book.title.ifBlank { fallbackTitle }, listOf(progress.toPeerItem()))
+        }
+        val cycle = catalogRepository.getAllCycles().find { it.id == cycleId } ?: return null
+        // Include every cycle member (order list + books), not only bookOrder hits.
+        val books = (orderedCycleBooks(cycle) + cycle.books).distinctBy { it.id }
+        val items = books.mapNotNull { book ->
+            if (book.contentType != ContentType.AUDIOBOOK) return@mapNotNull null
+            val progress = progressByBook[book.id] ?: return@mapNotNull null
+            if (progress.positionMs <= 0L) return@mapNotNull null
+            progress.toPeerItem()
+        }
+        if (items.isEmpty()) return null
+        return PeerCycleChoice(cycle.id, cycle.title, items)
+    }
+
+    private fun AudiobookProgress.toPeerItem() = PeerProgressItem(
+        bookId = bookId,
+        trackId = trackId,
+        positionMs = positionMs,
+        updatedAtEpochMs = updatedAtEpochMs,
+    )
+
     private suspend fun applyPeerItems(items: List<PeerProgressItem>, accessToken: String?) {
-        val now = System.currentTimeMillis()
+        // Keep peer relative freshness so cycle Continue prefers the newest book.
         for (item in items) {
             progressSyncRepository.saveLocal(
                 AudiobookProgress(
                     bookId = item.bookId,
                     trackId = item.trackId,
                     positionMs = item.positionMs,
-                    updatedAtEpochMs = now,
+                    updatedAtEpochMs = item.updatedAtEpochMs.coerceAtLeast(1L),
                 ),
                 pendingSync = true,
                 accessToken = accessToken,
