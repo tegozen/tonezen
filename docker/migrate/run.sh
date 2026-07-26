@@ -74,9 +74,10 @@ waveform_peaks_exists() {
     "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'track_files' AND column_name = 'waveform_peaks' LIMIT 1")" = "1" ]
 }
 
+# Filenames are validated as [A-Za-z0-9._-] only, so embedding in SQL is safe.
+# Do not use psql :'var' with -tAc — some clients leave it unsubstituted and break skip detection.
 record_migration() {
   filename=$1
-  # Validate filename before recording (defense against path/SQL injection).
   case "$filename" in
     *[!A-Za-z0-9._-]* | "" )
       echo "[migrate] refusing unsafe migration filename: $filename" >&2
@@ -84,8 +85,7 @@ record_migration() {
       ;;
   esac
   psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 \
-    -v filename="$filename" \
-    -c "INSERT INTO schema_migrations (filename) VALUES (:'filename') ON CONFLICT DO NOTHING"
+    -c "INSERT INTO schema_migrations (filename) VALUES ('${filename}') ON CONFLICT DO NOTHING"
 }
 
 is_recorded() {
@@ -93,8 +93,8 @@ is_recorded() {
   case "$filename" in
     *[!A-Za-z0-9._-]* | "" ) return 1 ;;
   esac
-  [ "$(psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v filename="$filename" -tAc \
-    "SELECT 1 FROM schema_migrations WHERE filename = :'filename' LIMIT 1")" = "1" ]
+  [ "$(psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -tAc \
+    "SELECT 1 FROM schema_migrations WHERE filename = '${filename}' LIMIT 1")" = "1" ]
 }
 
 for file in $(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | sort); do
