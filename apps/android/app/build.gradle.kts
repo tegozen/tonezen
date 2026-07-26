@@ -14,8 +14,8 @@ android {
         applicationId = "com.tonezen.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 31
-        versionName = "0.13.0"
+        versionCode = 32
+        versionName = "0.14.0"
         buildConfigField("String", "BASE_URL", "\"https://tonezen.tegozen.ru\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwiZXhwIjoyMDk2NTgzNzc3fQ._CP-vbYhhZ9MPZaShAUB_93enHnw9dfh3_sFLep_Jws\"")
     }
