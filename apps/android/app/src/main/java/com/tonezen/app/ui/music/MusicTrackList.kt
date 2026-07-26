@@ -1,4 +1,4 @@
-package com.tonezen.app.ui.library
+package com.tonezen.app.ui.music
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background

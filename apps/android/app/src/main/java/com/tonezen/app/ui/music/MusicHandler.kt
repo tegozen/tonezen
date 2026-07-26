@@ -1,4 +1,4 @@
-package com.tonezen.app.ui.library
+package com.tonezen.app.ui.music
 
 import com.tonezen.app.data.local.CatalogRepository
 import com.tonezen.app.data.local.EnsureTrackOutcome
@@ -32,12 +32,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.yield
 
-internal class LibraryMusicHandler(
-    private val uiState: MutableStateFlow<LibraryUiState>,
+internal class MusicHandler(
+    private val uiState: MutableStateFlow<MusicUiState>,
     private val scope: CoroutineScope,
-    private val session: LibraryPlaybackSession,
+    private val session: MusicPlaybackSession,
     private val catalogRepository: CatalogRepository,
     private val downloadRepository: DownloadRepository,
     private val trackDownloadEnsurer: TrackDownloadEnsurer,
@@ -48,13 +47,15 @@ internal class LibraryMusicHandler(
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val musicPlaybackQueue: MusicPlaybackQueue,
     private val playbackErrorMessage: (EnsureTrackOutcome.Failure?) -> String,
-    private val refreshCycleCardStates: suspend (List<com.tonezen.app.domain.model.Cycle>, Set<String>) -> Unit,
 ) {
     var onBulkDownloadFinished: () -> Unit = {}
     var playJob: Job? = null
     var musicPrefetchJob: Job? = null
     private var prefetchTargetIndex: Int = -1
     private var lastBulkBatchId: String? = null
+
+    private fun findKnownMusicBook(bookId: String): Book? =
+        session.musicCandidates.firstOrNull { it.first.id == bookId }?.first
 
     private suspend fun resolveMusicDownloadBookId(track: MusicListTrack): String =
         catalogRepository.canonicalBookIdForTrack(track.trackId) ?: track.bookId
@@ -274,7 +275,6 @@ internal class LibraryMusicHandler(
                 )
             }
             localLibraryNotifier.notifyLocalLibraryChanged()
-            refreshDownloadedBooks()
         }
     }
 
@@ -451,17 +451,6 @@ internal class LibraryMusicHandler(
         downloadQueueController.reconcileDownloadQueueBookIds()
     }
 
-    suspend fun rebuildMusicCandidates(books: List<Book>) {
-        reloadMusicCatalogData()
-    }
-
-    suspend fun buildMusicTrackBookMap(books: List<Book>): Map<String, String> {
-        if (session.musicBookIdByTrackId.isEmpty()) {
-            reloadMusicCatalogData()
-        }
-        return session.musicBookIdByTrackId
-    }
-
     suspend fun resolveDownloadedTrackIdsForUi(
         reconcileLocalPaths: Boolean = true,
     ): Set<String> = withContext(Dispatchers.IO) {
@@ -522,10 +511,6 @@ internal class LibraryMusicHandler(
     suspend fun refreshMusicTrackListWithDownloadedIds(downloadedTrackIds: Set<String>): List<MusicListTrack> =
         refreshMusicTrackListDownloadState(uiState.value.musicTrackList, downloadedTrackIds)
 
-    fun cancelPlayJob() {
-        playJob?.cancel()
-    }
-
     private suspend fun buildMusicTrackList(shuffle: Boolean): List<MusicListTrack> {
         if (session.musicCandidates.isEmpty()) return emptyList()
         val downloadedTrackIds = resolveDownloadedTrackIdsForUi()
@@ -546,7 +531,7 @@ internal class LibraryMusicHandler(
             ?: return null
         val domainTrack = catalogRepository.getTracksForBook(bookId).find { it.id == trackId }
             ?: return null
-        val book = uiState.value.books.find { it.id == bookId }
+        val book = findKnownMusicBook(bookId)
             ?: catalogRepository.findBookForTrack(trackId)
             ?: return null
         return MusicListTrack(
@@ -618,7 +603,6 @@ internal class LibraryMusicHandler(
                 }
                 appendPrefetchedQueueItem(trackId, localTrack)
             }
-            refreshDownloadedBooks()
             return
         }
         val resolvedTrack = withContext(Dispatchers.IO) {
@@ -708,7 +692,7 @@ internal class LibraryMusicHandler(
     }
 
     private suspend fun musicBookAvailable(bookId: String): Boolean {
-        if (uiState.value.books.any { it.id == bookId }) return true
+        if (findKnownMusicBook(bookId) != null) return true
         return withContext(Dispatchers.IO) { catalogRepository.getBook(bookId) != null }
     }
 
@@ -803,7 +787,6 @@ internal class LibraryMusicHandler(
         session.lastPrefetchSourceTrackId = localTrack.id
         playbackClient.playQueue(queue, startIndex)
         scheduleMusicPrefetch(libraryStartIndex + 1)
-        refreshDownloadedBooks()
         localLibraryNotifier.notifyLocalLibraryChanged()
     }
 
@@ -827,12 +810,5 @@ internal class LibraryMusicHandler(
                 librarySize = libraryTracks.size,
             )
         }
-    }
-
-    private suspend fun refreshDownloadedBooks() {
-        val downloaded = withContext(Dispatchers.IO) {
-            catalogRepository.downloadedBookIds(uiState.value.books)
-        }
-        uiState.update { it.copy(downloadedBookIds = downloaded) }
     }
 }

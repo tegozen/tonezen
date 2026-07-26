@@ -20,7 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tonezen.app.domain.model.SessionState
-import com.tonezen.app.domain.library.filterAndSortBooks
 import com.tonezen.app.domain.library.filterCycles
 import com.tonezen.app.ui.components.BottomDestination
 import com.tonezen.app.ui.components.MiniPlayer
@@ -31,9 +30,10 @@ import com.tonezen.app.ui.downloads.DownloadsTabScreen
 import com.tonezen.app.ui.library.CycleCardState
 import com.tonezen.app.ui.library.CycleDetailScreen
 import com.tonezen.app.ui.library.LibraryScreen
-import com.tonezen.app.ui.library.LibrarySection
 import com.tonezen.app.ui.library.LibraryViewModel
-import com.tonezen.app.ui.library.visibleMusicTrackList
+import com.tonezen.app.ui.music.MusicScreen
+import com.tonezen.app.ui.music.MusicViewModel
+import com.tonezen.app.ui.music.visibleMusicTrackList
 import com.tonezen.app.ui.player.BookDetailScreen
 import com.tonezen.app.ui.player.BookDetailViewModel
 import com.tonezen.app.ui.player.NowPlayingSheet
@@ -52,10 +52,12 @@ import dev.chrisbanes.haze.HazeState
 @Composable
 fun AppShell(
     libraryViewModel: LibraryViewModel = hiltViewModel(),
+    musicViewModel: MusicViewModel = hiltViewModel(),
     shellViewModel: AppShellViewModel = hiltViewModel(),
     profileViewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val libraryState by libraryViewModel.uiState.collectAsState()
+    val musicState by musicViewModel.uiState.collectAsState()
     val shellState by shellViewModel.uiState.collectAsState()
     val profileState by profileViewModel.uiState.collectAsState()
     val downloadQueue by shellViewModel.downloadQueueState.collectAsState()
@@ -81,25 +83,15 @@ fun AppShell(
             )
         }
     }
-    val filteredBooks by remember {
-        derivedStateOf {
-            filterAndSortBooks(
-                books = libraryState.books,
-                downloadedBookIds = libraryState.downloadedBookIds,
-                filter = libraryState.filter,
-                progressUpdatedAtByBookId = libraryState.progressUpdatedAtByBookId,
-            )
-        }
-    }
     val visibleMusicTracks by remember {
         derivedStateOf {
-            visibleMusicTrackList(libraryState.musicTrackList, libraryState.isNetworkOnline)
+            visibleMusicTrackList(musicState.musicTrackList, musicState.isNetworkOnline)
         }
     }
 
     LaunchedEffect(shellState.currentTab) {
         if (shellState.currentTab == BottomDestination.Music) {
-            libraryViewModel.onMusicTabSelected()
+            musicViewModel.onMusicTabSelected()
         }
         if (shellState.currentTab != BottomDestination.Books) {
             libraryViewModel.setFilterSheetVisible(false)
@@ -198,21 +190,32 @@ fun AppShell(
                         )
                     }
 
-                    shellState.currentTab == BottomDestination.Music ||
-                        shellState.currentTab == BottomDestination.Books -> {
-                        val section = if (shellState.currentTab == BottomDestination.Music) {
-                            LibrarySection.Music
-                        } else {
-                            LibrarySection.Books
-                        }
+                    shellState.currentTab == BottomDestination.Music -> {
+                        MusicScreen(
+                            hazeState = hazeState,
+                            hasMusicBooks = musicState.hasMusicBooks,
+                            isLoadingCatalog = musicState.isLoadingCatalog,
+                            musicTrackList = visibleMusicTracks,
+                            musicPlayback = musicState.musicPlayback,
+                            downloadQueue = downloadQueue,
+                            musicPlaybackErrorMessage = musicState.musicPlaybackErrorMessage,
+                            onDismissMusicPlaybackError = musicViewModel::clearMusicPlaybackError,
+                            onMusicWavePlay = musicViewModel::playMusicWave,
+                            onMusicTrackClick = musicViewModel::onMusicTrackClick,
+                            onDownloadMusicTrack = musicViewModel::downloadMusicTrack,
+                            onDeleteMusicTrack = musicViewModel::deleteMusicTrack,
+                            onDownloadAllMusic = musicViewModel::downloadAllMusic,
+                            offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
+                            showMiniPlayer = shellState.showMiniPlayer,
+                            isNetworkOnline = musicState.isNetworkOnline,
+                        )
+                    }
+
+                    shellState.currentTab == BottomDestination.Books -> {
                         LibraryScreen(
                             hazeState = hazeState,
-                            section = section,
                             cycles = filteredCycles,
                             allCycles = libraryState.cycles,
-                            books = filteredBooks,
-                            allBooks = libraryState.books,
-                            downloadedBookIds = libraryState.downloadedBookIds,
                             cycleCardStateById = libraryState.cycleCardStateById,
                             cyclePlayback = libraryState.cyclePlayback,
                             offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
@@ -221,7 +224,6 @@ fun AppShell(
                             showFilterSheet = libraryState.showFilterSheet,
                             onCycleClick = shellViewModel::openCycle,
                             onCyclePlay = libraryViewModel::toggleCyclePlay,
-                            onBookClick = shellViewModel::openBook,
                             onSearchChange = libraryViewModel::setSearchQuery,
                             onFilterClick = { libraryViewModel.setFilterSheetVisible(true) },
                             onDismissFilterSheet = { libraryViewModel.setFilterSheetVisible(false) },
@@ -229,21 +231,9 @@ fun AppShell(
                             onResetFilter = libraryViewModel::resetFilter,
                             onContentFilterChange = libraryViewModel::setContentFilter,
                             onSortOrderChange = libraryViewModel::setSortOrder,
-                            musicTrackList = visibleMusicTracks,
-                            musicPlayback = libraryState.musicPlayback,
-                            downloadQueue = downloadQueue,
-                            musicPlaybackErrorMessage = libraryState.musicPlaybackErrorMessage,
                             cyclePlaybackErrorMessage = libraryState.cyclePlaybackErrorMessage,
-                            onDismissMusicPlaybackError = libraryViewModel::clearMusicPlaybackError,
                             onDismissCyclePlaybackError = libraryViewModel::clearCyclePlaybackError,
-                            onMusicWavePlay = libraryViewModel::playMusicWave,
-                            onMusicTrackClick = libraryViewModel::onMusicTrackClick,
-                            onDownloadMusicTrack = libraryViewModel::downloadMusicTrack,
-                            onDeleteMusicTrack = libraryViewModel::deleteMusicTrack,
-                            onDownloadAllMusic = libraryViewModel::downloadAllMusic,
-                            onMusicTabSelected = libraryViewModel::onMusicTabSelected,
                             showMiniPlayer = shellState.showMiniPlayer,
-                            isNetworkOnline = libraryState.isNetworkOnline,
                         )
                     }
 
@@ -294,7 +284,7 @@ fun AppShell(
                             isPlaying = shellState.isPlaying,
                             positionMs = shellState.positionMs,
                             durationMs = shellState.durationMs,
-                            downloadProgress = if (libraryState.musicPlayback.isActive) {
+                            downloadProgress = if (musicState.musicPlayback.isActive) {
                                 shellState.nowPlayingCoverSeed
                                     ?.let { downloadQueue.forMusic().progressForTrack(it) }
                             } else {
@@ -302,8 +292,8 @@ fun AppShell(
                             },
                             onBarClick = shellViewModel::onMiniPlayerClick,
                             onPlayPauseClick = {
-                                if (libraryState.musicPlayback.isActive) {
-                                    libraryViewModel.onMiniPlayerPlayPause()
+                                if (musicState.musicPlayback.isActive) {
+                                    musicViewModel.onMiniPlayerPlayPause()
                                 } else {
                                     shellViewModel.onMiniPlayerPlayPause()
                                 }

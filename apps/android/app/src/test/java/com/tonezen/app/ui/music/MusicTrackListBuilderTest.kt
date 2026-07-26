@@ -1,4 +1,4 @@
-package com.tonezen.app.ui.library
+package com.tonezen.app.ui.music
 
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
@@ -6,7 +6,7 @@ import com.tonezen.app.domain.model.Track
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class LibraryMusicTrackListBuilderTest {
+class MusicTrackListBuilderTest {
     private val book = Book(
         id = "b1",
         slug = "music-library",

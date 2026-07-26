@@ -24,9 +24,7 @@ import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.playback.DownloadQueueNotifier
-import com.tonezen.app.playback.forMusic
 import com.tonezen.app.playback.TrackDownloadQueueController
-import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackEvents
 import com.tonezen.app.playback.PlaybackQueueBuilder
@@ -61,68 +59,35 @@ class LibraryViewModel @Inject constructor(
     private val downloadQueueNotifier: DownloadQueueNotifier,
     private val localLibraryNotifier: LocalLibraryNotifier,
     private val playbackEvents: PlaybackEvents,
-    private val musicPlaybackQueue: MusicPlaybackQueue,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
 
     private val session = LibraryPlaybackSession()
-    private lateinit var cycleHandler: LibraryCycleHandler
-    private lateinit var musicHandler: LibraryMusicHandler
+    private val cycleHandler = LibraryCycleHandler(
+        uiState = _uiState,
+        scope = viewModelScope,
+        session = session,
+        catalogRepository = catalogRepository,
+        downloadRepository = downloadRepository,
+        sessionRepository = sessionRepository,
+        progressSyncRepository = progressSyncRepository,
+        trackDownloadEnsurer = trackDownloadEnsurer,
+        downloadQueueController = downloadQueueController,
+        downloadQueueNotifier = downloadQueueNotifier,
+        playbackClient = playbackClient,
+        playbackQueueBuilder = playbackQueueBuilder,
+        localLibraryNotifier = localLibraryNotifier,
+        playbackErrorMessage = ::playbackErrorMessage,
+    )
     private var lastLibrarySnapshotUiKey: LibrarySnapshotUiKey? = null
     private var catalogOwnerKey: String? = null
     private var pendingCatalogReload = false
 
     init {
-        cycleHandler = LibraryCycleHandler(
-            uiState = _uiState,
-            scope = viewModelScope,
-            session = session,
-            catalogRepository = catalogRepository,
-            downloadRepository = downloadRepository,
-            sessionRepository = sessionRepository,
-            progressSyncRepository = progressSyncRepository,
-            trackDownloadEnsurer = trackDownloadEnsurer,
-            downloadQueueController = downloadQueueController,
-            downloadQueueNotifier = downloadQueueNotifier,
-            playbackClient = playbackClient,
-            playbackQueueBuilder = playbackQueueBuilder,
-            localLibraryNotifier = localLibraryNotifier,
-            cancelPlayJob = { musicHandler.cancelPlayJob() },
-            playbackErrorMessage = ::playbackErrorMessage,
-        )
-        musicHandler = LibraryMusicHandler(
-            uiState = _uiState,
-            scope = viewModelScope,
-            session = session,
-            catalogRepository = catalogRepository,
-            downloadRepository = downloadRepository,
-            trackDownloadEnsurer = trackDownloadEnsurer,
-            downloadQueueController = downloadQueueController,
-            downloadQueueNotifier = downloadQueueNotifier,
-            localLibraryNotifier = localLibraryNotifier,
-            playbackClient = playbackClient,
-            playbackQueueBuilder = playbackQueueBuilder,
-            musicPlaybackQueue = musicPlaybackQueue,
-            playbackErrorMessage = ::playbackErrorMessage,
-            refreshCycleCardStates = { cycles, downloadedBookIds ->
-                cycleHandler.refreshCycleCardStates(cycles, downloadedBookIds)
-            },
-        )
-        musicHandler.onBulkDownloadFinished = {
-            viewModelScope.launch {
-                if (pendingCatalogReload) {
-                    pendingCatalogReload = false
-                    reloadCatalogFromLocal()
-                }
-                refreshDownloads()
-            }
-        }
         viewModelScope.launch {
             var wasQueueActive = downloadQueueNotifier.snapshot().isActive
-            var wasBulkDownloading = downloadQueueNotifier.snapshot().forMusic().isBulkDownloading
             downloadQueueNotifier.state.collect { state ->
-                val musicQueue = state.forMusic()
                 if (!state.isActive && pendingCatalogReload) {
                     pendingCatalogReload = false
                     reloadCatalogFromLocal()
@@ -130,11 +95,7 @@ class LibraryViewModel @Inject constructor(
                 if (wasQueueActive && !state.isActive) {
                     refreshDownloads()
                 }
-                if (wasBulkDownloading && !musicQueue.isBulkDownloading) {
-                    musicHandler.onBulkDownloadFinished()
-                }
                 wasQueueActive = state.isActive
-                wasBulkDownloading = musicQueue.isBulkDownloading
             }
         }
         _uiState.update { it.copy(isNetworkOnline = networkMonitor.isOnline()) }
@@ -147,11 +108,7 @@ class LibraryViewModel @Inject constructor(
         )
         viewModelScope.launch {
             networkMonitor.online.collect { online ->
-                val wasOnline = _uiState.value.isNetworkOnline
                 _uiState.update { it.copy(isNetworkOnline = online) }
-                if (wasOnline && !online) {
-                    musicHandler.onNetworkOffline()
-                }
             }
         }
         viewModelScope.launch {
@@ -181,11 +138,7 @@ class LibraryViewModel @Inject constructor(
         }
         viewModelScope.launch {
             playbackClient.snapshot.collectLatest { snapshot ->
-                val trackId = snapshot.trackId
-                val isMusic = musicHandler.isMusicSnapshot(snapshot)
-                if (isMusic && trackId != null) {
-                    musicHandler.onMusicSnapshot(snapshot)
-                } else if (snapshot.contentType == ContentType.AUDIOBOOK) {
+                if (snapshot.contentType == ContentType.AUDIOBOOK) {
                     cycleHandler.onAudiobookSnapshot(snapshot)
                 }
                 val uiKey = LibrarySnapshotUiKey.from(snapshot)
@@ -193,18 +146,15 @@ class LibraryViewModel @Inject constructor(
                 lastLibrarySnapshotUiKey = uiKey
                 val current = _uiState.value
                 val cyclePlayback = when {
-                    isMusic -> CyclePlaybackUi()
                     snapshot.contentType == ContentType.AUDIOBOOK && session.activeAudiobookBookId != null ->
                         cycleHandler.resolveCyclePlaybackUi(snapshot)
                     current.cyclePlayback.isPreparing -> current.cyclePlayback
                     else -> CyclePlaybackUi()
                 }
-                val musicPlayback = musicHandler.musicPlaybackUi(snapshot)
                 val nowPlayingTitle = snapshot.trackTitle ?: current.nowPlayingTitle
                 _uiState.update { state ->
                     state.copy(
                         nowPlayingTitle = nowPlayingTitle,
-                        musicPlayback = musicPlayback,
                         cyclePlayback = cyclePlayback,
                     )
                 }
@@ -212,7 +162,6 @@ class LibraryViewModel @Inject constructor(
         }
         viewModelScope.launch {
             playbackEvents.trackEnded.collect {
-                musicHandler.handleMusicTrackEnded()
                 cycleHandler.handleAudiobookTrackEnded()
             }
         }
@@ -251,17 +200,7 @@ class LibraryViewModel @Inject constructor(
         _uiState.update { it.copy(filter = it.filter.copy(sortOrder = sortOrder)) }
     }
 
-    fun onMusicTabSelected() = musicHandler.onMusicTabSelected()
-
-    fun onMiniPlayerPlayPause() = musicHandler.onMiniPlayerPlayPause()
-
-    fun playMusicWave() = musicHandler.playMusicWave()
-
-    fun onMusicTrackClick(track: MusicListTrack) = musicHandler.onMusicTrackClick(track)
-
-    fun toggleCyclePlay(cycle: Cycle) {
-        cycleHandler.toggleCyclePlay(cycle) { job -> musicHandler.playJob = job }
-    }
+    fun toggleCyclePlay(cycle: Cycle) = cycleHandler.toggleCyclePlay(cycle)
 
     fun downloadCycle(cycle: Cycle) = cycleHandler.downloadCycle(cycle)
 
@@ -273,38 +212,19 @@ class LibraryViewModel @Inject constructor(
 
     fun markCycleUnlistened(cycle: Cycle) = cycleHandler.markCycleUnlistened(cycle)
 
-    fun downloadMusicTrack(track: MusicListTrack) = musicHandler.downloadMusicTrack(track)
-
-    fun deleteMusicTrack(track: MusicListTrack) = musicHandler.deleteMusicTrack(track)
-
-    fun downloadAllMusic() = musicHandler.downloadAllMusic()
-
-    fun clearMusicPlaybackError() {
-        _uiState.update { it.copy(musicPlaybackErrorMessage = null) }
-    }
-
     fun clearCyclePlaybackError() {
         _uiState.update { it.copy(cyclePlaybackErrorMessage = null) }
     }
 
-    fun cancelAllDownloads() = musicHandler.cancelAllDownloads()
-
     fun refreshCycleMenu(cycle: Cycle) = cycleHandler.refreshCycleMenu(cycle)
 
-    fun refreshDownloads(reconcileLocalPaths: Boolean = true) {
+    fun refreshDownloads() {
         viewModelScope.launch {
             val books = _uiState.value.books
-            val downloadedTrackIds = musicHandler.resolveDownloadedTrackIdsForUi(reconcileLocalPaths)
-            val trackList = musicHandler.refreshMusicTrackListWithDownloadedIds(downloadedTrackIds)
             val downloaded = withContext(Dispatchers.IO) {
                 catalogRepository.downloadedBookIds(books)
             }
-            _uiState.update {
-                it.copy(
-                    downloadedBookIds = downloaded,
-                    musicTrackList = trackList,
-                )
-            }
+            _uiState.update { it.copy(downloadedBookIds = downloaded) }
             cycleHandler.refreshCycleCardStates(_uiState.value.cycles, downloaded)
         }
     }
@@ -327,7 +247,6 @@ class LibraryViewModel @Inject constructor(
                         hasShownInitialLocalCatalog = false,
                         books = emptyList(),
                         cycles = emptyList(),
-                        musicTrackList = emptyList(),
                         downloadedBookIds = emptySet(),
                     )
                 }
@@ -368,8 +287,6 @@ class LibraryViewModel @Inject constructor(
                 updateCatalog(
                     books = localBooks,
                     cycles = localCycles,
-                    rebuildMusic = true,
-                    reconcileLocalPaths = false,
                     markInitialLocalCatalogShown = localBooks.isNotEmpty() || localCycles.isNotEmpty(),
                 )
                 _uiState.update { it.copy(isBootstrapComplete = true) }
@@ -381,8 +298,6 @@ class LibraryViewModel @Inject constructor(
                     updateCatalog(
                         books = books,
                         cycles = cycles,
-                        rebuildMusic = true,
-                        reconcileLocalPaths = true,
                     )
                 } finally {
                     _uiState.update { it.copy(isLoadingCatalog = false) }
@@ -395,15 +310,13 @@ class LibraryViewModel @Inject constructor(
             updateCatalog(
                 books = local,
                 cycles = localCycles,
-                rebuildMusic = true,
-                reconcileLocalPaths = false,
                 markInitialLocalCatalogShown = local.isNotEmpty() || localCycles.isNotEmpty(),
             )
             _uiState.update { it.copy(isLoadingCatalog = false, isBootstrapComplete = true) }
             viewModelScope.launch(Dispatchers.IO) {
                 catalogRepository.reconcileLocalDownloadPaths()
                 withContext(Dispatchers.Main) {
-                    refreshDownloads(reconcileLocalPaths = false)
+                    refreshDownloads()
                 }
             }
         }
@@ -413,26 +326,12 @@ class LibraryViewModel @Inject constructor(
         val (books, cycles) = withContext(Dispatchers.IO) {
             loadLocalCatalogProgressively(catalogRepository)
         }
-        updateCatalog(books, cycles, rebuildMusic = true)
-    }
-
-    private suspend fun refreshCatalogFromRemote(
-        accessToken: String?,
-        rebuildMusic: Boolean = false,
-    ) {
-        try {
-            val (books, cycles) = loadCatalogFromRemoteWithLocalFallback(catalogRepository, accessToken)
-            updateCatalog(books, cycles, rebuildMusic)
-        } finally {
-            _uiState.update { it.copy(isLoadingCatalog = false) }
-        }
+        updateCatalog(books, cycles)
     }
 
     private suspend fun updateCatalog(
         books: List<Book>,
         cycles: List<Cycle>,
-        rebuildMusic: Boolean = false,
-        reconcileLocalPaths: Boolean = true,
         markInitialLocalCatalogShown: Boolean = false,
     ) {
         val shouldPreserveCurrentCatalog =
@@ -443,7 +342,7 @@ class LibraryViewModel @Inject constructor(
                 cycles.isEmpty()
         if (shouldPreserveCurrentCatalog) return
 
-        updateBooks(books, rebuildMusic, reconcileLocalPaths, markInitialLocalCatalogShown)
+        updateBooks(books, markInitialLocalCatalogShown)
         _uiState.update {
             it.copy(
                 cycles = cycles,
@@ -455,15 +354,8 @@ class LibraryViewModel @Inject constructor(
 
     private suspend fun updateBooks(
         books: List<Book>,
-        rebuildMusic: Boolean = false,
-        reconcileLocalPaths: Boolean = true,
         markInitialLocalCatalogShown: Boolean = false,
     ) {
-        musicHandler.reloadMusicCatalogData()
-        val trackList = musicHandler.buildMusicTrackListForCatalogUpdate(
-            rebuildMusic = rebuildMusic,
-            reconcileLocalPaths = reconcileLocalPaths,
-        )
         val downloaded = withContext(Dispatchers.IO) {
             catalogRepository.downloadedBookIds(books)
         }
@@ -471,7 +363,6 @@ class LibraryViewModel @Inject constructor(
             it.copy(
                 books = books,
                 downloadedBookIds = downloaded,
-                musicTrackList = trackList,
                 hasShownInitialLocalCatalog = it.hasShownInitialLocalCatalog || markInitialLocalCatalogShown,
             )
         }

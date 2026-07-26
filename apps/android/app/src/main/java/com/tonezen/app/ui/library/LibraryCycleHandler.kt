@@ -48,14 +48,14 @@ internal class LibraryCycleHandler(
     private val playbackClient: PlaybackClient,
     private val playbackQueueBuilder: PlaybackQueueBuilder,
     private val localLibraryNotifier: LocalLibraryNotifier,
-    private val cancelPlayJob: () -> Unit,
     private val playbackErrorMessage: (EnsureTrackOutcome.Failure?) -> String,
 ) {
     private val playbackCoordinator = PlaybackCoordinator()
 
     var cycleDownloadBatchId: String? = null
+    private var cyclePlayJob: Job? = null
 
-    fun toggleCyclePlay(cycle: Cycle, playJobSetter: (Job?) -> Unit) {
+    fun toggleCyclePlay(cycle: Cycle) {
         val cyclePlayback = uiState.value.cyclePlayback
         if (cyclePlayback.isPreparing && cyclePlayback.cycleId == cycle.id) return
 
@@ -77,8 +77,9 @@ internal class LibraryCycleHandler(
             }
             return
         }
-        cancelPlayJob()
-        playJobSetter(scope.launch { playCycleInternal(cycle) })
+        cyclePlayJob?.cancel()
+        playbackClient.stopAndRelease()
+        cyclePlayJob = scope.launch { playCycleInternal(cycle) }
     }
 
     fun downloadCycle(cycle: Cycle) {
@@ -127,7 +128,7 @@ internal class LibraryCycleHandler(
         scope.launch {
             val activeBookId = session.activeAudiobookBookId
             if (activeBookId != null && cycle.books.any { it.id == activeBookId }) {
-                cancelPlayJob()
+                cyclePlayJob?.cancel()
                 playbackClient.stopAndRelease()
                 uiState.update { it.copy(cyclePlayback = CyclePlaybackUi()) }
             }

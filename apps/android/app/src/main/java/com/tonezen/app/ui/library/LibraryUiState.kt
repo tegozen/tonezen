@@ -8,26 +8,6 @@ import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.BookContinueState
 
-data class MusicListTrack(
-    val trackId: String,
-    val trackTitle: String,
-    val artist: String,
-    val albumTitle: String,
-    val bookId: String,
-    val durationMs: Long? = null,
-    val isDownloaded: Boolean,
-)
-
-data class MusicPlaybackUi(
-    val isActive: Boolean = false,
-    val trackId: String? = null,
-    val trackTitle: String? = null,
-    val artist: String? = null,
-    val albumTitle: String? = null,
-    val bookId: String? = null,
-    val isPlaying: Boolean = false,
-)
-
 data class CyclePlaybackUi(
     val cycleId: String? = null,
     val isPlaying: Boolean = false,
@@ -61,9 +41,6 @@ data class LibraryUiState(
     val filter: LibraryFilterState = LibraryFilterState(),
     val showFilterSheet: Boolean = false,
     val nowPlayingTitle: String? = null,
-    val musicTrackList: List<MusicListTrack> = emptyList(),
-    val musicPlayback: MusicPlaybackUi = MusicPlaybackUi(),
-    val musicPlaybackErrorMessage: String? = null,
     val cyclePlaybackErrorMessage: String? = null,
     val progressUpdatedAtByBookId: Map<String, Long> = emptyMap(),
 )

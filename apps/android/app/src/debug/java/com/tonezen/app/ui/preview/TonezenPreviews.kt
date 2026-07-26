@@ -17,10 +17,10 @@ import androidx.compose.runtime.remember
 import com.tonezen.app.ui.library.CycleCardState
 import com.tonezen.app.ui.library.CyclePlaybackUi
 import com.tonezen.app.ui.library.LibraryScreen
-import com.tonezen.app.ui.library.LibrarySection
-import com.tonezen.app.ui.library.MusicPlaybackUi
+import com.tonezen.app.ui.music.MusicPlaybackUi
+import com.tonezen.app.ui.music.MusicScreen
 import com.tonezen.app.playback.DownloadQueueState
-import com.tonezen.app.ui.library.MusicListTrack
+import com.tonezen.app.ui.music.MusicListTrack
 import com.tonezen.app.ui.profile.ProfileScreenContent
 import com.tonezen.app.ui.profile.ProfileUiState
 import com.tonezen.app.ui.theme.TonezenTheme
@@ -105,12 +105,8 @@ private fun LibraryScreenPreview() {
     TonezenTheme {
         LibraryScreen(
             hazeState = remember { HazeState() },
-            section = LibrarySection.Books,
             cycles = listOf(previewCycle),
             allCycles = listOf(previewCycle),
-            books = previewBooks,
-            allBooks = previewBooks,
-            downloadedBookIds = setOf("midnight"),
             cycleCardStateById = mapOf(
                 previewCycle.id to CycleCardState(
                     isDownloaded = true,
@@ -124,7 +120,6 @@ private fun LibraryScreenPreview() {
             showFilterSheet = false,
             onCycleClick = {},
             onCyclePlay = {},
-            onBookClick = {},
             onSearchChange = {},
             onFilterClick = {},
             onDismissFilterSheet = {},
@@ -132,6 +127,27 @@ private fun LibraryScreenPreview() {
             onResetFilter = {},
             onContentFilterChange = {},
             onSortOrderChange = {},
+            cyclePlaybackErrorMessage = null,
+            onDismissCyclePlaybackError = {},
+            showMiniPlayer = false,
+        )
+    }
+}
+
+@Preview(
+    name = "Music",
+    showBackground = true,
+    backgroundColor = 0xFF020617,
+    device = Devices.PIXEL_7,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+private fun MusicScreenPreview() {
+    TonezenTheme {
+        MusicScreen(
+            hazeState = remember { HazeState() },
+            hasMusicBooks = true,
+            isLoadingCatalog = false,
             musicTrackList = listOf(
                 MusicListTrack(
                     trackId = "track-1",
@@ -155,15 +171,13 @@ private fun LibraryScreenPreview() {
             musicPlayback = MusicPlaybackUi(),
             downloadQueue = DownloadQueueState(),
             musicPlaybackErrorMessage = null,
-            cyclePlaybackErrorMessage = null,
             onDismissMusicPlaybackError = {},
-            onDismissCyclePlaybackError = {},
             onMusicWavePlay = {},
             onMusicTrackClick = {},
             onDownloadMusicTrack = {},
             onDeleteMusicTrack = {},
             onDownloadAllMusic = {},
-            onMusicTabSelected = {},
+            offlineBanner = false,
             showMiniPlayer = false,
         )
     }
