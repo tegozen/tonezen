@@ -465,7 +465,7 @@ services:
       retries: 5
       start_period: 10s
 
-  # --- GlitchTip (all-in-one: web + worker in one process; no Redis) ---
+  # --- GlitchTip (all-in-one: web + worker; Valkey/Redis off → Postgres queue) ---
   glitchtip-postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -490,6 +490,9 @@ services:
     environment: &glitchtip-env
       SECRET_KEY: ${GLITCHTIP_SECRET_KEY:?Set GLITCHTIP_SECRET_KEY in .env}
       DATABASE_URL: postgres://glitchtip:${GLITCHTIP_POSTGRES_PASSWORD}@glitchtip-postgres:5432/glitchtip
+      # Empty = no Valkey/Redis; cache/tasks/sessions use PostgreSQL (all_in_one).
+      VALKEY_URL: ""
+      REDIS_URL: ""
       SERVER_ROLE: all_in_one
       GLITCHTIP_DOMAIN: ${TONEZEN_BASE_URL:-http://localhost:8000}/glitchtip
       DEFAULT_FROM_EMAIL: glitchtip@tonezen.local
