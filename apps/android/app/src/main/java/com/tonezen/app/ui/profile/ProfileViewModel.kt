@@ -25,15 +25,20 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * Thin facade for the Profile feature. Account-related actions (profile save, password
+ * change, referral code, avatar upload) live in [ProfileAccountActions] as extension
+ * functions on this class so the public API stays a single `ProfileViewModel`.
+ */
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val sessionRepository: SessionRepository,
-    private val authRepository: AuthRepository,
-    private val avatarRepository: AvatarRepository,
+    internal val sessionRepository: SessionRepository,
+    internal val authRepository: AuthRepository,
+    internal val avatarRepository: AvatarRepository,
     private val progressSyncRepository: ProgressSyncRepository,
-    private val profileSyncRepository: ProfileSyncRepository,
+    internal val profileSyncRepository: ProfileSyncRepository,
     private val catalogRepository: CatalogRepository,
-    private val networkMonitor: NetworkMonitor,
+    internal val networkMonitor: NetworkMonitor,
     private val playbackClient: PlaybackClient,
     private val localLibraryNotifier: LocalLibraryNotifier,
     private val downloadQueueController: TrackDownloadQueueController,
@@ -41,7 +46,7 @@ class ProfileViewModel @Inject constructor(
     private val syncTimeFormatter = DateTimeFormatter.ofPattern("H:mm")
     private val memberSinceFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
-    private val _uiState = MutableStateFlow(ProfileUiState())
+    internal val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     init {
@@ -127,91 +132,6 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun saveProfile(displayName: String) {
-        if (!networkMonitor.isOnline()) {
-            _uiState.update { it.copy(profileError = ACCOUNT_OFFLINE_ERROR) }
-            return
-        }
-        viewModelScope.launch {
-            _uiState.update { it.copy(profileSaving = true, profileError = null) }
-            try {
-                val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
-                    ?: throw IllegalStateException(NOT_SIGNED_IN_ERROR)
-                if (displayName == session.displayName) return@launch
-                val updated = authRepository.updateUser(
-                    accessToken = session.accessToken,
-                    displayName = displayName,
-                )
-                sessionRepository.saveSession(
-                    session.copy(
-                        displayName = updated.displayName,
-                        memberSinceEpochMs = session.memberSinceEpochMs ?: updated.memberSinceEpochMs,
-                        avatarUrl = session.avatarUrl ?: updated.avatarUrl,
-                    ),
-                )
-                profileSyncRepository.mirrorSession(sessionRepository.loadSession() ?: session)
-            } catch (_: Exception) {
-                _uiState.update { it.copy(profileError = PROFILE_UPDATE_FAILED_ERROR) }
-            } finally {
-                _uiState.update { it.copy(profileSaving = false) }
-            }
-        }
-    }
-
-    fun changePassword(currentPassword: String, newPassword: String, confirmPassword: String) {
-        if (!networkMonitor.isOnline()) {
-            _uiState.update { it.copy(passwordError = ACCOUNT_OFFLINE_ERROR) }
-            return
-        }
-        if (currentPassword.isBlank()) {
-            _uiState.update { it.copy(passwordError = "Введите текущий пароль") }
-            return
-        }
-        if (newPassword != confirmPassword) {
-            _uiState.update { it.copy(passwordError = PASSWORD_MISMATCH_ERROR) }
-            return
-        }
-        if (newPassword.length < MIN_PASSWORD_LENGTH) {
-            _uiState.update { it.copy(passwordError = PASSWORD_TOO_SHORT_ERROR) }
-            return
-        }
-        viewModelScope.launch {
-            _uiState.update { it.copy(passwordSaving = true, passwordError = null) }
-            try {
-                val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
-                    ?: throw IllegalStateException(NOT_SIGNED_IN_ERROR)
-                authRepository.changePassword(
-                    accessToken = session.accessToken,
-                    currentPassword = currentPassword,
-                    newPassword = newPassword,
-                )
-                _uiState.update { it.copy(passwordFormNonce = it.passwordFormNonce + 1) }
-            } catch (_: Exception) {
-                _uiState.update { it.copy(passwordError = PASSWORD_CHANGE_FAILED_ERROR) }
-            } finally {
-                _uiState.update { it.copy(passwordSaving = false) }
-            }
-        }
-    }
-
-    fun loadReferralCode() {
-        if (!networkMonitor.isOnline()) {
-            _uiState.update { it.copy(referralCodeError = ACCOUNT_OFFLINE_ERROR) }
-            return
-        }
-        viewModelScope.launch {
-            _uiState.update { it.copy(referralCodeError = null) }
-            try {
-                val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
-                    ?: throw IllegalStateException(NOT_SIGNED_IN_ERROR)
-                val code = authRepository.getReferralCode(session.accessToken)
-                _uiState.update { it.copy(referralCode = code) }
-            } catch (_: Exception) {
-                _uiState.update { it.copy(referralCodeError = REFERRAL_CODE_FAILED_ERROR) }
-            }
-        }
-    }
-
     fun onSettingsClick(action: ProfileSettingsAction) {
         openSettingsScreen(action)
     }
@@ -223,44 +143,6 @@ class ProfileViewModel @Inject constructor(
     fun dismissAvatarCrop() {
         _uiState.value.avatarCropUri?.let(::deleteCachedAvatarUri)
         _uiState.update { it.copy(avatarCropUri = null, avatarUploadError = null) }
-    }
-
-    fun uploadAvatar(jpegBytes: ByteArray) {
-        if (!networkMonitor.isOnline()) {
-            _uiState.update { it.copy(avatarUploadError = ACCOUNT_OFFLINE_ERROR) }
-            return
-        }
-        viewModelScope.launch {
-            _uiState.update { it.copy(avatarUploading = true, avatarUploadError = null, profileError = null) }
-            try {
-                val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
-                    ?: throw IllegalStateException(NOT_SIGNED_IN_ERROR)
-                val avatarUrl = avatarRepository.uploadAvatar(
-                    accessToken = session.accessToken,
-                    userId = session.userId,
-                    jpegBytes = jpegBytes,
-                )
-                authRepository.updateUser(
-                    accessToken = session.accessToken,
-                    avatarUrl = avatarUrl,
-                )
-                val updatedSession = session.copy(avatarUrl = avatarUrl)
-                sessionRepository.saveSession(updatedSession)
-                profileSyncRepository.mirrorSession(updatedSession)
-                _uiState.value.avatarCropUri?.let(::deleteCachedAvatarUri)
-                _uiState.update {
-                    it.copy(
-                        avatarUrl = avatarUrl,
-                        avatarCropUri = null,
-                        avatarUploadError = null,
-                    )
-                }
-            } catch (_: Exception) {
-                _uiState.update { it.copy(avatarUploadError = AVATAR_UPLOAD_FAILED_ERROR) }
-            } finally {
-                _uiState.update { it.copy(avatarUploading = false) }
-            }
-        }
     }
 
     fun syncNow() {
@@ -285,18 +167,18 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    private fun formatSyncTime(epochMs: Long): String =
-        Instant.ofEpochMilli(epochMs)
-            .atZone(ZoneId.systemDefault())
-            .toLocalTime()
-            .format(syncTimeFormatter)
-
     fun logout() {
         progressSyncRepository.stop()
         profileSyncRepository.stop()
         playbackClient.stopAndRelease()
         sessionRepository.clearSession()
     }
+
+    private fun formatSyncTime(epochMs: Long): String =
+        Instant.ofEpochMilli(epochMs)
+            .atZone(ZoneId.systemDefault())
+            .toLocalTime()
+            .format(syncTimeFormatter)
 
     private fun formatMemberSince(epochMs: Long?): String? {
         if (epochMs == null) return null
@@ -314,6 +196,6 @@ class ProfileViewModel @Inject constructor(
         const val AVATAR_UPLOAD_FAILED_ERROR = "__avatar_upload_failed__"
         const val REFERRAL_CODE_FAILED_ERROR = "__referral_code_failed__"
         const val NOT_SIGNED_IN_ERROR = "__not_signed_in__"
-        private const val MIN_PASSWORD_LENGTH = 12
+        internal const val MIN_PASSWORD_LENGTH = 12
     }
 }
