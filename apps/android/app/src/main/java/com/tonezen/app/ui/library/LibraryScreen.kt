@@ -81,6 +81,7 @@ internal fun LibraryScreen(
         showMiniPlayer = showMiniPlayer,
         showBottomNav = true,
     )
+    val cycleRows = remember(cycles) { cycles.chunked(2) }
 
     BackHandler(enabled = showFilterSheet, onBack = onDismissFilterSheet)
 
@@ -112,7 +113,6 @@ internal fun LibraryScreen(
             } else if (allCycles.isEmpty()) {
                 item { EmptyLibrary(offline = offlineBanner) }
             } else {
-                val cycleRows = remember(cycles) { cycles.chunked(2) }
                 items(
                     items = cycleRows,
                     key = { row -> row.joinToString(separator = "|") { it.id } },
