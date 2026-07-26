@@ -75,7 +75,7 @@ export async function runTrackDownloadWorker(host: TrackDownloadWorkerHost): Pro
       });
 
       // downloadOne must NOT run under mutex
-      const result = await downloadOne(host, next, key);
+      const { result, details } = await downloadOne(host, next, key);
 
       let effectiveResult: DownloadAwaitResult = result;
       let completeAwaiter = true;
@@ -108,6 +108,7 @@ export async function runTrackDownloadWorker(host: TrackDownloadWorkerHost): Pro
               host.logDownloadFailure,
               next,
               result,
+              details,
             );
             LocalDatabase.delete(next.bookId, next.trackId);
           } else {
@@ -132,17 +133,24 @@ export async function runTrackDownloadWorker(host: TrackDownloadWorkerHost): Pro
   }
 }
 
+export interface DownloadOneOutcome {
+  result: DownloadAwaitResult;
+  details?: string;
+}
+
 /** Network IO — must not be called while holding the queue mutex. */
 export async function downloadOne(
   host: TrackDownloadWorkerHost,
   entity: DownloadQueueRow,
   key: string,
-): Promise<DownloadAwaitResult> {
-  if (host.userCancelledKeys.has(key)) return "CANCELLED";
+): Promise<DownloadOneOutcome> {
+  if (host.userCancelledKeys.has(key)) return { result: "CANCELLED" };
 
   try {
     await host.sessionService.refreshIfNeeded();
-    if (!host.sessionService.getAccessToken()) return "FAILED";
+    if (!host.sessionService.getAccessToken()) {
+      return { result: "FAILED", details: "__download_auth_required__" };
+    }
 
     let lastNotifyBucket = -1;
     const partPath = resolveTrackPartPath(host.downloadsRoot, entity.bookId, entity.trackId);
@@ -191,19 +199,23 @@ export async function downloadOne(
         !LocalDatabase.resolveLocalTrackPath(entity.bookId, entity.trackId, host.downloadsRoot)
       ) {
         if (!fs.existsSync(outcome.finalPath) || fs.statSync(outcome.finalPath).size <= 0) {
-          return "FAILED";
+          return { result: "FAILED", details: "__download_mark_failed__" };
         }
       }
     }
     notifyCatalogUpdated(host.mainWindow());
-    return "COMPLETED";
+    return { result: "COMPLETED" };
   } catch (error) {
     if (error instanceof DownloadCancelledError || host.userCancelledKeys.has(key)) {
-      return "CANCELLED";
+      return { result: "CANCELLED" };
     }
     if (!host.sessionService.isOnline() || host.pausedForNetwork()) {
-      return "OFFLINE";
+      return { result: "OFFLINE" };
     }
-    return "FAILED";
+    const details =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim().slice(0, 500)
+        : undefined;
+    return { result: "FAILED", details };
   }
 }

@@ -24,7 +24,11 @@ class DownloadsRemoteApi(
                 .build()
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    throw RemoteHttpException(response.code, "Download sign failed (${response.code})")
+                    val body = response.body?.string().orEmpty().take(200)
+                    throw RemoteHttpException(
+                        response.code,
+                        "Download sign failed (${response.code})${if (body.isNotBlank()) ": $body" else ""}",
+                    )
                 }
                 val json = JSONObject(response.body?.string().orEmpty())
                 val arr = json.optJSONArray("urls") ?: JSONArray()

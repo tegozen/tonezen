@@ -17,13 +17,13 @@ internal class MusicDownloadActions(
     private suspend fun resolveMusicDownloadBookId(track: MusicListTrack): String =
         ctx.catalogRepository.canonicalBookIdForTrack(track.trackId) ?: track.bookId
 
-    private suspend fun musicEnqueueRequest(
+    private fun musicEnqueueRequest(
         track: MusicListTrack,
         priority: DownloadPriority,
         batchId: String? = null,
-    ): EnqueueDownloadRequest {
-        val bookId = resolveMusicDownloadBookId(track)
-        return EnqueueDownloadRequest(
+        bookId: String = track.bookId,
+    ): EnqueueDownloadRequest =
+        EnqueueDownloadRequest(
             bookId = bookId,
             trackId = track.trackId,
             priority = priority,
@@ -32,18 +32,6 @@ internal class MusicDownloadActions(
             subtitle = track.artist,
             contentType = ContentType.MUSIC.name.lowercase(),
         )
-    }
-
-    private suspend fun catalogTrackNeedsDownload(track: MusicListTrack): Boolean {
-        val catalogTrack = ctx.catalogRepository.findTrackInCatalog(track.trackId) ?: return false
-        val bookId = catalogTrack.bookId
-        if (!catalogTrack.localPath.isNullOrBlank() &&
-            ctx.trackDownloadEnsurer.isTrackLocal(bookId, track.trackId)
-        ) {
-            return false
-        }
-        return !ctx.trackDownloadEnsurer.isTrackLocal(bookId, track.trackId)
-    }
 
     fun downloadMusicTrack(track: MusicListTrack) {
         if (!ctx.uiState.value.isNetworkOnline) {
@@ -51,14 +39,18 @@ internal class MusicDownloadActions(
             return
         }
         ctx.scope.launch {
-            if (!withContext(Dispatchers.IO) { catalogTrackNeedsDownload(track) }) {
+            val needsDownload = withContext(Dispatchers.IO) {
+                val bookId = resolveMusicDownloadBookId(track)
+                !ctx.trackDownloadEnsurer.isTrackLocal(bookId, track.trackId)
+            }
+            if (!needsDownload) {
                 val updatedList = catalogLists.refreshMusicTrackListDownloadState(ctx.uiState.value.musicTrackList)
                 ctx.uiState.update { it.copy(musicTrackList = updatedList) }
                 return@launch
             }
             ctx.downloadQueueController.enqueue(
                 withContext(Dispatchers.IO) {
-                    musicEnqueueRequest(track, DownloadPriority.USER)
+                    musicEnqueueRequest(track, DownloadPriority.USER, bookId = resolveMusicDownloadBookId(track))
                 },
             )
         }
@@ -109,10 +101,18 @@ internal class MusicDownloadActions(
             return
         }
         ctx.scope.launch {
-            val missingTracks = withContext(Dispatchers.IO) {
-                ctx.uiState.value.musicTrackList.filter { catalogTrackNeedsDownload(it) }
+            val requests = withContext(Dispatchers.IO) {
+                val downloadedIds = ctx.catalogRepository.getDownloadedTrackIds()
+                val missing = ctx.uiState.value.musicTrackList.filter { it.trackId !in downloadedIds }
+                missing.map { listTrack ->
+                    musicEnqueueRequest(
+                        listTrack,
+                        DownloadPriority.BULK,
+                        bookId = resolveMusicDownloadBookId(listTrack),
+                    )
+                }
             }
-            if (missingTracks.isEmpty()) {
+            if (requests.isEmpty()) {
                 val updatedList = catalogLists.refreshMusicTrackListDownloadState(ctx.uiState.value.musicTrackList)
                 ctx.uiState.update { it.copy(musicTrackList = updatedList) }
                 return@launch
@@ -120,12 +120,7 @@ internal class MusicDownloadActions(
             pauseMusicForBulkDownload(prefetch)
             val batchId = java.util.UUID.randomUUID().toString()
             ctx.lastBulkBatchId = batchId
-            ctx.downloadQueueController.enqueueBatch(
-                missingTracks.map { listTrack ->
-                    musicEnqueueRequest(listTrack, DownloadPriority.BULK, batchId)
-                },
-                batchId,
-            )
+            ctx.downloadQueueController.enqueueBatch(requests, batchId)
         }
     }
 

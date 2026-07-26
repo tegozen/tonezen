@@ -1,6 +1,5 @@
 package com.tonezen.app.playback
 
-import android.content.Intent
 import com.tonezen.app.data.local.DownloadQueueEntity
 import com.tonezen.app.data.local.SafeLocalStorage
 import com.tonezen.app.domain.downloads.DownloadAwaitResult
@@ -26,6 +25,7 @@ internal class TrackDownloadQueueEnqueue(
             shared.mutex.withLock {
                 enqueueLocked(request)
             }
+            startWorker()
         }
     }
 
@@ -37,6 +37,7 @@ internal class TrackDownloadQueueEnqueue(
                 shared.bulkTotal = requests.size
                 var skipped = 0
                 var enqueueSequence = System.currentTimeMillis()
+                val toUpsert = ArrayList<DownloadQueueEntity>(requests.size)
                 requests.forEach { request ->
                     val normalized = normalizeEnqueueRequest(request)
                     val req = normalized.copy(
@@ -51,18 +52,24 @@ internal class TrackDownloadQueueEnqueue(
                         val (diskBookId, path) = onDisk
                         shared.catalogRepository.markTrackDownloaded(diskBookId, req.trackId, path)
                         skipped++
-                        shared.localLibraryNotifier.notifyLocalLibraryChanged()
                         shared.completeAwaiter(
                             DownloadQueueKey(req.bookId, req.trackId),
                             DownloadAwaitResult.COMPLETED,
                         )
                     } else {
-                        enqueueLocked(req, refreshNotifier = false)
+                        buildQueueEntity(req)?.let { toUpsert.add(it) }
                     }
                 }
+                if (toUpsert.isNotEmpty()) {
+                    shared.downloadQueueRepository.upsertAll(toUpsert)
+                }
                 shared.bulkSkipped = skipped
+                if (skipped > 0) {
+                    shared.localLibraryNotifier.notifyLocalLibraryChanged()
+                }
                 notify.refreshNotifierFromDb()
             }
+            startWorker()
         }
     }
 
@@ -97,6 +104,7 @@ internal class TrackDownloadQueueEnqueue(
                 ),
             )
         }
+        startWorker()
         return deferred.await()
     }
 
@@ -120,8 +128,8 @@ internal class TrackDownloadQueueEnqueue(
                 }
             }
             notify.refreshNotifierFromDb()
-            if (shared.networkMonitor.isOnline()) startWorker()
         }
+        if (shared.networkMonitor.isOnline()) startWorker()
     }
 
     private suspend fun reconcileDownloadQueueBookIdsLocked() {
@@ -144,10 +152,7 @@ internal class TrackDownloadQueueEnqueue(
         }
     }
 
-    private suspend fun enqueueLocked(
-        request: EnqueueDownloadRequest,
-        refreshNotifier: Boolean = true,
-    ) {
+    private suspend fun enqueueLocked(request: EnqueueDownloadRequest) {
         val normalized = normalizeEnqueueRequest(request)
         if (!SafeLocalStorage.isSafeId(normalized.bookId) || !SafeLocalStorage.isSafeId(normalized.trackId)) return
         val requestKey = DownloadQueueKey(normalized.bookId, normalized.trackId)
@@ -160,39 +165,46 @@ internal class TrackDownloadQueueEnqueue(
             shared.completeAwaiter(requestKey, DownloadAwaitResult.COMPLETED)
             return
         }
-        val existing = shared.downloadQueueRepository.get(normalized.bookId, normalized.trackId)
+        val entity = buildQueueEntity(normalized) ?: return
+        shared.downloadQueueRepository.upsert(entity)
+        notify.refreshNotifierFromDb()
+    }
+
+    private suspend fun buildQueueEntity(request: EnqueueDownloadRequest): DownloadQueueEntity? {
+        if (!SafeLocalStorage.isSafeId(request.bookId) || !SafeLocalStorage.isSafeId(request.trackId)) return null
+        val requestKey = DownloadQueueKey(request.bookId, request.trackId)
+        shared.userCancelledKeys.remove(requestKey)
+        if (request.priority == DownloadPriority.USER || request.priority == DownloadPriority.PLAY) {
+            shared.failureCounts.remove(requestKey)
+        }
+        val existing = shared.downloadQueueRepository.get(request.bookId, request.trackId)
         val priority = if (existing != null) {
             DownloadQueuePolicy.mergePriority(
                 DownloadPriority.valueOf(existing.priority),
-                normalized.priority,
+                request.priority,
             )
         } else {
-            normalized.priority
+            request.priority
         }
         val partFile = SafeLocalStorage.trackPartFile(
             shared.context.filesDir,
-            normalized.bookId,
-            normalized.trackId,
+            request.bookId,
+            request.trackId,
         )
-        val entity = DownloadQueueEntity(
-            bookId = normalized.bookId,
-            trackId = normalized.trackId,
+        return DownloadQueueEntity(
+            bookId = request.bookId,
+            trackId = request.trackId,
             priority = priority.name,
-            batchId = normalized.batchId ?: existing?.batchId,
-            enqueuedAt = existing?.enqueuedAt ?: normalized.enqueuedAt,
-            title = normalized.title.ifBlank { existing?.title ?: normalized.trackId },
-            subtitle = normalized.subtitle ?: existing?.subtitle,
-            contentType = normalized.contentType,
+            batchId = request.batchId ?: existing?.batchId,
+            enqueuedAt = existing?.enqueuedAt ?: request.enqueuedAt,
+            title = request.title.ifBlank { existing?.title ?: request.trackId },
+            subtitle = request.subtitle ?: existing?.subtitle,
+            contentType = request.contentType,
             status = STATUS_QUEUED,
             bytesDownloaded = partFile?.takeIf { it.exists() }?.length() ?: existing?.bytesDownloaded ?: 0L,
             totalBytes = existing?.totalBytes,
             tempPath = partFile?.absolutePath,
         )
-        shared.downloadQueueRepository.upsert(entity)
-        if (refreshNotifier) {
-            notify.refreshNotifierFromDb()
-        }
-        startWorker()
     }
 
     private suspend fun normalizeEnqueueRequest(request: EnqueueDownloadRequest): EnqueueDownloadRequest {

@@ -22,8 +22,7 @@ class CatalogTracksRepository @Inject constructor(
     }
 
     suspend fun findTrackInCatalog(trackId: String): Track? = withContext(Dispatchers.IO) {
-        val bookId = catalogDao.getBookIdForTrack(trackId) ?: return@withContext null
-        catalogDao.getTracksForBook(bookId).find { it.id == trackId }?.toSanitizedDomain(context)
+        catalogDao.getTrackById(trackId)?.toSanitizedDomain(context)
     }
 
     suspend fun findBookForTrack(trackId: String): Book? {

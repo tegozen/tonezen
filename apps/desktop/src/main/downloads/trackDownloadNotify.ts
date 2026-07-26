@@ -25,6 +25,7 @@ export function reportDownloadFailure(
   logDownloadFailure: DownloadFailureLogger | undefined,
   entity: DownloadQueueRow,
   code: DownloadAwaitResult,
+  details?: string,
 ): void {
   const entry: DiagnosticErrorEntry = {
     area: "download",
@@ -34,6 +35,7 @@ export function reportDownloadFailure(
     trackId: entity.trackId,
     bookTitle: entity.subtitle ?? undefined,
     trackTitle: entity.title,
+    details,
   };
   try {
     void Promise.resolve(logDownloadFailure?.(entry)).catch(() => {});

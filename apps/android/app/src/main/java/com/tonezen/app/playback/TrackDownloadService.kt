@@ -118,4 +118,5 @@ class TrackDownloadService : Service() {
     }
 }
 
-internal fun shouldKeepDownloadServiceForeground(state: DownloadQueueState): Boolean = state.isActive
+internal fun shouldKeepDownloadServiceForeground(state: DownloadQueueState): Boolean =
+    state.isActive || state.isBulkDownloading

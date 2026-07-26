@@ -96,10 +96,8 @@ class CatalogLocalPathsRepository @Inject constructor(
 
     suspend fun markTrackDownloaded(bookId: String, trackId: String, localPath: String): Boolean {
         val safePath = SafeLocalStorage.sanitizeExistingLocalPath(context.filesDir, localPath) ?: return false
-        val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId }
-            ?: catalogDao.getBookIdForTrack(trackId)?.let { resolvedBookId ->
-                catalogDao.getTracksForBook(resolvedBookId).find { it.id == trackId }
-            }
+        val track = catalogDao.getTrack(bookId, trackId)
+            ?: catalogDao.getTrackById(trackId)
         if (track != null) {
             catalogDao.upsertTracks(
                 listOf(
@@ -132,17 +130,16 @@ class CatalogLocalPathsRepository @Inject constructor(
     }
 
     suspend fun clearTrackLocalPath(bookId: String, trackId: String) {
-        val track = catalogDao.getTracksForBook(bookId).find { it.id == trackId }
-            ?: catalogDao.getBookIdForTrack(trackId)?.let { resolvedBookId ->
-                catalogDao.getTracksForBook(resolvedBookId).find { it.id == trackId }
-            }
+        val track = catalogDao.getTrack(bookId, trackId)
+            ?: catalogDao.getTrackById(trackId)
             ?: return
         catalogDao.upsertTracks(listOf(track.copy(localPath = null, localDownloadedAt = null)))
         invalidateDownloadedTrackIdsCache()
     }
 
     private suspend fun resolveLocalTrackPathForBook(bookId: String, trackId: String): String? {
-        val fromDb = catalogDao.getTracksForBook(bookId).find { it.id == trackId }?.localPath
+        val fromDb = catalogDao.getTrack(bookId, trackId)?.localPath
+            ?: catalogDao.getTrackById(trackId)?.takeIf { it.bookId == bookId }?.localPath
         if (fromDb != null && SafeLocalStorage.isUnderAppFilesRoot(context.filesDir, fromDb)) {
             val file = File(fromDb)
             if (file.isFile && file.length() > 0L) return fromDb

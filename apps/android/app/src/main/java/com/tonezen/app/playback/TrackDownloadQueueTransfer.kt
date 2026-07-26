@@ -1,5 +1,6 @@
 package com.tonezen.app.playback
 
+import android.util.Log
 import com.tonezen.app.data.local.DownloadQueueEntity
 import com.tonezen.app.data.local.SafeLocalStorage
 import com.tonezen.app.domain.downloads.DownloadAwaitResult
@@ -25,7 +26,9 @@ internal class TrackDownloadQueueTransfer(
         }
         return try {
             val session = shared.sessionRepository.refreshIfNeeded(shared.sessionRepository.loadSession())
-                ?: return DownloadAwaitResult.FAILED
+                ?: return DownloadAwaitResult.FAILED.also {
+                    Log.w(TAG, "download failed: no session book=${entity.bookId} track=${entity.trackId}")
+                }
             var lastNotifyBucket = -1
             val partFile = SafeLocalStorage.trackPartFile(shared.context.filesDir, entity.bookId, entity.trackId)
             val offset = partFile?.takeIf { it.exists() }?.length() ?: entity.bytesDownloaded
@@ -63,17 +66,24 @@ internal class TrackDownloadQueueTransfer(
                 }
                 shared.catalogRepository.reconcileLocalDownloadPaths()
                 if (!outcome.finalFile.isFile || outcome.finalFile.length() <= 0L) {
+                    Log.w(TAG, "download failed: mark/path book=${entity.bookId} track=${entity.trackId}")
                     return DownloadAwaitResult.FAILED
                 }
             }
             shared.localLibraryNotifier.notifyLocalLibraryChanged()
             DownloadAwaitResult.COMPLETED
-        } catch (_: IOException) {
+        } catch (e: IOException) {
+            Log.w(TAG, "download IO book=${entity.bookId} track=${entity.trackId}: ${e.message}")
             if (shared.userCancelledKeys.contains(key)) DownloadAwaitResult.CANCELLED
             else if (!shared.networkMonitor.isOnline() || shared.pausedForNetwork) DownloadAwaitResult.OFFLINE
             else DownloadAwaitResult.FAILED
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "download error book=${entity.bookId} track=${entity.trackId}: ${e.message}")
             DownloadAwaitResult.FAILED
         }
+    }
+
+    companion object {
+        private const val TAG = "TonezenDownload"
     }
 }

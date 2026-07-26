@@ -17,7 +17,7 @@ export async function signedUrlForTrack(
     },
     body: JSON.stringify({ track_ids: [trackId] }),
   });
-  if (!response.ok) throw new Error("__download_sign_failed__");
+  if (!response.ok) throw new Error(`__download_sign_failed__:${response.status}`);
   const json = (await response.json()) as { urls: Array<{ track_id: string; url: string }> };
   const signed = json.urls.find((u) => u.track_id === trackId);
   if (!signed) throw new Error("__download_no_signed_url__");

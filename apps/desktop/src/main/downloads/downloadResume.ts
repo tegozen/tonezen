@@ -91,11 +91,11 @@ export async function downloadTrackResumable(
       }
 
       if (!response.ok && response.status !== 206) {
-        throw new Error("__download_transfer_failed__");
+        throw new Error(`__download_transfer_failed__:${response.status}`);
       }
 
       const body = response.body;
-      if (!body) throw new Error("__download_transfer_failed__");
+      if (!body) throw new Error("__download_transfer_failed__:empty_body");
 
       const contentLength = Number(response.headers.get("content-length") ?? -1);
       if (response.status === 206) {
