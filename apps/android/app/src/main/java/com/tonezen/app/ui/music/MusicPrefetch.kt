@@ -8,6 +8,7 @@ import com.tonezen.app.domain.music.MusicQueueWindow
 import com.tonezen.app.domain.downloads.DownloadPriority
 import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -26,7 +27,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 
 internal val TonezenSheetContentBottomPadding = 20.dp
 
-@OptIn(ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 internal fun TonezenGlassSheetSurface(
     hazeState: HazeState,
