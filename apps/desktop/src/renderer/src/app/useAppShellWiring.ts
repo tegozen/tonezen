@@ -1,17 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Book, Cycle } from "@core/types";
-import { progressForTrack } from "@core/downloads/downloadQueueState";
-import { findActiveMusicTrack } from "@core/playback/musicPlayback";
+import { useCallback, useState } from "react";
 import type { BottomTab } from "@core/platform/navigation";
 import { useToast } from "@/shared/lib/useToast";
-import { getTonezenApi, useDeleteDownloadMutation, useTriggerSyncMutation } from "@/shared/api";
-import { useDownloadQueue, useLibraryDownloads } from "@/features/downloads";
-import { useMusicPlayback } from "@/features/music-queue";
-import { useAudiobookSession, usePlayback } from "@/features/playback";
+import { useDeleteDownloadMutation, useTriggerSyncMutation } from "@/shared/api";
+import { useDownloadQueue } from "@/features/downloads";
 import { useTonezenSession } from "@/features/auth";
-import { useLibraryController } from "@/features/library";
 import { useIpcQueryInvalidation } from "@/app/useIpcQueryInvalidation";
-import { isBookFullyListened } from "@/entities/catalog";
+import { useAppShellAuthActions } from "@/app/useAppShellAuthActions";
+import { useAppShellDerivedUi } from "@/app/useAppShellDerivedUi";
+import { useAppShellFeatureStack } from "@/app/useAppShellFeatureStack";
 
 export function useAppShellWiring() {
   const session = useTonezenSession();
@@ -44,193 +40,66 @@ export function useAppShellWiring() {
   const downloadQueue = useDownloadQueue();
   const authenticated = sessionState !== "Unauthenticated";
   useIpcQueryInvalidation(authenticated);
-  const library = useLibraryController({ sessionState, downloadQueueState: downloadQueue.state });
 
   const closeExpandedPlayer = useCallback(() => setShowExpandedPlayer(false), []);
 
-  const musicHandlersRef = useRef<{
-    handleSkipNext: () => boolean;
-    handleSkipPrevious: () => boolean;
-    handleTrackEnded: () => boolean;
-  }>({
-    handleSkipNext: () => false,
-    handleSkipPrevious: () => false,
-    handleTrackEnded: () => false,
-  });
-  const skipHandlers = useMemo(
-    () => ({
-      onSkipNext: () => musicHandlersRef.current.handleSkipNext(),
-      onSkipPrevious: () => musicHandlersRef.current.handleSkipPrevious(),
-    }),
-    [],
-  );
-
   const {
+    library,
+    music,
+    downloads,
+    audiobook,
     currentTrack,
     isPlaying,
     positionMs,
     durationMs,
     audioRef,
-    playTrack,
-    stopPlayback,
     onTimeUpdate,
-    pauseOrResume,
     seekBy,
     seekTo,
     volume,
     setVolume,
-  } = usePlayback(library.selectedBook, library.tracks, library.tracks, skipHandlers);
-
-  const music = useMusicPlayback({
-    books: library.books,
-    allTracks: library.allTracks,
-    musicTracks: library.musicTracks,
-    setMusicTracks: library.setMusicTracks,
-    setTracks: library.setTracks,
-    sessionState,
-    refreshLibrary: library.refreshLibrary,
-    downloadQueue,
-    playTrack,
     stopPlayback,
-    pauseOrResume,
-    seekTo,
+  } = useAppShellFeatureStack({
+    sessionState,
+    downloadQueue,
+    closeExpandedPlayer,
+    showToast,
+  });
+
+  const { handleLogin, handleLogout, openBook } = useAppShellAuthActions({
+    login,
+    logout,
+    library,
+    music,
+    stopPlayback,
+  });
+
+  const {
+    savedBookProgress,
+    miniTitle,
+    activeMusicTrack,
+    miniSubtitle,
+    miniDownloadProgress,
+    showMiniPlayer,
+    handleTabSelect,
+    showBottomNav,
+    coverSeed,
+    bookIsListened,
+    progress,
+  } = useAppShellDerivedUi({
+    activeTab,
+    setActiveTab,
+    library,
+    music,
+    downloadQueue,
     currentTrack,
     positionMs,
-  });
-
-  musicHandlersRef.current = {
-    handleSkipNext: music.handleSkipNext,
-    handleSkipPrevious: music.handleSkipPrevious,
-    handleTrackEnded: music.handleTrackEnded,
-  };
-  library.musicStartedInSessionRef.current = music.musicStartedInSessionRef.current;
-
-  const downloads = useLibraryDownloads({
-    sessionState,
-    downloadQueue,
-    currentTrack,
-    selectedBook: library.selectedBook,
-    setTracks: library.setTracks,
-    stopPlayback,
-    closeExpandedPlayer,
-    refreshLibrary: library.refreshLibrary,
-    showToast,
-  });
-
-  const audiobook = useAudiobookSession({
-    sessionState,
-    books: library.books,
-    cycles: library.cycles,
-    selectedBook: library.selectedBook,
-    setSelectedBook: library.setSelectedBook,
-    selectedCycle: library.selectedCycle,
-    setSelectedCycle: library.setSelectedCycle,
-    tracks: library.tracks,
-    setTracks: library.setTracks,
-    tracksByBookId: library.tracksByBookId,
-    progressByBook: library.progressByBook,
-    setProgressList: library.setProgressList,
-    refreshLibrary: library.refreshLibrary,
-    downloadQueue,
-    playTrack,
-    stopPlayback,
-    pauseOrResume,
-    currentTrack,
     durationMs,
-    isPlaying,
-    showToast,
-    closeExpandedPlayer,
-    music: {
-      setMusicMode: music.setMusicMode,
-      handleSkipNext: music.handleSkipNext,
-      handleSkipPrevious: music.handleSkipPrevious,
-      handleTrackEnded: music.handleTrackEnded,
-    },
+    refreshSession,
   });
-
-  const openBook = useCallback(
-    (book: Book, fromCycle: Cycle | null = library.selectedCycle) => {
-      music.setMusicMode(false);
-      return library.openBook(book, fromCycle);
-    },
-    [library, music],
-  );
 
   const deleteDownload = useDeleteDownloadMutation();
   const triggerSync = useTriggerSyncMutation();
-
-  const syncCatalog = async () => {
-    try {
-      await getTonezenApi().catalog.sync();
-      await library.refreshLibrary({ rebuildMusic: true });
-    } catch {
-      await library.refreshLibrary({ rebuildMusic: true });
-    }
-  };
-
-  const handleLogin = async () => {
-    const ok = await login();
-    if (ok) {
-      await syncCatalog();
-    }
-  };
-
-  const handleLogout = async () => {
-    stopPlayback();
-    library.setSelectedBook(null);
-    library.setSelectedCycle(null);
-    music.resetMusicSession();
-    library.musicStartedInSessionRef.current = false;
-    await logout();
-  };
-
-  const savedBookProgress = library.selectedBook
-    ? library.progressByBook.get(library.selectedBook.id)
-    : undefined;
-
-  const miniTitle = currentTrack?.title ?? null;
-  const activeMusicTrack = findActiveMusicTrack(
-    music.musicQueue,
-    music.musicQueueRef.current,
-    currentTrack?.id,
-  );
-  const miniSubtitle = music.musicMode
-    ? activeMusicTrack
-      ? [activeMusicTrack.artist, activeMusicTrack.albumTitle].filter(Boolean).join(" · ") ||
-        "Сейчас играет"
-      : "Сейчас играет"
-    : library.selectedBook?.author ?? "Сейчас играет";
-  const miniDownloadProgress = currentTrack
-    ? progressForTrack(downloadQueue.state, currentTrack.id)
-    : null;
-  const currentTrackInSelectedBook =
-    library.selectedBook != null &&
-    currentTrack != null &&
-    library.tracks.some((track) => track.id === currentTrack.id);
-  const showMiniPlayer =
-    Boolean(currentTrack) &&
-    (music.musicMode || currentTrackInSelectedBook || (!library.selectedBook && !library.selectedCycle));
-  const handleMusicTabSelected = music.onMusicTabSelected;
-  const handleTabSelect = useCallback(
-    (tab: BottomTab) => {
-      setActiveTab(tab);
-      if (tab !== "books") library.setShowFilterSheet(false);
-      if (tab === "music") handleMusicTabSelected();
-      if (tab === "profile") void refreshSession();
-    },
-    [handleMusicTabSelected, library, refreshSession],
-  );
-
-  useEffect(() => {
-    if (activeTab === "music") {
-      handleMusicTabSelected();
-    }
-  }, [activeTab, handleMusicTabSelected]);
-
-  const showBottomNav = !library.selectedBook && !library.selectedCycle;
-  const coverSeed = currentTrack?.id ?? library.selectedBook?.id ?? "";
-  const bookIsListened = isBookFullyListened(library.tracks, savedBookProgress);
-  const progress = durationMs > 0 ? positionMs / durationMs : 0;
 
   return {
     sessionState,
