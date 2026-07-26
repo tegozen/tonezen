@@ -99,7 +99,7 @@ make lint
 make test
 cd backend/api && npm test
 cd backend/indexer && npm test
-./gradlew testDebugUnitTest
+./gradlew assembleDebug
 ```
 
 ## Quick inspection (not a substitute for reading hot paths)

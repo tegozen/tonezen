@@ -157,4 +157,4 @@ Do not commit unless the user explicitly asks (see [git-commit](../git-commit/SK
 
 **User:** `/refactor apps/android`
 
-→ Read `kotlin-android.mdc` + AGENTS.md Android section; fix layer violations first (DAO/entities out of ViewModel); extract repos per domain; split god ViewModel; run `./gradlew testDebugUnitTest`.
+→ Read `kotlin-android.mdc` + AGENTS.md Android section; fix layer violations first (DAO/entities out of ViewModel); extract repos per domain; split god ViewModel; verify with `./gradlew assembleDebug` only if the user asks.

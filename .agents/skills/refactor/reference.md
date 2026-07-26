@@ -119,7 +119,7 @@ domain/         model/ session/ progress/ playback/
 ### Verify
 
 ```bash
-cd apps/android && ./gradlew testDebugUnitTest
+cd apps/android && ./gradlew assembleDebug
 
 # Layer grep — should return no matches
 rg "import android\.|import androidx\.|data\.local\." apps/android/app/src/main/java/com/tonezen/app/domain/
@@ -207,7 +207,7 @@ When refactoring sync code, trace both content types separately before merging a
 | Scope | Commands |
 |-------|----------|
 | Whole repo | `make lint` && `make test` |
-| Android only | `./gradlew testDebugUnitTest` in `apps/android` (+ ktlint/detekt when configured) |
+| Android only | `./gradlew assembleDebug` in `apps/android` when the user asks (+ ktlint/detekt when configured); no unit-test suite |
 | Desktop only | `npm run lint && npm test` in `apps/desktop` |
 | API only | `npm run lint && npm test` in `backend/api` |
 | Indexer only | `npm run lint && npm test` in `backend/indexer` |

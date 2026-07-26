@@ -111,7 +111,7 @@ make lint    # or scoped package lint
 make test    # or package-specific tests
 ```
 
-Android: `./gradlew testDebugUnitTest` when Kotlin paths changed.
+Android: `./gradlew assembleDebug` when Kotlin paths changed and the user asks for verification (no unit-test suite).
 
 Confirm:
 

@@ -102,7 +102,7 @@ make lint    # or scoped: cd backend/api && npm run lint
 make test    # or package-specific test command
 ```
 
-For Android: `./gradlew testDebugUnitTest` when Android security paths changed.
+For Android: `./gradlew assembleDebug` when Android security paths changed and the user asks for verification (no unit-test suite).
 
 Re-check fixed locations mentally: exploit path closed, no regression in legitimate flows.
 

@@ -107,7 +107,7 @@ make test
 cd backend/api && npm test
 cd backend/indexer && npm test
 cd apps/desktop && npm test   # if configured
-./gradlew testDebugUnitTest   # Android
+./gradlew assembleDebug   # Android (no unit-test suite; only if user asks)
 ```
 
 ## Secret scan (quick grep patterns)
