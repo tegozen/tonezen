@@ -23,7 +23,7 @@ const storageConfig = {
   bucket: config.storageBucket,
   serviceRoleKey: config.serviceRoleKey,
 };
-const repo = new CatalogRepository(pool, storageConfig);
+const repo = new CatalogRepository(pool);
 
 const healthState: IndexerHealthState = {
   lastSuccessAt: null,

@@ -69,7 +69,7 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 ### API-first
 
 1. Update `docs/openapi.yaml`
-2. Implement Edge Functions / clients
+2. Implement Express API (`backend/api`) / clients
 3. Add/update contract tests only when the user explicitly asks
 
 ### Backend
@@ -146,8 +146,8 @@ apps/desktop/src/
 | TypeScript/React | ESLint + Prettier | strict TS; functional components; hooks for logic; UI copy inline at usage sites (**Russian only**) |
 | Desktop renderer UI | Tailwind CSS v4 + SCSS modules | FSD in `renderer/src`; domain in `src/core`; `@reference` SCSS modules for new UI; legacy globals in `app/styles/styles.css` |
 | SQL | pg formatter | snake_case; explicit RLS in migrations |
-| Edge Functions (Deno) | deno lint/fmt | Modules < 200 lines; no `any` |
-| Indexer (Node/TS) | ESLint + Prettier | Same as desktop |
+| API (Express/Node) | ESLint + Prettier | Modules < 200 lines; no `any`; domain repos under `db/` |
+| Indexer (Node/TS) | ESLint + Prettier | Same as desktop; pure parsers + thin DB/storage IO |
 
 ## Tests (optional)
 

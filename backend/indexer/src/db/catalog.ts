@@ -2,32 +2,15 @@ import type pg from "pg";
 import type { ParsedBook, ParsedCycle } from "../parsers.js";
 import { storagePathForAudiobook, storagePathForMusic } from "../parsers.js";
 import type { FileMetadata } from "../mediaProbe.js";
-import {
-  analyzeAudioFileAtPath,
-  metadataFromStoredIfUnchanged,
-} from "../mediaProbe.js";
-import {
-  downloadObjectToTemp,
-  removeTempFile,
-  type StorageDownloadConfig,
-} from "../storage/download.js";
 import type { StorageObjectRow } from "../storage/listObjects.js";
+import { reconcileDeletionsInTransaction } from "./catalogReconcile.js";
+import { mergePartialBookOrder } from "./mergeBookOrder.js";
+
+export { mergePartialBookOrder } from "./mergeBookOrder.js";
 
 export interface UpsertCatalogOptions {
   getMetadata: (storagePath: string, knownDurationMs: number | null) => Promise<FileMetadata | null>;
   objectUpdatedAtByPath: Map<string, Date | null>;
-}
-
-export function mergePartialBookOrder(existingOrder: unknown, partialOrder: string[]): string[] {
-  const merged = Array.isArray(existingOrder)
-    ? existingOrder.filter((value): value is string => typeof value === "string")
-    : [];
-  for (const slug of partialOrder) {
-    if (!merged.includes(slug)) {
-      merged.push(slug);
-    }
-  }
-  return merged;
 }
 
 interface CycleUpsertResult {
@@ -36,36 +19,16 @@ interface CycleUpsertResult {
 }
 
 export class CatalogRepository {
-  private objectSizes = new Map<string, number>();
   private objectUpdatedAtByPath = new Map<string, Date | null>();
 
-  constructor(
-    private pool: pg.Pool,
-    private storage: StorageDownloadConfig,
-  ) {}
-
-  setObjectSizes(objects: StorageObjectRow[]): void {
-    this.objectSizes = new Map(
-      objects
-        .filter((object) => object.sizeBytes != null)
-        .map((object) => [object.name, object.sizeBytes as number]),
-    );
-    this.objectUpdatedAtByPath = new Map(
-      objects.map((object) => [object.name, object.updatedAt]),
-    );
-  }
-
-  async upsertCatalog(cycles: ParsedCycle[], musicAlbums: ParsedBook[]): Promise<void> {
-    await this.upsertParsedCatalog(cycles, musicAlbums, null);
-  }
+  constructor(private pool: pg.Pool) {}
 
   async upsertPartialCatalog(
-    changedObjects: StorageObjectRow[],
+    _changedObjects: StorageObjectRow[],
     cycles: ParsedCycle[],
     musicAlbums: ParsedBook[],
     options: UpsertCatalogOptions,
   ): Promise<void> {
-    this.setObjectSizes(changedObjects);
     this.objectUpdatedAtByPath = options.objectUpdatedAtByPath;
     await this.upsertParsedCatalog(cycles, musicAlbums, options);
   }
@@ -74,7 +37,7 @@ export class CatalogRepository {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      await this.reconcileDeletionsInTransaction(client);
+      await reconcileDeletionsInTransaction(client);
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK");
@@ -87,22 +50,18 @@ export class CatalogRepository {
   private async upsertParsedCatalog(
     cycles: ParsedCycle[],
     musicAlbums: ParsedBook[],
-    options: UpsertCatalogOptions | null,
+    options: UpsertCatalogOptions,
   ): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      const activeCycleSlugs = new Set<string>();
-      const activeBookSlugs = new Set<string>();
 
       for (const cycle of cycles) {
-        activeCycleSlugs.add(cycle.slug);
-        const cycleRow = await this.upsertCycle(client, cycle, options != null);
+        const cycleRow = await this.upsertCycle(client, cycle);
         for (let i = 0; i < cycleRow.bookOrder.length; i++) {
           const bookSlug = cycleRow.bookOrder[i];
           const book = cycle.books.find((b) => b.slug === bookSlug);
           if (!book) continue;
-          activeBookSlugs.add(book.slug);
           const bookId = await this.upsertBook(client, book);
           await client.query(
             `INSERT INTO cycle_books (cycle_id, book_id, sort_order)
@@ -122,16 +81,11 @@ export class CatalogRepository {
       }
 
       for (const album of musicAlbums) {
-        activeBookSlugs.add(album.slug);
         const bookId = await this.upsertBook(client, album);
         for (const track of album.tracks) {
           const storagePath = storagePathForMusic(track.filename);
           await this.upsertTrack(client, bookId, track, storagePath, options);
         }
-      }
-
-      if (options == null) {
-        await this.softDeleteMissing(client, activeCycleSlugs, activeBookSlugs);
       }
 
       await client.query("COMMIT");
@@ -146,32 +100,29 @@ export class CatalogRepository {
   private async upsertCycle(
     client: pg.PoolClient,
     cycle: ParsedCycle,
-    partial: boolean,
   ): Promise<CycleUpsertResult> {
-    if (partial) {
-      const existing = await client.query<{ id: string; book_order: unknown }>(
-        `SELECT id, book_order FROM cycles WHERE slug = $1 FOR UPDATE`,
-        [cycle.slug],
+    const existing = await client.query<{ id: string; book_order: unknown }>(
+      `SELECT id, book_order FROM cycles WHERE slug = $1 FOR UPDATE`,
+      [cycle.slug],
+    );
+    if (existing.rows.length > 0) {
+      const mergedBookOrder = mergePartialBookOrder(existing.rows[0].book_order, cycle.bookOrder);
+      await client.query(
+        `UPDATE cycles SET
+           title = $2,
+           description = $3,
+           book_order = $4,
+           updated_at = now(),
+           deleted_at = NULL
+         WHERE id = $1`,
+        [
+          existing.rows[0].id,
+          cycle.title,
+          cycle.description,
+          JSON.stringify(mergedBookOrder),
+        ],
       );
-      if (existing.rows.length > 0) {
-        const mergedBookOrder = mergePartialBookOrder(existing.rows[0].book_order, cycle.bookOrder);
-        await client.query(
-          `UPDATE cycles SET
-             title = $2,
-             description = $3,
-             book_order = $4,
-             updated_at = now(),
-             deleted_at = NULL
-           WHERE id = $1`,
-          [
-            existing.rows[0].id,
-            cycle.title,
-            cycle.description,
-            JSON.stringify(mergedBookOrder),
-          ],
-        );
-        return { id: existing.rows[0].id, bookOrder: mergedBookOrder };
-      }
+      return { id: existing.rows[0].id, bookOrder: mergedBookOrder };
     }
 
     const result = await client.query(
@@ -217,11 +168,9 @@ export class CatalogRepository {
       durationMs?: number | null;
     },
     storagePath: string,
-    options: UpsertCatalogOptions | null,
+    options: UpsertCatalogOptions,
   ): Promise<void> {
-    const meta = options
-      ? await options.getMetadata(storagePath, track.durationMs ?? null)
-      : await this.resolveFileMetadata(client, storagePath, track.durationMs ?? null);
+    const meta = await options.getMetadata(storagePath, track.durationMs ?? null);
 
     const trackResult = await client.query(
       `INSERT INTO tracks (book_id, sort_order, title, filename, artist, updated_at, deleted_at)
@@ -268,7 +217,7 @@ export class CatalogRepository {
 
     const storageObjectUpdatedAt =
       this.objectUpdatedAtByPath.get(storagePath) ??
-      options?.objectUpdatedAtByPath.get(storagePath) ??
+      options.objectUpdatedAtByPath.get(storagePath) ??
       null;
 
     await client.query(
@@ -293,100 +242,5 @@ export class CatalogRepository {
         storageObjectUpdatedAt,
       ],
     );
-  }
-
-  private async resolveFileMetadata(
-    client: pg.PoolClient,
-    storagePath: string,
-    knownDurationMs: number | null,
-  ): Promise<FileMetadata | null> {
-    const existing = await client.query(
-      `SELECT tf.checksum, tf.size_bytes, tf.waveform_peaks, t.duration_ms
-       FROM track_files tf
-       JOIN tracks t ON t.id = tf.track_id
-       WHERE tf.storage_path = $1`,
-      [storagePath],
-    );
-
-    const cachedSize = this.objectSizes.get(storagePath);
-    if (existing.rows.length > 0 && cachedSize != null) {
-      const reused = metadataFromStoredIfUnchanged(existing.rows[0], cachedSize);
-      if (reused) return reused;
-    }
-
-    let tempPath: string | null = null;
-    try {
-      tempPath = await downloadObjectToTemp(storagePath, this.storage);
-      const meta = await analyzeAudioFileAtPath(tempPath, {
-        knownDurationMs: knownDurationMs ?? undefined,
-      });
-      if (meta && cachedSize != null && meta.sizeBytes !== cachedSize) {
-        return { ...meta, sizeBytes: cachedSize };
-      }
-      return meta;
-    } catch {
-      return null;
-    } finally {
-      if (tempPath) {
-        await removeTempFile(tempPath);
-      }
-    }
-  }
-
-  private async reconcileDeletionsInTransaction(client: pg.PoolClient): Promise<void> {
-    await client.query(
-      `UPDATE tracks t
-       SET deleted_at = now(), updated_at = now()
-       FROM track_files tf
-       WHERE t.id = tf.track_id
-         AND (tf.storage_path LIKE 'cycles/%' OR tf.storage_path LIKE 'music/%')
-         AND t.deleted_at IS NULL
-         AND NOT EXISTS (
-           SELECT 1 FROM storage.objects o
-           WHERE o.bucket_id = 'content' AND o.name = tf.storage_path
-         )`,
-    );
-
-    await client.query(
-      `UPDATE books b
-       SET deleted_at = now(), updated_at = now()
-       WHERE b.deleted_at IS NULL
-         AND NOT EXISTS (
-           SELECT 1 FROM tracks t
-           WHERE t.book_id = b.id AND t.deleted_at IS NULL
-         )`,
-    );
-
-    await client.query(
-      `UPDATE cycles c
-       SET deleted_at = now(), updated_at = now()
-       WHERE c.deleted_at IS NULL
-         AND NOT EXISTS (
-           SELECT 1 FROM cycle_books cb
-           JOIN books b ON b.id = cb.book_id
-           WHERE cb.cycle_id = c.id AND b.deleted_at IS NULL
-         )`,
-    );
-  }
-
-  private async softDeleteMissing(
-    client: pg.PoolClient,
-    activeCycleSlugs: Set<string>,
-    activeBookSlugs: Set<string>,
-  ): Promise<void> {
-    if (activeCycleSlugs.size > 0) {
-      await client.query(
-        `UPDATE cycles SET deleted_at = now()
-         WHERE slug != ALL($1::text[]) AND deleted_at IS NULL`,
-        [Array.from(activeCycleSlugs)],
-      );
-    }
-    if (activeBookSlugs.size > 0) {
-      await client.query(
-        `UPDATE books SET deleted_at = now()
-         WHERE slug != ALL($1::text[]) AND deleted_at IS NULL`,
-        [Array.from(activeBookSlugs)],
-      );
-    }
   }
 }

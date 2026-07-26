@@ -36,6 +36,15 @@ describe("catalog upsert safeguards", () => {
     ).toEqual(["saga--book-one", "saga--book-two"]);
   });
 
+  it("re-sorts merged book order naturally after out-of-order partial uploads", () => {
+    expect(mergePartialBookOrder(["saga--10"], ["saga--1", "saga--2", "saga--3"])).toEqual([
+      "saga--1",
+      "saga--2",
+      "saga--3",
+      "saga--10",
+    ]);
+  });
+
   it("keeps full cycle order when partial indexing updates one book", async () => {
     const queries: Array<{ text: string; values: unknown[] }> = [];
     const client = {
@@ -64,11 +73,7 @@ describe("catalog upsert safeguards", () => {
     const pool = {
       connect: vi.fn(async () => client),
     };
-    const repo = new CatalogRepository(pool as never, {
-      storageUrl: "http://storage",
-      bucket: "content",
-      serviceRoleKey: "key",
-    });
+    const repo = new CatalogRepository(pool as never);
     const updatedAt = new Date("2025-06-01T00:00:00.000Z");
 
     await repo.upsertPartialCatalog(
