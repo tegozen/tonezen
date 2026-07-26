@@ -1,11 +1,11 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useRef } from "react";
-import { PauseIcon, PlayIcon, SkipBackIcon, SkipForwardIcon } from "@/shared/ui/TonezenIcons";
-import { TrackSpectrumArt } from "@/shared/ui/CoverArt";
 import { useAnimatedVisibility } from "@/shared/lib/useAnimatedVisibility";
-import { formatMs } from "@/shared/lib/formatTime";
 import { seekFractionFromPointer } from "@core/playback/playbackSeek";
 import { normalizeWaveformPeaks } from "@core/catalog/waveformPeaks";
+import { NowPlayingHero } from "./NowPlayingHero";
+import { NowPlayingSeekBar } from "./NowPlayingSeekBar";
+import { NowPlayingControls } from "./NowPlayingControls";
 
 interface NowPlayingSheetProps {
   visible: boolean;
@@ -123,148 +123,44 @@ export function NowPlayingSheet({
         <div className="now-playing-sheet-glass">
           <div className="now-playing-sheet-handle" />
           <div className="now-playing-sheet-content">
-            <div className="now-playing-sheet-hero">
-              <div className="now-playing-sheet-cover-row">
-                <TrackSpectrumArt
-                  seed={coverSeed}
-                  title={title}
-                  isPlaying={coverPlaying}
-                  className="now-playing-sheet-cover h-[168px] w-[168px] rounded-[24px]"
-                >
-                  {isDownloading ? (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/55 text-base font-bold text-teal">
-                      {showDownloadLabel ? `${Math.round(downloadProgress * 100)}%` : "…"}
-                    </div>
-                  ) : null}
-                </TrackSpectrumArt>
-                <div className="now-playing-volume">
-                  <div className="now-playing-volume-slider-wrap">
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={volumePercent}
-                      className="now-playing-volume-slider"
-                      style={{ "--volume-fill": `${volumePercent}%` } as CSSProperties}
-                      aria-label="Громкость"
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={volumePercent}
-                      onChange={(event) => onVolumeChange(Number(event.target.value) / 100)}
-                    />
-                  </div>
-                  <span className="now-playing-volume-label">{volumePercent}%</span>
-                </div>
-              </div>
-              <div className="now-playing-sheet-meta">
-                <h2 className="line-clamp-2">{title}</h2>
-                {subtitle ? <p className="line-clamp-2">{subtitle}</p> : null}
-              </div>
-            </div>
-
-            <div className="now-playing-sheet-progress-block">
-              <div
-                ref={progressRef}
-                className={activeWaveformPeaks ? "now-playing-waveform" : "now-playing-progress"}
-                style={
-                  activeWaveformPeaks
-                    ? ({ "--waveform-progress": progressPercent } as CSSProperties)
-                    : undefined
-                }
-                role="slider"
-                aria-label="Сейчас играет"
-                aria-valuemin={0}
-                aria-valuemax={1000}
-                aria-valuenow={Math.round(progress * 1000)}
-                tabIndex={disabled ? -1 : 0}
-                onPointerDown={handleProgressPointerDown}
-                onPointerMove={handleProgressPointerMove}
-                onPointerUp={handleProgressPointerUp}
-                onPointerCancel={handleProgressPointerUp}
-                onKeyDown={(event) => {
-                  if (disabled) return;
-                  if (event.key === "ArrowRight") onSeek(Math.min(1, progress + 0.05));
-                  if (event.key === "ArrowLeft") onSeek(Math.max(0, progress - 0.05));
-                }}
-              >
-                {activeWaveformPeaks ? (
-                  <>
-                    <div className="now-playing-waveform-bars now-playing-waveform-bars-muted" aria-hidden="true">
-                      {renderWaveformBars("muted")}
-                    </div>
-                    <div className="now-playing-waveform-bars now-playing-waveform-bars-active" aria-hidden="true">
-                      {renderWaveformBars("active")}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="now-playing-progress-fill" style={{ width: progressPercent }} />
-                    <div className="now-playing-progress-thumb" style={{ left: progressPercent }} aria-hidden="true" />
-                  </>
-                )}
-              </div>
-              <div className="flex justify-between text-xs text-muted">
-                <span>{formatMs(positionMs)}</span>
-                <span>{formatMs(durationMs)}</span>
-              </div>
-            </div>
-
-            <div className="now-playing-sheet-controls">
-              <button
-                type="button"
-                className="now-playing-round-control now-playing-round-control-sm"
-                disabled={disabled}
-                onClick={() => onSeekBy(-15000)}
-                aria-label="Перемотка назад на 15 секунд"
-              >
-                -15
-              </button>
-              <button
-                type="button"
-                className="now-playing-round-control"
-                disabled={disabled}
-                onClick={onSkipPrevious}
-                aria-label="Назад"
-              >
-                <SkipBackIcon className="h-6 w-6" />
-              </button>
-              <button
-                type="button"
-                className={`now-playing-play-btn ${coverPlaying ? "now-playing-play-btn-playing" : ""}`}
-                disabled={isDownloading}
-                onClick={onPlayPause}
-                aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
-              >
-                {isDownloading ? (
-                  <span className="text-sm font-bold">
-                    {showDownloadLabel ? `${Math.round(downloadProgress * 100)}%` : "…"}
-                  </span>
-                ) : isPlaying ? (
-                  <PauseIcon className="h-8 w-8" />
-                ) : (
-                  <PlayIcon className="h-8 w-8" />
-                )}
-              </button>
-              <button
-                type="button"
-                className="now-playing-round-control"
-                disabled={disabled}
-                onClick={onSkipNext}
-                aria-label={isMusic ? "Музыка" : "Главы"}
-              >
-                <SkipForwardIcon className="h-6 w-6" />
-              </button>
-              <button
-                type="button"
-                className="now-playing-round-control now-playing-round-control-sm"
-                disabled={disabled}
-                onClick={() => onSeekBy(15000)}
-                aria-label="Перемотка вперёд на 15 секунд"
-              >
-                +15
-              </button>
-            </div>
+            <NowPlayingHero
+              title={title}
+              subtitle={subtitle}
+              coverSeed={coverSeed}
+              coverPlaying={coverPlaying}
+              isDownloading={isDownloading}
+              showDownloadLabel={showDownloadLabel}
+              downloadProgress={downloadProgress}
+              volumePercent={volumePercent}
+              onVolumeChange={onVolumeChange}
+            />
+            <NowPlayingSeekBar
+              progressRef={progressRef}
+              progress={progress}
+              progressPercent={progressPercent}
+              positionMs={positionMs}
+              durationMs={durationMs}
+              disabled={disabled}
+              activeWaveformPeaks={activeWaveformPeaks}
+              renderWaveformBars={renderWaveformBars}
+              onPointerDown={handleProgressPointerDown}
+              onPointerMove={handleProgressPointerMove}
+              onPointerUp={handleProgressPointerUp}
+              onSeek={onSeek}
+            />
+            <NowPlayingControls
+              isPlaying={isPlaying}
+              isMusic={isMusic}
+              disabled={disabled}
+              isDownloading={isDownloading}
+              showDownloadLabel={showDownloadLabel}
+              downloadProgress={downloadProgress}
+              coverPlaying={coverPlaying}
+              onPlayPause={onPlayPause}
+              onSeekBy={onSeekBy}
+              onSkipPrevious={onSkipPrevious}
+              onSkipNext={onSkipNext}
+            />
           </div>
         </div>
       </div>

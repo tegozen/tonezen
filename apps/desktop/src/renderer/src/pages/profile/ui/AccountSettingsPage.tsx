@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { AvatarCropScreen } from "@/features/profile-settings";
-import { ProfileAvatar } from "@/entities/user";
 import { SettingsPageLayout } from "@/widgets/app-shell";
 import { OverlayTopChrome } from "@/widgets/top-chrome";
 import { AccountFormSection } from "./AccountFormSection";
 import { AccountLabeledField } from "./AccountLabeledField";
+import { AccountAvatarSection } from "./AccountAvatarSection";
+import { AccountPasswordSection } from "./AccountPasswordSection";
 
 const ACCOUNT_OFFLINE_ERROR = "__account_offline__";
 const PASSWORD_MISMATCH_ERROR = "__password_mismatch__";
@@ -181,48 +182,18 @@ export function AccountSettingsPage({
     <>
       <SettingsPageLayout topChrome={<OverlayTopChrome title="Аккаунт" onBack={onBack} />}>
         <div className="space-y-4">
-          <AccountFormSection title="Профиль">
-            <div className="account-avatar-block">
-              <button
-                type="button"
-                className="account-avatar-picker"
-                disabled={avatarBusy}
-                onClick={openAvatarPicker}
-                aria-label="Изменить фото"
-              >
-                <ProfileAvatar avatarUrl={avatarUrl} size={96} iconSize={40} />
-                {avatarBusy && !cropImageUrl && (
-                  <span className="account-avatar-uploading">
-                    <span className="avatar-crop-spinner" aria-hidden="true" />
-                  </span>
-                )}
-                <span className="account-avatar-add" aria-hidden="true">
-                  +
-                </span>
-              </button>
-              <button
-                type="button"
-                className="account-avatar-change-link"
-                disabled={avatarBusy}
-                onClick={openAvatarPicker}
-              >
-                Изменить фото
-              </button>
-            </div>
-            <AccountLabeledField label="Имя" value={name} onChange={setName} />
-            <AccountLabeledField label="Email" value={email} type="email" disabled />
-            {resolveAccountError(profileError) && (
-              <p className="text-sm text-error">{resolveAccountError(profileError)}</p>
-            )}
-            <button
-              type="button"
-              className="account-primary-btn"
-              disabled={profileSaving || !name.trim() || avatarBusy}
-              onClick={() => void saveProfile()}
-            >
-              Сохранить
-            </button>
-          </AccountFormSection>
+          <AccountAvatarSection
+            avatarUrl={avatarUrl}
+            name={name}
+            email={email}
+            avatarBusy={avatarBusy}
+            cropImageUrl={cropImageUrl}
+            profileError={resolveAccountError(profileError)}
+            profileSaving={profileSaving}
+            onOpenAvatarPicker={openAvatarPicker}
+            onNameChange={setName}
+            onSaveProfile={() => void saveProfile()}
+          />
 
           <AccountFormSection title="Реферальный код">
             <p className="text-sm leading-relaxed text-muted">
@@ -240,49 +211,19 @@ export function AccountSettingsPage({
             </button>
           </AccountFormSection>
 
-          <AccountFormSection title="Смена пароля">
-            <AccountLabeledField
-              key={`current-password-${passwordFormNonce}`}
-              label="Текущий пароль"
-              value={currentPassword}
-              onChange={setCurrentPassword}
-              type="password"
-              showPasswordToggle
-            />
-            <AccountLabeledField
-              key={`new-password-${passwordFormNonce}`}
-              label="Новый пароль"
-              value={newPassword}
-              onChange={setNewPassword}
-              type="password"
-              showPasswordToggle
-            />
-            <AccountLabeledField
-              key={`confirm-password-${passwordFormNonce}`}
-              label="Подтвердите пароль"
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              type="password"
-              showPasswordToggle
-            />
-            {resolveAccountError(passwordError) && (
-              <p className="text-sm text-error">{resolveAccountError(passwordError)}</p>
-            )}
-            <button
-              type="button"
-              className="account-primary-btn"
-              disabled={
-                passwordSaving ||
-                !currentPassword ||
-                !newPassword ||
-                !confirmPassword ||
-                avatarBusy
-              }
-              onClick={() => void changePassword()}
-            >
-              Сменить пароль
-            </button>
-          </AccountFormSection>
+          <AccountPasswordSection
+            currentPassword={currentPassword}
+            newPassword={newPassword}
+            confirmPassword={confirmPassword}
+            passwordFormNonce={passwordFormNonce}
+            passwordError={resolveAccountError(passwordError)}
+            passwordSaving={passwordSaving}
+            avatarBusy={avatarBusy}
+            onCurrentPasswordChange={setCurrentPassword}
+            onNewPasswordChange={setNewPassword}
+            onConfirmPasswordChange={setConfirmPassword}
+            onChangePassword={() => void changePassword()}
+          />
         </div>
       </SettingsPageLayout>
 
