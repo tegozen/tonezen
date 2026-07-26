@@ -39,7 +39,7 @@ export interface TonezenApi {
     }) => Promise<SessionSnapshot>;
     requestPasswordRecovery: (email: string) => Promise<void>;
     getReferralCode: () => Promise<string>;
-    logout: () => Promise<void>;
+    logout: () => Promise<SessionSnapshot>;
     updateProfile: (displayName: string) => Promise<SessionSnapshot>;
     changePassword: (currentPassword: string, newPassword: string) => Promise<SessionSnapshot>;
     uploadAvatar: (jpegBytes: Uint8Array) => Promise<SessionSnapshot>;

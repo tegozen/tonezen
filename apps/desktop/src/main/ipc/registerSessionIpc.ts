@@ -68,10 +68,20 @@ export function registerSessionIpc(deps: IpcHandlerDeps): void {
     sessionService.getReferralCode()
   ));
   ipcMain.handle("session:logout", () => {
-    profileSync.stop();
-    progressSync.stop();
-    catalogRealtimeSync.stop();
+    // Clear session first so an in-flight token refresh cannot persist it back.
     sessionService.logout();
+    for (const stop of [
+      () => profileSync.stop(),
+      () => progressSync.stop(),
+      () => catalogRealtimeSync.stop(),
+    ]) {
+      try {
+        stop();
+      } catch (error) {
+        console.error("[session] logout cleanup failed", error);
+      }
+    }
+    return sessionService.getSnapshot();
   });
   ipcMain.handle("session:updateProfile", async (_e, displayName: string) => {
     const result = await sessionService.updateProfile(displayName);

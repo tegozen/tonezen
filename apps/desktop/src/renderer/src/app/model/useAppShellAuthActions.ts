@@ -39,7 +39,11 @@ export function useAppShellAuthActions({
   }, [login, syncCatalog]);
 
   const handleLogout = useCallback(async () => {
-    stopPlayback();
+    try {
+      stopPlayback();
+    } catch {
+      // Still clear session even if local playback teardown fails.
+    }
     library.setSelectedBook(null);
     library.setSelectedCycle(null);
     music.resetMusicSession();

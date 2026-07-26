@@ -90,9 +90,18 @@ export function useTonezenSession() {
   }, []);
 
   const logout = useCallback(async () => {
-    await window.tonezen.session.logout();
-    await refreshSession();
-  }, [refreshSession]);
+    try {
+      const snap = await window.tonezen.session.logout();
+      applySnapshot(snap);
+    } catch {
+      // Main may have cleared the session even if IPC reported an error.
+      setSessionState("Unauthenticated");
+      setUserEmail(null);
+      setDisplayName(null);
+      setAvatarUrl(null);
+      setMemberSinceEpochMs(null);
+    }
+  }, [applySnapshot]);
 
   return {
     sessionState,

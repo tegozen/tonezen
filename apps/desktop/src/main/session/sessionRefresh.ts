@@ -25,6 +25,7 @@ export function createSessionRefresh(deps: SessionRefreshDeps) {
   async function performRefresh(): Promise<SessionState> {
     const session = deps.getSession();
     if (!session) return "Unauthenticated";
+    const userId = session.userId;
     try {
       if (!deps.getOnline()) {
         return deps.getManager().resolveState(session, false);
@@ -34,8 +35,15 @@ export function createSessionRefresh(deps: SessionRefreshDeps) {
         return "Unauthenticated";
       }
       const result = await authClient.refreshSession(session.refreshToken);
+      // Logout (or account switch) may have cleared session while refresh was in flight.
+      const current = deps.getSession();
+      if (!current || current.userId !== userId) {
+        return current
+          ? deps.getManager().resolveState(current, deps.getOnline())
+          : "Unauthenticated";
+      }
       const next = sessionFromGoTrue(result, session.email);
-      const merged = deps.withClientAvatarUrl(mergeSessionOnRefresh(session, next));
+      const merged = deps.withClientAvatarUrl(mergeSessionOnRefresh(current, next));
       deps.setSession(merged);
       deps.persist(merged);
       return "AuthenticatedOnline";
