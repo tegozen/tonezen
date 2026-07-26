@@ -124,52 +124,6 @@ internal fun PlayButton(
 }
 
 @Composable
-private fun DownloadProgressRing(progress: Float) {
-    val sweep = 360f * progress.coerceIn(0f, 1f)
-    val showIndeterminate = progress <= 0f
-    Box(contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.Canvas(modifier = Modifier.size(56.dp)) {
-            drawArc(
-                color = Color.White.copy(alpha = 0.2f),
-                startAngle = -90f,
-                sweepAngle = 360f,
-                useCenter = false,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4.dp.toPx()),
-            )
-            if (showIndeterminate) {
-                drawArc(
-                    color = TonezenAppBg,
-                    startAngle = -90f,
-                    sweepAngle = 90f,
-                    useCenter = false,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = 4.dp.toPx(),
-                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
-                    ),
-                )
-            } else {
-                drawArc(
-                    color = TonezenAppBg,
-                    startAngle = -90f,
-                    sweepAngle = sweep,
-                    useCenter = false,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = 4.dp.toPx(),
-                        cap = androidx.compose.ui.graphics.StrokeCap.Round,
-                    ),
-                )
-            }
-        }
-        Text(
-            text = if (showIndeterminate) "…" else "${(progress * 100).toInt()}%",
-            color = TonezenAppBg,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-        )
-    }
-}
-
-@Composable
 internal fun ProgressBar(progress: Float, onSeek: ((Float) -> Unit)? = null) {
     BoxWithConstraints(
         modifier = Modifier

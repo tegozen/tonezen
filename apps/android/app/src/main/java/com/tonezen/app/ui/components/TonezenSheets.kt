@@ -1,22 +1,16 @@
 package com.tonezen.app.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -36,50 +30,10 @@ import androidx.compose.ui.unit.dp
 import com.tonezen.app.ui.theme.TonezenAppBg
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
-import com.tonezen.app.ui.theme.TonezenSheetTopShape
 import com.tonezen.app.ui.theme.TonezenTeal
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.launch
-
-private val TonezenSheetContentBottomPadding = 20.dp
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
-@Composable
-private fun TonezenGlassSheetSurface(
-    hazeState: HazeState,
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .tonezenGlassSurface(hazeState, TonezenSheetTopShape),
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(28.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                BottomSheetDefaults.DragHandle(
-                    color = TonezenMuted.copy(alpha = 0.65f),
-                    width = 40.dp,
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(bottom = TonezenSheetContentBottomPadding),
-                content = content,
-            )
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -205,20 +159,3 @@ internal fun DownloadConfirmSheet(
         }
     }
 }
-
-@Composable
-private fun ToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(label, color = TonezenInk)
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(checkedTrackColor = TonezenTeal),
-        )
-    }
-}
-
-private fun formatMegabytes(bytes: Long): String = "%.0f MB".format(bytes / (1024.0 * 1024.0))
