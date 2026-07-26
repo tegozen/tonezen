@@ -70,8 +70,8 @@ android {
         applicationId = "com.tonezen.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 38
-        versionName = "0.18.1"
+        versionCode = 39
+        versionName = "0.19.0"
         buildConfigField("String", "BASE_URL", "\"https://tonezen.tegozen.ru\"")
         buildConfigField(
             "String",
