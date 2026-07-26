@@ -106,6 +106,16 @@ if (!hasSingleInstanceLock) {
 
     await runColdStartBootstrap(sessionService, progressSync);
 
+    // Hydrate + arm progress before the shell is interactive (splash stays up until then).
+    const bootSession = sessionService.getSession();
+    if (
+      bootSession &&
+      sessionService.getSnapshot().state !== "Unauthenticated" &&
+      sessionService.isAccessTokenUsable()
+    ) {
+      await progressSync.start(bootSession);
+    }
+
     const mainWindow = createMainWindow(lifecycle, () => closeSplashWindow(splashWindow));
     appUiReferences.setMainWindow(mainWindow);
     trackDownloadQueue.setMainWindow(mainWindow);

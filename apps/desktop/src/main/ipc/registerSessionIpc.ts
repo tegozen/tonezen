@@ -25,6 +25,8 @@ export function registerSessionIpc(deps: IpcHandlerDeps): void {
       profileSync.updateAuth(),
       progressSync.updateAuth(),
     ]);
+    // Pull then flush once back online — pending local must not push before hydrate.
+    await progressSync.triggerSync();
   });
   ipcMain.handle("session:login", async (_e, email: string, password: string) => {
     const session = await sessionService.login(email, password);

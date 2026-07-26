@@ -42,8 +42,16 @@ export class ProgressSyncService {
   }
 
   async start(session: StoredSession): Promise<void> {
-    this.stop();
+    // Bootstrap may already have pulled; do not clear hydration and reopen a push race
+    // while the shell is (or is about to become) interactive.
+    const userChanged = this.userId != null && this.userId !== session.userId;
+    const keepHydration = this.serverHydrated && !userChanged;
+    this.teardownRealtime();
+    if (!keepHydration) {
+      this.serverHydrated = false;
+    }
     this.userId = session.userId;
+
     await this.refreshSession();
     if (!this.isAccessTokenUsable()) {
       this.scheduleAuthRecovery();
@@ -54,13 +62,23 @@ export class ProgressSyncService {
     const token = this.getAccessToken();
     if (token) this.supabase.realtime.setAuth(token);
 
-    await this.pullAll();
-    await this.flushPending();
-    this.recordLastSyncAt();
+    if (!this.serverHydrated) {
+      await this.pullAll();
+    }
+    if (this.serverHydrated) {
+      await this.flushPending();
+      this.recordLastSyncAt();
+    }
     this.attachChannel();
   }
 
   stop(): void {
+    this.teardownRealtime();
+    this.userId = null;
+    this.serverHydrated = false;
+  }
+
+  private teardownRealtime(): void {
     if (this.recoveryTimer) {
       clearTimeout(this.recoveryTimer);
       this.recoveryTimer = null;
@@ -69,9 +87,7 @@ export class ProgressSyncService {
     this.channel = null;
     void this.supabase?.removeAllChannels();
     this.supabase = null;
-    this.userId = null;
     this.subscribed = false;
-    this.serverHydrated = false;
   }
 
   async updateAuth(): Promise<void> {

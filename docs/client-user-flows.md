@@ -55,8 +55,9 @@
 
 - Music progress is **not** pulled on splash.
 - Offline path must be fast — do not block on network timeouts.
-- Desktop splash closes on `bootstrap-complete`, not only `ready-to-show`.
-- **Online Auth → login (and reinstall → login):** keep splash until audiobook progress pull finishes; do **not** open the main shell on an empty local DB first.
+- Desktop splash closes on `bootstrap-complete`, not only `ready-to-show`. Cold start must finish audiobook progress pull/`progressSync.start` **before** closing splash / showing the main window.
+- After bootstrap hydrate, `progressSync.start` must **not** clear the push gate and re-open a wipe window while the UI is up (keep hydration for the same user).
+- **Online Auth → login (incl. reinstall):** keep splash until audiobook progress pull finishes; do **not** open the main shell on an empty local DB first. Desktop login IPC already awaits `progressSync.start` before returning the session snapshot.
 - **Push gate:** do not HTTP-push audiobook progress until a successful progress pull for the current session/process. Otherwise fresh local zeros with a newer `updated_at` LWW-wipe server progress.
 
 ```mermaid
