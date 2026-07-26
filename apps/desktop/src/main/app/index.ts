@@ -20,6 +20,7 @@ import { registerIpcHandlers } from "../ipc/ipcHandlers.js";
 import { TrackDownloadQueue } from "../downloads/trackDownloadQueue.js";
 import { AppUiReferences } from "../window/appUiReferences.js";
 import { appendDiagnosticError } from "./diagnosticsLog.js";
+import { PROGRESS_SPLASH_PULL_TIMEOUT_MS } from "../progress/progressSync.js";
 
 loadAppEnv();
 registerLocalAudioScheme();
@@ -106,14 +107,16 @@ if (!hasSingleInstanceLock) {
 
     await runColdStartBootstrap(sessionService, progressSync);
 
-    // Hydrate + arm progress before the shell is interactive (splash stays up until then).
+    // Bounded progress start before shell. Offline/timeout fail-open — downloads stay usable.
     const bootSession = sessionService.getSession();
     if (
       bootSession &&
       sessionService.getSnapshot().state !== "Unauthenticated" &&
       sessionService.isAccessTokenUsable()
     ) {
-      await progressSync.start(bootSession);
+      await progressSync.start(bootSession, {
+        splashTimeoutMs: PROGRESS_SPLASH_PULL_TIMEOUT_MS,
+      });
     }
 
     const mainWindow = createMainWindow(lifecycle, () => closeSplashWindow(splashWindow));

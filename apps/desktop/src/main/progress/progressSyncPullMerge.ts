@@ -15,6 +15,7 @@ export interface ProgressPullMergeDeps {
 export function applyRemoteProgress(
   row: ProgressRow,
   mainWindow: BrowserWindow | null,
+  options?: { preferRemote?: boolean },
 ): void {
   const remote: AudiobookProgress = {
     bookId: row.book_id,
@@ -22,21 +23,27 @@ export function applyRemoteProgress(
     positionMs: row.position_ms,
     updatedAt: row.updated_at,
   };
+  const preferRemote = options?.preferRemote === true;
   const local = LocalDatabase.getProgress(remote.bookId);
-  const merged = mergeProgressLww(local, remote);
-  if (!merged) return;
+  if (!preferRemote) {
+    const pendingLocal =
+      local?.pendingSync &&
+      local.updatedAt &&
+      new Date(local.updatedAt) > new Date(remote.updatedAt);
+    if (pendingLocal) return;
+  }
 
-  const pendingLocal =
-    local?.pendingSync &&
-    local.updatedAt &&
-    new Date(local.updatedAt) > new Date(remote.updatedAt);
-  if (pendingLocal) return;
+  const merged = preferRemote ? remote : mergeProgressLww(local, remote);
+  if (!merged) return;
 
   LocalDatabase.upsertProgress(merged, false);
   mainWindow?.webContents.send("progress:updated", merged);
 }
 
-export async function pullAllProgress(deps: ProgressPullMergeDeps): Promise<boolean> {
+export async function pullAllProgress(
+  deps: ProgressPullMergeDeps,
+  options?: { preferRemote?: boolean },
+): Promise<boolean> {
   await deps.refreshSession();
   const token = deps.getAccessToken();
   if (!token) return false;
@@ -64,6 +71,7 @@ export async function pullAllProgress(deps: ProgressPullMergeDeps): Promise<bool
         updated_at: row.updated_at,
       },
       deps.mainWindow,
+      { preferRemote: options?.preferRemote },
     );
   }
   return true;

@@ -76,9 +76,9 @@ internal class LibrarySessionObserver(
                 val ownerKey = sessionData?.userId ?: "__anonymous__"
                 if (ownerKey != catalogOwnerKey) {
                     catalogOwnerKey = ownerKey
-                    // Keep splash until loadLibrary finishes progress pull — otherwise
-                    // AppShell is interactive on empty local DB and can LWW-wipe server.
-                    if (sessionData != null) {
+                    // Online login/reinstall: brief splash for bounded progress pull.
+                    // Offline: do not force splash — local downloads must open immediately.
+                    if (sessionData != null && networkMonitor.isOnline()) {
                         uiState.update { it.copy(isBootstrapComplete = false) }
                     }
                     catalogLoader.loadLibrary(sessionData)

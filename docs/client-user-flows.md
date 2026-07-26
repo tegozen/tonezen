@@ -55,10 +55,11 @@
 
 - Music progress is **not** pulled on splash.
 - Offline path must be fast — do not block on network timeouts.
-- Desktop splash closes on `bootstrap-complete`, not only `ready-to-show`. Cold start must finish audiobook progress pull/`progressSync.start` **before** closing splash / showing the main window.
+- Desktop splash closes on `bootstrap-complete`, not only `ready-to-show`. Cold start attempts audiobook progress pull/`progressSync.start` **before** closing splash, but **fail-open** on offline or pull timeout (~4s) so local downloads stay playable.
 - After bootstrap hydrate, `progressSync.start` must **not** clear the push gate and re-open a wipe window while the UI is up (keep hydration for the same user).
-- **Online Auth → login (incl. reinstall):** keep splash until audiobook progress pull finishes; do **not** open the main shell on an empty local DB first. Desktop login IPC already awaits `progressSync.start` before returning the session snapshot.
+- **Online Auth → login (incl. reinstall):** brief splash for a **bounded** progress pull; on timeout/offline open the shell with local cache. Do not hang the UI on bad network.
 - **Push gate:** do not HTTP-push audiobook progress until a successful progress pull for the current session/process. Otherwise fresh local zeros with a newer `updated_at` LWW-wipe server progress.
+- **Wipe-safe hydrate:** if local progress was empty at session start (reinstall), the first successful pull prefers server rows over any pending local zeros written during fail-open. If local progress already existed (normal offline use), LWW keeps newer local listening.
 
 ```mermaid
 flowchart TD
@@ -80,15 +81,16 @@ flowchart TD
 
 **Expected behavior:**
 
-1. Show splash (or keep blocking shell) immediately on session flip.
-2. `refreshIfNeeded` → **pull** `GET /progress/audiobooks` → merge into local.
-3. Only then show main UI; arm progress HTTP push.
+1. Show splash (or keep blocking shell) immediately on session flip **when online**.
+2. `refreshIfNeeded` → **bounded** pull `GET /progress/audiobooks` (~4s) → merge into local.
+3. On success, timeout, or offline: show main UI; arm HTTP push only after a **successful** pull (background retry continues after fail-open).
 4. Catalog sync may continue in background after UI.
 
 **Invariants:**
 
 - Never push pending local progress before the first successful pull after login/reinstall.
-- LWW remains timestamp-only on the server; clients must not invent newer empty rows before hydrate.
+- Never block offline / poor-network users from playing already-downloaded content.
+- LWW remains timestamp-only on the server; wipe-safe hydrate prefers server when local progress was empty at session start.
 ---
 
 ## Music

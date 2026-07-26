@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import com.tonezen.app.data.remote.ProgressSyncRepository.Companion.SPLASH_PULL_TIMEOUT_MS
 
 internal class LibraryCatalogLoader(
     private val uiState: MutableStateFlow<LibraryUiState>,
@@ -72,13 +74,20 @@ internal class LibraryCatalogLoader(
                 sessionData
             }
         }
-        // Pull audiobook progress before flipping session UI / allowing playback.
-        // refreshSessionState after pull so Auth→login cannot open an empty shell early.
+        // Online: brief bounded pull before shell. Offline / timeout: fail-open to local cache
+        // so downloaded content stays playable. Push stays gated until a successful pull.
         if (networkMonitor.isOnline()) {
             refreshed?.accessToken?.let { token ->
                 withContext(Dispatchers.IO) {
-                    progressSyncRepository.pullAll(token)
+                    progressSyncRepository.prepareHydrateFromLocalCache()
+                    withTimeoutOrNull(SPLASH_PULL_TIMEOUT_MS) {
+                        progressSyncRepository.pullAll(token)
+                    }
                 }
+            }
+        } else {
+            withContext(Dispatchers.IO) {
+                progressSyncRepository.prepareHydrateFromLocalCache()
             }
         }
         refreshSessionState(refreshed)

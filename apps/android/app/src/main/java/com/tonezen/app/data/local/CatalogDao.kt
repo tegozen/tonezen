@@ -67,6 +67,9 @@ interface CatalogDao {
     @Query("SELECT * FROM audiobook_progress WHERE pendingSync = 1")
     suspend fun getPendingProgress(): List<AudiobookProgressEntity>
 
+    @Query("SELECT COUNT(*) FROM audiobook_progress")
+    suspend fun getProgressCount(): Int
+
     @Query("DELETE FROM audiobook_progress WHERE bookId = :bookId")
     suspend fun deleteProgress(bookId: String)
 

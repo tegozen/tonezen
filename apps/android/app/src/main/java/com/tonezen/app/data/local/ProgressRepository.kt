@@ -40,4 +40,7 @@ class ProgressRepository @Inject constructor(
 
     suspend fun getPendingSyncCount(): Int =
         catalogDao.getPendingProgress().size
+
+    suspend fun hasAnyProgress(): Boolean =
+        catalogDao.getProgressCount() > 0
 }

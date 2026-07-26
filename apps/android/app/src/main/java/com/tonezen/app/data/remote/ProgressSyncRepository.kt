@@ -66,6 +66,14 @@ class ProgressSyncRepository @Inject constructor(
     @Volatile
     private var serverHydrated = false
 
+    /**
+     * When the session starts with an empty local progress cache (reinstall), the first
+     * successful pull must prefer server rows over any pending local zeros written during
+     * fail-open UI before hydrate completed.
+     */
+    @Volatile
+    private var preferRemoteOnHydrate = false
+
     fun start(session: StoredSession) {
         scope.launch {
             val refreshed = binder.ensureStarted(session) ?: return@launch
@@ -76,6 +84,16 @@ class ProgressSyncRepository @Inject constructor(
     fun stop() {
         binder.stop()
         serverHydrated = false
+        preferRemoteOnHydrate = false
+    }
+
+    /**
+     * Call before splash/login pull. Empty local cache → wipe-safe hydrate; existing local
+     * progress → normal LWW (offline listening must win when back online).
+     */
+    suspend fun prepareHydrateFromLocalCache() {
+        if (serverHydrated) return
+        preferRemoteOnHydrate = !progressRepository.hasAnyProgress()
     }
 
     suspend fun updateAuth() {
@@ -86,11 +104,13 @@ class ProgressSyncRepository @Inject constructor(
 
     suspend fun pullAll(accessToken: String): Boolean {
         if (!networkMonitor.isOnline()) return false
+        val preferRemote = preferRemoteOnHydrate && !serverHydrated
         return try {
             for (row in progressRemoteApi.fetchProgress(accessToken)) {
-                applyRemoteEntity(row.toProgressEntity())
+                applyRemoteEntity(row.toProgressEntity(), preferRemote = preferRemote)
             }
             serverHydrated = true
+            preferRemoteOnHydrate = false
             markSynced()
             true
         } catch (_: Exception) {
@@ -151,12 +171,30 @@ class ProgressSyncRepository @Inject constructor(
         _lastSyncAtEpochMs.value = System.currentTimeMillis()
     }
 
-    private suspend fun applyRemoteEntity(remoteEntity: AudiobookProgressEntity) {
+    private suspend fun applyRemoteEntity(
+        remoteEntity: AudiobookProgressEntity,
+        preferRemote: Boolean = false,
+    ) {
         val local = progressRepository.getProgressEntity(remoteEntity.bookId)
-        if (local?.pendingSync == true && local.updatedAtEpochMs > remoteEntity.updatedAtEpochMs) return
-        val merged = ProgressMerger.merge(local?.toDomain(), remoteEntity.toDomain()) ?: return
+        if (!preferRemote &&
+            local?.pendingSync == true &&
+            local.updatedAtEpochMs > remoteEntity.updatedAtEpochMs
+        ) {
+            return
+        }
+        val merged =
+            if (preferRemote) {
+                remoteEntity.toDomain()
+            } else {
+                ProgressMerger.merge(local?.toDomain(), remoteEntity.toDomain())
+            } ?: return
         val stored = merged.toEntity(pendingSync = false)
         progressRepository.upsertProgressEntity(stored)
         _updates.emit(merged)
+    }
+
+    companion object {
+        /** Splash/login must fail-open quickly so offline downloads stay usable. */
+        const val SPLASH_PULL_TIMEOUT_MS = 4_000L
     }
 }

@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import { coerceAvatarJpegBytes } from "@core/profile/avatarBytes.js";
 import type { IpcHandlerDeps } from "./ipcHandlers.js";
+import { PROGRESS_SPLASH_PULL_TIMEOUT_MS } from "../progress/progressSync.js";
 
 export function registerSessionIpc(deps: IpcHandlerDeps): void {
   const { sessionService, catalogRealtimeSync, profileSync, progressSync } = deps;
@@ -32,7 +33,7 @@ export function registerSessionIpc(deps: IpcHandlerDeps): void {
     const session = await sessionService.login(email, password);
     await Promise.all([
       profileSync.start(session),
-      progressSync.start(session),
+      progressSync.start(session, { splashTimeoutMs: PROGRESS_SPLASH_PULL_TIMEOUT_MS }),
       catalogRealtimeSync.start(session),
     ]);
     return sessionService.getSnapshot();
@@ -54,7 +55,7 @@ export function registerSessionIpc(deps: IpcHandlerDeps): void {
       const session = await sessionService.registerWithInvite(input);
       await Promise.all([
         profileSync.start(session),
-        progressSync.start(session),
+        progressSync.start(session, { splashTimeoutMs: PROGRESS_SPLASH_PULL_TIMEOUT_MS }),
         catalogRealtimeSync.start(session),
       ]);
       return sessionService.getSnapshot();

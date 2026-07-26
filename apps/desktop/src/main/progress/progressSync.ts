@@ -1,6 +1,7 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowserWindow } from "electron";
+import { net } from "electron";
 import type { AudiobookProgress, StoredSession } from "@core/types.js";
 import { LocalDatabase } from "../db/localDatabase.js";
 import { createSupabaseClient } from "../session/supabaseClient.js";
@@ -17,6 +18,23 @@ import type { ProgressRow, ProgressSyncConfig } from "./progressSyncTypes.js";
 
 export type { ProgressSyncConfig } from "./progressSyncTypes.js";
 
+/** Splash/login must fail-open quickly so offline downloads stay usable. */
+export const PROGRESS_SPLASH_PULL_TIMEOUT_MS = 4_000;
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 const AUTH_RECOVERY_DELAY_MS = 2000;
 
 export class ProgressSyncService {
@@ -29,6 +47,8 @@ export class ProgressSyncService {
   private recoveryInFlight = false;
   /** Block HTTP push until first successful pull — avoids LWW wipe after reinstall. */
   private serverHydrated = false;
+  /** Reinstall/empty local: first pull prefers server over fail-open pending zeros. */
+  private preferRemoteOnHydrate = false;
 
   constructor(
     private getAccessToken: () => string | null,
@@ -41,7 +61,12 @@ export class ProgressSyncService {
     this.mainWindow = window;
   }
 
-  async start(session: StoredSession): Promise<void> {
+  prepareHydrateFromLocalCache(): void {
+    if (this.serverHydrated) return;
+    this.preferRemoteOnHydrate = LocalDatabase.getAllProgress().length === 0;
+  }
+
+  async start(session: StoredSession, options?: { splashTimeoutMs?: number }): Promise<void> {
     // Bootstrap may already have pulled; do not clear hydration and reopen a push race
     // while the shell is (or is about to become) interactive.
     const userChanged = this.userId != null && this.userId !== session.userId;
@@ -63,7 +88,16 @@ export class ProgressSyncService {
     if (token) this.supabase.realtime.setAuth(token);
 
     if (!this.serverHydrated) {
-      await this.pullAll();
+      this.prepareHydrateFromLocalCache();
+      // Offline: do not wait on fetch — local downloads must open immediately.
+      if (net.isOnline()) {
+        const timeoutMs = options?.splashTimeoutMs;
+        if (timeoutMs != null) {
+          await withTimeout(this.pullAll(), timeoutMs);
+        } else {
+          await this.pullAll();
+        }
+      }
     }
     if (this.serverHydrated) {
       await this.flushPending();
@@ -76,6 +110,7 @@ export class ProgressSyncService {
     this.teardownRealtime();
     this.userId = null;
     this.serverHydrated = false;
+    this.preferRemoteOnHydrate = false;
   }
 
   private teardownRealtime(): void {
@@ -190,8 +225,12 @@ export class ProgressSyncService {
   }
 
   async pullAll(): Promise<void> {
-    const ok = await pullAllProgress(this.getPullMergeDeps());
-    if (ok) this.serverHydrated = true;
+    const preferRemote = this.preferRemoteOnHydrate && !this.serverHydrated;
+    const ok = await pullAllProgress(this.getPullMergeDeps(), { preferRemote });
+    if (ok) {
+      this.serverHydrated = true;
+      this.preferRemoteOnHydrate = false;
+    }
   }
 
   async flushPending(): Promise<void> {
