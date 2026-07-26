@@ -26,13 +26,11 @@ import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.BookContinueState
 import com.tonezen.app.domain.progress.canContinueBookListening
-import com.tonezen.app.ui.components.BookCover
 import com.tonezen.app.ui.components.ContinueResumeMeta
 import com.tonezen.app.ui.components.ContinueResumeVariant
 import com.tonezen.app.ui.components.DetailHeaderOverflowMenu
 import com.tonezen.app.ui.components.StatusChip
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
-import com.tonezen.app.ui.components.bookAuthorLabel
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal

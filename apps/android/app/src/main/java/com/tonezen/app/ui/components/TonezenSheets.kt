@@ -1,9 +1,5 @@
 package com.tonezen.app.ui.components
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,12 +10,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -39,16 +33,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.domain.library.LibraryContentFilter
-import com.tonezen.app.domain.library.LibraryFilterState
-import com.tonezen.app.domain.library.LibrarySortOrder
 import com.tonezen.app.ui.theme.TonezenAppBg
-import com.tonezen.app.ui.theme.TonezenBorder
-import com.tonezen.app.ui.theme.TonezenError
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenSheetTopShape
-import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -179,90 +167,6 @@ internal fun TonezenGlassAlertDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun LibraryFilterSheet(
-    visible: Boolean,
-    hazeState: HazeState,
-    filter: LibraryFilterState,
-    onDismiss: () -> Unit,
-    onApply: (LibraryFilterState) -> Unit,
-    onReset: () -> Unit,
-    onContentFilterChange: (LibraryContentFilter) -> Unit,
-    onSortOrderChange: (LibrarySortOrder) -> Unit,
-) {
-    TonezenGlassModalBottomSheet(
-        visible = visible,
-        hazeState = hazeState,
-        onDismiss = onDismiss,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Text("Поиск и фильтр", color = TonezenInk, fontWeight = FontWeight.SemiBold)
-            FilterChipRow(
-                label = "Все",
-                selected = filter.contentFilter == LibraryContentFilter.ALL,
-                onClick = { onContentFilterChange(LibraryContentFilter.ALL) },
-            )
-            FilterChipRow(
-                label = "Загруженные",
-                selected = filter.contentFilter == LibraryContentFilter.DOWNLOADED,
-                onClick = { onContentFilterChange(LibraryContentFilter.DOWNLOADED) },
-            )
-            Text("Сортировка", color = TonezenMuted)
-            FilterChipRow(
-                label = "Недавно слушали",
-                selected = filter.sortOrder == LibrarySortOrder.RECENTLY_PLAYED,
-                onClick = { onSortOrderChange(LibrarySortOrder.RECENTLY_PLAYED) },
-            )
-            FilterChipRow(
-                label = "Название",
-                selected = filter.sortOrder == LibrarySortOrder.TITLE,
-                onClick = { onSortOrderChange(LibrarySortOrder.TITLE) },
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                TonezenSheetSecondaryButton(
-                    label = "Сбросить",
-                    onClick = onReset,
-                    modifier = Modifier.weight(1f),
-                )
-                TonezenSheetPrimaryButton(
-                    label = "Применить",
-                    onClick = { onApply(filter) },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun FilterChipRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    Text(
-        text = label,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .background(
-                if (selected) TonezenTeal.copy(alpha = 0.15f) else TonezenSurfaceRaised.copy(alpha = 0.35f),
-                RoundedCornerShape(12.dp),
-            )
-            .border(
-                BorderStroke(1.dp, if (selected) TonezenTeal else TonezenBorder),
-                RoundedCornerShape(12.dp),
-            )
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        color = if (selected) TonezenTeal else TonezenInk,
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
 internal fun DownloadConfirmSheet(
     visible: Boolean,
     hazeState: HazeState,
@@ -315,76 +219,6 @@ private fun ToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean
             colors = SwitchDefaults.colors(checkedTrackColor = TonezenTeal),
         )
     }
-}
-
-@Composable
-internal fun SignOutConfirmDialog(
-    visible: Boolean,
-    hazeState: HazeState,
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-) {
-    TonezenGlassAlertDialog(
-        visible = visible,
-        hazeState = hazeState,
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                "Выйти из аккаунта?",
-                color = TonezenInk,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
-        },
-        text = {
-            Text("Офлайн-загрузки останутся на устройстве. Прогресс аудиокниг синхронизируется снова после входа онлайн.", color = TonezenMuted)
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Выйти", color = TonezenError)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Отмена")
-            }
-        },
-    )
-}
-
-@Composable
-internal fun OfflineSyncDialog(
-    visible: Boolean,
-    hazeState: HazeState,
-    onDismiss: () -> Unit,
-    onRetry: () -> Unit,
-) {
-    TonezenGlassAlertDialog(
-        visible = visible,
-        hazeState = hazeState,
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                "Синхронизация приостановлена",
-                color = TonezenInk,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
-        },
-        text = {
-            Text("Вы офлайн. Прогресс аудиокниг синхронизируется, когда появится сеть.", color = TonezenMuted)
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Продолжить слушать", color = TonezenTeal)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onRetry) {
-                Text("Повторить")
-            }
-        },
-    )
 }
 
 private fun formatMegabytes(bytes: Long): String = "%.0f MB".format(bytes / (1024.0 * 1024.0))

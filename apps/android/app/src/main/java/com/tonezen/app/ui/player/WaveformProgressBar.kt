@@ -1,4 +1,4 @@
-package com.tonezen.app.ui.components
+package com.tonezen.app.ui.player
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import com.tonezen.app.ui.components.ProgressBar
 import com.tonezen.app.ui.theme.TonezenTeal
 
 @Composable

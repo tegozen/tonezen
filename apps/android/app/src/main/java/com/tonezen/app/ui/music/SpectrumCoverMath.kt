@@ -1,4 +1,4 @@
-package com.tonezen.app.ui.components
+package com.tonezen.app.ui.music
 
 import kotlin.math.sin
 

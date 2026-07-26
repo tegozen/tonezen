@@ -1,4 +1,4 @@
-package com.tonezen.app.ui.components
+package com.tonezen.app.ui.library
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas

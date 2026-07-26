@@ -25,7 +25,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tonezen.app.playback.MusicDownloadState
 import com.tonezen.app.ui.components.PlayButton
-import com.tonezen.app.ui.components.SpectrumCoverArt
 import com.tonezen.app.ui.components.TonezenTrackListRow
 import com.tonezen.app.ui.components.TrackDownloadButton
 import com.tonezen.app.ui.components.TrackDownloadedIndicator

@@ -1,4 +1,4 @@
-package com.tonezen.app.ui.components
+package com.tonezen.app.ui.music
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

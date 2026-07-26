@@ -1,8 +1,5 @@
 package com.tonezen.app.ui.components
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,26 +7,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,82 +23,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.ui.theme.TonezenChromeBarBackground
 import com.tonezen.app.ui.theme.TonezenChromeBarBorder
-import com.tonezen.app.ui.theme.TonezenChromeHeaderRowHeight
-import com.tonezen.app.ui.theme.TonezenPageChromeScrollPadding
-import com.tonezen.app.ui.theme.TonezenChromeBarOuterVerticalMargin
 import com.tonezen.app.ui.theme.TonezenChromeBarVerticalPadding
+import com.tonezen.app.ui.theme.TonezenChromeHeaderRowHeight
 import com.tonezen.app.ui.theme.TonezenChromeHorizontalMargin
 import com.tonezen.app.ui.theme.TonezenInk
-import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenScreenHorizontalPadding
-import com.tonezen.app.ui.theme.TonezenSurface
-import com.tonezen.app.ui.theme.TonezenSurfaceRaised
-import com.tonezen.app.ui.theme.tonezenScrollContentPadding
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
-import dev.chrisbanes.haze.hazeChild
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
-
-private val TonezenChromeCornerRadius = 16.dp
-private val TonezenChromeBarShape = RoundedCornerShape(TonezenChromeCornerRadius)
-
-@OptIn(ExperimentalHazeMaterialsApi::class)
-@Composable
-internal fun Modifier.tonezenGlassSurface(
-    hazeState: HazeState,
-    shape: Shape = TonezenChromeBarShape,
-): Modifier =
-    clip(shape)
-        .hazeChild(
-            state = hazeState,
-            style = HazeMaterials.thin(
-                containerColor = TonezenChromeBarBackground.copy(alpha = 0.62f),
-            ),
-        ) {
-            blurRadius = 24.dp
-            noiseFactor = 0.08f
-        }
-        .border(BorderStroke(1.dp, TonezenChromeBarBorder), shape)
-
-@OptIn(ExperimentalHazeMaterialsApi::class)
-@Composable
-private fun Modifier.tonezenGlassChrome(hazeState: HazeState, shape: Shape = TonezenChromeBarShape): Modifier =
-    tonezenGlassSurface(hazeState, shape)
-
-@OptIn(ExperimentalHazeMaterialsApi::class)
-@Composable
-private fun TonezenChromeBarShell(
-    hazeState: HazeState,
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    horizontal = TonezenChromeHorizontalMargin,
-                    vertical = TonezenChromeBarOuterVerticalMargin,
-                )
-                .tonezenGlassChrome(hazeState),
-            content = content,
-        )
-    }
-}
 
 @Composable
 internal fun TonezenTopChromeBar(
@@ -298,112 +217,6 @@ internal fun TonezenBackHeaderRow(
         } else {
             Spacer(Modifier.weight(1f))
             trailing?.invoke()
-        }
-    }
-}
-
-@Composable
-internal fun TonezenFixedHeaderScreen(
-    hazeState: HazeState,
-    padding: PaddingValues,
-    onBack: () -> Unit,
-    title: @Composable () -> Unit,
-    modifier: Modifier = Modifier,
-    trailing: (@Composable () -> Unit)? = null,
-    verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(16.dp),
-    bottomScrollPadding: Dp = 24.dp,
-    listState: LazyListState = rememberLazyListState(),
-    content: LazyListScope.() -> Unit,
-) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(TonezenSurface)
-            .padding(padding),
-    ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .haze(state = hazeState),
-            contentPadding = tonezenScrollContentPadding(
-                top = TonezenPageChromeScrollPadding,
-                bottom = bottomScrollPadding,
-            ),
-            verticalArrangement = verticalArrangement,
-            content = content,
-        )
-        TonezenBackChromeBar(
-            modifier = Modifier.align(Alignment.TopCenter),
-            hazeState = hazeState,
-            onBack = onBack,
-            title = title,
-            trailing = trailing,
-        )
-    }
-}
-
-@Composable
-internal fun IconCircle(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Box(
-        modifier = modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.06f))
-            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        content()
-    }
-}
-
-@Composable
-internal fun SearchRow(
-    query: String = "",
-    onQueryChange: (String) -> Unit = {},
-    onFilterClick: () -> Unit = {},
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .height(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(TonezenSurfaceRaised.copy(alpha = 0.92f))
-                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), RoundedCornerShape(12.dp))
-                .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            SearchGlyph()
-            BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                singleLine = true,
-                textStyle = TextStyle(color = TonezenInk),
-                modifier = Modifier.weight(1f),
-                decorationBox = { inner ->
-                    if (query.isEmpty()) {
-                        Text(
-                            text = "Поиск в библиотеке",
-                            color = TonezenMuted,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                    inner()
-                },
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onFilterClick)
-                .background(TonezenSurfaceRaised.copy(alpha = 0.92f))
-                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), RoundedCornerShape(12.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            FilterGlyph()
         }
     }
 }

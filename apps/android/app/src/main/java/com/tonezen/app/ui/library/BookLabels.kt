@@ -1,4 +1,4 @@
-package com.tonezen.app.ui.components
+package com.tonezen.app.ui.library
 
 import androidx.compose.runtime.Composable
 import com.tonezen.app.domain.model.Book
