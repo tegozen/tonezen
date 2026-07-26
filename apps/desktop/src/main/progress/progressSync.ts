@@ -1,4 +1,5 @@
 import {
+  alignedClientRevision,
   getServerSnapshot,
   hasProgressSyncConflict,
   progressConflictChoiceKey,
@@ -277,12 +278,17 @@ export class ProgressSyncService {
 
   async saveLocal(bookId: string, trackId: string, positionMs: number): Promise<void> {
     const existing = LocalDatabase.getProgress(bookId);
+    // Do not use `existing.revision ?? serverRevision` — 0 never falls through.
+    const alignedRevision = alignedClientRevision(
+      existing?.revision ?? 0,
+      existing?.serverRevision,
+    );
     const progress: AudiobookProgress = {
       bookId,
       trackId,
       positionMs,
       updatedAt: new Date().toISOString(),
-      revision: existing?.revision ?? existing?.serverRevision ?? 0,
+      revision: alignedRevision,
       serverTrackId: existing?.serverTrackId,
       serverPositionMs: existing?.serverPositionMs,
       serverRevision: existing?.serverRevision,

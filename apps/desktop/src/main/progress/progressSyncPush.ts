@@ -1,4 +1,4 @@
-import { canAutoFlushProgress } from "@core/progress/progressMerge.js";
+import { alignedClientRevision, canAutoFlushProgress } from "@core/progress/progressMerge.js";
 import type { AudiobookProgress } from "@core/types.js";
 import { apiV1Url } from "@core/platform/serverPaths.js";
 import { LocalDatabase } from "../db/localDatabase.js";
@@ -8,6 +8,19 @@ export interface ProgressPushDeps {
   config: ProgressSyncConfig;
   getAccessToken: () => string | null;
   refreshSession: () => Promise<unknown>;
+}
+
+function repairStuckRevision(
+  progress: AudiobookProgress & { pendingSync?: boolean },
+): AudiobookProgress & { pendingSync?: boolean } {
+  const aligned = alignedClientRevision(progress.revision, progress.serverRevision);
+  if (aligned === progress.revision) return progress;
+  const pending = progress.pendingSync !== false;
+  const repaired = { ...progress, revision: aligned };
+  LocalDatabase.upsertProgress(repaired, pending, {
+    conflictChoiceKey: progress.conflictChoiceKey ?? null,
+  });
+  return { ...repaired, pendingSync: pending };
 }
 
 export async function pushProgress(
@@ -20,17 +33,13 @@ export async function pushProgress(
   const token = deps.getAccessToken();
   if (!token) return;
 
-  const stored = LocalDatabase.getProgress(progress.bookId);
-  if (stored && !canAutoFlushProgress(stored)) {
+  const storedRaw = LocalDatabase.getProgress(progress.bookId) ?? progress;
+  const stored = repairStuckRevision(storedRaw);
+  if (!canAutoFlushProgress(stored)) {
     return;
   }
 
-  const baseRevision =
-    stored?.serverRevision ??
-    stored?.revision ??
-    progress.serverRevision ??
-    progress.revision ??
-    0;
+  const baseRevision = stored.serverRevision ?? stored.revision ?? 0;
 
   const res = await fetch(apiV1Url(deps.config.baseUrl, `/progress/audiobooks/${progress.bookId}`), {
     method: "PUT",
@@ -39,8 +48,8 @@ export async function pushProgress(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      track_id: progress.trackId,
-      position_ms: progress.positionMs,
+      track_id: stored.trackId,
+      position_ms: stored.positionMs,
       base_revision: baseRevision,
     }),
   });
@@ -49,7 +58,8 @@ export async function pushProgress(
     const data = (await res.json().catch(() => null)) as ProgressPushResponse | null;
     if (data?.progress) applyRemote(data.progress);
     // Snapshot refreshed — retry once if local is still auto-flushable (e.g. local ahead).
-    const latest = LocalDatabase.getProgress(progress.bookId);
+    const latestRaw = LocalDatabase.getProgress(progress.bookId);
+    const latest = latestRaw ? repairStuckRevision(latestRaw) : null;
     if (latest?.pendingSync && canAutoFlushProgress(latest)) {
       const retryRes = await fetch(
         apiV1Url(deps.config.baseUrl, `/progress/audiobooks/${progress.bookId}`),
@@ -101,7 +111,8 @@ export async function flushPendingProgress(
   applyPushAccepted: (row: ProgressRow) => void = applyRemote,
 ): Promise<void> {
   for (const progress of LocalDatabase.getPendingProgress()) {
-    if (!canAutoFlushProgress(progress)) continue;
-    await pushProgress(deps, progress, applyRemote, applyPushAccepted);
+    const repaired = repairStuckRevision(progress);
+    if (!canAutoFlushProgress(repaired)) continue;
+    await pushProgress(deps, repaired, applyRemote, applyPushAccepted);
   }
 }

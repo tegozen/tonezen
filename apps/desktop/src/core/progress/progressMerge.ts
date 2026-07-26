@@ -37,14 +37,34 @@ export function getServerSnapshot(
 }
 
 /**
+ * Client CAS/branch base. `revision === 0` with a known serverRevision is a stuck
+ * uninitialized base (`0 ?? serverRevision` never falls through) — treat as branched
+ * from the known server revision so chapter-ahead listening can auto-flush.
+ */
+export function alignedClientRevision(
+  playHeadRevision: number,
+  serverRevision: number | null | undefined,
+): number {
+  if (playHeadRevision > 0) return playHeadRevision;
+  if (serverRevision != null && serverRevision > 0) return serverRevision;
+  return playHeadRevision;
+}
+
+/**
  * True only for a real multi-device fork — not for “local listened ahead of a stale snapshot”.
  *
  * - Same track, local position ≥ server → pending push, not a conflict.
  * - Same track, server ahead by ≥ PROGRESS_CONFLICT_THRESHOLD_MS → conflict.
- * - Different tracks → conflict only if server revision moved past this client’s revision.
+ * - Different tracks → conflict only if server revision moved past this client’s branch
+ *   base; same base means this device advanced chapters locally.
  */
 export function hasProgressSyncConflict(
-  playHead: Pick<AudiobookProgress, "trackId" | "positionMs" | "revision"> | null | undefined,
+  playHead:
+    | (Pick<AudiobookProgress, "trackId" | "positionMs" | "revision"> & {
+        serverRevision?: number | null;
+      })
+    | null
+    | undefined,
   snapshot: ProgressServerSnapshot | null | undefined,
 ): boolean {
   if (!playHead || !snapshot) return false;
@@ -52,7 +72,7 @@ export function hasProgressSyncConflict(
     if (playHead.positionMs >= snapshot.positionMs) return false;
     return snapshot.positionMs - playHead.positionMs >= PROGRESS_CONFLICT_THRESHOLD_MS;
   }
-  return snapshot.revision > playHead.revision;
+  return snapshot.revision > alignedClientRevision(playHead.revision, playHead.serverRevision);
 }
 
 export function progressConflictChoiceKey(

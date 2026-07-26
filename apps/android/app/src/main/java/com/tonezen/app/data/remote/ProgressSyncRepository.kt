@@ -147,8 +147,14 @@ class ProgressSyncRepository @Inject constructor(
     suspend fun saveLocal(progress: AudiobookProgress, pendingSync: Boolean, accessToken: String?) {
         val userId = progressRepository.activeUserId ?: return
         val existing = progressRepository.getProgressEntity(progress.bookId)
+        // Do not use `existing.revision ?: serverRevision` — Kotlin keeps 0L and never
+        // falls through, leaving revision stuck at 0 while serverRevision is N.
+        val alignedRevision = ProgressMerger.alignedClientRevision(
+            playHeadRevision = existing?.revision ?: progress.revision,
+            serverRevision = existing?.serverRevision,
+        )
         val withServers = progress.copy(
-            revision = existing?.revision ?: existing?.serverRevision ?: progress.revision,
+            revision = alignedRevision,
             serverTrackId = existing?.serverTrackId,
             serverPositionMs = existing?.serverPositionMs,
             serverRevision = existing?.serverRevision,
@@ -216,31 +222,33 @@ class ProgressSyncRepository @Inject constructor(
 
     suspend fun pushProgress(accessToken: String, entity: AudiobookProgressEntity) {
         if (!serverHydrated) return
-        if (!ProgressMerger.canAutoFlush(entity.toDomain())) return
-        val baseRevision = entity.serverRevision ?: entity.revision
+        val repaired = repairStuckRevision(entity)
+        if (!ProgressMerger.canAutoFlush(repaired.toDomain())) return
+        val baseRevision = repaired.serverRevision ?: repaired.revision
         try {
             val serverEntity = progressRemoteApi.pushProgress(
                 accessToken,
-                entity.bookId,
-                entity.toDomain(),
+                repaired.bookId,
+                repaired.toDomain(),
                 baseRevision,
-            ).toProgressEntity(entity.userId)
+            ).toProgressEntity(repaired.userId)
             progressRepository.upsertProgressEntity(serverEntity.copy(pendingSync = false))
             _updates.emit(serverEntity.toDomain())
             markSynced()
         } catch (conflict: ProgressCasConflictException) {
             val remote = conflict.remote ?: return
-            applyRemoteEntity(remote.toProgressEntity(entity.userId), preferRemote = false)
+            applyRemoteEntity(remote.toProgressEntity(repaired.userId), preferRemote = false)
             // Snapshot refreshed — retry once if local is still auto-flushable (e.g. local ahead).
-            val latest = progressRepository.getProgressEntity(entity.bookId) ?: return
-            if (latest.pendingSync && ProgressMerger.canAutoFlush(latest.toDomain())) {
+            val latest = progressRepository.getProgressEntity(repaired.bookId) ?: return
+            val latestRepaired = repairStuckRevision(latest)
+            if (latestRepaired.pendingSync && ProgressMerger.canAutoFlush(latestRepaired.toDomain())) {
                 try {
                     val serverEntity = progressRemoteApi.pushProgress(
                         accessToken,
-                        latest.bookId,
-                        latest.toDomain(),
-                        latest.serverRevision ?: latest.revision,
-                    ).toProgressEntity(latest.userId)
+                        latestRepaired.bookId,
+                        latestRepaired.toDomain(),
+                        latestRepaired.serverRevision ?: latestRepaired.revision,
+                    ).toProgressEntity(latestRepaired.userId)
                     progressRepository.upsertProgressEntity(serverEntity.copy(pendingSync = false))
                     _updates.emit(serverEntity.toDomain())
                     markSynced()
@@ -254,13 +262,17 @@ class ProgressSyncRepository @Inject constructor(
     suspend fun flushPending(accessToken: String) {
         if (!serverHydrated || !networkMonitor.isOnline()) return
         for (entity in progressRepository.getPendingProgress()) {
-            if (!ProgressMerger.canAutoFlush(entity.toDomain())) continue
+            val repaired = repairStuckRevision(entity)
+            if (!ProgressMerger.canAutoFlush(repaired.toDomain())) continue
             try {
-                pushProgress(accessToken, entity)
+                pushProgress(accessToken, repaired)
             } catch (_: Exception) {
             }
         }
-        if (progressRepository.getPendingProgress().none { ProgressMerger.canAutoFlush(it.toDomain()) }) {
+        if (progressRepository.getPendingProgress().none {
+                ProgressMerger.canAutoFlush(repairStuckRevision(it).toDomain())
+            }
+        ) {
             markSynced()
         }
     }
@@ -276,6 +288,15 @@ class ProgressSyncRepository @Inject constructor(
 
     private fun markSynced() {
         _lastSyncAtEpochMs.value = System.currentTimeMillis()
+    }
+
+    /** Persist repair for rows stuck at revision=0 with a known serverRevision. */
+    private suspend fun repairStuckRevision(entity: AudiobookProgressEntity): AudiobookProgressEntity {
+        val aligned = ProgressMerger.alignedClientRevision(entity.revision, entity.serverRevision)
+        if (aligned == entity.revision) return entity
+        val repaired = entity.copy(revision = aligned)
+        progressRepository.upsertProgressEntity(repaired)
+        return repaired
     }
 
     private suspend fun applyRemoteEntity(
@@ -299,7 +320,12 @@ class ProgressSyncRepository @Inject constructor(
             serverTrackId = remoteEntity.trackId,
             serverPositionMs = remoteEntity.positionMs,
             serverRevision = remoteEntity.revision,
-            revision = if (local.pendingSync) local.revision else remoteEntity.revision,
+            revision = when {
+                !local.pendingSync -> remoteEntity.revision
+                // Stuck at 0: branch from last known snapshot, not the new remote write.
+                local.revision <= 0L -> local.serverRevision ?: remoteEntity.revision
+                else -> local.revision
+            },
             conflictChoiceKey = if (snapshotChanged) null else local.conflictChoiceKey,
         )
 

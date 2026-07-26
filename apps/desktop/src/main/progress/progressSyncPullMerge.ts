@@ -66,11 +66,16 @@ export function applyRemoteProgress(
     serverTrackId: remote.trackId,
     serverPositionMs: remote.positionMs,
     serverRevision: remote.revision,
-    // CAS base follows server when play head is not dirty
-    revision: local.pendingSync ? local.revision : remote.revision,
+    // CAS base follows server when play head is not dirty; when stuck at 0 with
+    // pending, branch from last known snapshot (not the new remote write).
+    revision: !local.pendingSync
+      ? remote.revision
+      : local.revision <= 0
+        ? (local.serverRevision ?? remote.revision)
+        : local.revision,
   };
 
-  if (local.pendingSync && hasProgressSyncConflict(local, getServerSnapshot(next))) {
+  if (local.pendingSync && hasProgressSyncConflict(next, getServerSnapshot(next))) {
     LocalDatabase.upsertProgress(next, true, {
       conflictChoiceKey: snapshotChanged ? null : local.conflictChoiceKey,
     });

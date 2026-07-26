@@ -226,7 +226,7 @@ flowchart TD
 
 - Same track and local `position_ms ≥ server_position_ms` → **not** a conflict (device listened ahead of a stale snapshot / pending push).
 - Same track and server ahead by `|Δ| ≥ 30_000` → conflict.
-- Different tracks → conflict only if `server_revision >` client `revision` (another device wrote). Local chapter advance on the same revision is pending push, not a dialog.
+- Different tracks → conflict only if `server_revision >` aligned client revision (another device wrote). Aligned client revision is play-head `revision` when `> 0`, otherwise known `server_revision` (avoids stuck `revision=0` blocking auto-flush after CAS/nearby). Local chapter advance on the same base is pending push, not a dialog.
 - No snapshot → no dialog.
 
 **Expected behavior:**
