@@ -66,7 +66,7 @@ function generateSecrets() {
     SECRET_KEY_BASE: randomSecret(64),
     PG_META_CRYPTO_KEY: randomSecret(32),
     POSTGRES_PASSWORD: randomPassword(24),
-    DB_ENC_KEY: randomSecret(32),
+    DB_ENC_KEY: crypto.randomBytes(8).toString("hex"), // Realtime AES-128: exactly 16 chars
   };
 }
 

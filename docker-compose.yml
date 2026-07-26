@@ -193,7 +193,8 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       DB_NAME: ${POSTGRES_DB:-tonezen}
       DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
-      DB_ENC_KEY: ${DB_ENC_KEY:?Set DB_ENC_KEY in .env}
+      # Must be exactly 16 characters (AES-128). See .env.example / gen-env.mjs.
+      DB_ENC_KEY: ${DB_ENC_KEY:?Set DB_ENC_KEY in .env (exactly 16 chars)}
       API_JWT_SECRET: ${JWT_SECRET}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       METRICS_JWT_SECRET: ${JWT_SECRET}
@@ -202,6 +203,7 @@ services:
       RLIMIT_NOFILE: "10000"
       APP_NAME: realtime
       SEED_SELF_HOST: "true"
+      SELF_HOST_TENANT_NAME: realtime-dev
       RUN_JANITOR: "true"
       DISABLE_HEALTHCHECK_LOGGING: "true"
     healthcheck:
@@ -210,10 +212,10 @@ services:
           "CMD-SHELL",
           "curl -sSfL --head -o /dev/null -H \"Authorization: Bearer ${ANON_KEY}\" http://127.0.0.1:4000/api/tenants/realtime-dev/health",
         ]
-      interval: 30s
+      interval: 10s
       timeout: 5s
-      retries: 12
-      start_period: 30s
+      retries: 18
+      start_period: 60s
 
   storage:
     image: supabase/storage-api:v1.60.4
@@ -332,14 +334,6 @@ services:
       STORAGE_INTERNAL_URL: http://storage:5000
       TONEZEN_BASE_URL: ${TONEZEN_BASE_URL:-http://localhost:8000}
       PORT: 3001
-      PGHOST: db
-      PGUSER: supabase_admin
-      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      PGDATABASE: ${POSTGRES_DB:-tonezen}
-      MIGRATIONS_DIR: /migrations
-    volumes:
-      - ./backend/supabase/migrations:/migrations:ro
-      - ./docker/migrate/run.sh:/migrate/run.sh:ro
     healthcheck:
       test:
         [

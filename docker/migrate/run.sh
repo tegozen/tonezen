@@ -30,10 +30,27 @@ ALTER ROLE supabase_auth_admin WITH PASSWORD :'pwd';
 ALTER ROLE supabase_storage_admin WITH PASSWORD :'pwd';
 ALTER ROLE authenticator WITH PASSWORD :'pwd';
 SQL
-  PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -v pwd="$pwd" \
-    -c "ALTER ROLE tonezen_api WITH PASSWORD :'pwd'" 2>/dev/null || true
+  if PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -tAc \
+    "SELECT 1 FROM pg_roles WHERE rolname = 'tonezen_api'" | grep -q 1; then
+    PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -v pwd="$pwd" \
+      -c "ALTER ROLE tonezen_api WITH PASSWORD :'pwd'"
+  fi
   PGPASSWORD="$pwd"
   export PGPASSWORD
+}
+
+# Realtime SEED_SELF_HOST encrypts DB_PASSWORD with DB_ENC_KEY into _realtime.tenants.
+# After password sync (or key change), clear so the realtime container re-seeds on boot.
+reseed_realtime_tenants() {
+  echo "[migrate] clearing Realtime tenant seed (will re-seed on realtime start)"
+  psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 <<'SQL'
+DO $$
+BEGIN
+  IF to_regclass('_realtime.tenants') IS NOT NULL THEN
+    TRUNCATE TABLE _realtime.extensions, _realtime.tenants CASCADE;
+  END IF;
+END $$;
+SQL
 }
 
 if ! can_connect; then
@@ -52,6 +69,10 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
   applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 SQL
+
+# Serialize migrate service vs any other runner.
+psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 \
+  -c "SELECT pg_advisory_lock(87201401)"
 
 # Heal stuck deploys: DB may still have placeholder while .env has the real secret.
 sync_role_passwords "$TARGET_PASSWORD"
@@ -131,5 +152,8 @@ for file in $(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | sort); do
 done
 
 sync_role_passwords "$TARGET_PASSWORD"
+reseed_realtime_tenants
+
+psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -c "SELECT pg_advisory_unlock(87201401)" >/dev/null 2>&1 || true
 
 echo "[migrate] done"
