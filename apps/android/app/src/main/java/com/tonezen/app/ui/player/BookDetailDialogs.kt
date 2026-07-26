@@ -74,3 +74,45 @@ internal fun EarlierChapterConfirmDialog(
         },
     )
 }
+
+@Composable
+internal fun ProgressSyncConflictDialog(
+    visible: Boolean,
+    localLabel: String,
+    serverLabel: String,
+    hazeState: HazeState,
+    onDismiss: () -> Unit,
+    onChooseLocal: () -> Unit,
+    onChooseServer: () -> Unit,
+) {
+    TonezenGlassAlertDialog(
+        visible = visible,
+        hazeState = hazeState,
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Где продолжить?",
+                color = TonezenInk,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        },
+        text = {
+            Text(
+                "Прогресс на устройстве и в облаке различается.\n\n" +
+                    "На устройстве: $localLabel\nВ облаке: $serverLabel",
+                color = TonezenMuted,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onChooseServer) {
+                Text("В облаке", color = TonezenTeal)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onChooseLocal) {
+                Text("На устройстве")
+            }
+        },
+    )
+}

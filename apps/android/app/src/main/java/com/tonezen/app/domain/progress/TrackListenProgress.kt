@@ -87,13 +87,28 @@ sealed class AudiobookPlaybackIntent {
         val savedTrackId: String,
         val savedPositionMs: Long,
     ) : AudiobookPlaybackIntent()
+
+    data class ConfirmProgressSyncConflict(
+        val localTrackId: String,
+        val localPositionMs: Long,
+        val server: ProgressServerSnapshot,
+    ) : AudiobookPlaybackIntent()
 }
 
 fun resolveAudiobookPlaybackIntent(
     sortedTracks: List<Track>,
     bookProgress: AudiobookProgress?,
     clickedTrack: Track,
+    skipSyncConflictPrompt: Boolean = false,
 ): AudiobookPlaybackIntent {
+    if (!skipSyncConflictPrompt && ProgressMerger.shouldPrompt(bookProgress)) {
+        val snapshot = ProgressMerger.getServerSnapshot(bookProgress)!!
+        return AudiobookPlaybackIntent.ConfirmProgressSyncConflict(
+            localTrackId = bookProgress!!.trackId,
+            localPositionMs = bookProgress.positionMs,
+            server = snapshot,
+        )
+    }
     if (bookProgress == null) return AudiobookPlaybackIntent.StartFromZero
     val savedIndex = sortedTracks.indexOfFirst { it.id == bookProgress.trackId }
     val clickedIndex = sortedTracks.indexOfFirst { it.id == clickedTrack.id }

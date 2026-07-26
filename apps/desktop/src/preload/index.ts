@@ -187,6 +187,8 @@ contextBridge.exposeInMainWorld("tonezen", {
     get: (bookId: string) => ipcRenderer.invoke("progress:get", bookId),
     save: (bookId: string, trackId: string, positionMs: number) =>
       ipcRenderer.invoke("progress:save", bookId, trackId, positionMs),
+    chooseLocal: (bookId: string) => ipcRenderer.invoke("progress:chooseLocal", bookId),
+    chooseServer: (bookId: string) => ipcRenderer.invoke("progress:chooseServer", bookId),
     onUpdated: (callback: (progress: unknown) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, progress: unknown) => callback(progress);
       ipcRenderer.on("progress:updated", listener);

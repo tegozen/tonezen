@@ -1,15 +1,26 @@
-import type { AudiobookProgress, Track } from "@core/types.js";
+import {
+  getServerSnapshot,
+  shouldPromptProgressSyncConflict,
+  type ProgressServerSnapshot,
+} from "@core/progress/progressMerge.js";
+import type { AudiobookProgress } from "@core/types.js";
 
 export type AudiobookPlaybackIntent =
   | { kind: "Resume"; positionMs: number }
   | { kind: "StartFromZero" }
-  | { kind: "ConfirmEarlierChapter"; savedTrackId: string; savedPositionMs: number };
+  | { kind: "ConfirmEarlierChapter"; savedTrackId: string; savedPositionMs: number }
+  | {
+      kind: "ConfirmProgressSyncConflict";
+      localTrackId: string;
+      localPositionMs: number;
+      server: ProgressServerSnapshot;
+    };
 
 const COMPLETED_FRACTION_THRESHOLD = 0.95;
 
 export function resolveAudiobookPlaybackStartMs(
   progress: AudiobookProgress | null | undefined,
-  track: Track,
+  track: { id: string; durationMs?: number | null },
 ): number {
   if (!progress || progress.trackId !== track.id) return 0;
   const durationMs = track.durationMs;
@@ -19,10 +30,25 @@ export function resolveAudiobookPlaybackStartMs(
 }
 
 export function resolveAudiobookPlaybackIntent(
-  sortedTracks: Track[],
-  bookProgress: AudiobookProgress | null | undefined,
-  clickedTrack: Track,
+  sortedTracks: Array<{ id: string; sortOrder: number; durationMs?: number | null }>,
+  bookProgress: (AudiobookProgress & { conflictChoiceKey?: string | null }) | null | undefined,
+  clickedTrack: { id: string; sortOrder: number; durationMs?: number | null },
+  options?: { skipSyncConflictPrompt?: boolean },
 ): AudiobookPlaybackIntent {
+  if (
+    !options?.skipSyncConflictPrompt &&
+    bookProgress &&
+    shouldPromptProgressSyncConflict(bookProgress)
+  ) {
+    const snapshot = getServerSnapshot(bookProgress)!;
+    return {
+      kind: "ConfirmProgressSyncConflict",
+      localTrackId: bookProgress.trackId,
+      localPositionMs: bookProgress.positionMs,
+      server: snapshot,
+    };
+  }
+
   if (!bookProgress) return { kind: "StartFromZero" };
   const savedIndex = sortedTracks.findIndex((track) => track.id === bookProgress.trackId);
   const clickedIndex = sortedTracks.findIndex((track) => track.id === clickedTrack.id);

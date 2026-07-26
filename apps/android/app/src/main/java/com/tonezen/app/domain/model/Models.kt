@@ -25,6 +25,11 @@ data class AudiobookProgress(
     val trackId: String,
     val positionMs: Long,
     val updatedAtEpochMs: Long,
+    val revision: Long = 0L,
+    val serverTrackId: String? = null,
+    val serverPositionMs: Long? = null,
+    val serverRevision: Long? = null,
+    val conflictChoiceKey: String? = null,
 )
 
 data class Book(

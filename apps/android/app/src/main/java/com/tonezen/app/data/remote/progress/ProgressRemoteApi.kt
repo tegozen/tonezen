@@ -12,16 +12,25 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 
+class ProgressCasConflictException(
+    val remote: RemoteProgress?,
+) : Exception("Progress CAS conflict")
+
 class ProgressRemoteApi(
     private val apiRoot: String,
     private val httpClient: OkHttpClient,
 ) {
-    suspend fun pushProgress(accessToken: String, bookId: String, progress: AudiobookProgress): RemoteProgress =
+    suspend fun pushProgress(
+        accessToken: String,
+        bookId: String,
+        progress: AudiobookProgress,
+        baseRevision: Long,
+    ): RemoteProgress =
         withContext(Dispatchers.IO) {
             val body = JSONObject()
                 .put("track_id", progress.trackId)
                 .put("position_ms", progress.positionMs)
-                .put("updated_at", java.time.Instant.ofEpochMilli(progress.updatedAtEpochMs).toString())
+                .put("base_revision", baseRevision)
                 .toString()
             val request = Request.Builder()
                 .url("$apiRoot/progress/audiobooks/$bookId")
@@ -29,11 +38,17 @@ class ProgressRemoteApi(
                 .header("Authorization", "Bearer $accessToken")
                 .build()
             httpClient.newCall(request).execute().use { response ->
+                val raw = response.body?.string().orEmpty()
+                if (response.code == 409) {
+                    val progressJson = runCatching {
+                        JSONObject(raw).optJSONObject("progress")
+                    }.getOrNull()
+                    throw ProgressCasConflictException(progressJson?.toRemoteProgress())
+                }
                 if (!response.isSuccessful) {
                     throw RemoteHttpException(response.code, "Progress push failed (${response.code})")
                 }
-                val json = JSONObject(response.body?.string().orEmpty())
-                json.getJSONObject("progress").toRemoteProgress()
+                JSONObject(raw).getJSONObject("progress").toRemoteProgress()
             }
         }
 
@@ -53,6 +68,7 @@ class ProgressRemoteApi(
         val trackId: String,
         val positionMs: Long,
         val updatedAt: String,
+        val revision: Long,
     )
 
     private fun JSONObject.toRemoteProgress() = RemoteProgress(
@@ -60,5 +76,6 @@ class ProgressRemoteApi(
         trackId = getString("track_id"),
         positionMs = getLong("position_ms"),
         updatedAt = getString("updated_at"),
+        revision = optLong("revision", 0L),
     )
 }

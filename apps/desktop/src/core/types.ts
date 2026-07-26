@@ -21,6 +21,12 @@ export interface AudiobookProgress {
   trackId: string;
   positionMs: number;
   updatedAt: string;
+  /** Last known server revision used as CAS base (0 = never synced / create). */
+  revision: number;
+  serverTrackId?: string | null;
+  serverPositionMs?: number | null;
+  serverRevision?: number | null;
+  conflictChoiceKey?: string | null;
 }
 
 export type ContentType = "audiobook" | "music";

@@ -55,23 +55,26 @@ interface CatalogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertTracks(tracks: List<TrackEntity>)
 
-    @Query("SELECT * FROM audiobook_progress WHERE bookId = :bookId")
-    suspend fun getProgress(bookId: String): AudiobookProgressEntity?
+    @Query("SELECT * FROM audiobook_progress WHERE userId = :userId AND bookId = :bookId")
+    suspend fun getProgress(userId: String, bookId: String): AudiobookProgressEntity?
 
-    @Query("SELECT * FROM audiobook_progress WHERE bookId IN (:bookIds)")
-    suspend fun getProgressForBooks(bookIds: List<String>): List<AudiobookProgressEntity>
+    @Query("SELECT * FROM audiobook_progress WHERE userId = :userId AND bookId IN (:bookIds)")
+    suspend fun getProgressForBooks(userId: String, bookIds: List<String>): List<AudiobookProgressEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertProgress(progress: AudiobookProgressEntity)
 
-    @Query("SELECT * FROM audiobook_progress WHERE pendingSync = 1")
-    suspend fun getPendingProgress(): List<AudiobookProgressEntity>
+    @Query("SELECT * FROM audiobook_progress WHERE userId = :userId AND pendingSync = 1")
+    suspend fun getPendingProgress(userId: String): List<AudiobookProgressEntity>
 
-    @Query("SELECT COUNT(*) FROM audiobook_progress")
-    suspend fun getProgressCount(): Int
+    @Query("SELECT COUNT(*) FROM audiobook_progress WHERE userId = :userId")
+    suspend fun getProgressCount(userId: String): Int
 
-    @Query("DELETE FROM audiobook_progress WHERE bookId = :bookId")
-    suspend fun deleteProgress(bookId: String)
+    @Query("DELETE FROM audiobook_progress WHERE userId = :userId AND bookId = :bookId")
+    suspend fun deleteProgress(userId: String, bookId: String)
+
+    @Query("DELETE FROM audiobook_progress WHERE userId = :userId")
+    suspend fun deleteProgressForUser(userId: String)
 
     @Query("UPDATE tracks SET localPath = NULL, localDownloadedAt = NULL WHERE bookId = :bookId")
     suspend fun clearLocalPathsForBook(bookId: String)

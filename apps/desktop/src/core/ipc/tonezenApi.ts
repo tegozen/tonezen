@@ -107,6 +107,8 @@ export interface TonezenApi {
   progress: {
     get: (bookId: string) => Promise<AudiobookProgress | null>;
     save: (bookId: string, trackId: string, positionMs: number) => Promise<void>;
+    chooseLocal: (bookId: string) => Promise<AudiobookProgress | null>;
+    chooseServer: (bookId: string) => Promise<AudiobookProgress | null>;
     onUpdated: (callback: (progress: AudiobookProgress) => void) => () => void;
   };
   playback: {

@@ -3,6 +3,7 @@ import type { Book, Track } from "@core/types";
 import { resolveAudiobookPlaybackIntent } from "@core/playback/audiobookPlaybackIntent";
 import { getTonezenApi, useSaveProgressMutation } from "@/shared/api";
 import type { UseAudiobookSessionOptions } from "./audiobookSessionTypes";
+import type { ProgressSyncConflictPromptModel } from "../ui/ProgressSyncConflictPrompt";
 
 type UseAudiobookProgressActionsOptions = Pick<
   UseAudiobookSessionOptions,
@@ -16,6 +17,15 @@ type UseAudiobookProgressActionsOptions = Pick<
   ) => Promise<void>;
 };
 
+function formatPositionLabel(tracks: Track[], trackId: string, positionMs: number): string {
+  const track = tracks.find((item) => item.id === trackId);
+  const title = track?.title ?? "Глава";
+  const totalSec = Math.max(0, Math.floor(positionMs / 1000));
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${title} · ${min}:${String(sec).padStart(2, "0")}`;
+}
+
 export function useAudiobookProgressActions({
   selectedBook,
   tracks,
@@ -27,13 +37,31 @@ export function useAudiobookProgressActions({
   const api = getTonezenApi();
   const saveProgress = useSaveProgressMutation();
   const [earlierChapterPrompt, setEarlierChapterPrompt] = useState<Track | null>(null);
+  const [syncConflictTrack, setSyncConflictTrack] = useState<Track | null>(null);
+  const [syncConflictModel, setSyncConflictModel] = useState<ProgressSyncConflictPromptModel | null>(
+    null,
+  );
 
   const playBookTrack = useCallback(
-    async (track: Track) => {
+    async (track: Track, options?: { skipSyncConflictPrompt?: boolean }) => {
       if (!selectedBook) return;
       const sortedTracks = [...tracks].sort((a, b) => a.sortOrder - b.sortOrder);
       const saved = progressByBook.get(selectedBook.id) ?? null;
-      const intent = resolveAudiobookPlaybackIntent(sortedTracks, saved, track);
+      const intent = resolveAudiobookPlaybackIntent(sortedTracks, saved, track, {
+        skipSyncConflictPrompt: options?.skipSyncConflictPrompt,
+      });
+      if (intent.kind === "ConfirmProgressSyncConflict") {
+        setSyncConflictTrack(track);
+        setSyncConflictModel({
+          localLabel: formatPositionLabel(tracks, intent.localTrackId, intent.localPositionMs),
+          serverLabel: formatPositionLabel(
+            tracks,
+            intent.server.trackId,
+            intent.server.positionMs,
+          ),
+        });
+        return;
+      }
       if (intent.kind === "ConfirmEarlierChapter") {
         setEarlierChapterPrompt(track);
         return;
@@ -92,10 +120,56 @@ export function useAudiobookProgressActions({
     if (track && selectedBook) void playAudiobookTrackResolved(selectedBook, tracks, track, 0);
   }, [earlierChapterPrompt, playAudiobookTrackResolved, selectedBook, tracks]);
 
+  const dismissSyncConflictPrompt = useCallback(() => {
+    setSyncConflictTrack(null);
+    setSyncConflictModel(null);
+  }, []);
+
+  const chooseSyncConflictLocal = useCallback(async () => {
+    if (!selectedBook || !syncConflictTrack) return;
+    const track = syncConflictTrack;
+    dismissSyncConflictPrompt();
+    await api.progress.chooseLocal(selectedBook.id);
+    await refreshLibrary();
+    await playBookTrack(track, { skipSyncConflictPrompt: true });
+  }, [
+    api.progress,
+    dismissSyncConflictPrompt,
+    playBookTrack,
+    refreshLibrary,
+    selectedBook,
+    syncConflictTrack,
+  ]);
+
+  const chooseSyncConflictServer = useCallback(async () => {
+    if (!selectedBook) return;
+    dismissSyncConflictPrompt();
+    const applied = await api.progress.chooseServer(selectedBook.id);
+    await refreshLibrary();
+    if (!applied) return;
+    const sortedTracks = [...tracks].sort((a, b) => a.sortOrder - b.sortOrder);
+    const track =
+      sortedTracks.find((item) => item.id === applied.trackId) ?? sortedTracks[0] ?? null;
+    if (track) {
+      await playAudiobookTrackResolved(selectedBook, tracks, track, applied.positionMs);
+    }
+  }, [
+    api.progress,
+    dismissSyncConflictPrompt,
+    playAudiobookTrackResolved,
+    refreshLibrary,
+    selectedBook,
+    tracks,
+  ]);
+
   return {
     earlierChapterPrompt,
     dismissEarlierChapterPrompt,
     confirmEarlierChapterPrompt,
+    syncConflictModel,
+    dismissSyncConflictPrompt,
+    chooseSyncConflictLocal,
+    chooseSyncConflictServer,
     playBookTrack,
     continueBook,
     markBookListened,

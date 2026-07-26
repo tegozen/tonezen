@@ -139,6 +139,7 @@ class RealtimeProgressClient(
                     trackId = record.getString("track_id"),
                     positionMs = record.getLong("position_ms"),
                     updatedAt = record.getString("updated_at"),
+                    revision = record.optLong("revision", 0L),
                 )
                 onProgressChange(progress)
             }

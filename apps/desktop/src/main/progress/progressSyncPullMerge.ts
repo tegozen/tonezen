@@ -1,5 +1,8 @@
 import type { BrowserWindow } from "electron";
-import { mergeProgressLww } from "@core/progress/progressMerge.js";
+import {
+  getServerSnapshot,
+  hasProgressSyncConflict,
+} from "@core/progress/progressMerge.js";
 import type { AudiobookProgress } from "@core/types.js";
 import { apiV1Url } from "@core/platform/serverPaths.js";
 import { LocalDatabase } from "../db/localDatabase.js";
@@ -12,32 +15,88 @@ export interface ProgressPullMergeDeps {
   mainWindow: BrowserWindow | null;
 }
 
+function rowToRemote(row: ProgressRow): AudiobookProgress {
+  const revision = Number(row.revision);
+  return {
+    bookId: row.book_id,
+    trackId: row.track_id,
+    positionMs: row.position_ms,
+    updatedAt: row.updated_at,
+    revision: Number.isFinite(revision) ? revision : 0,
+    serverTrackId: row.track_id,
+    serverPositionMs: row.position_ms,
+    serverRevision: Number.isFinite(revision) ? revision : 0,
+  };
+}
+
 export function applyRemoteProgress(
   row: ProgressRow,
   mainWindow: BrowserWindow | null,
   options?: { preferRemote?: boolean },
 ): void {
-  const remote: AudiobookProgress = {
-    bookId: row.book_id,
-    trackId: row.track_id,
-    positionMs: row.position_ms,
-    updatedAt: row.updated_at,
-  };
+  const remote = rowToRemote(row);
   const preferRemote = options?.preferRemote === true;
   const local = LocalDatabase.getProgress(remote.bookId);
-  if (!preferRemote) {
-    const pendingLocal =
-      local?.pendingSync &&
-      local.updatedAt &&
-      new Date(local.updatedAt) > new Date(remote.updatedAt);
-    if (pendingLocal) return;
+
+  if (preferRemote || !local) {
+    const applied = LocalDatabase.applyServerToPlayHead(
+      remote.bookId,
+      {
+        trackId: remote.trackId,
+        positionMs: remote.positionMs,
+        revision: remote.revision,
+        updatedAt: remote.updatedAt,
+      },
+      null,
+    );
+    mainWindow?.webContents.send("progress:updated", applied);
+    return;
   }
 
-  const merged = preferRemote ? remote : mergeProgressLww(local, remote);
-  if (!merged) return;
+  // Always refresh server snapshot; keep play head when pending and divergent.
+  const prevSnapshot = getServerSnapshot(local);
+  const snapshotChanged =
+    !prevSnapshot ||
+    prevSnapshot.trackId !== remote.trackId ||
+    prevSnapshot.positionMs !== remote.positionMs ||
+    prevSnapshot.revision !== remote.revision;
 
-  LocalDatabase.upsertProgress(merged, false);
-  mainWindow?.webContents.send("progress:updated", merged);
+  const next: AudiobookProgress = {
+    ...local,
+    serverTrackId: remote.trackId,
+    serverPositionMs: remote.positionMs,
+    serverRevision: remote.revision,
+    // CAS base follows server when play head is not dirty
+    revision: local.pendingSync ? local.revision : remote.revision,
+  };
+
+  if (local.pendingSync && hasProgressSyncConflict(local, getServerSnapshot(next))) {
+    LocalDatabase.upsertProgress(next, true, {
+      conflictChoiceKey: snapshotChanged ? null : local.conflictChoiceKey,
+    });
+    mainWindow?.webContents.send("progress:updated", { ...next, pendingSync: true });
+    return;
+  }
+
+  if (!local.pendingSync) {
+    const applied = LocalDatabase.applyServerToPlayHead(
+      remote.bookId,
+      {
+        trackId: remote.trackId,
+        positionMs: remote.positionMs,
+        revision: remote.revision,
+        updatedAt: remote.updatedAt,
+      },
+      snapshotChanged ? null : local.conflictChoiceKey,
+    );
+    mainWindow?.webContents.send("progress:updated", applied);
+    return;
+  }
+
+  LocalDatabase.upsertProgress(next, true, {
+    conflictChoiceKey: snapshotChanged ? null : local.conflictChoiceKey,
+  });
+  mainWindow?.webContents.send("progress:updated", { ...next, pendingSync: true });
 }
 
 export async function pullAllProgress(
@@ -53,26 +112,10 @@ export async function pullAllProgress(
   });
   if (!res.ok) return false;
 
-  const data = (await res.json()) as {
-    progress?: Array<{
-      book_id: string;
-      track_id: string;
-      position_ms: number;
-      updated_at: string;
-    }>;
-  };
+  const data = (await res.json()) as { progress?: ProgressRow[] };
 
   for (const row of data.progress ?? []) {
-    applyRemoteProgress(
-      {
-        book_id: row.book_id,
-        track_id: row.track_id,
-        position_ms: row.position_ms,
-        updated_at: row.updated_at,
-      },
-      deps.mainWindow,
-      { preferRemote: options?.preferRemote },
-    );
+    applyRemoteProgress(row, deps.mainWindow, { preferRemote: options?.preferRemote });
   }
   return true;
 }

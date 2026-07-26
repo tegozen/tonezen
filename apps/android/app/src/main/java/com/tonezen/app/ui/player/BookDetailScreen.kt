@@ -57,6 +57,9 @@ internal fun BookDetailScreen(
     onDismissDownloadError: () -> Unit,
     onConfirmEarlierChapter: () -> Unit,
     onDismissEarlierChapter: () -> Unit,
+    onChooseProgressSyncLocal: () -> Unit,
+    onChooseProgressSyncServer: () -> Unit,
+    onDismissProgressSyncConflict: () -> Unit,
     bottomScrollPadding: Dp,
 ) {
     val tracks = uiState.tracks
@@ -194,6 +197,15 @@ internal fun BookDetailScreen(
         hazeState = hazeState,
         onDismiss = onDismissEarlierChapter,
         onConfirm = onConfirmEarlierChapter,
+    )
+    ProgressSyncConflictDialog(
+        visible = uiState.confirmProgressSyncConflict != null,
+        localLabel = uiState.confirmProgressSyncConflict?.localLabel.orEmpty(),
+        serverLabel = uiState.confirmProgressSyncConflict?.serverLabel.orEmpty(),
+        hazeState = hazeState,
+        onDismiss = onDismissProgressSyncConflict,
+        onChooseLocal = onChooseProgressSyncLocal,
+        onChooseServer = onChooseProgressSyncServer,
     )
     }
 }

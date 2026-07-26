@@ -74,6 +74,7 @@ internal class LibraryCatalogLoader(
                 sessionData
             }
         }
+        progressSyncRepository.bindUser(refreshed)
         // Online: brief bounded pull before shell. Offline / timeout: fail-open to local cache
         // so downloaded content stays playable. Push stays gated until a successful pull.
         if (networkMonitor.isOnline()) {

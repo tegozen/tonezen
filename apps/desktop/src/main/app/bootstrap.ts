@@ -25,6 +25,9 @@ export async function runColdStartBootstrap(
 ): Promise<void> {
   const online = net.isOnline();
   sessionService.setOnline(online);
+  const session = sessionService.getSession();
+  progressSync.bindUser(session);
+
   // Offline: never block splash on network — local catalog/progress/downloads win.
   if (!online) {
     progressSync.prepareHydrateFromLocalCache();
@@ -33,8 +36,9 @@ export async function runColdStartBootstrap(
 
   await withTimeout(sessionService.refreshIfNeeded(), PROGRESS_SPLASH_PULL_TIMEOUT_MS);
 
-  const session = sessionService.getSession();
-  if (!session) return;
+  const refreshed = sessionService.getSession();
+  progressSync.bindUser(refreshed);
+  if (!refreshed) return;
 
   const snapshot = sessionService.getSnapshot();
   if (snapshot.state === "Unauthenticated") return;

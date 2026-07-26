@@ -1,11 +1,13 @@
-export interface ProgressRecord {
-  book_id: string;
-  track_id: string;
-  position_ms: number;
-  updated_at: string;
-}
+/** @deprecated Prefer progressCas — kept so existing unit imports resolve during cutover. */
+export type { ProgressRecord } from "./progressCas.js";
+export {
+  maybeProgressCasConflict as maybeSkipProgressWrite,
+  parseBaseRevision,
+} from "./progressCas.js";
 
-/** Last-write-wins merge for audiobook progress */
+import type { ProgressRecord } from "./progressCas.js";
+
+/** Legacy timestamp LWW — unused by API after revision CAS cutover. */
 export function mergeProgressLww(
   local: ProgressRecord | null,
   remote: ProgressRecord | null,
@@ -13,18 +15,5 @@ export function mergeProgressLww(
   if (!local && !remote) return null;
   if (!local) return remote;
   if (!remote) return local;
-  return new Date(local.updated_at) >= new Date(remote.updated_at) ? local : remote;
-}
-
-export type ProgressSkipResult = { skipped: true; progress: ProgressRecord };
-
-/** Returns skip payload when an existing server record wins over the incoming write. */
-export function maybeSkipProgressWrite(
-  incoming: ProgressRecord,
-  existing: ProgressRecord | null | undefined,
-): ProgressSkipResult | null {
-  if (!existing) return null;
-  const winner = mergeProgressLww(incoming, existing);
-  if (winner == null || winner === incoming) return null;
-  return { skipped: true, progress: winner };
+  return local.revision >= remote.revision ? local : remote;
 }

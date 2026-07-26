@@ -1,12 +1,15 @@
 import type pg from "pg";
-import { maybeSkipProgressWrite, type ProgressRecord } from "../lib/progressLww.js";
+import {
+  maybeProgressCasConflict,
+  type ProgressRecord,
+} from "../lib/progressCas.js";
 
 export class ProgressRepository {
   constructor(private pool: pg.Pool) {}
 
   async getAudiobookProgress(userId: string) {
     const result = await this.pool.query(
-      `SELECT book_id, track_id, position_ms, updated_at
+      `SELECT book_id, track_id, position_ms, updated_at, revision
        FROM audiobook_progress WHERE user_id = $1`,
       [userId],
     );
@@ -18,7 +21,7 @@ export class ProgressRepository {
     bookId: string,
     trackId: string,
     positionMs: number,
-    updatedAt: string,
+    baseRevision: number,
   ) {
     const bookCheck = await this.pool.query(
       `SELECT content_type FROM books WHERE id = $1 AND deleted_at IS NULL`,
@@ -37,34 +40,60 @@ export class ProgressRepository {
       return { error: "invalid_track" as const };
     }
 
-    const existing = await this.pool.query(
-      `SELECT book_id, track_id, position_ms, updated_at
-       FROM audiobook_progress WHERE user_id = $1 AND book_id = $2`,
-      [userId, bookId],
-    );
-    const incoming: ProgressRecord = {
-      book_id: bookId,
-      track_id: trackId,
-      position_ms: positionMs,
-      updated_at: updatedAt,
-    };
-    const skipResult = maybeSkipProgressWrite(
-      incoming,
-      existing.rows[0] as ProgressRecord | undefined,
-    );
-    if (skipResult) return skipResult;
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const existing = await client.query(
+        `SELECT book_id, track_id, position_ms, updated_at, revision
+         FROM audiobook_progress WHERE user_id = $1 AND book_id = $2
+         FOR UPDATE`,
+        [userId, bookId],
+      );
+      const current = existing.rows[0] as ProgressRecord | undefined;
 
-    const result = await this.pool.query(
-      `INSERT INTO audiobook_progress (user_id, book_id, track_id, position_ms, updated_at)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (user_id, book_id) DO UPDATE SET
-         track_id = EXCLUDED.track_id,
-         position_ms = EXCLUDED.position_ms,
-         updated_at = EXCLUDED.updated_at
-       WHERE audiobook_progress.updated_at <= EXCLUDED.updated_at
-       RETURNING book_id, track_id, position_ms, updated_at`,
-      [userId, bookId, trackId, positionMs, updatedAt],
-    );
-    return { progress: result.rows[0] ?? existing.rows[0] };
+      if (!current) {
+        if (baseRevision !== 0) {
+          await client.query("ROLLBACK");
+          return { error: "cas_conflict" as const };
+        }
+        const inserted = await client.query(
+          `INSERT INTO audiobook_progress (
+             user_id, book_id, track_id, position_ms, updated_at, revision
+           ) VALUES ($1, $2, $3, $4, now(), 1)
+           RETURNING book_id, track_id, position_ms, updated_at, revision`,
+          [userId, bookId, trackId, positionMs],
+        );
+        await client.query("COMMIT");
+        return { progress: inserted.rows[0] };
+      }
+
+      const conflict = maybeProgressCasConflict(baseRevision, current);
+      if (conflict) {
+        await client.query("ROLLBACK");
+        return conflict;
+      }
+
+      const updated = await client.query(
+        `UPDATE audiobook_progress SET
+           track_id = $3,
+           position_ms = $4,
+           updated_at = now(),
+           revision = revision + 1
+         WHERE user_id = $1 AND book_id = $2
+         RETURNING book_id, track_id, position_ms, updated_at, revision`,
+        [userId, bookId, trackId, positionMs],
+      );
+      await client.query("COMMIT");
+      return { progress: updated.rows[0] };
+    } catch (err) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        /* ignore */
+      }
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }

@@ -3,7 +3,7 @@ import { MiniPlayerBar } from "@/widgets/mini-player";
 import { LoginView } from "@/pages/login";
 import { NowPlayingSheet } from "@/widgets/now-playing";
 import { ToastMessage } from "@/shared/ui/ToastMessage";
-import { EarlierChapterPrompt } from "@/features/playback";
+import { EarlierChapterPrompt, ProgressSyncConflictPrompt } from "@/features/playback";
 import { AppShellRoutes } from "@/app/shell";
 import { useAppShellWiring } from "@/app/model";
 
@@ -95,6 +95,13 @@ export function App() {
         visible={Boolean(audiobook.earlierChapterPrompt && library.selectedBook)}
         onCancel={audiobook.dismissEarlierChapterPrompt}
         onConfirm={audiobook.confirmEarlierChapterPrompt}
+      />
+      <ProgressSyncConflictPrompt
+        visible={Boolean(audiobook.syncConflictModel && library.selectedBook)}
+        model={audiobook.syncConflictModel}
+        onCancel={audiobook.dismissSyncConflictPrompt}
+        onChooseLocal={() => void audiobook.chooseSyncConflictLocal()}
+        onChooseServer={() => void audiobook.chooseSyncConflictServer()}
       />
       <NowPlayingSheet
         visible={showExpandedPlayer && Boolean(currentTrack)}

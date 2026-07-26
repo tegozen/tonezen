@@ -4,6 +4,8 @@ import com.tonezen.app.data.local.CatalogRepository
 import com.tonezen.app.data.local.LocalLibraryNotifier
 import com.tonezen.app.data.local.TrackDownloadEnsurer
 import com.tonezen.app.data.network.NetworkMonitor
+import com.tonezen.app.data.remote.ProgressSyncRepository
+import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
@@ -26,6 +28,8 @@ internal class BookDetailPlaybackActions(
     private val uiState: MutableStateFlow<BookDetailUiState>,
     private val scope: CoroutineScope,
     private val catalogRepository: CatalogRepository,
+    private val sessionRepository: SessionRepository,
+    private val progressSyncRepository: ProgressSyncRepository,
     private val playbackClient: PlaybackClient,
     playbackQueueBuilder: PlaybackQueueBuilder,
     trackDownloadEnsurer: TrackDownloadEnsurer,
@@ -51,7 +55,6 @@ internal class BookDetailPlaybackActions(
         onTrackStarted = { currentTrack = it },
     )
 
-    /** Подписывается на текущий трек и снапшот плеера, обновляя [uiState]. */
     fun startObservers() {
         scope.launch {
             playbackClient.activeTrackId.collect { trackId ->
@@ -76,7 +79,15 @@ internal class BookDetailPlaybackActions(
         }
     }
 
-    fun playTrack(track: Track) {
+    private fun formatProgressLabel(tracks: List<Track>, trackId: String, positionMs: Long): String {
+        val title = tracks.find { it.id == trackId }?.title ?: "Глава"
+        val totalSec = (positionMs / 1000L).coerceAtLeast(0L)
+        val min = totalSec / 60L
+        val sec = totalSec % 60L
+        return "$title · $min:${sec.toString().padStart(2, '0')}"
+    }
+
+    fun playTrack(track: Track, skipSyncConflictPrompt: Boolean = false) {
         val book = uiState.value.book ?: return
         scope.launch {
             when (book.contentType) {
@@ -89,8 +100,33 @@ internal class BookDetailPlaybackActions(
                         catalogRepository.getProgress(book.id)
                     }
                     when (
-                        val intent = resolveAudiobookPlaybackIntent(tracks, progress, targetTrack)
+                        val intent = resolveAudiobookPlaybackIntent(
+                            tracks,
+                            progress,
+                            targetTrack,
+                            skipSyncConflictPrompt = skipSyncConflictPrompt,
+                        )
                     ) {
+                        is AudiobookPlaybackIntent.ConfirmProgressSyncConflict -> {
+                            uiState.update {
+                                it.copy(
+                                    confirmProgressSyncConflict = ConfirmProgressSyncConflictPrompt(
+                                        pendingTrack = targetTrack,
+                                        localLabel = formatProgressLabel(
+                                            tracks,
+                                            intent.localTrackId,
+                                            intent.localPositionMs,
+                                        ),
+                                        serverLabel = formatProgressLabel(
+                                            tracks,
+                                            intent.server.trackId,
+                                            intent.server.positionMs,
+                                        ),
+                                    ),
+                                )
+                            }
+                            return@launch
+                        }
                         is AudiobookPlaybackIntent.ConfirmEarlierChapter -> {
                             uiState.update {
                                 it.copy(
@@ -130,11 +166,43 @@ internal class BookDetailPlaybackActions(
         uiState.update { it.copy(confirmEarlierChapter = null) }
     }
 
+    fun dismissProgressSyncConflictPrompt() {
+        uiState.update { it.copy(confirmProgressSyncConflict = null) }
+    }
+
+    fun chooseProgressSyncLocal() {
+        val prompt = uiState.value.confirmProgressSyncConflict ?: return
+        val book = uiState.value.book ?: return
+        val track = prompt.pendingTrack ?: return
+        uiState.update { it.copy(confirmProgressSyncConflict = null) }
+        scope.launch {
+            val session = withContext(Dispatchers.IO) { sessionRepository.loadSession() }
+            withContext(Dispatchers.IO) {
+                progressSyncRepository.chooseLocalProgress(book.id, session?.accessToken)
+            }
+            playTrack(track, skipSyncConflictPrompt = true)
+        }
+    }
+
+    fun chooseProgressSyncServer() {
+        val book = uiState.value.book ?: return
+        uiState.update { it.copy(confirmProgressSyncConflict = null) }
+        scope.launch {
+            val applied = withContext(Dispatchers.IO) {
+                progressSyncRepository.chooseServerProgress(book.id)
+            } ?: return@launch
+            val tracks = withContext(Dispatchers.IO) {
+                catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
+            }
+            val track = tracks.find { it.id == applied.trackId } ?: tracks.firstOrNull() ?: return@launch
+            executor.playAudiobookTrack(book, tracks, track, applied.positionMs)
+        }
+    }
+
     fun continueListening() {
         val state = uiState.value
         val progress = state.audiobookProgress
         val tracks = state.tracks.sortedBy { it.sortOrder }
-        // Если прогресса нет — начинаем с первого трека
         val track = if (progress != null) {
             tracks.find { it.id == progress.trackId } ?: tracks.firstOrNull()
         } else {

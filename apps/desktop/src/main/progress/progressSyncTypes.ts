@@ -8,10 +8,11 @@ export type ProgressRow = {
   track_id: string;
   position_ms: number;
   updated_at: string;
+  revision: number;
   user_id?: string;
 };
 
 export type ProgressPushResponse = {
-  skipped?: boolean;
   progress?: ProgressRow;
+  error?: string;
 };

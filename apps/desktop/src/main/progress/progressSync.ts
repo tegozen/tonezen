@@ -1,3 +1,4 @@
+import { progressConflictChoiceKey } from "@core/progress/progressMerge.js";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowserWindow } from "electron";
@@ -45,9 +46,7 @@ export class ProgressSyncService {
   private subscribed = false;
   private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private recoveryInFlight = false;
-  /** Block HTTP push until first successful pull — avoids LWW wipe after reinstall. */
   private serverHydrated = false;
-  /** Reinstall/empty local: first pull prefers server over fail-open pending zeros. */
   private preferRemoteOnHydrate = false;
 
   constructor(
@@ -61,21 +60,39 @@ export class ProgressSyncService {
     this.mainWindow = window;
   }
 
+  /** Bind active user for local progress reads before splash pull/start. */
+  bindUser(session: StoredSession | null): void {
+    if (!session) {
+      LocalDatabase.setActiveUserId(null);
+      this.userId = null;
+      return;
+    }
+    LocalDatabase.setActiveUserId(session.userId);
+    this.userId = session.userId;
+    if (LocalDatabase.getHydratedUserId() === session.userId) {
+      this.serverHydrated = true;
+    }
+  }
+
   prepareHydrateFromLocalCache(): void {
     if (this.serverHydrated) return;
-    this.preferRemoteOnHydrate = LocalDatabase.getAllProgress().length === 0;
+    this.preferRemoteOnHydrate = LocalDatabase.countProgressForActiveUser() === 0;
   }
 
   async start(session: StoredSession, options?: { splashTimeoutMs?: number }): Promise<void> {
-    // Bootstrap may already have pulled; do not clear hydration and reopen a push race
-    // while the shell is (or is about to become) interactive.
     const userChanged = this.userId != null && this.userId !== session.userId;
-    const keepHydration = this.serverHydrated && !userChanged;
+    const persistedHydrated = LocalDatabase.getHydratedUserId() === session.userId;
+    const keepHydration = (this.serverHydrated || persistedHydrated) && !userChanged;
+
     this.teardownRealtime();
-    if (!keepHydration) {
-      this.serverHydrated = false;
+    if (userChanged && this.userId) {
+      LocalDatabase.deleteProgressForUser(this.userId);
+      LocalDatabase.setHydratedUserId(null);
     }
+
+    LocalDatabase.setActiveUserId(session.userId);
     this.userId = session.userId;
+    this.serverHydrated = keepHydration;
 
     await this.refreshSession();
     if (!this.isAccessTokenUsable()) {
@@ -89,7 +106,6 @@ export class ProgressSyncService {
 
     if (!this.serverHydrated) {
       this.prepareHydrateFromLocalCache();
-      // Offline: do not wait on fetch — local downloads must open immediately.
       if (net.isOnline()) {
         const timeoutMs = options?.splashTimeoutMs;
         if (timeoutMs != null) {
@@ -107,10 +123,16 @@ export class ProgressSyncService {
   }
 
   stop(): void {
+    const previousUser = this.userId;
     this.teardownRealtime();
     this.userId = null;
     this.serverHydrated = false;
     this.preferRemoteOnHydrate = false;
+    LocalDatabase.setHydratedUserId(null);
+    if (previousUser) {
+      LocalDatabase.deleteProgressForUser(previousUser);
+    }
+    LocalDatabase.setActiveUserId(null);
   }
 
   private teardownRealtime(): void {
@@ -212,16 +234,74 @@ export class ProgressSyncService {
   }
 
   async saveLocal(bookId: string, trackId: string, positionMs: number): Promise<void> {
+    const existing = LocalDatabase.getProgress(bookId);
     const progress: AudiobookProgress = {
       bookId,
       trackId,
       positionMs,
       updatedAt: new Date().toISOString(),
+      revision: existing?.revision ?? existing?.serverRevision ?? 0,
+      serverTrackId: existing?.serverTrackId,
+      serverPositionMs: existing?.serverPositionMs,
+      serverRevision: existing?.serverRevision,
     };
-    LocalDatabase.upsertProgress(progress, true);
+    LocalDatabase.upsertProgress(progress, true, { conflictChoiceKey: null });
     if (this.serverHydrated) {
       await this.pushProgress(progress);
     }
+  }
+
+  async chooseLocalProgress(bookId: string): Promise<AudiobookProgress | null> {
+    const stored = LocalDatabase.getProgress(bookId);
+    if (!stored) return null;
+    const snapshot = {
+      trackId: stored.serverTrackId,
+      positionMs: stored.serverPositionMs,
+      revision: stored.serverRevision,
+    };
+    if (snapshot.trackId == null || snapshot.positionMs == null || snapshot.revision == null) {
+      return stored;
+    }
+    const key = progressConflictChoiceKey(stored, {
+      trackId: snapshot.trackId,
+      positionMs: snapshot.positionMs,
+      revision: snapshot.revision,
+    });
+    LocalDatabase.setConflictChoiceKey(bookId, key);
+    const next = LocalDatabase.getProgress(bookId);
+    if (next && this.serverHydrated) {
+      await this.pushProgress(next);
+    }
+    return next;
+  }
+
+  async chooseServerProgress(bookId: string): Promise<AudiobookProgress | null> {
+    const stored = LocalDatabase.getProgress(bookId);
+    if (
+      !stored ||
+      stored.serverTrackId == null ||
+      stored.serverPositionMs == null ||
+      stored.serverRevision == null
+    ) {
+      return stored;
+    }
+    const key = progressConflictChoiceKey(stored, {
+      trackId: stored.serverTrackId,
+      positionMs: stored.serverPositionMs,
+      revision: stored.serverRevision,
+    });
+    const applied = LocalDatabase.applyServerToPlayHead(
+      bookId,
+      {
+        trackId: stored.serverTrackId,
+        positionMs: stored.serverPositionMs,
+        revision: stored.serverRevision,
+        updatedAt: stored.updatedAt,
+      },
+      key,
+    );
+    this.mainWindow?.webContents.send("progress:updated", applied);
+    return applied;
   }
 
   async pullAll(): Promise<void> {
@@ -230,6 +310,7 @@ export class ProgressSyncService {
     if (ok) {
       this.serverHydrated = true;
       this.preferRemoteOnHydrate = false;
+      if (this.userId) LocalDatabase.setHydratedUserId(this.userId);
     }
   }
 

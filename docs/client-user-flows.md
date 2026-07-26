@@ -6,7 +6,7 @@
 
 - **Offline-first:** local cache is authoritative; sync when online.
 - **Music progress:** local only — never synced to server.
-- **Audiobook progress:** local write always; push/pull when authenticated and online.
+- **Audiobook progress:** local write always; push/pull when authenticated and online. Server conflict authority is monotonic **`revision`** with CAS (`base_revision` on PUT), not client wall-clock. Local cache is **user-scoped**; logout must not leave another user’s play head in the sync set. Clients keep a **server snapshot** beside the play head; when they diverge at Continue/Play/resume, the user chooses «На устройстве» or «В облаке» (see A3b). Short server **history** exists for ops restore only — not a client UI.
 - **UI language:** Russian only — copy inline at usage sites; no strings catalog or locale switching.
 - **Download queue priorities:** `USER` (explicit tap) > `PLAY` (playback needs file) > `PREFETCH` (background next chapter/track) > `BULK` (download all). Progress % is shown only for the **currently active** download in a batch; queued items show icon until their turn.
 - **Auth:** expired JWT while **offline** ≠ logout; refresh tokens **only when online**; never block cold start with synchronous JWT exp check without network.
@@ -58,8 +58,9 @@
 - Desktop splash closes on `bootstrap-complete`, not only `ready-to-show`. Cold start attempts audiobook progress pull/`progressSync.start` **before** closing splash, but **fail-open** on offline or pull timeout (~4s) so local downloads stay playable.
 - After bootstrap hydrate, `progressSync.start` must **not** clear the push gate and re-open a wipe window while the UI is up (keep hydration for the same user).
 - **Online Auth → login (incl. reinstall):** brief splash for a **bounded** progress pull; on timeout/offline open the shell with local cache. Do not hang the UI on bad network.
-- **Push gate:** do not HTTP-push audiobook progress until a successful progress pull for the current session/process. Otherwise fresh local zeros with a newer `updated_at` LWW-wipe server progress.
-- **Wipe-safe hydrate:** if local progress was empty at session start (reinstall), the first successful pull prefers server rows over any pending local zeros written during fail-open. If local progress already existed (normal offline use), LWW keeps newer local listening.
+- **Push gate:** do not HTTP-push audiobook progress until a successful progress pull for the current hydrated user. Persist hydrated user id across process starts for the same account; clear on logout.
+- **Wipe-safe hydrate:** if local progress was empty at session start (reinstall), the first successful pull applies server rows to both play head and server snapshot. If local play head already existed, pull/Realtime update **server snapshot only** while `pending_sync` (do not silently overwrite listening). Do not auto-flush pending for a book with an active local↔server conflict.
+- **CAS:** PUT sends `base_revision` (= last known server revision; `0` only when creating the first server row). Mismatch → 409 + current progress; refresh snapshot; do not loop dialogs in the same tap.
 
 ```mermaid
 flowchart TD
@@ -90,7 +91,8 @@ flowchart TD
 
 - Never push pending local progress before the first successful pull after login/reinstall.
 - Never block offline / poor-network users from playing already-downloaded content.
-- LWW remains timestamp-only on the server; wipe-safe hydrate prefers server when local progress was empty at session start.
+- Wipe-safe hydrate prefers server when local progress was empty at session start; otherwise keep play head and refresh server snapshot.
+- On account switch / logout: drop or ignore other users’ local audiobook progress rows.
 ---
 
 ## Music
@@ -193,9 +195,33 @@ flowchart TD
 
 1. If partial progress → «Продолжить» with resume metadata.
 2. If no history and book not fully listened → «Воспроизвести» (first chapter).
-3. Continue/Play downloads target chapter if online; offline without local file → error, no skip.
+3. Before starting, apply **A3b** if local play head and server snapshot diverge.
+4. Continue/Play downloads target chapter if online; offline without local file → error, no skip.
 
 **UI signals:** Primary play button always visible when book has chapters and not fully listened.
+
+---
+
+### A3b. Local vs cloud progress choice
+
+**Trigger:** Continue / Play / resume / play-cycle target for an **audiobook** when domain detects a sync conflict.
+
+**Preconditions:** A server snapshot exists for the book (`server_revision` known). Music never uses this flow.
+
+**Conflict rule (shared domain):** conflict if `track_id ≠ server_track_id`, or same track and `|position_ms − server_position_ms| ≥ 30_000`. No snapshot → no dialog.
+
+**Expected behavior:**
+
+1. Show dialog: progress on device and in cloud differ; show both points (chapter title + time when tracks are loaded).
+2. Buttons: **«На устройстве»** / **«В облаке»**. Dismiss/close aborts start (same as Cancel on earlier-chapter confirm).
+3. **«На устройстве»:** start from local play head; keep/set `pending_sync`; push with CAS using known server revision as `base_revision`.
+4. **«В облаке»:** apply server snapshot to play head; clear `pending_sync`; start from cloud point; CAS base = `server_revision`.
+5. After a choice, do not re-prompt until play head or snapshot diverges again.
+6. If **A3b** and **A7** `ConfirmEarlierChapter` both apply: resolve A3b first, then earlier-chapter if still needed.
+
+**UI signals:** Dedicated sync-conflict dialog (Desktop/Android); Russian copy inline.
+
+**Domain anchors:** progress conflict helper (≥30s / track mismatch); playback intents separate from `ConfirmEarlierChapter`.
 
 ---
 

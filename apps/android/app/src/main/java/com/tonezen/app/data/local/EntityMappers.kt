@@ -54,22 +54,38 @@ fun AudiobookProgressEntity.toDomain() = AudiobookProgress(
     trackId = trackId,
     positionMs = positionMs,
     updatedAtEpochMs = updatedAtEpochMs,
+    revision = revision,
+    serverTrackId = serverTrackId,
+    serverPositionMs = serverPositionMs,
+    serverRevision = serverRevision,
+    conflictChoiceKey = conflictChoiceKey,
 )
 
-fun AudiobookProgress.toEntity(pendingSync: Boolean = false) = AudiobookProgressEntity(
+fun AudiobookProgress.toEntity(userId: String, pendingSync: Boolean = false) = AudiobookProgressEntity(
+    userId = userId,
     bookId = bookId,
     trackId = trackId,
     positionMs = positionMs,
     updatedAtEpochMs = updatedAtEpochMs,
     pendingSync = pendingSync,
+    revision = revision,
+    serverTrackId = serverTrackId,
+    serverPositionMs = serverPositionMs,
+    serverRevision = serverRevision,
+    conflictChoiceKey = conflictChoiceKey,
 )
 
-fun ProgressRemoteApi.RemoteProgress.toProgressEntity() = AudiobookProgressEntity(
+fun ProgressRemoteApi.RemoteProgress.toProgressEntity(userId: String) = AudiobookProgressEntity(
+    userId = userId,
     bookId = bookId,
     trackId = trackId,
     positionMs = positionMs,
     updatedAtEpochMs = Instant.parse(updatedAt).toEpochMilli(),
     pendingSync = false,
+    revision = revision,
+    serverTrackId = trackId,
+    serverPositionMs = positionMs,
+    serverRevision = revision,
 )
 
 fun CycleEntity.toDomain(booksById: Map<String, Book>): Cycle? {

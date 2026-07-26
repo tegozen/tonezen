@@ -11,4 +11,10 @@ export function registerProgressIpc(deps: IpcHandlerDeps): void {
   ipcMain.handle("progress:save", async (_e, bookId: string, trackId: string, positionMs: number) => {
     await progressSync.saveLocal(bookId, trackId, positionMs);
   });
+  ipcMain.handle("progress:chooseLocal", async (_e, bookId: string) => {
+    return progressSync.chooseLocalProgress(bookId);
+  });
+  ipcMain.handle("progress:chooseServer", async (_e, bookId: string) => {
+    return progressSync.chooseServerProgress(bookId);
+  });
 }

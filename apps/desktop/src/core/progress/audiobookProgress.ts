@@ -16,6 +16,7 @@ export function completedAudiobookProgress(
     trackId: track.id,
     positionMs,
     updatedAt,
+    revision: 0,
   };
 }
 

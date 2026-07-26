@@ -353,7 +353,10 @@ paths:
 
   /progress/audiobooks/{bookId}:
     put:
-      summary: Upsert audiobook progress
+      summary: Upsert audiobook progress (CAS by revision)
+      description: |
+        Requires `base_revision` matching the current server revision (0 when no row exists).
+        On mismatch returns 409 with the current progress. Client wall-clock is not used for conflict resolution.
       parameters:
         - name: bookId
           in: path
@@ -367,16 +370,17 @@ paths:
           application/json:
             schema:
               type: object
-              required: [track_id, position_ms, updated_at]
+              required: [track_id, position_ms, base_revision]
               properties:
                 track_id:
                   type: string
                   format: uuid
                 position_ms:
                   type: integer
-                updated_at:
-                  type: string
-                  format: date-time
+                base_revision:
+                  type: integer
+                  format: int64
+                  description: Last known server revision; 0 when creating the first row
       responses:
         "200":
           description: Updated progress
@@ -385,7 +389,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/AudiobookProgressUpsertResponse"
         "400":
-          description: Invalid request or non-audiobook content
+          description: Invalid request, missing base_revision, or non-audiobook content
           content:
             application/json:
               schema:
@@ -402,6 +406,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: CAS conflict — base_revision does not match server revision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AudiobookProgressConflictResponse"
 
 components:
   securitySchemes:
@@ -496,6 +506,7 @@ components:
 
     AudiobookProgress:
       type: object
+      required: [book_id, track_id, position_ms, updated_at, revision]
       properties:
         book_id:
           type: string
@@ -508,14 +519,25 @@ components:
         updated_at:
           type: string
           format: date-time
+          description: Server-assigned write time
+        revision:
+          type: integer
+          format: int64
+          description: Monotonic per (user, book); CAS authority
 
     AudiobookProgressUpsertResponse:
       type: object
       required: [progress]
       properties:
-        skipped:
-          type: boolean
-          description: True when an existing newer server record won LWW conflict resolution.
+        progress:
+          $ref: "#/components/schemas/AudiobookProgress"
+
+    AudiobookProgressConflictResponse:
+      type: object
+      required: [error, progress]
+      properties:
+        error:
+          type: string
         progress:
           $ref: "#/components/schemas/AudiobookProgress"
 

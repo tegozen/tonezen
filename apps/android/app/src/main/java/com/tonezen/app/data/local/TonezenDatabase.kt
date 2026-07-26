@@ -11,7 +11,7 @@ import androidx.room.RoomDatabase
         CycleEntity::class,
         DownloadQueueEntity::class,
     ],
-    version = 6,
+    version = 7,
 )
 abstract class TonezenDatabase : RoomDatabase() {
     abstract fun catalogDao(): CatalogDao

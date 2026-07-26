@@ -65,6 +65,8 @@ class BookDetailViewModel @Inject constructor(
         uiState = _uiState,
         scope = viewModelScope,
         catalogRepository = catalogRepository,
+        sessionRepository = sessionRepository,
+        progressSyncRepository = progressSyncRepository,
         playbackClient = playbackClient,
         playbackQueueBuilder = playbackQueueBuilder,
         trackDownloadEnsurer = trackDownloadEnsurer,
@@ -144,6 +146,12 @@ class BookDetailViewModel @Inject constructor(
     fun confirmEarlierChapterPlayback() = playbackActions.confirmEarlierChapterPlayback()
 
     fun dismissEarlierChapterPrompt() = playbackActions.dismissEarlierChapterPrompt()
+
+    fun dismissProgressSyncConflictPrompt() = playbackActions.dismissProgressSyncConflictPrompt()
+
+    fun chooseProgressSyncLocal() = playbackActions.chooseProgressSyncLocal()
+
+    fun chooseProgressSyncServer() = playbackActions.chooseProgressSyncServer()
 
     fun continueListening() = playbackActions.continueListening()
 

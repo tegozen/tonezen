@@ -33,11 +33,18 @@ export function initDatabase(userDataPath: string): void {
     );
     CREATE INDEX IF NOT EXISTS idx_tracks_book_id ON tracks (book_id);
     CREATE TABLE IF NOT EXISTS audiobook_progress (
-      book_id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      book_id TEXT NOT NULL,
       track_id TEXT NOT NULL,
       position_ms INTEGER NOT NULL,
       updated_at TEXT NOT NULL,
-      pending_sync INTEGER NOT NULL DEFAULT 0
+      pending_sync INTEGER NOT NULL DEFAULT 0,
+      revision INTEGER NOT NULL DEFAULT 0,
+      server_track_id TEXT,
+      server_position_ms INTEGER,
+      server_revision INTEGER,
+      conflict_choice_key TEXT,
+      PRIMARY KEY (user_id, book_id)
     );
     CREATE TABLE IF NOT EXISTS cycles (
       id TEXT PRIMARY KEY,
@@ -56,6 +63,38 @@ export function initDatabase(userDataPath: string): void {
   ensureLocalDownloadedAtColumn();
   ensureWaveformPeaksColumn();
   ensureDownloadQueueTable();
+  ensureAudiobookProgressRevisionSchema();
+}
+
+function ensureAudiobookProgressRevisionSchema(): void {
+  const columns = getDb()
+    .prepare("PRAGMA table_info(audiobook_progress)")
+    .all() as Array<{ name: string }>;
+  const names = new Set(columns.map((column) => column.name));
+  if (names.has("user_id") && names.has("revision") && names.has("server_revision")) {
+    return;
+  }
+
+  getDb().exec(`
+    CREATE TABLE audiobook_progress_v2 (
+      user_id TEXT NOT NULL,
+      book_id TEXT NOT NULL,
+      track_id TEXT NOT NULL,
+      position_ms INTEGER NOT NULL,
+      updated_at TEXT NOT NULL,
+      pending_sync INTEGER NOT NULL DEFAULT 0,
+      revision INTEGER NOT NULL DEFAULT 0,
+      server_track_id TEXT,
+      server_position_ms INTEGER,
+      server_revision INTEGER,
+      conflict_choice_key TEXT,
+      PRIMARY KEY (user_id, book_id)
+    );
+  `);
+
+  // Legacy rows lack user_id — drop them rather than attach to the wrong account.
+  getDb().exec(`DROP TABLE audiobook_progress`);
+  getDb().exec(`ALTER TABLE audiobook_progress_v2 RENAME TO audiobook_progress`);
 }
 
 function ensureTrackArtistColumn(): void {
