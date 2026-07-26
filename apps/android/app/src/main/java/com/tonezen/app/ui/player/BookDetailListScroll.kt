@@ -2,11 +2,9 @@ package com.tonezen.app.ui.player
 
 internal fun bookDetailTrackListIndex(
     trackIndex: Int,
-    hasPlaybackControls: Boolean,
     hasContinueButton: Boolean,
 ): Int {
     var offset = 0
-    if (hasPlaybackControls) offset++
     if (hasContinueButton) offset++
     return offset + trackIndex
 }

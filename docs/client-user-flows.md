@@ -204,7 +204,7 @@ flowchart TD
 3. Before starting, apply **A3b** if local play head and server snapshot diverge.
 4. Continue/Play downloads target chapter if online; offline without local file → error, no skip.
 
-**UI signals:** Primary play button always visible when book has chapters and not fully listened.
+**UI signals:** Primary play button («Продолжить» / «Воспроизвести»); chapter list. Transport controls live in the **mini player / now playing** only — not embedded in book detail.
 
 ---
 
@@ -305,9 +305,9 @@ flowchart TD
 
 **Expected behavior:**
 
-1. Find the book with the **most recent** real progress in the cycle (`updatedAt`).
-2. If that book is **later** in cycle order than the book being started → show confirm: last listen was «{later title}»; Cancel aborts; OK continues into normal A3b/A7/start for the chosen book.
-3. If last listen is the same book or an earlier book → no cycle confirm.
+1. Find later books in cycle order with **real** listen progress (`listenedMs > 0`; first-chapter @ 0 = «unlistened» and does not count).
+2. If any such later book has `updatedAt` ≥ the starting book’s real progress (or the starting book has none) → show confirm with the latest of those later titles; Cancel aborts; OK continues into normal A3b/A7/start.
+3. On successful start, clients **immediately** persist a play head for the started book with `positionMs ≥ 1` so last-listen / Continue switch to it (bare `0` stays reserved for «не прослушанным»).
 4. Prompt order: **A3b** (sync conflict) → **A7b** (earlier cycle book) → **A7** (earlier chapter).
 5. **Play cycle** (A1) does **not** use this prompt — it already resumes the latest listen.
 

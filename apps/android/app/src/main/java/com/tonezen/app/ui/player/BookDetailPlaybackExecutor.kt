@@ -40,7 +40,7 @@ internal class BookDetailPlaybackExecutor(
         tracks: List<Track>,
         targetTrack: Track,
         startMs: Long,
-    ) {
+    ): Boolean {
         uiState.update { it.copy(playbackErrorMessage = null) }
         val localTrack = if (!targetTrack.localPath.isNullOrBlank()) {
             targetTrack
@@ -57,7 +57,7 @@ internal class BookDetailPlaybackExecutor(
                 uiState.update {
                     it.copy(playbackErrorMessage = playbackErrorMessage(awaitResult))
                 }
-                return
+                return false
             }
             withContext(Dispatchers.IO) {
                 trackDownloadEnsurer.resolveLocalTrack(book.id, targetTrack)
@@ -65,7 +65,7 @@ internal class BookDetailPlaybackExecutor(
                 uiState.update {
                     it.copy(playbackErrorMessage = playbackErrorMessage(DownloadAwaitResult.FAILED))
                 }
-                return
+                return false
             }.also {
                 localLibraryNotifier.notifyLocalLibraryChanged()
             }
@@ -77,14 +77,15 @@ internal class BookDetailPlaybackExecutor(
             if (t.id == localTrack.id && t.localPath.isNullOrBlank()) localTrack else t
         }
         val queue = playbackQueueBuilder.buildQueueFromLocalTracks(book, tracksForQueue)
-        if (queue.isEmpty()) return
+        if (queue.isEmpty()) return false
         val startIndex = queue.indexOfFirst { it.trackId == localTrack.id }
-        if (startIndex < 0) return
+        if (startIndex < 0) return false
         onTrackStarted(localTrack)
         playbackClient.playQueue(queue, startIndex, startMs)
         prefetchNextChapter(book, tracks, localTrack)
         uiState.update { it.copy(activeTrackId = localTrack.id) }
         loadBook(book)
+        return true
     }
 
     private fun prefetchNextChapter(book: Book, tracks: List<Track>, currentTrack: Track) {

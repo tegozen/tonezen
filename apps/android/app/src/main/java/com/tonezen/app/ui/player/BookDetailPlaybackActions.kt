@@ -6,6 +6,7 @@ import com.tonezen.app.data.local.TrackDownloadEnsurer
 import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
+import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
@@ -168,15 +169,47 @@ internal class BookDetailPlaybackActions(
                                 )
                             }
                         }
-                        is AudiobookPlaybackIntent.Resume ->
-                            executor.playAudiobookTrack(book, tracks, targetTrack, intent.positionMs)
-                        AudiobookPlaybackIntent.StartFromZero ->
-                            executor.playAudiobookTrack(book, tracks, targetTrack, 0L)
+                        is AudiobookPlaybackIntent.Resume -> {
+                            if (executor.playAudiobookTrack(book, tracks, targetTrack, intent.positionMs)) {
+                                persistPlaybackProgress(book.id, targetTrack.id, intent.positionMs)
+                            }
+                        }
+                        AudiobookPlaybackIntent.StartFromZero -> {
+                            if (executor.playAudiobookTrack(book, tracks, targetTrack, 0L)) {
+                                persistPlaybackProgress(book.id, targetTrack.id, 0L)
+                            }
+                        }
                         is AudiobookPlaybackIntent.ConfirmProgressSyncConflict -> Unit
                     }
                 }
                 ContentType.MUSIC -> executor.playMusicTrack(book, track)
             }
+        }
+    }
+
+    /**
+     * Write play head as soon as playback starts from book detail so cycle Continue / resume
+     * pick this book immediately (Library snapshot throttle alone is too late / can miss).
+     */
+    private suspend fun persistPlaybackProgress(bookId: String, trackId: String, positionMs: Long) {
+        val progress = AudiobookProgress(
+            bookId = bookId,
+            trackId = trackId,
+            // 0 is reserved for explicit «unlistened»; play-start must count as real progress.
+            positionMs = positionMs.coerceAtLeast(1L),
+            updatedAtEpochMs = System.currentTimeMillis(),
+        )
+        val session = withContext(Dispatchers.IO) {
+            sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
+        }
+        withContext(Dispatchers.IO) {
+            progressSyncRepository.saveLocal(progress, pendingSync = true, session?.accessToken)
+        }
+        uiState.update {
+            it.copy(
+                audiobookProgress = progress,
+                syncStatus = SyncDisplayStatus.PENDING,
+            )
         }
     }
 
@@ -188,7 +221,9 @@ internal class BookDetailPlaybackActions(
             val tracks = withContext(Dispatchers.IO) {
                 catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
             }
-            executor.playAudiobookTrack(book, tracks, prompt.track, 0L)
+            if (executor.playAudiobookTrack(book, tracks, prompt.track, 0L)) {
+                persistPlaybackProgress(book.id, prompt.track.id, 0L)
+            }
         }
     }
 
@@ -235,7 +270,9 @@ internal class BookDetailPlaybackActions(
                 catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
             }
             val track = tracks.find { it.id == applied.trackId } ?: tracks.firstOrNull() ?: return@launch
-            executor.playAudiobookTrack(book, tracks, track, applied.positionMs)
+            if (executor.playAudiobookTrack(book, tracks, track, applied.positionMs)) {
+                persistPlaybackProgress(book.id, track.id, applied.positionMs)
+            }
         }
     }
 

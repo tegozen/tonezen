@@ -17,7 +17,9 @@ export function resolveBookListenedMs(
   const progressIndex = sorted.findIndex(
     (track) => track.id === progress.trackId && track.bookId === progress.bookId,
   );
-  if (progressIndex < 0) return 0;
+  if (progressIndex < 0) {
+    return Math.max(0, progress.positionMs);
+  }
 
   const listenedBefore = sorted
     .slice(0, progressIndex)
@@ -26,6 +28,15 @@ export function resolveBookListenedMs(
   const positionMs =
     currentDuration > 0 ? Math.min(progress.positionMs, currentDuration) : progress.positionMs;
   return listenedBefore + positionMs;
+}
+
+/** Real listen head (not an «unlistened» reset at first chapter @ 0). */
+export function hasMeaningfulAudiobookProgress(
+  tracks: Track[],
+  progress: AudiobookProgress | null | undefined,
+): boolean {
+  if (!progress) return false;
+  return resolveBookListenedMs(tracks, progress) > 0;
 }
 
 export function orderedCycleBooks(cycle: Cycle): Book[] {
@@ -78,7 +89,7 @@ export function resolveCycleResumeTarget(
     const progress = progressByBookId.get(book.id);
     if (!progress) continue;
     const tracks = tracksByBookId.get(book.id) ?? [];
-    if (resolveBookListenedMs(tracks, progress) <= 0) continue;
+    if (!hasMeaningfulAudiobookProgress(tracks, progress)) continue;
     const updatedAt = Date.parse(progress.updatedAt);
     const ts = Number.isFinite(updatedAt) ? updatedAt : 0;
     const bestTs = bestProgress ? Date.parse(bestProgress.updatedAt) : Number.NEGATIVE_INFINITY;
@@ -152,9 +163,9 @@ export function findCycleContainingBook(cycles: Cycle[], bookId: string): Cycle 
 }
 
 /**
- * When starting `startingBook`, if the cycle's most recent real listen is on a **later** book,
- * return that later book so UI can confirm. Same/earlier last listen → null (no prompt).
- * Play-cycle resume must not use this — it already targets the latest listen.
+ * When starting `startingBook`, confirm if a later book still holds the cycle's latest
+ * (or tied) real listen progress. After play-start persist, this book becomes latest.
+ * Play-cycle resume must not use this.
  */
 export function resolveEarlierCycleBookConfirm(
   cycle: Cycle,
@@ -164,26 +175,32 @@ export function resolveEarlierCycleBookConfirm(
 ): Book | null {
   const ordered = orderedCycleBooks(cycle);
   const startIndex = ordered.findIndex((book) => book.id === startingBook.id);
-  if (startIndex < 0) return null;
+  if (startIndex < 0 || startIndex >= ordered.length - 1) return null;
 
-  let bestBook: Book | null = null;
+  const startingProgress = progressByBookId.get(startingBook.id);
+  const startingTracks = tracksByBookId.get(startingBook.id) ?? [];
+  const startingUpdatedAt = hasMeaningfulAudiobookProgress(startingTracks, startingProgress)
+    ? Date.parse(startingProgress!.updatedAt)
+    : Number.NEGATIVE_INFINITY;
+  const startingTs = Number.isFinite(startingUpdatedAt) ? startingUpdatedAt : Number.NEGATIVE_INFINITY;
+
+  let bestLater: Book | null = null;
   let bestUpdatedAt = Number.NEGATIVE_INFINITY;
-  for (const book of ordered) {
+  for (let index = startIndex + 1; index < ordered.length; index += 1) {
+    const book = ordered[index];
     const progress = progressByBookId.get(book.id);
     if (!progress) continue;
     const tracks = tracksByBookId.get(book.id) ?? [];
-    if (resolveBookListenedMs(tracks, progress) <= 0) continue;
+    if (!hasMeaningfulAudiobookProgress(tracks, progress)) continue;
     const updatedAt = Date.parse(progress.updatedAt);
     const ts = Number.isFinite(updatedAt) ? updatedAt : 0;
+    if (ts < startingTs) continue;
     if (ts >= bestUpdatedAt) {
       bestUpdatedAt = ts;
-      bestBook = book;
+      bestLater = book;
     }
   }
-  if (!bestBook) return null;
-  const latestIndex = ordered.findIndex((book) => book.id === bestBook.id);
-  if (latestIndex <= startIndex) return null;
-  return bestBook;
+  return bestLater;
 }
 
 export function orderedCycleEntriesFromResume(

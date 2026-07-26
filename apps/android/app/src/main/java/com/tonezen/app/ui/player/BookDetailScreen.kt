@@ -52,9 +52,6 @@ internal fun BookDetailScreen(
     onToggleBookListened: () -> Unit,
     onRemoveBookDownloads: () -> Unit,
     onContinueListening: () -> Unit,
-    onPlaybackPlayPause: () -> Unit,
-    onPlaybackSeekBy: (Long) -> Unit,
-    onPlaybackSeekToFraction: (Float) -> Unit,
     onDismissPlaybackError: () -> Unit,
     onDismissDownloadError: () -> Unit,
     onConfirmEarlierChapter: () -> Unit,
@@ -72,8 +69,6 @@ internal fun BookDetailScreen(
     val showDownload = tracks.any { it.localPath.isNullOrBlank() }
     val showRemoveDownload = tracks.any { !it.localPath.isNullOrBlank() }
     val isBookFullyDownloaded = tracks.all { !it.localPath.isNullOrBlank() }
-    val activeTrack = sortedTracks.find { it.id == activeTrackId }
-    val playbackTrack = activeTrack?.takeIf { uiState.isPlaybackActiveForBook }
     val isBookListened = isBookFullyListened(sortedTracks, uiState.audiobookProgress)
     val continueState = canContinueBookListening(
         bookId = book.id,
@@ -83,11 +78,8 @@ internal fun BookDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val density = LocalDensity.current
-    val hasPlaybackControls = playbackTrack != null
-    // Показываем кнопку "Продолжить" / "Начать слушать" только если:
-    // 1. Книга не полностью прослушана И
-    // 2. Книга сейчас НЕ играет (когда книга играет, плеер уже доступен внутри активного трека).
-    val hasContinueButton = !isBookListened && !hasPlaybackControls
+    // Transport lives in mini player / now playing — not inside book detail.
+    val hasContinueButton = !isBookListened
     val playbackErrorMessage = uiState.playbackErrorMessage
     val downloadErrorMessage = bookDetailDownloadErrorMessage(uiState.error)
 
@@ -99,13 +91,12 @@ internal fun BookDetailScreen(
         onDismissDownloadError = onDismissDownloadError,
     )
 
-    LaunchedEffect(activeTrackId, sortedTracks, hasPlaybackControls, hasContinueButton) {
+    LaunchedEffect(activeTrackId, sortedTracks, hasContinueButton) {
         val trackId = activeTrackId ?: return@LaunchedEffect
         val trackIndex = sortedTracks.indexOfFirst { it.id == trackId }
         if (trackIndex < 0) return@LaunchedEffect
         val listIndex = bookDetailTrackListIndex(
             trackIndex = trackIndex,
-            hasPlaybackControls = hasPlaybackControls,
             hasContinueButton = hasContinueButton,
         )
         val bottomPaddingPx = with(density) { bottomScrollPadding.roundToPx() }
@@ -141,20 +132,6 @@ internal fun BookDetailScreen(
             )
         },
     ) {
-        // Кнопка "Продолжить" / "Начать слушать" — показывается когда книга не играет и не прослушана.
-        if (hasPlaybackControls && playbackTrack != null) {
-            item(key = "playback-controls") {
-                BookDetailPlaybackControls(
-                    track = playbackTrack,
-                    positionMs = playbackProgress.positionMs,
-                    durationMs = playbackProgress.durationMs,
-                    isPlaying = uiState.isPlaying,
-                    onPlayPause = onPlaybackPlayPause,
-                    onSeekBy = onPlaybackSeekBy,
-                    onSeekToFraction = onPlaybackSeekToFraction,
-                )
-            }
-        }
         if (hasContinueButton) {
             item(key = "continue-listening") {
                 Button(

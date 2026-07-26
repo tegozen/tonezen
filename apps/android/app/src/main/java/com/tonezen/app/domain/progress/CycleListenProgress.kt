@@ -20,7 +20,10 @@ fun resolveBookListenedMs(
     if (progress == null) return 0L
     val sorted = tracks.sortedBy { it.sortOrder }
     val progressIndex = sorted.indexOfFirst { it.id == progress.trackId }
-    if (progressIndex < 0) return 0L
+    if (progressIndex < 0) {
+        // Tracks not loaded yet — still treat a non-zero head as real listen progress.
+        return progress.positionMs.coerceAtLeast(0L)
+    }
     val listenedBefore = sorted.take(progressIndex).sumOf { it.durationMs ?: 0L }
     val currentDuration = sorted[progressIndex].durationMs ?: 0L
     val positionMs = if (currentDuration > 0L) {
@@ -29,6 +32,15 @@ fun resolveBookListenedMs(
         progress.positionMs
     }
     return listenedBefore + positionMs
+}
+
+/** Real listen head (not an «unlistened» reset at first chapter @ 0). */
+fun hasMeaningfulAudiobookProgress(
+    tracks: List<Track>,
+    progress: AudiobookProgress?,
+): Boolean {
+    if (progress == null) return false
+    return resolveBookListenedMs(tracks, progress) > 0L
 }
 
 fun resolveCycleListenFraction(
@@ -69,7 +81,7 @@ fun resolveCycleResumeTarget(
         val book = cycle.books.find { it.slug == bookSlug } ?: continue
         val progress = progressByBookId[book.id] ?: continue
         val tracks = tracksByBookId[book.id].orEmpty()
-        if (resolveBookListenedMs(tracks, progress) <= 0L) continue
+        if (!hasMeaningfulAudiobookProgress(tracks, progress)) continue
         if (bestProgress == null || progress.updatedAtEpochMs >= bestProgress.updatedAtEpochMs) {
             bestBook = book
             bestProgress = progress
@@ -138,9 +150,10 @@ fun findCycleContainingBook(cycles: List<Cycle>, bookId: String): Cycle? =
     cycles.firstOrNull { cycle -> cycle.books.any { it.id == bookId } }
 
 /**
- * When starting [startingBook], if the cycle's most recent real listen is on a **later** book,
- * return that later book so UI can confirm. Same/earlier last listen → null (no prompt).
- * Play-cycle resume must not use this — it already targets the latest listen.
+ * When starting [startingBook], confirm if a **later** book still holds the cycle's latest
+ * (or tied) real listen progress — i.e. jumping backwards past a more recent later head.
+ * After the user starts this book, play-start persist makes it latest so the prompt stops.
+ * Play-cycle resume must not use this.
  */
 fun resolveEarlierCycleBookConfirm(
     cycle: Cycle,
@@ -150,23 +163,30 @@ fun resolveEarlierCycleBookConfirm(
 ): Book? {
     val ordered = orderedCycleBooks(cycle)
     val startIndex = ordered.indexOfFirst { it.id == startingBook.id }
-    if (startIndex < 0) return null
+    if (startIndex < 0 || startIndex >= ordered.lastIndex) return null
 
-    var bestBook: Book? = null
+    val startingProgress = progressByBookId[startingBook.id]
+    val startingTracks = tracksByBookId[startingBook.id].orEmpty()
+    val startingUpdatedAt = if (hasMeaningfulAudiobookProgress(startingTracks, startingProgress)) {
+        startingProgress!!.updatedAtEpochMs
+    } else {
+        Long.MIN_VALUE
+    }
+
+    var bestLater: Book? = null
     var bestUpdatedAt = Long.MIN_VALUE
-    for (book in ordered) {
+    for (index in (startIndex + 1) until ordered.size) {
+        val book = ordered[index]
         val progress = progressByBookId[book.id] ?: continue
         val tracks = tracksByBookId[book.id].orEmpty()
-        if (resolveBookListenedMs(tracks, progress) <= 0L) continue
+        if (!hasMeaningfulAudiobookProgress(tracks, progress)) continue
+        if (progress.updatedAtEpochMs < startingUpdatedAt) continue
         if (progress.updatedAtEpochMs >= bestUpdatedAt) {
             bestUpdatedAt = progress.updatedAtEpochMs
-            bestBook = book
+            bestLater = book
         }
     }
-    val latest = bestBook ?: return null
-    val latestIndex = ordered.indexOfFirst { it.id == latest.id }
-    if (latestIndex <= startIndex) return null
-    return latest
+    return bestLater
 }
 
 fun resolveCycleContinueState(

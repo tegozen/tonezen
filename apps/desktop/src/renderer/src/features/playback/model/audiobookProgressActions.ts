@@ -24,7 +24,7 @@ type UseAudiobookProgressActionsOptions = Pick<
     bookTracks: Track[],
     track: Track,
     startMs: number,
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 };
 
 export type EarlierCycleBookPromptModel = {
@@ -99,12 +99,22 @@ export function useAudiobookProgressActions({
         return;
       }
       const startMs = intent.kind === "Resume" ? intent.positionMs : 0;
-      await playAudiobookTrackResolved(selectedBook, tracks, track, startMs);
+      const started = await playAudiobookTrackResolved(selectedBook, tracks, track, startMs);
+      if (!started) return;
+      // Play-start must count as real progress (0 is reserved for «unlistened»).
+      await saveProgress.mutateAsync({
+        bookId: selectedBook.id,
+        trackId: track.id,
+        positionMs: Math.max(1, startMs),
+      });
+      await refreshLibrary();
     },
     [
       cycles,
       playAudiobookTrackResolved,
       progressByBook,
+      refreshLibrary,
+      saveProgress,
       selectedBook,
       tracks,
       tracksByBookId,
@@ -156,8 +166,26 @@ export function useAudiobookProgressActions({
   const confirmEarlierChapterPrompt = useCallback(() => {
     const track = earlierChapterPrompt;
     setEarlierChapterPrompt(null);
-    if (track && selectedBook) void playAudiobookTrackResolved(selectedBook, tracks, track, 0);
-  }, [earlierChapterPrompt, playAudiobookTrackResolved, selectedBook, tracks]);
+    if (track && selectedBook) {
+      void (async () => {
+        const started = await playAudiobookTrackResolved(selectedBook, tracks, track, 0);
+        if (!started) return;
+        await saveProgress.mutateAsync({
+          bookId: selectedBook.id,
+          trackId: track.id,
+          positionMs: 1,
+        });
+        await refreshLibrary();
+      })();
+    }
+  }, [
+    earlierChapterPrompt,
+    playAudiobookTrackResolved,
+    refreshLibrary,
+    saveProgress,
+    selectedBook,
+    tracks,
+  ]);
 
   const dismissEarlierCycleBookPrompt = useCallback(() => setEarlierCycleBookPrompt(null), []);
 

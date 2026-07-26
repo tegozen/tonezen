@@ -107,14 +107,16 @@ export function useAudiobookEnsureLocal({
   );
 
   const playAudiobookTrackResolved = useCallback(
-    async (book: Book, bookTracks: Track[], track: Track, startMs: number) => {
+    async (book: Book, bookTracks: Track[], track: Track, startMs: number): Promise<boolean> => {
       music.setMusicMode(false);
       const local = track.localPath ? track : await ensureAudiobookTrackLocal(book.id, track.id);
       if (local?.localPath) {
         playTrack(local, startMs, book);
         closeExpandedPlayer();
         void prefetchNextAudiobookChapter(book, bookTracks, local);
-      } else if (!track.localPath) {
+        return true;
+      }
+      if (!track.localPath) {
         const offlineMessage =
           sessionState === "AuthenticatedOffline" || sessionState === "Unauthenticated"
             ? "Нет сети — нужен интернет для первой загрузки"
@@ -122,6 +124,7 @@ export function useAudiobookEnsureLocal({
         showToast(offlineMessage);
         stopPlayback();
       }
+      return false;
     },
     [
       closeExpandedPlayer,
