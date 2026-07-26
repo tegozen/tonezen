@@ -62,11 +62,9 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 
 **Known debt (fix when touching the area)**
 
-- `ui/library/LibraryViewModel.kt` (~400) — still a large books/cycles orchestrator; prefer extracting more catalog-refresh/load collaborators.
-- `playback/PlaybackClient.kt` (~309), `data/remote/DownloadRepository.kt` (~241), `data/remote/AuthRepository.kt` (~207) — over the ~200-line guideline.
-- Shared kit slightly over budget: `ui/components/TonezenPlaybackControls.kt`, `TonezenSheets.kt`, `TonezenChromeBars.kt` (~222–225).
-- `ui/music/MusicViewModel.kt` (~237), `ui/library/LibraryScreen.kt` (~267), `ui/music/MusicTrackList.kt` (~250) — UI/VM hotspots remaining after feature split.
-- Cleared in debt cleanup: god `CatalogRepository`, DAO-in-`playback/` download queue, mega `LibraryMusicHandler` / monolithic cycle handler, Android test suite.
+- Acceptable thin facades slightly over ~200: `TrackDownloadQueueEnqueue` (~207), `AuthRepository` (~207), `MusicUiActions` (~205), `TrackDownloadTransfer` (~205), `ProfileViewModel` (~201).
+- Cleared: god `CatalogRepository`, DAO-in-`playback/` download queue, mega library/music handlers, oversized `LibraryViewModel` / `MusicViewModel` / `PlaybackClient` / `DownloadRepository`, LibraryScreen / MusicTrackList / shared kit hotspots, Android test suite.
+- Keep this section evidence-based; do not re-add stale items without verifying current line counts.
 
 ### API-first
 
