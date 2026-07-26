@@ -339,6 +339,7 @@ services:
       MIGRATIONS_DIR: /migrations
     volumes:
       - ./backend/supabase/migrations:/migrations:ro
+      - ./docker/migrate/run.sh:/migrate/run.sh:ro
     healthcheck:
       test:
         [
