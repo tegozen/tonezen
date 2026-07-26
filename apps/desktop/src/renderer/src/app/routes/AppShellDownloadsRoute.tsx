@@ -1,6 +1,6 @@
 import { DownloadsPage } from "@/pages/downloads";
-import { AppShellErrorBanner } from "@/app/AppShellErrorBanner";
-import type { AppShellRoutesProps } from "@/app/appShellRoutesProps";
+import { AppShellErrorBanner } from "./AppShellErrorBanner";
+import type { AppShellRoutesProps } from "../model";
 
 type AppShellDownloadsRouteProps = Pick<
   AppShellRoutesProps,

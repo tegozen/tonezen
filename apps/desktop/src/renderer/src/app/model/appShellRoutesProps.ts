@@ -1,4 +1,4 @@
-import type { AppShellWiring } from "@/app/useAppShellWiring";
+import type { AppShellWiring } from "./useAppShellWiring";
 
 export type AppShellRoutesProps = Pick<
   AppShellWiring,

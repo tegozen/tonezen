@@ -1,7 +1,7 @@
 import { computeCycleCardState } from "@/entities/catalog";
 import { CycleDetailPage } from "@/pages/cycle-detail";
-import { AppShellErrorBanner } from "@/app/AppShellErrorBanner";
-import type { AppShellRoutesProps } from "@/app/appShellRoutesProps";
+import { AppShellErrorBanner } from "./AppShellErrorBanner";
+import type { AppShellRoutesProps } from "../model";
 
 type AppShellCycleRouteProps = Pick<
   AppShellRoutesProps,

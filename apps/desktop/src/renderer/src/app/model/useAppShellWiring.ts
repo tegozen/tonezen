@@ -4,10 +4,10 @@ import { useToast } from "@/shared/lib/useToast";
 import { useDeleteDownloadMutation, useTriggerSyncMutation } from "@/shared/api";
 import { useDownloadQueue } from "@/features/downloads";
 import { useTonezenSession } from "@/features/auth";
-import { useIpcQueryInvalidation } from "@/app/useIpcQueryInvalidation";
-import { useAppShellAuthActions } from "@/app/useAppShellAuthActions";
-import { useAppShellDerivedUi } from "@/app/useAppShellDerivedUi";
-import { useAppShellFeatureStack } from "@/app/useAppShellFeatureStack";
+import { useIpcQueryInvalidation } from "./useIpcQueryInvalidation";
+import { useAppShellAuthActions } from "./useAppShellAuthActions";
+import { useAppShellDerivedUi } from "./useAppShellDerivedUi";
+import { useAppShellFeatureStack } from "./useAppShellFeatureStack";
 
 export function useAppShellWiring() {
   const session = useTonezenSession();

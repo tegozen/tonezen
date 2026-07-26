@@ -1,7 +1,7 @@
 import { LibraryFilterSheet } from "@/features/library-filter";
 import { LibraryPage } from "@/pages/library";
-import { AppShellErrorBanner } from "@/app/AppShellErrorBanner";
-import type { AppShellRoutesProps } from "@/app/appShellRoutesProps";
+import { AppShellErrorBanner } from "./AppShellErrorBanner";
+import type { AppShellRoutesProps } from "../model";
 import type { LibrarySection } from "@/shared/lib/layoutChrome";
 
 type AppShellLibraryRouteProps = Omit<

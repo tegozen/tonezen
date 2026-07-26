@@ -1,7 +1,7 @@
 import { isBookFullyDownloaded } from "@/entities/catalog";
 import { BookDetailPage } from "@/pages/book-detail";
-import { AppShellErrorBanner } from "@/app/AppShellErrorBanner";
-import type { AppShellRoutesProps } from "@/app/appShellRoutesProps";
+import { AppShellErrorBanner } from "./AppShellErrorBanner";
+import type { AppShellRoutesProps } from "../model";
 
 type AppShellBookRouteProps = Pick<
   AppShellRoutesProps,

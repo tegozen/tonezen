@@ -1,6 +1,6 @@
 import { ProfilePage } from "@/pages/profile";
-import { AppShellErrorBanner } from "@/app/AppShellErrorBanner";
-import type { AppShellRoutesProps } from "@/app/appShellRoutesProps";
+import { AppShellErrorBanner } from "./AppShellErrorBanner";
+import type { AppShellRoutesProps } from "../model";
 
 type AppShellProfileRouteProps = Pick<
   AppShellRoutesProps,

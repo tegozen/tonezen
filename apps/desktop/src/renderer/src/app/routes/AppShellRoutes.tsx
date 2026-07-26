@@ -1,11 +1,11 @@
-import { AppShellBookRoute } from "@/app/AppShellBookRoute";
-import { AppShellCycleRoute } from "@/app/AppShellCycleRoute";
-import { AppShellDownloadsRoute } from "@/app/AppShellDownloadsRoute";
-import { AppShellLibraryRoute } from "@/app/AppShellLibraryRoute";
-import { AppShellProfileRoute } from "@/app/AppShellProfileRoute";
-import type { AppShellRoutesProps } from "@/app/appShellRoutesProps";
+import { AppShellBookRoute } from "./AppShellBookRoute";
+import { AppShellCycleRoute } from "./AppShellCycleRoute";
+import { AppShellDownloadsRoute } from "./AppShellDownloadsRoute";
+import { AppShellLibraryRoute } from "./AppShellLibraryRoute";
+import { AppShellProfileRoute } from "./AppShellProfileRoute";
+import type { AppShellRoutesProps } from "../model";
 
-export type { AppShellRoutesProps } from "@/app/appShellRoutesProps";
+export type { AppShellRoutesProps } from "../model";
 
 export function AppShellRoutes(props: AppShellRoutesProps) {
   const { library, activeTab } = props;

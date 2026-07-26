@@ -106,7 +106,8 @@ apps/desktop/src/
   main/           # Electron main by domain: app, window, media, catalog, downloads, progress, profile, session, db, ipc
   preload/
   renderer/src/   # Feature-Sliced Design (@/*)
-    app/ pages/ widgets/ features/ entities/ shared/
+    app/          # segments: model/, routes/, styles/ (no slices; providers at layer root)
+    pages/ widgets/ features/ entities/ shared/
 ```
 
 - Pure rules live in `src/core/` (no Electron/React imports).

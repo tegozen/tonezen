@@ -4,8 +4,8 @@ import { LoginView } from "@/pages/login";
 import { NowPlayingSheet } from "@/widgets/now-playing";
 import { ToastMessage } from "@/shared/ui/ToastMessage";
 import { EarlierChapterPrompt } from "@/features/playback";
-import { AppShellRoutes } from "@/app/AppShellRoutes";
-import { useAppShellWiring } from "@/app/useAppShellWiring";
+import { AppShellRoutes } from "@/app/routes";
+import { useAppShellWiring } from "@/app/model";
 
 export function App() {
   const wiring = useAppShellWiring();
