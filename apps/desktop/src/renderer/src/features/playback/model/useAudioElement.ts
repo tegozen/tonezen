@@ -1,6 +1,15 @@
 import { effectiveDurationMs } from "@core/playback/playbackDuration";
 import type { Track } from "@core/types";
-import { useCallback, useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type MutableRefObject,
+  type RefObject,
+  type SetStateAction,
+} from "react";
 import { loadPlaybackVolume, savePlaybackVolume } from "../lib/playbackVolume";
 import { setMediaPlaybackState } from "./mediaSessionController";
 
@@ -18,7 +27,7 @@ export function useAudioElement({
   const [volume, setVolumeState] = useState(loadPlaybackVolume);
   const audioEventsCleanupRef = useRef<(() => void) | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const volumeRef = useRef(volume);
+  const volumeRef = useRef(volume) as MutableRefObject<number>;
 
   volumeRef.current = volume;
 

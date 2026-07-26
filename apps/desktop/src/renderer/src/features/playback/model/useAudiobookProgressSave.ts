@@ -1,5 +1,12 @@
 import type { AudiobookProgress, Book, Track } from "@core/types";
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type RefObject,
+} from "react";
 import { formatMs } from "@/shared/lib/formatTime";
 import { updateMediaPositionState } from "./mediaSessionController";
 
@@ -10,7 +17,7 @@ interface UseAudiobookProgressSaveOptions {
   currentTrackRef: RefObject<Track | null>;
   playbackBookRef: RefObject<Book | null>;
   durationSecondsForSeek: (audio: HTMLAudioElement, track: Track | null) => number;
-  playTrackRef: RefObject<(track: Track, startMs?: number, book?: Book | null) => void>;
+  playTrackRef: MutableRefObject<(track: Track, startMs?: number, book?: Book | null) => void>;
 }
 
 export function useAudiobookProgressSave({
@@ -23,8 +30,8 @@ export function useAudiobookProgressSave({
   playTrackRef,
 }: UseAudiobookProgressSaveOptions) {
   const [progressLabel, setProgressLabel] = useState<string | null>(null);
-  const lastProgressSaveRef = useRef(0);
-  const lastPositionSyncRef = useRef(0);
+  const lastProgressSaveRef = useRef<number>(0) as MutableRefObject<number>;
+  const lastPositionSyncRef = useRef<number>(0) as MutableRefObject<number>;
 
   useEffect(() => {
     return window.tonezen.progress.onUpdated((progress) => {

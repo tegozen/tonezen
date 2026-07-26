@@ -2,21 +2,26 @@ import { LibraryFilterSheet } from "@/features/library-filter";
 import { LibraryPage } from "@/pages/library";
 import { AppShellErrorBanner } from "@/app/AppShellErrorBanner";
 import type { AppShellRoutesProps } from "@/app/appShellRoutesProps";
+import type { LibrarySection } from "@/shared/lib/layoutChrome";
 
-type AppShellLibraryRouteProps = Pick<
-  AppShellRoutesProps,
-  | "activeTab"
-  | "sessionState"
-  | "library"
-  | "downloadQueue"
-  | "music"
-  | "audiobook"
-  | "currentTrack"
-  | "isPlaying"
-  | "miniTitle"
-  | "miniSubtitle"
-  | "error"
->;
+type AppShellLibraryRouteProps = Omit<
+  Pick<
+    AppShellRoutesProps,
+    | "sessionState"
+    | "library"
+    | "downloadQueue"
+    | "music"
+    | "audiobook"
+    | "currentTrack"
+    | "isPlaying"
+    | "miniTitle"
+    | "miniSubtitle"
+    | "error"
+  >,
+  never
+> & {
+  activeTab: LibrarySection;
+};
 
 export function AppShellLibraryRoute({
   activeTab,

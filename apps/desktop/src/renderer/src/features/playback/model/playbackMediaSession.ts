@@ -49,7 +49,7 @@ export function syncMediaSessionForTrack(
       nextTrack: () => {
         if (skipHandlersRef.current?.onSkipNext?.()) return;
         const current = currentTrackRef.current;
-        const list = skipTracksRef.current;
+        const list = skipTracksRef.current ?? [];
         if (!current) return;
         const next = cycleResolver.nextInBook(current, list);
         if (next?.localPath) playTrackRef.current(next);
@@ -57,7 +57,7 @@ export function syncMediaSessionForTrack(
       previousTrack: () => {
         if (skipHandlersRef.current?.onSkipPrevious?.()) return;
         const current = currentTrackRef.current;
-        const list = skipTracksRef.current;
+        const list = skipTracksRef.current ?? [];
         if (!current) return;
         const prev = cycleResolver.previousInBook(current, list);
         if (prev?.localPath) playTrackRef.current(prev);

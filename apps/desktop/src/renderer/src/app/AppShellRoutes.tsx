@@ -19,7 +19,7 @@ export function AppShellRoutes(props: AppShellRoutesProps) {
   }
 
   if (activeTab === "music" || activeTab === "books") {
-    return <AppShellLibraryRoute {...props} />;
+    return <AppShellLibraryRoute {...props} activeTab={activeTab} />;
   }
 
   if (activeTab === "downloads") {

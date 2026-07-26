@@ -1,8 +1,8 @@
-import type { CSSProperties, PointerEvent as ReactPointerEvent, RefObject } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent, Ref } from "react";
 import { formatMs } from "@/shared/lib/formatTime";
 
 interface NowPlayingSeekBarProps {
-  progressRef: RefObject<HTMLDivElement | null>;
+  progressRef: Ref<HTMLDivElement>;
   progress: number;
   progressPercent: string;
   positionMs: number;

@@ -25,7 +25,7 @@ interface UsePlaybackControlsOptions {
   skipTracksRef: RefObject<Track[]>;
   skipHandlersRef: RefObject<PlaybackSkipHandlers | undefined>;
   audioRef: RefObject<HTMLAudioElement | null>;
-  volumeRef: RefObject<number>;
+  volumeRef: MutableRefObject<number>;
   playbackBookRef: MutableRefObject<Book | null>;
   currentTrackRef: MutableRefObject<Track | null>;
   playTrackRef: MutableRefObject<(track: Track, startMs?: number, book?: Book | null) => void>;
@@ -36,8 +36,8 @@ interface UsePlaybackControlsOptions {
   durationSecondsForSeek: (audio: HTMLAudioElement, track: Track | null) => number;
   saveAudiobookProgress: (positionMs: number) => void;
   syncPositionState: () => void;
-  lastProgressSaveRef: RefObject<number>;
-  lastPositionSyncRef: RefObject<number>;
+  lastProgressSaveRef: MutableRefObject<number>;
+  lastPositionSyncRef: MutableRefObject<number>;
 }
 
 export function usePlaybackControls({
@@ -197,7 +197,7 @@ export function usePlaybackControls({
 
   const onTrackEnded = useCallback(() => {
     if (!playbackBookRef.current || !currentTrackRef.current) return;
-    const next = cycleResolver.nextInBook(currentTrackRef.current, tracksRef.current);
+    const next = cycleResolver.nextInBook(currentTrackRef.current, tracksRef.current ?? []);
     if (next?.localPath) playTrackRef.current(next);
   }, [currentTrackRef, playbackBookRef, playTrackRef, tracksRef]);
 
