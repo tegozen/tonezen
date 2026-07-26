@@ -13,7 +13,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class ProgressCasConflictException(
-    val remote: RemoteProgress?,
+    val remote: ProgressRemoteApi.RemoteProgress?,
 ) : Exception("Progress CAS conflict")
 
 class ProgressRemoteApi(
