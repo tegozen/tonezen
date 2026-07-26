@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { AvatarCropScreen } from "@/features/profile-settings";
 import { ProfileAvatar } from "@/entities/user";
 import { SettingsPageLayout } from "@/widgets/app-shell";
+import { OverlayTopChrome } from "@/widgets/top-chrome";
 import { AccountFormSection } from "./AccountFormSection";
 import { AccountLabeledField } from "./AccountLabeledField";
 
@@ -178,7 +179,7 @@ export function AccountSettingsPage({
 
   return (
     <>
-      <SettingsPageLayout title="Аккаунт" onBack={onBack}>
+      <SettingsPageLayout topChrome={<OverlayTopChrome title="Аккаунт" onBack={onBack} />}>
         <div className="space-y-4">
           <AccountFormSection title="Профиль">
             <div className="account-avatar-block">

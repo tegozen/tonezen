@@ -3,13 +3,11 @@ import type { Cycle } from "@core/types";
 import type { MusicListTrack } from "@core/catalog/musicList";
 import type { DownloadQueueState } from "@core/downloads/downloadQueueState";
 import { libraryScrollPaddingTop, type LibrarySection } from "@/shared/lib/layoutChrome";
-import { LibraryCycleCard } from "@/entities/cycle";
+import { LibraryCycleCard, MusicTrackRow, type CycleCardState } from "@/entities/catalog";
 import { LibraryTopChrome } from "@/widgets/top-chrome";
-import { MusicDownloadAllButton } from "@/features/downloads";
-import { MusicTrackRow } from "@/entities/track";
+import { MusicDownloadAllButton, MusicTrackDownloadActions } from "@/features/downloads";
 import { TrackSpectrumArt } from "@/shared/ui/CoverArt";
 import { PauseIcon, PlayIcon } from "@/shared/ui/TonezenIcons";
-import type { CycleCardState } from "@/entities/cycle";
 
 interface LibraryPageProps {
   cycles: Cycle[];
@@ -139,10 +137,15 @@ export function LibraryPage({
                   key={track.trackId}
                   track={track}
                   isActive={activeMusicTrackId === track.trackId}
-                  downloadQueue={downloadQueue}
                   onClick={() => onMusicTrackClick(track)}
-                  onDownloadClick={() => onMusicTrackDownload(track)}
-                  onDeleteClick={() => onMusicTrackDelete(track)}
+                  trailing={
+                    <MusicTrackDownloadActions
+                      track={track}
+                      downloadQueue={downloadQueue}
+                      onDownloadClick={() => onMusicTrackDownload(track)}
+                      onDeleteClick={() => onMusicTrackDelete(track)}
+                    />
+                  }
                 />
               ))}
             </div>

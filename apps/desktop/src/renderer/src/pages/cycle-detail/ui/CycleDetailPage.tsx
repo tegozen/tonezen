@@ -1,10 +1,10 @@
 import type { AudiobookProgress, Book, Cycle, Track } from "@core/types";
-import { CycleBookRow } from "@/entities/cycle";
+import { CycleBookRow } from "@/entities/catalog";
 import { DetailHeaderMenu } from "@/shared/ui/DetailHeaderMenu";
 import { OverlayTopChrome } from "@/widgets/top-chrome";
 import { OVERLAY_BACK_TOP_SCROLL_PX } from "@/shared/lib/layoutChrome";
-import { canContinueBookListening } from "@/entities/book";
-import type { CycleCardState } from "@/entities/cycle";
+import { canContinueBookListening } from "@/entities/catalog";
+import type { CycleCardState } from "@/entities/catalog";
 
 interface CycleDetailPageProps {
   cycle: Cycle;

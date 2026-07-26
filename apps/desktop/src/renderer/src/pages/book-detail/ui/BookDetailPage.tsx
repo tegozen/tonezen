@@ -1,12 +1,17 @@
 import { useEffect, useRef } from "react";
 import type { Book, Track } from "@core/types";
 import type { DownloadQueueState } from "@core/downloads/downloadQueueState";
-import { ChapterTrackRow } from "@/entities/book";
-import { ContinueResumeMeta } from "@/entities/track";
+import {
+  ChapterTrackRow,
+  ContinueResumeMeta,
+  buildBookTrackProgress,
+  canContinueBookListening,
+  resolveChapterTrackState,
+} from "@/entities/catalog";
+import { ChapterTrackDownloadActions } from "@/features/downloads";
 import { DetailHeaderMenu } from "@/shared/ui/DetailHeaderMenu";
 import { OverlayTopChrome } from "@/widgets/top-chrome";
 import { OVERLAY_BACK_TOP_SCROLL_PX } from "@/shared/lib/layoutChrome";
-import { buildBookTrackProgress, canContinueBookListening, resolveChapterTrackState } from "@/entities/book";
 import { scrollActiveRowAboveBottomPadding } from "@/shared/lib/scrollActiveRow";
 
 interface BookDetailPageProps {
@@ -116,12 +121,18 @@ export function BookDetailPage({
                 isActive={isActive}
                 listenProgress={listenProgress}
                 listenPercent={listenPercent}
-                isDownloaded={Boolean(track.localPath)}
-                downloadQueue={downloadQueue}
                 onClick={() => onTrackClick(track)}
-                onToggleListened={() => onMarkTrackListened(track, listenPercent !== 100)}
-                onRemoveDownload={() => onRemoveTrackDownload(track)}
-                onDownloadTrack={() => onDownloadTrack(track)}
+                trailing={
+                  <ChapterTrackDownloadActions
+                    track={track}
+                    listenPercent={listenPercent}
+                    isDownloaded={Boolean(track.localPath)}
+                    downloadQueue={downloadQueue}
+                    onToggleListened={() => onMarkTrackListened(track, listenPercent !== 100)}
+                    onRemoveDownload={() => onRemoveTrackDownload(track)}
+                    onDownloadTrack={() => onDownloadTrack(track)}
+                  />
+                }
               />
             </div>
           );

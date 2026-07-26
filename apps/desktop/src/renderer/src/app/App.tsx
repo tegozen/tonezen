@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Book, Cycle } from "@core/types";
 import { progressForTrack } from "@core/downloads/downloadQueueState";
 import { findActiveMusicTrack } from "@core/playback/musicPlayback";
-import { AppShell } from "@/widgets/app-shell";
+import { AppShell, BottomNav } from "@/widgets/app-shell";
+import { MiniPlayerBar } from "@/widgets/mini-player";
 import { LibraryFilterSheet } from "@/features/library-filter";
 import { LoginView } from "@/pages/login";
 import { NowPlayingSheet } from "@/widgets/now-playing";
@@ -14,9 +15,9 @@ import { useMusicPlayback } from "@/features/music-queue";
 import { EarlierChapterPrompt, useAudiobookSession, usePlayback } from "@/features/playback";
 import { useTonezenSession } from "@/features/auth";
 import { useLibraryController } from "@/features/library";
+import { useIpcQueryInvalidation } from "@/app/useIpcQueryInvalidation";
 import type { BottomTab } from "@core/platform/navigation";
-import { computeCycleCardState, isBookFullyDownloaded } from "@/entities/cycle";
-import { isBookFullyListened } from "@/entities/book";
+import { computeCycleCardState, isBookFullyDownloaded, isBookFullyListened } from "@/entities/catalog";
 import { BookDetailPage } from "@/pages/book-detail";
 import { CycleDetailPage } from "@/pages/cycle-detail";
 import { DownloadsPage } from "@/pages/downloads";
@@ -52,6 +53,8 @@ export function App() {
 
   const { toastMessage, showToast } = useToast();
   const downloadQueue = useDownloadQueue();
+  const authenticated = sessionState !== "Unauthenticated";
+  useIpcQueryInvalidation(authenticated);
   const library = useLibraryController({ sessionState, downloadQueueState: downloadQueue.state });
 
   const closeExpandedPlayer = useCallback(() => setShowExpandedPlayer(false), []);
@@ -261,23 +264,26 @@ export function App() {
   const selectedCycle = library.selectedCycle;
   const bookIsListened = isBookFullyListened(library.tracks, savedBookProgress);
 
+  const progress = durationMs > 0 ? positionMs / durationMs : 0;
   const shell = (
     <AppShell
-      activeTab={activeTab}
-      onTabSelect={handleTabSelect}
-      miniTitle={miniTitle}
-      miniSubtitle={miniSubtitle}
-      coverSeed={coverSeed}
-      isPlaying={isPlaying}
-      positionMs={positionMs}
-      durationMs={durationMs}
       showMiniPlayer={showMiniPlayer}
       showBottomNav={showBottomNav}
-      miniDownloadProgress={miniDownloadProgress}
-      onMiniBarClick={() => setShowExpandedPlayer(true)}
-      onMiniPlayPause={() => {
-        music.onMiniPlayerPlayPause(activeMusicTrack);
-      }}
+      miniPlayer={
+        <MiniPlayerBar
+          title={miniTitle}
+          subtitle={miniSubtitle}
+          coverSeed={coverSeed}
+          isPlaying={isPlaying}
+          progress={progress}
+          downloadProgress={miniDownloadProgress}
+          onBarClick={() => setShowExpandedPlayer(true)}
+          onPlayPause={() => {
+            music.onMiniPlayerPlayPause(activeMusicTrack);
+          }}
+        />
+      }
+      bottomNav={<BottomNav active={activeTab} onSelect={handleTabSelect} />}
     >
       {selectedBook ? (
         <BookDetailPage

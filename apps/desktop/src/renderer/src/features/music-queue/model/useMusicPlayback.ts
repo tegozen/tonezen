@@ -22,7 +22,7 @@ import {
   shouldRestartCurrentMusicTrack,
   type MusicSessionState,
 } from "@core/playback/musicPlayback";
-import type { useDownloadQueue } from "@/features/downloads";
+import type { DownloadQueueApi } from "@/shared/api";
 
 interface UseMusicPlaybackOptions {
   books: Book[];
@@ -32,7 +32,7 @@ interface UseMusicPlaybackOptions {
   setTracks: Dispatch<SetStateAction<Track[]>>;
   sessionState: SessionState;
   refreshLibrary: () => Promise<void>;
-  downloadQueue: ReturnType<typeof useDownloadQueue>;
+  downloadQueue: DownloadQueueApi;
   playTrack: (track: Track, startMs?: number, book?: Book | null) => void;
   stopPlayback: () => void;
   pauseOrResume: () => void;

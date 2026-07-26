@@ -9,8 +9,8 @@ import {
 import { CyclePlaybackResolver } from "@core/playback/cyclePlayback";
 import { completedAudiobookProgress, upsertAudiobookProgress } from "@core/progress/audiobookProgress";
 import { getTonezenApi, useSaveProgressMutation } from "@/shared/api";
-import { logDownloadFailure, type useDownloadQueue } from "@/features/downloads";
-import type { RefreshLibraryOptions } from "@/features/library";
+import { logDownloadFailure } from "@/shared/lib/diagnostics";
+import type { DownloadQueueApi, RefreshLibraryOptions } from "@/shared/api";
 
 const cycleResolver = new CyclePlaybackResolver();
 
@@ -35,7 +35,7 @@ interface UseAudiobookSessionOptions {
   progressByBook: Map<string, AudiobookProgress>;
   setProgressList: Dispatch<SetStateAction<AudiobookProgress[]>>;
   refreshLibrary: (options?: RefreshLibraryOptions) => Promise<void>;
-  downloadQueue: ReturnType<typeof useDownloadQueue>;
+  downloadQueue: DownloadQueueApi;
   playTrack: (track: Track, startMs?: number, book?: Book | null) => void;
   stopPlayback: () => void;
   pauseOrResume: () => void;

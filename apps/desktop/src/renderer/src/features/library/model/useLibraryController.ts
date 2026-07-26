@@ -14,16 +14,14 @@ import {
   computeCycleCardState,
   filterAndSortCycles,
   isBookFullyDownloaded,
-} from "@/entities/cycle";
+} from "@/entities/catalog";
 import {
   getTonezenApi,
   libraryBundleQueryOptions,
   queryKeys,
   type LibraryBundle,
+  type RefreshLibraryOptions,
 } from "@/shared/api";
-import { useIpcQueryInvalidation } from "@/app/useIpcQueryInvalidation";
-
-export type RefreshLibraryOptions = { rebuildMusic?: boolean; reconcileLocalPaths?: boolean };
 
 export const defaultLibraryFilter: LibraryFilter = { contentFilter: "all", sortOrder: "recent" };
 
@@ -48,8 +46,6 @@ export function useLibraryController({ sessionState, downloadQueueState }: UseLi
 
   const musicStartedInSessionRef = useRef(false);
   const authenticated = sessionState !== "Unauthenticated";
-
-  useIpcQueryInvalidation(authenticated);
 
   const libraryQuery = useQuery({
     ...libraryBundleQueryOptions(reconcileLocalPaths),

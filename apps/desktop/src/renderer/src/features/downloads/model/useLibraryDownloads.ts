@@ -4,34 +4,17 @@ import {
   getTonezenApi,
   useDeleteAllDownloadsMutation,
   useDeleteDownloadMutation,
+  type DownloadQueueApi,
+  type RefreshLibraryOptions,
 } from "@/shared/api";
-import type { useDownloadQueue } from "./useDownloadQueue";
-import type { RefreshLibraryOptions } from "@/features/library";
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function logDownloadFailure(input: {
-  code: string;
-  bookId: string;
-  trackId: string;
-  bookTitle?: string;
-  trackTitle?: string;
-  details?: string;
-}) {
-  void getTonezenApi()
-    .diagnostics.logError({
-      area: "download",
-      message: "Не удалось скачать",
-      ...input,
-    })
-    .catch(() => {});
-}
-
 interface UseLibraryDownloadsOptions {
   sessionState: SessionState;
-  downloadQueue: ReturnType<typeof useDownloadQueue>;
+  downloadQueue: DownloadQueueApi;
   currentTrack: Track | null;
   selectedBook: Book | null;
   setTracks: (tracks: Track[]) => void;

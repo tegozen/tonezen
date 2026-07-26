@@ -9,7 +9,7 @@ import type { DownloadQueueState } from "@core/downloads/downloadQueueState";
 import { PAGE_TITLE_TOP_SCROLL_PX } from "@/shared/lib/layoutChrome";
 import { TitleTopChrome } from "@/widgets/top-chrome";
 import { TrackDownloadButton } from "@/features/downloads";
-import { TrackListRow } from "@/entities/track";
+import { TrackListRow } from "@/entities/catalog";
 
 interface DownloadsPageProps {
   downloadQueue: DownloadQueueState;

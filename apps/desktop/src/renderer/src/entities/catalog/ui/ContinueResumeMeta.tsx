@@ -1,4 +1,4 @@
-import type { BookContinueState } from "@/entities/book";
+import type { BookContinueState } from "../lib/bookTrackUtils";
 import { formatMs } from "@/shared/lib/formatTime";
 
 interface ContinueResumeMetaProps {

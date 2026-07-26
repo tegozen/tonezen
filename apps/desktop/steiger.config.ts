@@ -6,7 +6,7 @@ export default defineConfig([
   {
     // Cross-slice coupling remaining from the flat layout; tighten in phase 2 splits.
     rules: {
-      "fsd/forbidden-imports": "warn",
+      "fsd/forbidden-imports": "error",
       "fsd/no-public-api-sidestep": "warn",
       "fsd/insignificant-slice": "off",
       "fsd/excessive-slicing": "off",

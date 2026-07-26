@@ -1,6 +1,6 @@
 import type { Book } from "@core/types";
 import { bookCoverGradient } from "@/shared/lib/coverGradient";
-import { bookAuthorLabel } from "@/entities/cycle";
+import { bookAuthorLabel } from "../lib/cycleUtils";
 
 interface BookCoverProps {
   book: Book;

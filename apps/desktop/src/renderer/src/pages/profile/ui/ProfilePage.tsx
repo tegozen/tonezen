@@ -8,8 +8,8 @@ import {
   ChevronRightIcon,
   StorageIcon,
 } from "@/shared/ui/TonezenIcons";
-import { AccountSettingsPage } from "@/pages/account-settings";
-import { StorageSettingsPage } from "@/pages/storage-settings";
+import { AccountSettingsPage } from "./AccountSettingsPage";
+import { StorageSettingsPage } from "./StorageSettingsPage";
 
 type ProfileSettingsPage = "account" | "storage";
 

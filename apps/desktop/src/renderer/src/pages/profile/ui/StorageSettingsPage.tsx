@@ -1,5 +1,6 @@
 import { formatGb } from "@/shared/lib/formatTime";
 import { SettingsPageLayout, SettingsInfoRow, SettingsSection } from "@/widgets/app-shell";
+import { OverlayTopChrome } from "@/widgets/top-chrome";
 
 interface StorageSettingsPageProps {
   usedBytes: number;
@@ -17,7 +18,7 @@ export function StorageSettingsPage({
   onDeleteAll,
 }: StorageSettingsPageProps) {
   return (
-    <SettingsPageLayout title="Хранилище" onBack={onBack}>
+    <SettingsPageLayout topChrome={<OverlayTopChrome title="Хранилище" onBack={onBack} />}>
       <SettingsSection title="Загрузки">
         <div className="font-semibold">
           {formatGb(usedBytes)} сохранено офлайн

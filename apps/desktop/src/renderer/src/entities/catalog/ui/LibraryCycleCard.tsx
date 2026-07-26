@@ -1,6 +1,6 @@
 import type { Cycle } from "@core/types";
 import { CheckCircleIcon, PauseIcon, PlayIcon } from "@/shared/ui/TonezenIcons";
-import { ContinueResumeMeta } from "@/entities/track";
+import { ContinueResumeMeta } from "./ContinueResumeMeta";
 import { CycleCover } from "./CycleCover";
 import type { CycleCardState } from "../lib/cycleUtils";
 

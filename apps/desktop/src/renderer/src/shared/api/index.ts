@@ -13,3 +13,5 @@ export {
   useDeleteAllDownloadsMutation,
   useTriggerSyncMutation,
 } from "./mutations";
+export type { RefreshLibraryOptions } from "./libraryRefresh";
+export type { DownloadQueueApi } from "./downloadQueueApi";

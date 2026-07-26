@@ -1,8 +1,8 @@
 import type { Book } from "@core/types";
-import { BookCover } from "@/entities/book";
-import { ContinueResumeMeta } from "@/entities/track";
+import { BookCover } from "./BookCover";
+import { ContinueResumeMeta } from "./ContinueResumeMeta";
 import { bookAuthorLabel } from "../lib/cycleUtils";
-import type { BookContinueState } from "@/entities/book";
+import type { BookContinueState } from "../lib/bookTrackUtils";
 
 interface CycleBookRowProps {
   book: Book;
