@@ -47,5 +47,10 @@
     public static <fields>;
 }
 
+# Sentry
+-keepattributes LineNumberTable,SourceFile
+-dontwarn io.sentry.**
+-keep class io.sentry.** { *; }
+
 # Keep domain model data classes (reflection-free; keep for clarity / future JSON)
 -keep class com.tonezen.app.domain.** { *; }

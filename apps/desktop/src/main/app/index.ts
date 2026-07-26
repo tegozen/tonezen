@@ -11,6 +11,7 @@ import { DownloadManager } from "../downloads/downloadManager.js";
 import { ProfileSyncService } from "../profile/profileSync.js";
 import { ProgressSyncService } from "../progress/progressSync.js";
 import { getClientConfig, loadAppEnv, loadPackagedEnv } from "./loadEnv.js";
+import { initGlitchtipMain } from "./glitchtipMain.js";
 import { createMainWindow } from "../window/mainWindow.js";
 import { closeSplashWindow, createSplashWindow } from "../window/splashWindow.js";
 import { runColdStartBootstrap } from "./bootstrap.js";
@@ -23,6 +24,10 @@ import { appendDiagnosticError } from "./diagnosticsLog.js";
 import { PROGRESS_SPLASH_PULL_TIMEOUT_MS } from "../progress/progressSync.js";
 
 loadAppEnv();
+if (app.isPackaged) {
+  loadPackagedEnv(process.execPath);
+}
+initGlitchtipMain(getClientConfig().glitchtipDsn);
 registerLocalAudioScheme();
 app.setAppUserModelId("com.tonezen.desktop");
 

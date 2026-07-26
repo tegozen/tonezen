@@ -11,6 +11,7 @@ export default defineConfig({
       alias: coreAlias,
     },
     build: {
+      sourcemap: true,
       rollupOptions: {
         external: ["better-sqlite3", "ws"],
       },
@@ -19,6 +20,9 @@ export default defineConfig({
   preload: {
     resolve: {
       alias: coreAlias,
+    },
+    build: {
+      sourcemap: true,
     },
   },
   renderer: {
@@ -29,5 +33,8 @@ export default defineConfig({
       },
     },
     plugins: [react(), tailwindcss()],
+    build: {
+      sourcemap: true,
+    },
   },
 });

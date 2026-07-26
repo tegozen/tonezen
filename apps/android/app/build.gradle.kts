@@ -4,7 +4,66 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("io.sentry.android.gradle") version "5.3.0"
 }
+
+fun loadMonorepoEnv(): Map<String, String> {
+    val candidates = listOf(
+        rootProject.projectDir.resolve("../../.env"),
+        rootProject.projectDir.resolve("../.env"),
+        file("../../.env"),
+        file("../../../.env"),
+    )
+    val envFile = candidates.firstOrNull { it.isFile } ?: return emptyMap()
+    val map = linkedMapOf<String, String>()
+    envFile.readLines().forEach { line ->
+        val trimmed = line.trim()
+        if (trimmed.isEmpty() || trimmed.startsWith("#")) return@forEach
+        val eq = trimmed.indexOf('=')
+        if (eq <= 0) return@forEach
+        map[trimmed.substring(0, eq)] = trimmed.substring(eq + 1)
+    }
+    return map
+}
+
+fun buildGlitchtipDsn(baseUrl: String, publicKey: String, projectId: String): String {
+    if (baseUrl.isBlank() || publicKey.isBlank() || projectId.isBlank()) return ""
+    val normalized = baseUrl.trimEnd('/')
+    val uri = java.net.URI(normalized)
+    val host = buildString {
+        append(uri.host ?: return "")
+        val port = uri.port
+        if (port != -1 && port != 80 && port != 443) {
+            append(':')
+            append(port)
+        }
+    }
+    return "${uri.scheme}://$publicKey@$host/glitchtip/$projectId"
+}
+
+val monorepoEnv = loadMonorepoEnv()
+val glitchtipBaseUrl = (
+    System.getenv("TONEZEN_BASE_URL")
+        ?: monorepoEnv["TONEZEN_BASE_URL"]
+        ?: "https://tonezen.tegozen.ru"
+    ).trimEnd('/')
+val glitchtipAndroidKey = (
+    System.getenv("GLITCHTIP_ANDROID_PUBLIC_KEY")
+        ?: monorepoEnv["GLITCHTIP_ANDROID_PUBLIC_KEY"]
+        ?: ""
+    ).trim()
+// Must match docker/glitchtip-seed/seed.py ANDROID_PROJECT_ID.
+val glitchtipAndroidProjectId = "1"
+val glitchtipAuthToken = (
+    System.getenv("GLITCHTIP_AUTH_TOKEN")
+        ?: monorepoEnv["GLITCHTIP_AUTH_TOKEN"]
+        ?: ""
+    ).trim()
+val glitchtipDsn = buildGlitchtipDsn(
+    glitchtipBaseUrl,
+    glitchtipAndroidKey,
+    glitchtipAndroidProjectId,
+)
 
 android {
     namespace = "com.tonezen.app"
@@ -17,7 +76,12 @@ android {
         versionCode = 35
         versionName = "0.16.1"
         buildConfigField("String", "BASE_URL", "\"https://tonezen.tegozen.ru\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwiZXhwIjoyMDk2NTgzNzc3fQ._CP-vbYhhZ9MPZaShAUB_93enHnw9dfh3_sFLep_Jws\"")
+        buildConfigField(
+            "String",
+            "SUPABASE_ANON_KEY",
+            "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIiwiZXhwIjoyMDk2NTgzNzc3fQ._CP-vbYhhZ9MPZaShAUB_93enHnw9dfh3_sFLep_Jws\"",
+        )
+        buildConfigField("String", "GLITCHTIP_DSN", "\"${glitchtipDsn.replace("\"", "\\\"")}\"")
     }
 
     val releaseStoreFile = (System.getenv("TONEZEN_KEYSTORE_PATH")
@@ -87,6 +151,22 @@ android {
     }
 }
 
+sentry {
+    org.set("tonezen")
+    projectName.set("tonezen-android")
+    url.set("$glitchtipBaseUrl/glitchtip/")
+    authToken.set(glitchtipAuthToken)
+    autoUploadProguardMapping.set(glitchtipAuthToken.isNotEmpty())
+    includeProguardMapping.set(true)
+    errorOnUploadFailure.set(false)
+    autoInstallation {
+        enabled.set(false)
+    }
+    tracingInstrumentation {
+        enabled.set(false)
+    }
+}
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
     implementation(composeBom)
@@ -121,6 +201,9 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+
+    implementation("io.sentry:sentry-android:7.22.4")
+    implementation("io.sentry:sentry-android-ndk:7.22.4")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

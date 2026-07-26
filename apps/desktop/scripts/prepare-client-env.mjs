@@ -18,6 +18,22 @@ function parseEnv(content) {
   return map;
 }
 
+function buildGlitchtipDsn(baseUrl, publicKey, projectId) {
+  const key = String(publicKey || "")
+    .trim()
+    .replace(/-/g, "");
+  const id = String(projectId || "").trim();
+  if (!baseUrl || !key || !id) return "";
+  let url;
+  try {
+    url = new URL(String(baseUrl).trim());
+  } catch {
+    return "";
+  }
+  const host = url.port ? `${url.hostname}:${url.port}` : url.hostname;
+  return `${url.protocol}//${key}@${host}/glitchtip/${id}`;
+}
+
 const values = parseEnv(fs.readFileSync(rootEnv, "utf8"));
 const baseUrl = values.get("TONEZEN_BASE_URL");
 const anonKey = values.get("ANON_KEY");
@@ -27,5 +43,14 @@ if (!baseUrl || !anonKey) {
   process.exit(1);
 }
 
-fs.writeFileSync(outPath, `TONEZEN_BASE_URL=${baseUrl}\nANON_KEY=${anonKey}\n`, "utf8");
+const desktopDsn =
+  (values.get("GLITCHTIP_DESKTOP_DSN") || "").trim() ||
+  buildGlitchtipDsn(baseUrl, values.get("GLITCHTIP_DESKTOP_PUBLIC_KEY") || "", 2);
+
+const lines = [`TONEZEN_BASE_URL=${baseUrl}`, `ANON_KEY=${anonKey}`];
+if (desktopDsn) {
+  lines.push(`GLITCHTIP_DESKTOP_DSN=${desktopDsn}`);
+}
+
+fs.writeFileSync(outPath, `${lines.join("\n")}\n`, "utf8");
 console.log(`Wrote ${outPath}`);

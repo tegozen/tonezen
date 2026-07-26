@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildGlitchtipDsn, GLITCHTIP_DESKTOP_PROJECT_ID } from "../../core/platform/glitchtipDsn.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,9 +52,22 @@ export function normalizeBaseUrl(url: string): string {
   return url.replace(/\/$/, "");
 }
 
+export function resolveGlitchtipDesktopDsn(baseUrl: string): string {
+  const fromEnv = (process.env.GLITCHTIP_DESKTOP_DSN ?? "").trim();
+  if (fromEnv) return fromEnv;
+
+  return buildGlitchtipDsn(
+    baseUrl,
+    process.env.GLITCHTIP_DESKTOP_PUBLIC_KEY ?? "",
+    GLITCHTIP_DESKTOP_PROJECT_ID,
+  );
+}
+
 export function getClientConfig() {
+  const baseUrl = normalizeBaseUrl(process.env.TONEZEN_BASE_URL ?? DEFAULT_BASE_URL);
   return {
-    baseUrl: normalizeBaseUrl(process.env.TONEZEN_BASE_URL ?? DEFAULT_BASE_URL),
+    baseUrl,
     supabaseAnonKey: process.env.ANON_KEY ?? process.env.TONEZEN_SUPABASE_ANON_KEY ?? DEFAULT_ANON_KEY,
+    glitchtipDsn: resolveGlitchtipDesktopDsn(baseUrl),
   };
 }

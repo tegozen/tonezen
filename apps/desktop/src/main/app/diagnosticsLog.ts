@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import * as Sentry from "@sentry/electron/main";
 
 const ALLOWED_AREAS = new Set(["download", "playback", "sync", "app"] as const);
 const MAX_FIELD_LENGTH = 500;
@@ -58,6 +59,11 @@ export async function appendDiagnosticError(
 ): Promise<string | null> {
   const sanitized = sanitizeDiagnosticEntry(entry);
   if (!sanitized) return null;
+  try {
+    Sentry.captureMessage(`[${sanitized.area}] ${sanitized.message}`, "error");
+  } catch {
+    // Sentry may be uninitialized when DSN is empty.
+  }
   const logDir = path.join(documentsPath, "Tonezen");
   const logPath = path.join(logDir, "tonezen-errors.log");
   await fs.mkdir(logDir, { recursive: true });

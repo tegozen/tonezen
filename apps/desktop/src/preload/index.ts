@@ -1,4 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
+import * as Sentry from "@sentry/electron/renderer";
+
+Sentry.init({ sendDefaultPii: false });
 
 contextBridge.exposeInMainWorld("tonezen", {
   session: {

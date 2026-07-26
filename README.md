@@ -124,7 +124,7 @@ The desktop app auto-loads `.env` from:
 2. repo root `.env` (recommended)
 3. `.env` next to the packaged executable (production builds)
 
-**Android** — update `buildConfigField` in `apps/android/app/build.gradle.kts` for release.
+**Android** — release builds read `TONEZEN_BASE_URL` / GlitchTip keys from root `.env` into `BuildConfig` (keep `BASE_URL` / `SUPABASE_ANON_KEY` in `build.gradle.kts` aligned with prod).
 
 For UI work without full reinstalls, see [apps/android/DEV.md](apps/android/DEV.md) (Compose Preview + Live Edit).
 
@@ -142,6 +142,19 @@ docker compose up -d --build
 
 Indexer runs automatically as a container (rescans storage every 60 seconds).
 
+### Crash reporting (GlitchTip)
+
+Self-hosted GlitchTip is part of `docker compose` (zero-touch):
+
+1. `node scripts/gen-env.mjs` generates `GLITCHTIP_*` secrets (public keys, auth token, DB password).
+2. `docker compose up -d` runs migrate + **`glitchtip-seed`** (admin from `ADMIN_*`, org `tonezen`, projects android/desktop, fixed DSN keys).
+3. Release/bump builds read the same root `.env` and embed DSNs — no manual project creation in the UI.
+
+- **View errors:** `https://<TONEZEN_BASE_URL>/glitchtip` — login with `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+- **DSN shape:** `https://<PUBLIC_KEY>@<host>/glitchtip/<PROJECT_ID>` (Android=`1`, Desktop=`2`, hardcoded).
+- Keep the same `GLITCHTIP_*_PUBLIC_KEY` / `GLITCHTIP_AUTH_TOKEN` on the VPS and on the machine that builds clients.
+- Do not point SDKs at `*.sentry.io` (data stays on your host).
+
 ## Project structure
 
 ```
@@ -153,7 +166,7 @@ tonezen/
 │   ├── api/               # REST API (catalog, signed URLs, progress)
 │   ├── indexer/           # storage bucket scanner
 │   └── supabase/migrations/
-├── docker/                # kong, seed (admin + storage layout)
+├── docker/                # kong, seed, glitchtip-seed
 ├── ci/                    # check-eol
 ├── docs/
 ├── scripts/               # gen-env, postgres import & export
@@ -170,13 +183,13 @@ TDD is required for domain logic, indexer parsers, and API handlers. See AGENTS.
 
 ## Production deployment
 
-1. Run `node scripts/gen-env.mjs` to create `.env` with random secrets.
+1. Run `node scripts/gen-env.mjs` to create `.env` with random secrets (includes GlitchTip keys).
 2. Set `S3_*` from Beget panel and `TONEZEN_BASE_URL` to your public domain (e.g. `https://your.domain`).
-3. Run `docker compose up -d --build` — pending SQL migrations from `backend/supabase/migrations/` apply automatically (`migrate` service + API startup). Logs: `docker compose logs migrate api`.
+3. Run `docker compose up -d --build` — SQL migrations + GlitchTip migrate/seed apply automatically. Logs: `docker compose logs migrate glitchtip-seed api`.
 4. (Optional) Restore Postgres from another server: `make postgres-import` with archive from export on the source host.
 5. Upload content via Studio (Storage → bucket `content`) — or reuse existing files in the shared S3 bucket.
-6. Sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env` (created on first startup).
-7. Configure client apps — desktop reads root `.env` automatically; Android uses `build.gradle.kts`.
+6. Sign in to the app with `ADMIN_EMAIL` / `ADMIN_PASSWORD`; same credentials open crash UI at `/glitchtip`.
+7. Build clients from the same root `.env` (desktop `prepare-client-env` / Android Gradle reads GlitchTip DSN automatically).
 
 For manual migration run (dev): `make db-migrate`.
 
@@ -186,6 +199,9 @@ For manual migration run (dev): `make db-migrate`.
 
 - `TONEZEN_BASE_URL` — same as in root `.env` (e.g. `https://your.domain`)
 - `ANON_KEY` — read automatically from root `.env` when running desktop dev
+- `GLITCHTIP_DESKTOP_PUBLIC_KEY` — baked into release via `prepare-client-env.mjs` (project id `2` is fixed in code)
+
+**Android** — `assembleRelease` reads the same root `.env` and sets `BuildConfig.GLITCHTIP_DSN` (empty key ⇒ reporting off).
 
 API paths (`/api/v1`, `/auth/v1`, …) are hardcoded in client apps.
 
@@ -193,7 +209,8 @@ Then `cd apps/desktop && npm run dev` — no manual `set`/`export` needed.
 
 ### Security checklist
 
-- [ ] Run `node scripts/gen-env.mjs --force` if rotating secrets (updates clients too)
+- [ ] Run `node scripts/gen-env.mjs --force` if rotating secrets (updates clients too — rebuild apps after rotating GlitchTip keys)
 - [ ] Expose only Kong (`KONG_HTTP_PORT`) to the public internet
 - [ ] Use HTTPS reverse proxy in front of Kong (Caddy/Traefik)
 - [ ] Configure `GOTRUE_SMTP_*` for password recovery emails in production
+- [ ] GlitchTip registration stays disabled; only `ADMIN_*` can open `/glitchtip`

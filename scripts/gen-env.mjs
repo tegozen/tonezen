@@ -25,6 +25,11 @@ const SECRET_KEYS = [
   "PG_META_CRYPTO_KEY",
   "POSTGRES_PASSWORD",
   "DB_ENC_KEY",
+  "GLITCHTIP_SECRET_KEY",
+  "GLITCHTIP_POSTGRES_PASSWORD",
+  "GLITCHTIP_ANDROID_PUBLIC_KEY",
+  "GLITCHTIP_DESKTOP_PUBLIC_KEY",
+  "GLITCHTIP_AUTH_TOKEN",
 ];
 
 const GENERATED_IF_EMPTY_KEYS = ["ADMIN_PASSWORD", "DASHBOARD_PASSWORD"];
@@ -42,6 +47,10 @@ function randomPassword(length = 16) {
     out += alphabet[crypto.randomInt(alphabet.length)];
   }
   return out;
+}
+
+function randomHexKey(bytes = 16) {
+  return crypto.randomBytes(bytes).toString("hex");
 }
 
 function base64urlJson(value) {
@@ -67,6 +76,11 @@ function generateSecrets() {
     PG_META_CRYPTO_KEY: randomSecret(32),
     POSTGRES_PASSWORD: randomPassword(24),
     DB_ENC_KEY: crypto.randomBytes(8).toString("hex"), // Realtime AES-128: exactly 16 chars
+    GLITCHTIP_SECRET_KEY: randomSecret(32),
+    GLITCHTIP_POSTGRES_PASSWORD: randomPassword(24),
+    GLITCHTIP_ANDROID_PUBLIC_KEY: randomHexKey(16),
+    GLITCHTIP_DESKTOP_PUBLIC_KEY: randomHexKey(16),
+    GLITCHTIP_AUTH_TOKEN: randomHexKey(32),
   };
 }
 
@@ -147,8 +161,8 @@ function main() {
   console.log("");
   console.log("Next:");
   console.log("  docker compose up -d --build");
-  console.log("  cd apps/desktop && npm run dev   # picks up ANON_KEY from .env");
-  console.log("  Android release: copy ANON_KEY to apps/android/app/build.gradle.kts");
+  console.log("  cd apps/desktop && npm run dev   # picks up ANON_KEY + GlitchTip DSN from .env");
+  console.log("  Android release: assembleRelease reads GlitchTip DSN from root .env");
 }
 
 main();

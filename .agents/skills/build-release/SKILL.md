@@ -23,13 +23,13 @@ Landing page expects these names under `docker/landing/public/downloads/` (git-i
 
 ## Pre-flight
 
-1. **Root `.env`** must exist with `TONEZEN_BASE_URL` and `ANON_KEY` (desktop `dist:win` / `dist:mac` read them via `prepare-client-env.mjs`).
-2. **Android config** — verify `BASE_URL` and `SUPABASE_ANON_KEY` in `apps/android/app/build.gradle.kts` match production (not localhost).
+1. **Root `.env`** must exist with `TONEZEN_BASE_URL`, `ANON_KEY`, and GlitchTip keys (`GLITCHTIP_DESKTOP_PUBLIC_KEY`, `GLITCHTIP_ANDROID_PUBLIC_KEY`, `GLITCHTIP_AUTH_TOKEN`, … — from `node scripts/gen-env.mjs`). Desktop `dist:win` / `dist:mac` bake the desktop DSN via `prepare-client-env.mjs`.
+2. **Android config** — verify `BASE_URL` and `SUPABASE_ANON_KEY` in `apps/android/app/build.gradle.kts` match production (not localhost). `GLITCHTIP_DSN` is filled from root `.env` at build time.
 3. **Versions aligned** — `versionName` / `versionCode` in `build.gradle.kts` and `version` in `apps/desktop/package.json` should match before release.
 4. **Desktop package icons** — verify `apps/desktop/package.json` sets `build.win.icon` to `resources/app-icon.ico`, `build.mac.icon` to `resources/app-icon.icns`, and NSIS installer/uninstaller icons to `resources/app-icon.ico`; both icon files must exist.
 5. **Never commit** `.env`, `client.env`, APK/EXE, or `docker/landing/public/downloads/*` binaries.
 
-If `.env` is missing: tell the user to run `make gen-env` and fill `TONEZEN_BASE_URL` + `S3_*`; do not invent secrets.
+If `.env` is missing: tell the user to run `make gen-env` and fill `TONEZEN_BASE_URL` + `S3_*`; do not invent secrets. If GlitchTip keys are missing in an old `.env`, re-run `node scripts/gen-env.mjs --force` or copy the `GLITCHTIP_*` block from `.env.example` and generate values.
 
 ## Workflow
 

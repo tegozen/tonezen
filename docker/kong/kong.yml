@@ -199,6 +199,36 @@ services:
         config:
           hide_credentials: true
 
+  # GlitchTip UI + Sentry-compatible ingest under /glitchtip (strip prefix).
+  # DSN: https://<public_key>@<host>/glitchtip/<project_id>
+  # UI login = ADMIN_EMAIL / ADMIN_PASSWORD from seed (registration disabled).
+  - name: glitchtip
+    url: http://glitchtip:8000/
+    routes:
+      - name: glitchtip-root
+        strip_path: true
+        paths:
+          - /glitchtip
+    plugins:
+      - name: cors
+        config:
+          origins:
+            - "*"
+          methods:
+            - GET
+            - HEAD
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+          headers:
+            - Authorization
+            - Content-Type
+            - X-Sentry-Auth
+            - X-Requested-With
+          credentials: false
+
 plugins:
   - name: cors
     config:

@@ -388,6 +388,8 @@ services:
         condition: service_healthy
       studio:
         condition: service_healthy
+      glitchtip:
+        condition: service_healthy
     environment:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /tmp/kong.yml
@@ -463,6 +465,91 @@ services:
       retries: 5
       start_period: 10s
 
+  # --- GlitchTip (all-in-one: web + worker in one process; no Redis) ---
+  glitchtip-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: glitchtip
+      POSTGRES_USER: glitchtip
+      POSTGRES_PASSWORD: ${GLITCHTIP_POSTGRES_PASSWORD:?Set GLITCHTIP_POSTGRES_PASSWORD in .env}
+    volumes:
+      - glitchtip-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U glitchtip -d glitchtip"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  glitchtip-migrate:
+    image: glitchtip/glitchtip:6.2.2
+    restart: "no"
+    depends_on:
+      glitchtip-postgres:
+        condition: service_healthy
+    environment: &glitchtip-env
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:?Set GLITCHTIP_SECRET_KEY in .env}
+      DATABASE_URL: postgres://glitchtip:${GLITCHTIP_POSTGRES_PASSWORD}@glitchtip-postgres:5432/glitchtip
+      SERVER_ROLE: all_in_one
+      GLITCHTIP_DOMAIN: ${TONEZEN_BASE_URL:-http://localhost:8000}/glitchtip
+      DEFAULT_FROM_EMAIL: glitchtip@tonezen.local
+      EMAIL_URL: consolemail://
+      ENABLE_USER_REGISTRATION: "false"
+      ENABLE_ORGANIZATION_CREATION: "false"
+      FORCE_SCRIPT_NAME: /glitchtip
+      CSRF_TRUSTED_ORIGINS: ${TONEZEN_BASE_URL:-http://localhost:8000}
+      GLITCHTIP_MAX_EVENT_LIFE_DAYS: "90"
+    command:
+      [
+        "sh",
+        "-c",
+        "./manage.py migrate --noinput && ./manage.py createcachetable && ./manage.py maintain_partitions",
+      ]
+
+  glitchtip:
+    image: glitchtip/glitchtip:6.2.2
+    restart: unless-stopped
+    depends_on:
+      glitchtip-postgres:
+        condition: service_healthy
+      glitchtip-migrate:
+        condition: service_completed_successfully
+    environment:
+      <<: *glitchtip-env
+    volumes:
+      - glitchtip-uploads:/code/uploads
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 /code/healthcheck.py 2>/dev/null || python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=3)\" || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  glitchtip-seed:
+    image: glitchtip/glitchtip:6.2.2
+    restart: "no"
+    depends_on:
+      glitchtip:
+        condition: service_healthy
+    environment:
+      <<: *glitchtip-env
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@tonezen.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      GLITCHTIP_ANDROID_PUBLIC_KEY: ${GLITCHTIP_ANDROID_PUBLIC_KEY:?Set GLITCHTIP_ANDROID_PUBLIC_KEY in .env}
+      GLITCHTIP_DESKTOP_PUBLIC_KEY: ${GLITCHTIP_DESKTOP_PUBLIC_KEY:?Set GLITCHTIP_DESKTOP_PUBLIC_KEY in .env}
+      GLITCHTIP_AUTH_TOKEN: ${GLITCHTIP_AUTH_TOKEN:?Set GLITCHTIP_AUTH_TOKEN in .env}
+    volumes:
+      - ./docker/glitchtip-seed/seed.py:/seed.py:ro
+    command: ["./manage.py", "shell", "-c", "exec(open('/seed.py', encoding='utf-8').read())"]
+
 volumes:
   tonezen-postgres:
     name: tonezen-postgres
+  glitchtip-postgres:
+    name: glitchtip-postgres
+  glitchtip-uploads:
+    name: glitchtip-uploads
