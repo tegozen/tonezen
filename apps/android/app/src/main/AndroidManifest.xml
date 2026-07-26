@@ -42,5 +42,10 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
+
+        <!-- Manual init in TonezenApplication with BuildConfig.GLITCHTIP_DSN -->
+        <meta-data
+            android:name="io.sentry.auto-init"
+            android:value="false" />
     </application>
 </manifest>
