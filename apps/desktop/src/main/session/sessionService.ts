@@ -1,69 +1,62 @@
-import { safeStorage } from "electron";
-import fs from "node:fs";
-import path from "node:path";
 import { SessionManager } from "@core/auth/session.js";
-import { avatarUrlWithCacheBust } from "@core/profile/avatarBytes.js";
-import { resolveSyncedAvatarUrl, stripAvatarQuery } from "@core/profile/profileSync.js";
-import {
-  SupabaseAuthClient,
-  applyUserProfile,
-  displayNameFromUser,
-  mergeSessionOnRefresh,
-  sessionFromGoTrue,
-} from "@core/auth/supabaseAuth.js";
+import { SupabaseAuthClient } from "@core/auth/supabaseAuth.js";
 import type { SessionState, StoredSession } from "@core/types.js";
-import { upsertUserProfileMirror, type UserProfileMirrorRow } from "@core/profile/userProfileMirror.js";
-import { isRefreshAuthFailure } from "@core/auth/authErrors.js";
-import { createRefreshCoordinator } from "@core/auth/refreshCoordinator.js";
-import { normalizeAvatarUrl } from "@core/profile/avatarUpload.js";
+import type { UserProfileMirrorRow } from "@core/profile/userProfileMirror.js";
+import {
+  changePassword as changePasswordApi,
+  getReferralCode as getReferralCodeApi,
+  loginWithPassword,
+  registerWithInvite as registerWithInviteApi,
+  requestPasswordRecovery as requestPasswordRecoveryApi,
+  verifyInviteCode as verifyInviteCodeApi,
+} from "./sessionAuthApi.js";
+import {
+  applyRemoteUserProfile as applyRemoteUserProfileApi,
+  mirrorProfileToRealtime,
+  syncProfileFromServer as syncProfileFromServerApi,
+  updateProfileDisplayName,
+  uploadProfileAvatar,
+} from "./sessionProfileApi.js";
+import { createSessionRefresh } from "./sessionRefresh.js";
+import { SessionFileStore, type SessionConfig } from "./sessionStore.js";
 
-const SESSION_FILE = "session.dat";
-
-export interface SessionConfig {
-  baseUrl: string;
-  anonKey: string;
-}
+export type { SessionConfig } from "./sessionStore.js";
 
 export class SessionService {
   private session: StoredSession | null = null;
   private readonly manager = new SessionManager();
-  private sessionPath = "";
+  private readonly store = new SessionFileStore();
   private authClient: SupabaseAuthClient | null = null;
-  private sessionConfig: SessionConfig | null = null;
   private online = true;
-  private readonly refreshCoordinator = createRefreshCoordinator<SessionState>();
+  private readonly refresh = createSessionRefresh({
+    getSession: () => this.session,
+    setSession: (session) => {
+      this.session = session;
+    },
+    getOnline: () => this.online,
+    getAuthClient: () => this.authClient,
+    getManager: () => this.manager,
+    logout: () => this.logout(),
+    persist: (session) => this.store.persist(session),
+    withClientAvatarUrl: (session) => this.store.withClientAvatarUrl(session),
+  });
 
   init(userDataPath: string, config: SessionConfig): void {
-    this.sessionPath = path.join(userDataPath, SESSION_FILE);
-    this.sessionConfig = config;
+    this.store.init(userDataPath, config);
     this.authClient = new SupabaseAuthClient(config);
-    this.session = this.load();
+    this.session = this.store.load();
   }
 
   applyRemoteUserProfile(row: UserProfileMirrorRow): boolean {
-    if (!this.session || row.user_id !== this.session.userId) return false;
-
-    const serverUpdatedAt = row.updated_at ?? null;
-    if (serverUpdatedAt && serverUpdatedAt === this.session.profileUpdatedAt) return false;
-
-    const nextAvatarBase = stripAvatarQuery(
-      normalizeAvatarUrl(row.avatar_url, this.sessionConfig?.baseUrl ?? ""),
+    if (!this.session) return false;
+    const next = applyRemoteUserProfileApi(
+      this.session,
+      row,
+      this.store.getConfig(),
+      (session) => this.store.persist(session),
     );
-    const avatarUrl = resolveSyncedAvatarUrl({
-      prevAvatarUrl: this.session.avatarUrl,
-      prevProfileUpdatedAt: this.session.profileUpdatedAt,
-      nextAvatarBase,
-      serverUpdatedAt,
-      bust: avatarUrlWithCacheBust,
-    });
-
-    this.session = {
-      ...this.session,
-      displayName: row.display_name?.trim() || this.session.displayName,
-      avatarUrl,
-      profileUpdatedAt: serverUpdatedAt,
-    };
-    this.persist(this.session);
+    if (!next) return false;
+    this.session = next;
     return true;
   }
 
@@ -107,16 +100,19 @@ export class SessionService {
 
   async login(email: string, password: string): Promise<StoredSession> {
     if (!this.authClient) throw new Error("SessionService not initialized");
-    const result = await this.authClient.signInWithPassword(email, password);
-    const session = sessionFromGoTrue(result, email);
-    this.session = this.withClientAvatarUrl(session);
-    this.persist(this.session);
+    this.session = await loginWithPassword(
+      this.authClient,
+      email,
+      password,
+      (session) => this.store.withClientAvatarUrl(session),
+    );
+    this.store.persist(this.session);
     return this.session;
   }
 
   async verifyInviteCode(code: string): Promise<boolean> {
     if (!this.authClient) throw new Error("SessionService not initialized");
-    return this.authClient.verifyInviteCode(code);
+    return verifyInviteCodeApi(this.authClient, code);
   }
 
   async registerWithInvite(input: {
@@ -126,46 +122,51 @@ export class SessionService {
     displayName?: string;
   }): Promise<StoredSession> {
     if (!this.authClient) throw new Error("SessionService not initialized");
-    await this.authClient.signUpWithInvite(input);
-    return this.login(input.email, input.password);
+    return registerWithInviteApi(this.authClient, input, (email, password) =>
+      this.login(email, password),
+    );
   }
 
   async requestPasswordRecovery(email: string): Promise<void> {
     if (!this.authClient) throw new Error("SessionService not initialized");
-    await this.authClient.requestPasswordRecovery(email);
+    await requestPasswordRecoveryApi(this.authClient, email);
   }
 
   async getReferralCode(): Promise<string> {
     await this.refreshIfNeeded();
     if (!this.session || !this.authClient) throw new Error("__not_signed_in__");
-    return this.authClient.getReferralCode(this.session.accessToken);
+    return getReferralCodeApi(this.authClient, this.session.accessToken);
   }
 
   logout(): void {
     this.session = null;
-    if (fs.existsSync(this.sessionPath)) fs.unlinkSync(this.sessionPath);
+    this.store.clear();
   }
 
   async updateProfile(displayName: string): Promise<{ displayName: string | null }> {
     if (!this.online) throw new Error("__account_offline__");
     await this.refreshIfNeeded();
     if (!this.session || !this.authClient) throw new Error("__not_signed_in__");
-    const trimmed = displayName.trim();
-    if (!trimmed || trimmed === this.session.displayName) {
-      return { displayName: this.session.displayName };
-    }
-    const user = await this.authClient.updateUser(this.session.accessToken, { displayName: trimmed });
-    this.session = applyUserProfile(this.session, user);
-    this.persist(this.session);
-    await this.mirrorProfileToRealtime(user.updated_at ?? new Date().toISOString());
-    return { displayName: this.session.displayName };
+    const result = await updateProfileDisplayName(
+      this.authClient,
+      this.session,
+      displayName,
+      (session) => {
+        this.session = session;
+        this.store.persist(session);
+      },
+      (updatedAt) => this.mirrorProfileToRealtime(updatedAt),
+    );
+    this.session = result.session;
+    return { displayName: result.displayName };
   }
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     if (!this.online) throw new Error("__account_offline__");
     await this.refreshIfNeeded();
     if (!this.session || !this.authClient) throw new Error("__not_signed_in__");
-    await this.authClient.changePassword(
+    await changePasswordApi(
+      this.authClient,
       this.session.accessToken,
       currentPassword,
       newPassword,
@@ -176,148 +177,47 @@ export class SessionService {
     if (!this.online) throw new Error("__account_offline__");
     await this.refreshIfNeeded();
     if (!this.session || !this.authClient) throw new Error("__not_signed_in__");
-    const avatarUrl = await this.authClient.uploadAvatar(
-      this.session.accessToken,
-      this.session.userId,
+    const result = await uploadProfileAvatar(
+      this.authClient,
+      this.session,
       jpegBytes,
+      (session) => {
+        this.session = session;
+        this.store.persist(session);
+      },
+      (updatedAt) => this.mirrorProfileToRealtime(updatedAt),
     );
-    const user = await this.authClient.updateUser(this.session.accessToken, {
-      avatarUrl: avatarUrl.split("?")[0] ?? avatarUrl,
-    });
-    this.session = {
-      ...applyUserProfile(this.session, user),
-      avatarUrl,
-      profileUpdatedAt: user.updated_at ?? this.session.profileUpdatedAt ?? null,
-    };
-    this.persist(this.session);
-    await this.mirrorProfileToRealtime(this.session.profileUpdatedAt ?? new Date().toISOString());
-    return { avatarUrl: this.session.avatarUrl ?? avatarUrl };
+    this.session = result.session;
+    return { avatarUrl: result.avatarUrl };
   }
 
   async syncProfileFromServer(): Promise<void> {
     if (!this.session || !this.online || !this.authClient) return;
 
-    try {
-      await this.refreshIfNeeded();
-      if (!this.session) return;
-
-      const user = await this.authClient.getUser(this.session.accessToken);
-      const merged = applyUserProfile(this.session, user);
-      const avatarUrl = resolveSyncedAvatarUrl({
-        prevAvatarUrl: this.session.avatarUrl,
-        prevProfileUpdatedAt: this.session.profileUpdatedAt,
-        nextAvatarBase: stripAvatarQuery(
-          normalizeAvatarUrl(merged.avatarUrl, this.sessionConfig?.baseUrl ?? ""),
-        ),
-        serverUpdatedAt: user.updated_at ?? null,
-        bust: avatarUrlWithCacheBust,
-      });
-
-      this.session = {
-        ...merged,
-        avatarUrl,
-        profileUpdatedAt: user.updated_at ?? null,
-      };
-      this.persist(this.session);
-    } catch {
-      await this.refreshIfNeeded();
-    }
+    const next = await syncProfileFromServerApi(
+      this.authClient,
+      this.session,
+      this.store.getConfig(),
+      (session) => {
+        this.session = session;
+        this.store.persist(session);
+      },
+      () => this.refreshIfNeeded(),
+    );
+    if (next) this.session = next;
   }
 
   async refreshIfNeeded(): Promise<SessionState> {
-    if (!this.session) return "Unauthenticated";
-    return this.refreshCoordinator.coalesce(
-      () => {
-        if (!this.session) return false;
-        return (
-          this.manager.shouldRefresh(this.session, this.online) ||
-          (this.online && this.manager.isExpired(this.session))
-        );
-      },
-      () => this.performRefresh(),
-      () => (this.session ? this.manager.resolveState(this.session, this.online) : "Unauthenticated"),
-    );
-  }
-
-  private async performRefresh(): Promise<SessionState> {
-    const session = this.session;
-    if (!session) return "Unauthenticated";
-    try {
-      if (!this.online) {
-        return this.manager.resolveState(session, false);
-      }
-      if (!this.authClient || !session.refreshToken) {
-        return "Unauthenticated";
-      }
-      const result = await this.authClient.refreshSession(session.refreshToken);
-      const next = sessionFromGoTrue(result, session.email);
-      this.session = this.withClientAvatarUrl(mergeSessionOnRefresh(session, next));
-      this.persist(this.session);
-      return "AuthenticatedOnline";
-    } catch (error) {
-      if (isRefreshAuthFailure(error)) {
-        this.logout();
-        return "Unauthenticated";
-      }
-      return this.manager.resolveState(this.session ?? session, this.online);
-    }
+    return this.refresh.refreshIfNeeded();
   }
 
   private async mirrorProfileToRealtime(updatedAt: string): Promise<void> {
-    if (!this.session || !this.sessionConfig || !this.online) return;
-    try {
-      await upsertUserProfileMirror(this.sessionConfig, this.session.accessToken, {
-        user_id: this.session.userId,
-        display_name: this.session.displayName,
-        avatar_url: stripAvatarQuery(this.session.avatarUrl),
-        updated_at: updatedAt,
-      });
-    } catch {
-      // Realtime mirror is best-effort; local session is already persisted.
-    }
-  }
-
-  private withClientAvatarUrl(session: StoredSession): StoredSession {
-    if (!session.avatarUrl || !this.sessionConfig) return session;
-    const avatarUrl = normalizeAvatarUrl(session.avatarUrl, this.sessionConfig.baseUrl);
-    if (avatarUrl === session.avatarUrl) return session;
-    return { ...session, avatarUrl };
-  }
-
-  private persist(session: StoredSession): void {
-    if (!safeStorage.isEncryptionAvailable()) {
-      console.warn(
-        "[session] OS encryption unavailable; keeping session in memory only (not writing session.dat)",
-      );
-      return;
-    }
-    const encrypted = safeStorage.encryptString(JSON.stringify(session));
-    fs.writeFileSync(this.sessionPath, encrypted, { mode: 0o600 });
-  }
-
-  private load(): StoredSession | null {
-    if (!this.sessionPath || !fs.existsSync(this.sessionPath)) return null;
-    if (!safeStorage.isEncryptionAvailable()) {
-      console.warn(
-        "[session] OS encryption unavailable; ignoring on-disk session.dat (possible legacy plaintext)",
-      );
-      return null;
-    }
-    try {
-      const raw = fs.readFileSync(this.sessionPath);
-      const json = safeStorage.decryptString(raw);
-      const parsed = JSON.parse(json) as StoredSession;
-      const email = parsed.email ?? "";
-      const displayName =
-        parsed.displayName ||
-        displayNameFromUser({ id: parsed.userId, email }, email);
-      return this.withClientAvatarUrl({
-        ...parsed,
-        email,
-        displayName,
-      });
-    } catch {
-      return null;
-    }
+    if (!this.session || !this.store.getConfig() || !this.online) return;
+    await mirrorProfileToRealtime(
+      this.session,
+      this.store.getConfig()!,
+      this.session.accessToken,
+      updatedAt,
+    );
   }
 }
