@@ -2,10 +2,10 @@ package com.tonezen.app.ui
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tonezen.app.domain.model.SessionState
 import com.tonezen.app.ui.auth.AuthScreen
 import com.tonezen.app.ui.auth.AuthViewModel
@@ -19,8 +19,8 @@ fun TonezenApp(
     authViewModel: AuthViewModel = hiltViewModel(),
     libraryViewModel: LibraryViewModel = hiltViewModel(),
 ) {
-    val libraryState by libraryViewModel.uiState.collectAsState()
-    val authState by authViewModel.uiState.collectAsState()
+    val libraryState by libraryViewModel.uiState.collectAsStateWithLifecycle()
+    val authState by authViewModel.uiState.collectAsStateWithLifecycle()
 
     TonezenTheme {
         when {

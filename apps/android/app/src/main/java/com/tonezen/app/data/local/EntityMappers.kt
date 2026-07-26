@@ -33,7 +33,10 @@ fun TrackEntity.toDomain() = Track(
     waveformPeaks = waveformPeaksFromJson(waveformPeaksJson),
 )
 
-fun TrackEntity.toSanitizedDomain(context: Context): Track {
+fun TrackEntity.toSanitizedDomain(
+    context: Context,
+    includeWaveformPeaks: Boolean = true,
+): Track {
     val safePath = SafeLocalStorage.sanitizeStoredLocalPath(context.filesDir, localPath)
     return Track(
         id = id,
@@ -45,7 +48,11 @@ fun TrackEntity.toSanitizedDomain(context: Context): Track {
         durationMs = durationMs,
         localPath = safePath,
         localDownloadedAt = localDownloadedAt,
-        waveformPeaks = waveformPeaksFromJson(waveformPeaksJson),
+        waveformPeaks = if (includeWaveformPeaks) {
+            waveformPeaksFromJson(waveformPeaksJson)
+        } else {
+            null
+        },
     )
 }
 

@@ -7,13 +7,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tonezen.app.domain.library.filterCycles
 import com.tonezen.app.ui.components.BottomDestination
 import com.tonezen.app.ui.components.MiniPlayer
@@ -27,7 +27,6 @@ import com.tonezen.app.ui.profile.AvatarCropScreen
 import com.tonezen.app.ui.profile.ProfileViewModel
 import com.tonezen.app.ui.profile.resolveAvatarUploadError
 import com.tonezen.app.ui.profile.uploadAvatar
-import com.tonezen.app.playback.forMusic
 import com.tonezen.app.ui.theme.TonezenSurface
 import com.tonezen.app.ui.theme.withoutBottom
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
@@ -40,12 +39,10 @@ fun AppShell(
     shellViewModel: AppShellViewModel = hiltViewModel(),
     profileViewModel: ProfileViewModel = hiltViewModel(),
 ) {
-    val libraryState by libraryViewModel.uiState.collectAsState()
-    val musicState by musicViewModel.uiState.collectAsState()
-    val shellState by shellViewModel.uiState.collectAsState()
-    val profileState by profileViewModel.uiState.collectAsState()
-    val downloadQueue by shellViewModel.downloadQueueState.collectAsState()
-    val musicDownload by shellViewModel.musicDownloadState.collectAsState()
+    val libraryState by libraryViewModel.uiState.collectAsStateWithLifecycle()
+    val musicState by musicViewModel.uiState.collectAsStateWithLifecycle()
+    val shellState by shellViewModel.uiState.collectAsStateWithLifecycle()
+    val profileState by profileViewModel.uiState.collectAsStateWithLifecycle()
     val selectedBook = shellState.selectedBook
     val selectedCycle = shellState.selectedCycle
     val inLibraryOverlay = selectedCycle != null || selectedBook != null
@@ -117,7 +114,6 @@ fun AppShell(
                     musicState = musicState,
                     filteredCycles = filteredCycles,
                     visibleMusicTracks = visibleMusicTracks,
-                    downloadQueue = downloadQueue,
                     overlayBottomScrollPadding = overlayBottomScrollPadding,
                 )
             }
@@ -129,28 +125,14 @@ fun AppShell(
                     showMiniPlayerSlot = miniPlayerVisible,
                 ) {
                     if (miniPlayerVisible) {
-                        MiniPlayer(
+                        AppShellMiniPlayerSlot(
+                            shellViewModel = shellViewModel,
+                            musicViewModel = musicViewModel,
                             title = shellState.nowPlayingTitle,
                             subtitle = shellState.nowPlayingSubtitle,
                             coverSeed = shellState.nowPlayingCoverSeed,
-                            enabled = true,
                             isPlaying = shellState.isPlaying,
-                            positionMs = shellState.positionMs,
-                            durationMs = shellState.durationMs,
-                            downloadProgress = if (musicState.musicPlayback.isActive) {
-                                shellState.nowPlayingCoverSeed
-                                    ?.let { downloadQueue.forMusic().progressForTrack(it) }
-                            } else {
-                                null
-                            },
-                            onBarClick = shellViewModel::onMiniPlayerClick,
-                            onPlayPauseClick = {
-                                if (musicState.musicPlayback.isActive) {
-                                    musicViewModel.onMiniPlayerPlayPause()
-                                } else {
-                                    shellViewModel.onMiniPlayerPlayPause()
-                                }
-                            },
+                            musicPlaybackActive = musicState.musicPlayback.isActive,
                         )
                     }
                     if (!inLibraryOverlay) {
@@ -166,7 +148,7 @@ fun AppShell(
                 visible = shellState.showExpandedPlayer,
                 hazeState = hazeState,
                 shellState = shellState,
-                musicDownload = musicDownload,
+                musicDownloadState = shellViewModel.musicDownloadState,
                 onDismiss = shellViewModel::dismissExpandedPlayer,
             )
 
@@ -181,4 +163,40 @@ fun AppShell(
             }
         }
     }
+}
+
+@Composable
+private fun AppShellMiniPlayerSlot(
+    shellViewModel: AppShellViewModel,
+    musicViewModel: MusicViewModel,
+    title: String?,
+    subtitle: String?,
+    coverSeed: String?,
+    isPlaying: Boolean,
+    musicPlaybackActive: Boolean,
+) {
+    val progress by shellViewModel.playbackProgress.collectAsStateWithLifecycle()
+    val musicDownload by shellViewModel.musicDownloadState.collectAsStateWithLifecycle()
+    MiniPlayer(
+        title = title,
+        subtitle = subtitle,
+        coverSeed = coverSeed,
+        enabled = true,
+        isPlaying = isPlaying,
+        positionMs = progress.positionMs,
+        durationMs = progress.durationMs,
+        downloadProgress = if (musicPlaybackActive) {
+            coverSeed?.let { musicDownload.progressForTrack(it) }
+        } else {
+            null
+        },
+        onBarClick = shellViewModel::onMiniPlayerClick,
+        onPlayPauseClick = {
+            if (musicPlaybackActive) {
+                musicViewModel.onMiniPlayerPlayPause()
+            } else {
+                shellViewModel.onMiniPlayerPlayPause()
+            }
+        },
+    )
 }

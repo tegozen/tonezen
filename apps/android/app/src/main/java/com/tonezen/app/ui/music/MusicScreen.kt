@@ -24,9 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.tonezen.app.playback.DownloadQueueState
-import com.tonezen.app.playback.forMusic
-import com.tonezen.app.playback.toMusicDownloadState
+import com.tonezen.app.playback.MusicDownloadState
 import com.tonezen.app.ui.components.EmptyLibrary
 import com.tonezen.app.ui.components.LibraryLoading
 import com.tonezen.app.ui.components.OfflineBanner
@@ -48,7 +46,7 @@ internal fun MusicScreen(
     isLoadingCatalog: Boolean,
     musicTrackList: List<MusicListTrack>,
     musicPlayback: MusicPlaybackUi,
-    downloadQueue: DownloadQueueState,
+    musicDownload: MusicDownloadState,
     musicPlaybackErrorMessage: String?,
     onDismissMusicPlaybackError: () -> Unit,
     onMusicWavePlay: () -> Unit,
@@ -61,8 +59,6 @@ internal fun MusicScreen(
     isNetworkOnline: Boolean = true,
 ) {
     var showAllMusicTracks by rememberSaveable { mutableStateOf(false) }
-    val musicDownloadQueue = remember(downloadQueue) { downloadQueue.forMusic() }
-    val musicDownload = remember(musicDownloadQueue) { musicDownloadQueue.toMusicDownloadState() }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(musicPlaybackErrorMessage) {
@@ -128,9 +124,9 @@ internal fun MusicScreen(
                 if (showAllMusicTracks) {
                     items(musicTrackList, key = { it.trackId }) { track ->
                         val isActive = musicPlayback.trackId == track.trackId
-                        val trackDownloadProgress = musicDownloadQueue.progressForTrack(track.trackId)
+                        val trackDownloadProgress = musicDownload.progressForTrack(track.trackId)
                         val isDownloading = trackDownloadProgress != null
-                        val isQueued = musicDownloadQueue.isTrackQueued(track.trackId)
+                        val isQueued = musicDownload.isTrackQueued(track.trackId)
                         MusicTrackRow(
                             track = track,
                             isActive = isActive,

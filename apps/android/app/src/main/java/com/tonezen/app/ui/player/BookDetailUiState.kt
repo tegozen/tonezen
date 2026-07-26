@@ -3,7 +3,6 @@ package com.tonezen.app.ui.player
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Track
-import com.tonezen.app.playback.DownloadQueueState
 import com.tonezen.app.playback.PlaybackSnapshot
 
 enum class SyncDisplayStatus {
@@ -29,12 +28,9 @@ data class BookDetailUiState(
     val tracks: List<Track> = emptyList(),
     val activeTrackId: String? = null,
     val audiobookProgress: AudiobookProgress? = null,
-    val playbackPositionMs: Long = 0L,
-    val playbackDurationMs: Long = 0L,
     val isPlaying: Boolean = false,
     val isPlaybackActiveForBook: Boolean = false,
     val downloadProgress: Float? = null,
-    val downloadQueueState: DownloadQueueState = DownloadQueueState(),
     val syncStatus: SyncDisplayStatus = SyncDisplayStatus.NONE,
     val error: String? = null,
     val playbackErrorMessage: String? = null,

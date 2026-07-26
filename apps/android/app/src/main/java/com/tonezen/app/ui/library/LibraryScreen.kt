@@ -112,7 +112,11 @@ internal fun LibraryScreen(
             } else if (allCycles.isEmpty()) {
                 item { EmptyLibrary(offline = offlineBanner) }
             } else {
-                items(cycles.chunked(2)) { row ->
+                val cycleRows = remember(cycles) { cycles.chunked(2) }
+                items(
+                    items = cycleRows,
+                    key = { row -> row.joinToString(separator = "|") { it.id } },
+                ) { row ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),

@@ -3,11 +3,11 @@ package com.tonezen.app.ui.shell
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.ui.player.BookDetailScreen
 import com.tonezen.app.ui.player.BookDetailViewModel
@@ -22,7 +22,9 @@ internal fun AppShellBookDetailRoute(
     overlayBottomScrollPadding: Dp,
 ) {
     val bookDetailViewModel: BookDetailViewModel = hiltViewModel(key = book.id)
-    val detailState by bookDetailViewModel.uiState.collectAsState()
+    val detailState by bookDetailViewModel.uiState.collectAsStateWithLifecycle()
+    val playbackProgress by bookDetailViewModel.playbackProgress.collectAsStateWithLifecycle()
+    val trackDownloads by bookDetailViewModel.trackDownloads.collectAsStateWithLifecycle()
 
     LaunchedEffect(book.id) {
         bookDetailViewModel.loadBook(book)
@@ -40,6 +42,8 @@ internal fun AppShellBookDetailRoute(
         hazeState = hazeState,
         book = book,
         uiState = detailState,
+        playbackProgress = playbackProgress,
+        trackDownloads = trackDownloads,
         onBack = shellViewModel::closeBook,
         onTrackClick = bookDetailViewModel::playTrack,
         onMarkTrackListened = bookDetailViewModel::markTrackListened,

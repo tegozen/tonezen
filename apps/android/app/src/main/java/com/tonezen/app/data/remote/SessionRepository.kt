@@ -54,14 +54,14 @@ class SessionRepository @Inject constructor(
         return sessionManager.isAccessTokenUsable(session)
     }
 
-    fun saveSession(session: StoredSession) {
+    suspend fun saveSession(session: StoredSession) {
         val normalized = withClientAvatarUrl(session)
         sessionStore.save(normalized)
         _session.value = normalized
         _isLoaded.value = true
     }
 
-    fun clearSession() {
+    suspend fun clearSession() {
         sessionStore.clear()
         _session.value = null
         _isLoaded.value = true

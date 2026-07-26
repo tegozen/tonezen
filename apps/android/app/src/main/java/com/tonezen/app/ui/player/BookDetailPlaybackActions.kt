@@ -26,6 +26,7 @@ import kotlinx.coroutines.withContext
 /** Плейбек-действия для экрана книги: выбор главы/трека, пауза/резюм, перемотка. */
 internal class BookDetailPlaybackActions(
     private val uiState: MutableStateFlow<BookDetailUiState>,
+    private val playbackProgress: MutableStateFlow<BookDetailPlaybackProgress>,
     private val scope: CoroutineScope,
     private val catalogRepository: CatalogRepository,
     private val sessionRepository: SessionRepository,
@@ -66,14 +67,17 @@ internal class BookDetailPlaybackActions(
         scope.launch {
             playbackClient.snapshot.collectLatest { snapshot ->
                 val playbackState = resolveBookDetailPlaybackState(uiState.value.tracks, snapshot)
+                playbackProgress.value = BookDetailPlaybackProgress(
+                    positionMs = playbackState.positionMs,
+                    durationMs = playbackState.durationMs,
+                )
                 uiState.update {
-                    it.copy(
+                    val next = it.copy(
                         activeTrackId = playbackState.activeTrackId,
-                        playbackPositionMs = playbackState.positionMs,
-                        playbackDurationMs = playbackState.durationMs,
                         isPlaying = playbackState.isPlaying,
                         isPlaybackActiveForBook = playbackState.isActiveForBook,
                     )
+                    if (next == it) it else next
                 }
             }
         }
@@ -226,7 +230,7 @@ internal class BookDetailPlaybackActions(
     }
 
     fun seekToFraction(fraction: Float) {
-        val durationMs = uiState.value.playbackDurationMs
+        val durationMs = playbackProgress.value.durationMs
         if (!uiState.value.isPlaybackActiveForBook || durationMs <= 0L) return
         playbackClient.seekTo((durationMs * fraction.coerceIn(0f, 1f)).toLong())
     }

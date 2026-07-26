@@ -7,14 +7,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.SessionState
-import com.tonezen.app.playback.DownloadQueueState
 import com.tonezen.app.ui.components.BottomDestination
 import com.tonezen.app.ui.components.TonezenTitleChromeBar
 import com.tonezen.app.ui.downloads.DownloadsTabScreen
@@ -46,7 +47,6 @@ internal fun AppShellRoutes(
     musicState: MusicUiState,
     filteredCycles: List<Cycle>,
     visibleMusicTracks: List<MusicListTrack>,
-    downloadQueue: DownloadQueueState,
     overlayBottomScrollPadding: Dp,
 ) {
     val selectedBook = shellState.selectedBook
@@ -86,13 +86,14 @@ internal fun AppShellRoutes(
         }
 
         shellState.currentTab == BottomDestination.Music -> {
+            val musicDownload by shellViewModel.musicDownloadState.collectAsStateWithLifecycle()
             MusicScreen(
                 hazeState = hazeState,
                 hasMusicBooks = musicState.hasMusicBooks,
                 isLoadingCatalog = musicState.isLoadingCatalog,
                 musicTrackList = visibleMusicTracks,
                 musicPlayback = musicState.musicPlayback,
-                downloadQueue = downloadQueue,
+                musicDownload = musicDownload,
                 musicPlaybackErrorMessage = musicState.musicPlaybackErrorMessage,
                 onDismissMusicPlaybackError = musicViewModel::clearMusicPlaybackError,
                 onMusicWavePlay = musicViewModel::playMusicWave,

@@ -43,11 +43,13 @@ internal class NowPlayingCatalogContext(
 
         libraryTracks = entries
         currentTrackIndex = index
+        val waveformPeaks = catalogRepository.findTrackInCatalog(activeTrackId)?.waveformPeaks
+            ?: entries[index].track.waveformPeaks
         uiState.update {
             it.copy(
                 activeBook = entries[index].book,
                 contentType = book.contentType,
-                waveformPeaks = entries[index].track.waveformPeaks,
+                waveformPeaks = waveformPeaks,
                 upNext = if (book.contentType == ContentType.MUSIC) {
                     musicUpNext(index, entries.size)
                 } else {
@@ -99,12 +101,15 @@ internal class NowPlayingCatalogContext(
         }
     }
 
-    fun updateAlbumNavigation(index: Int, book: Book) {
+    suspend fun updateAlbumNavigation(index: Int, book: Book) {
         currentTrackIndex = index
+        val trackId = libraryTracks.getOrNull(index)?.track?.id
+        val waveformPeaks = trackId?.let { catalogRepository.findTrackInCatalog(it)?.waveformPeaks }
+            ?: libraryTracks.getOrNull(index)?.track?.waveformPeaks
         uiState.update {
             it.copy(
                 activeBook = book,
-                waveformPeaks = libraryTracks.getOrNull(index)?.track?.waveformPeaks,
+                waveformPeaks = waveformPeaks,
                 upNext = when (book.contentType) {
                     ContentType.MUSIC -> musicUpNext(index, libraryTracks.size)
                     else -> libraryTracks.drop(index + 1).map { entry -> entry.track }

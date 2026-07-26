@@ -19,6 +19,8 @@ import kotlinx.coroutines.launch
 /** Действия по загрузке/удалению глав и книги на экране книги. */
 internal class BookDetailDownloadActions(
     private val uiState: MutableStateFlow<BookDetailUiState>,
+    private val trackDownloads: MutableStateFlow<Map<String, BookDetailTrackDownloadUi>>,
+    private val playbackProgress: MutableStateFlow<BookDetailPlaybackProgress>,
     private val scope: CoroutineScope,
     private val catalogRepository: CatalogRepository,
     private val downloadRepository: DownloadRepository,
@@ -29,11 +31,25 @@ internal class BookDetailDownloadActions(
     private val playbackClient: PlaybackClient,
     private val loadBook: (Book) -> Unit,
 ) {
-    /** Подписывается на состояние очереди загрузок, обновляя [uiState]. */
+    /** Подписывается на состояние очереди загрузок, обновляя per-track scalars. */
     fun startObserving() {
         scope.launch {
             downloadQueueNotifier.state.collect { queueState ->
-                uiState.update { it.copy(downloadQueueState = queueState) }
+                val bookId = uiState.value.book?.id
+                val trackIds = uiState.value.tracks.map { it.id }.toSet()
+                if (bookId == null || trackIds.isEmpty()) {
+                    trackDownloads.value = emptyMap()
+                    return@collect
+                }
+                val next = trackIds.associateWith { trackId ->
+                    BookDetailTrackDownloadUi(
+                        progress = queueState.progressForTrack(trackId),
+                        isQueued = queueState.isTrackQueued(trackId),
+                    )
+                }
+                if (next != trackDownloads.value) {
+                    trackDownloads.value = next
+                }
             }
         }
     }
@@ -94,7 +110,8 @@ internal class BookDetailDownloadActions(
                 uiState.value.tracks.any { it.id == snapshot.trackId }
             if (isCurrentBook) {
                 playbackClient.stopAndRelease()
-                uiState.update { it.copy(activeTrackId = null, playbackPositionMs = 0L) }
+                playbackProgress.value = BookDetailPlaybackProgress()
+                uiState.update { it.copy(activeTrackId = null) }
             }
             catalogRepository.clearLocalDownloads(book.id)
             val tracks = catalogRepository.getTracksForBook(book.id)

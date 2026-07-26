@@ -12,6 +12,7 @@ data class MusicDownloadState(
     val trackProgress: Float? = null,
     val bulkDownloaded: Int = 0,
     val bulkTotal: Int = 0,
+    val queuedTrackIds: Set<String> = emptySet(),
 ) {
     val bulkProgress: Float?
         get() = when {
@@ -32,6 +33,8 @@ data class MusicDownloadState(
 
     fun progressForTrack(trackId: String): Float? =
         if (activeTrackId == trackId) trackProgress else null
+
+    fun isTrackQueued(trackId: String): Boolean = trackId in queuedTrackIds
 }
 
 @Singleton

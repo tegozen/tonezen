@@ -168,11 +168,13 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun logout() {
-        // Clear session first so an in-flight token refresh cannot persist it back.
-        sessionRepository.clearSession()
-        progressSyncRepository.stop()
-        profileSyncRepository.stop()
-        playbackClient.stopAndRelease()
+        viewModelScope.launch {
+            // Clear session first so an in-flight token refresh cannot persist it back.
+            sessionRepository.clearSession()
+            progressSyncRepository.stop()
+            profileSyncRepository.stop()
+            playbackClient.stopAndRelease()
+        }
     }
 
     private fun formatSyncTime(epochMs: Long): String =

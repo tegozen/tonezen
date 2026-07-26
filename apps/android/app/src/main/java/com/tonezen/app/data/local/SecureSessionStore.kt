@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.tonezen.app.domain.model.StoredSession
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class SecureSessionStore(context: Context) {
     private val appContext = context.applicationContext
@@ -17,7 +19,7 @@ class SecureSessionStore(context: Context) {
         )
     }
 
-    fun save(session: StoredSession) {
+    suspend fun save(session: StoredSession) = withContext(Dispatchers.IO) {
         prefs.edit()
             .putString(KEY_USER_ID, session.userId)
             .putString(KEY_EMAIL, session.email)
@@ -30,21 +32,21 @@ class SecureSessionStore(context: Context) {
             .apply()
     }
 
-    fun load(): StoredSession? {
-        val userId = prefs.getString(KEY_USER_ID, null) ?: return null
+    suspend fun load(): StoredSession? = withContext(Dispatchers.IO) {
+        val userId = prefs.getString(KEY_USER_ID, null) ?: return@withContext null
         val email = prefs.getString(KEY_EMAIL, "") ?: ""
         val storedDisplayName = prefs.getString(KEY_DISPLAY_NAME, "") ?: ""
         val displayName = storedDisplayName.ifBlank { displayNameFromEmail(email) }
-        val access = prefs.getString(KEY_ACCESS, null) ?: return null
-        val refresh = prefs.getString(KEY_REFRESH, null) ?: return null
+        val access = prefs.getString(KEY_ACCESS, null) ?: return@withContext null
+        val refresh = prefs.getString(KEY_REFRESH, null) ?: return@withContext null
         val expires = prefs.getLong(KEY_EXPIRES, 0)
-        if (expires == 0L) return null
+        if (expires == 0L) return@withContext null
         val memberSince = prefs.getLong(KEY_MEMBER_SINCE, 0L).takeIf { it > 0L }
         val avatarUrl = prefs.getString(KEY_AVATAR_URL, "").orEmpty().takeIf { it.isNotBlank() }
-        return StoredSession(userId, email, displayName, access, refresh, expires, memberSince, avatarUrl)
+        StoredSession(userId, email, displayName, access, refresh, expires, memberSince, avatarUrl)
     }
 
-    fun clear() {
+    suspend fun clear() = withContext(Dispatchers.IO) {
         prefs.edit().clear().apply()
     }
 

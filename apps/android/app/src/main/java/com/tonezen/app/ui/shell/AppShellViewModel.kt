@@ -12,10 +12,10 @@ import com.tonezen.app.ui.components.BottomDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -28,7 +28,16 @@ class AppShellViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AppShellUiState())
     val uiState: StateFlow<AppShellUiState> = _uiState.asStateFlow()
-    val downloadQueueState = downloadQueueNotifier.state
+
+    val playbackProgress: StateFlow<PlaybackProgress> = playbackClient.snapshot
+        .map { snapshot ->
+            PlaybackProgress(
+                positionMs = snapshot.positionMs.coerceAtLeast(0L),
+                durationMs = snapshot.durationMs.coerceAtLeast(0L),
+            )
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlaybackProgress())
+
     val musicDownloadState: StateFlow<MusicDownloadState> = downloadQueueNotifier.state
         .map { it.toMusicDownloadState() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MusicDownloadState())
@@ -36,35 +45,47 @@ class AppShellViewModel @Inject constructor(
     init {
         playbackClient.connect()
         viewModelScope.launch {
-            playbackClient.snapshot.collectLatest { snapshot ->
-                val trackId = snapshot.trackId?.takeIf { it.isNotBlank() }
-                val trackTitle = snapshot.trackTitle?.takeIf { it.isNotBlank() }
-                val hasPlayback = trackId != null || trackTitle != null
-                _uiState.update {
+            playbackClient.snapshot
+                .map { snapshot ->
+                    val trackId = snapshot.trackId?.takeIf { it.isNotBlank() }
+                    val trackTitle = snapshot.trackTitle?.takeIf { it.isNotBlank() }
+                    val hasPlayback = trackId != null || trackTitle != null
                     if (!hasPlayback) {
-                        it.copy(
+                        ShellPlaybackChrome(
                             isPlaying = false,
                             nowPlayingTitle = null,
                             nowPlayingSubtitle = null,
                             nowPlayingCoverSeed = null,
-                            positionMs = 0L,
-                            durationMs = 0L,
                             showMiniPlayer = false,
-                            showExpandedPlayer = false,
                         )
                     } else {
-                        it.copy(
+                        ShellPlaybackChrome(
                             isPlaying = snapshot.isPlaying,
                             nowPlayingTitle = trackTitle,
                             nowPlayingSubtitle = formatNowPlayingSubtitle(snapshot.artist, snapshot.albumTitle),
                             nowPlayingCoverSeed = trackId ?: trackTitle,
-                            positionMs = snapshot.positionMs,
-                            durationMs = snapshot.durationMs,
                             showMiniPlayer = true,
                         )
                     }
                 }
-            }
+                .distinctUntilChanged()
+                .collect { chrome ->
+                    _uiState.update { state ->
+                        val next = state.copy(
+                            isPlaying = chrome.isPlaying,
+                            nowPlayingTitle = chrome.nowPlayingTitle,
+                            nowPlayingSubtitle = chrome.nowPlayingSubtitle,
+                            nowPlayingCoverSeed = chrome.nowPlayingCoverSeed,
+                            showMiniPlayer = chrome.showMiniPlayer,
+                            showExpandedPlayer = if (chrome.showMiniPlayer) {
+                                state.showExpandedPlayer
+                            } else {
+                                false
+                            },
+                        )
+                        if (next == state) state else next
+                    }
+                }
         }
     }
 
@@ -153,3 +174,11 @@ class AppShellViewModel @Inject constructor(
         }
     }
 }
+
+private data class ShellPlaybackChrome(
+    val isPlaying: Boolean,
+    val nowPlayingTitle: String?,
+    val nowPlayingSubtitle: String?,
+    val nowPlayingCoverSeed: String?,
+    val showMiniPlayer: Boolean,
+)

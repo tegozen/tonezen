@@ -12,12 +12,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tonezen.app.playback.DownloadQueueItem
 import com.tonezen.app.playback.DownloadQueueItemStatus
 import com.tonezen.app.ui.components.EmptyLibrary
@@ -37,7 +37,7 @@ fun DownloadsTabScreen(
     offlineBanner: Boolean,
     viewModel: DownloadsTabViewModel = hiltViewModel(),
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isEmpty = state.activeItems.isEmpty() && state.completedItems.isEmpty()
 
     LazyColumn(

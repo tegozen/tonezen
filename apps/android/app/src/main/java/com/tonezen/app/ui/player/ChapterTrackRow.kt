@@ -9,7 +9,6 @@ import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.TrackListenStatus
 import com.tonezen.app.domain.progress.resolveTrackListenState
-import com.tonezen.app.playback.DownloadQueueState
 import com.tonezen.app.ui.components.TonezenTrackListRow
 import com.tonezen.app.ui.components.TrackDownloadButton
 import com.tonezen.app.ui.components.TrackDownloadedIndicator
@@ -25,7 +24,7 @@ internal fun ChapterTrackRow(
     audiobookProgress: AudiobookProgress?,
     isActive: Boolean,
     livePositionMs: Long?,
-    downloadQueueState: DownloadQueueState,
+    trackDownload: BookDetailTrackDownloadUi,
     onClick: () -> Unit,
     onMarkTrackListened: () -> Unit,
     onMarkTrackUnlistened: () -> Unit,
@@ -40,9 +39,9 @@ internal fun ChapterTrackRow(
         livePositionMs = livePositionMs,
     )
     val isDownloaded = !track.localPath.isNullOrBlank()
-    val isDownloading = downloadQueueState.progressForTrack(track.id) != null
-    val isQueued = downloadQueueState.isTrackQueued(track.id)
-    val downloadProgress = downloadQueueState.progressForTrack(track.id)
+    val isDownloading = trackDownload.isDownloading
+    val isQueued = trackDownload.isQueued
+    val downloadProgress = trackDownload.progress
     val listenPercent = when (listenState.status) {
         TrackListenStatus.COMPLETED -> 100
         TrackListenStatus.IN_PROGRESS -> (listenState.fraction * 100).toInt().coerceIn(1, 99)

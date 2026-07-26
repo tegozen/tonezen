@@ -52,9 +52,14 @@ class BookDetailViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BookDetailUiState())
     val uiState: StateFlow<BookDetailUiState> = _uiState.asStateFlow()
+    private val _playbackProgress = MutableStateFlow(BookDetailPlaybackProgress())
+    val playbackProgress: StateFlow<BookDetailPlaybackProgress> = _playbackProgress.asStateFlow()
+    private val _trackDownloads = MutableStateFlow<Map<String, BookDetailTrackDownloadUi>>(emptyMap())
+    val trackDownloads: StateFlow<Map<String, BookDetailTrackDownloadUi>> = _trackDownloads.asStateFlow()
 
     private val progressActions = BookDetailProgressActions(
         uiState = _uiState,
+        playbackProgress = _playbackProgress,
         scope = viewModelScope,
         catalogRepository = catalogRepository,
         sessionRepository = sessionRepository,
@@ -63,6 +68,7 @@ class BookDetailViewModel @Inject constructor(
     )
     private val playbackActions = BookDetailPlaybackActions(
         uiState = _uiState,
+        playbackProgress = _playbackProgress,
         scope = viewModelScope,
         catalogRepository = catalogRepository,
         sessionRepository = sessionRepository,
@@ -78,6 +84,8 @@ class BookDetailViewModel @Inject constructor(
     )
     private val downloadActions = BookDetailDownloadActions(
         uiState = _uiState,
+        trackDownloads = _trackDownloads,
+        playbackProgress = _playbackProgress,
         scope = viewModelScope,
         catalogRepository = catalogRepository,
         downloadRepository = downloadRepository,
@@ -113,6 +121,10 @@ class BookDetailViewModel @Inject constructor(
             }
             val syncStatus = progressActions.resolveSyncStatus(book, progress)
             val playbackState = resolveBookDetailPlaybackState(tracks, playbackClient.snapshot.value)
+            _playbackProgress.value = BookDetailPlaybackProgress(
+                positionMs = playbackState.positionMs,
+                durationMs = playbackState.durationMs,
+            )
             _uiState.update {
                 it.copy(
                     book = book,
@@ -120,6 +132,7 @@ class BookDetailViewModel @Inject constructor(
                     audiobookProgress = progress,
                     syncStatus = syncStatus,
                     activeTrackId = playbackState.activeTrackId ?: it.activeTrackId,
+                    isPlaying = playbackState.isPlaying || it.isPlaying,
                     isPlaybackActiveForBook = playbackState.isActiveForBook || it.isPlaybackActiveForBook,
                 )
             }
@@ -132,10 +145,15 @@ class BookDetailViewModel @Inject constructor(
             catalogRepository.getTracksForBook(book.id)
         }
         val playbackState = resolveBookDetailPlaybackState(tracks, playbackClient.snapshot.value)
+        _playbackProgress.value = BookDetailPlaybackProgress(
+            positionMs = playbackState.positionMs,
+            durationMs = playbackState.durationMs,
+        )
         _uiState.update {
             it.copy(
                 tracks = tracks,
                 activeTrackId = playbackState.activeTrackId ?: it.activeTrackId,
+                isPlaying = playbackState.isPlaying || it.isPlaying,
                 isPlaybackActiveForBook = playbackState.isActiveForBook || it.isPlaybackActiveForBook,
             )
         }

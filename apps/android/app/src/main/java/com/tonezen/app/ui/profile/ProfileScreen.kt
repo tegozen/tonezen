@@ -3,8 +3,8 @@ package com.tonezen.app.ui.profile
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
 import dev.chrisbanes.haze.HazeState
 
@@ -15,7 +15,7 @@ internal fun ProfileScreen(
     viewModel: ProfileViewModel,
     showMiniPlayer: Boolean = false,
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     val bottomScrollPadding = tonezenBottomChromeScrollPadding(
         showMiniPlayer = showMiniPlayer,
         showBottomNav = true,

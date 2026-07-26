@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -81,12 +82,14 @@ internal fun CycleDetailScreen(
             )
         },
     ) {
-        items(cycle.books) { book ->
-            val continueState = canContinueBookListening(
-                bookId = book.id,
-                tracks = tracksByBookId[book.id].orEmpty(),
-                progress = progressByBookId[book.id],
-            )
+        items(cycle.books, key = { it.id }) { book ->
+            val continueState = remember(book.id, tracksByBookId[book.id], progressByBookId[book.id]) {
+                canContinueBookListening(
+                    bookId = book.id,
+                    tracks = tracksByBookId[book.id].orEmpty(),
+                    progress = progressByBookId[book.id],
+                )
+            }
             CycleBookRow(
                 book = book,
                 downloaded = downloadedBookIds.contains(book.id),

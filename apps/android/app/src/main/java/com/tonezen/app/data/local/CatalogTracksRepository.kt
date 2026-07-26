@@ -22,7 +22,7 @@ class CatalogTracksRepository @Inject constructor(
     }
 
     suspend fun findTrackInCatalog(trackId: String): Track? = withContext(Dispatchers.IO) {
-        catalogDao.getTrackById(trackId)?.toSanitizedDomain(context)
+        catalogDao.getTrackById(trackId)?.toSanitizedDomain(context, includeWaveformPeaks = true)
     }
 
     suspend fun findBookForTrack(trackId: String): Book? {
@@ -36,27 +36,34 @@ class CatalogTracksRepository @Inject constructor(
         } else {
             catalogDao.getAllTracks()
         }
-        return entities.map { it.toSanitizedDomain(context) }.groupBy { it.bookId }
+        return entities.map { it.toSanitizedDomain(context, includeWaveformPeaks = false) }
+            .groupBy { it.bookId }
     }
 
     suspend fun getTracksByBookIds(bookIds: Collection<String>): Map<String, List<Track>> {
         if (bookIds.isEmpty()) return emptyMap()
         return catalogDao.getTracksForBooks(bookIds.distinct())
-            .map { it.toSanitizedDomain(context) }
+            .map { it.toSanitizedDomain(context, includeWaveformPeaks = false) }
             .groupBy { it.bookId }
     }
 
     suspend fun getTracksForBook(bookId: String): List<Track> =
-        catalogDao.getTracksForBook(bookId).map { it.toSanitizedDomain(context) }
+        catalogDao.getTracksForBook(bookId).map {
+            it.toSanitizedDomain(context, includeWaveformPeaks = false)
+        }
 
     suspend fun getTracksOrderedByDownloadedAt(limit: Int): List<Track> =
-        catalogDao.getTracksOrderedByDownloadedAt(limit).map { it.toSanitizedDomain(context) }
+        catalogDao.getTracksOrderedByDownloadedAt(limit).map {
+            it.toSanitizedDomain(context, includeWaveformPeaks = false)
+        }
 
     suspend fun resolveMusicLibraryTracks(): List<MusicLibraryTrack> {
         val allBooks = booksRepository.getAllBooks()
-        val tracksByBookId = getAllTracksByBookId()
+        val musicTracks = catalogDao.getMusicTracks()
+            .map { it.toSanitizedDomain(context, includeWaveformPeaks = false) }
+            .groupBy { it.bookId }
         return MusicLibraryResolver.resolve(allBooks) { bookId ->
-            tracksByBookId[bookId].orEmpty()
+            musicTracks[bookId].orEmpty()
         }
     }
 }

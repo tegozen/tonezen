@@ -40,6 +40,8 @@ internal fun BookDetailScreen(
     hazeState: HazeState,
     @Suppress("UNUSED_PARAMETER") book: Book,
     uiState: BookDetailUiState,
+    playbackProgress: BookDetailPlaybackProgress,
+    trackDownloads: Map<String, BookDetailTrackDownloadUi>,
     onBack: () -> Unit,
     onTrackClick: (Track) -> Unit,
     onMarkTrackListened: (Track) -> Unit,
@@ -64,7 +66,7 @@ internal fun BookDetailScreen(
 ) {
     val tracks = uiState.tracks
     val activeTrackId = uiState.activeTrackId
-    val sortedTracks = bookDetailTracksForDisplay(tracks)
+    val sortedTracks = remember(tracks) { bookDetailTracksForDisplay(tracks) }
     val showDownload = tracks.any { it.localPath.isNullOrBlank() }
     val showRemoveDownload = tracks.any { !it.localPath.isNullOrBlank() }
     val isBookFullyDownloaded = tracks.all { !it.localPath.isNullOrBlank() }
@@ -142,8 +144,8 @@ internal fun BookDetailScreen(
             item(key = "playback-controls") {
                 BookDetailPlaybackControls(
                     track = playbackTrack,
-                    positionMs = uiState.playbackPositionMs,
-                    durationMs = uiState.playbackDurationMs,
+                    positionMs = playbackProgress.positionMs,
+                    durationMs = playbackProgress.durationMs,
                     isPlaying = uiState.isPlaying,
                     onPlayPause = onPlaybackPlayPause,
                     onSeekBy = onPlaybackSeekBy,
@@ -176,8 +178,8 @@ internal fun BookDetailScreen(
                 sortedTracks = sortedTracks,
                 audiobookProgress = uiState.audiobookProgress,
                 isActive = track.id == activeTrackId,
-                livePositionMs = if (track.id == activeTrackId) uiState.playbackPositionMs else null,
-                downloadQueueState = uiState.downloadQueueState,
+                livePositionMs = if (track.id == activeTrackId) playbackProgress.positionMs else null,
+                trackDownload = trackDownloads[track.id] ?: BookDetailTrackDownloadUi(),
                 onClick = { onTrackClick(track) },
                 onMarkTrackListened = { onMarkTrackListened(track) },
                 onMarkTrackUnlistened = { onMarkTrackUnlistened(track) },

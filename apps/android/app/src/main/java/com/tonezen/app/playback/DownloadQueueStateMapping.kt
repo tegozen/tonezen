@@ -34,6 +34,7 @@ fun DownloadQueueState.toMusicDownloadState(): MusicDownloadState {
         trackProgress = musicQueue.activeProgress,
         bulkDownloaded = musicQueue.bulkDownloaded,
         bulkTotal = musicQueue.bulkTotal,
+        queuedTrackIds = musicQueue.queuedTrackIds(),
     )
 }
 

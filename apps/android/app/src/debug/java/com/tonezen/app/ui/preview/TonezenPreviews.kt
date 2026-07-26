@@ -19,7 +19,7 @@ import com.tonezen.app.ui.library.CyclePlaybackUi
 import com.tonezen.app.ui.library.LibraryScreen
 import com.tonezen.app.ui.music.MusicPlaybackUi
 import com.tonezen.app.ui.music.MusicScreen
-import com.tonezen.app.playback.DownloadQueueState
+import com.tonezen.app.playback.MusicDownloadState
 import com.tonezen.app.ui.music.MusicListTrack
 import com.tonezen.app.ui.profile.ProfileScreenContent
 import com.tonezen.app.ui.profile.ProfileUiState
@@ -169,7 +169,7 @@ private fun MusicScreenPreview() {
                 ),
             ),
             musicPlayback = MusicPlaybackUi(),
-            downloadQueue = DownloadQueueState(),
+            musicDownload = MusicDownloadState(),
             musicPlaybackErrorMessage = null,
             onDismissMusicPlaybackError = {},
             onMusicWavePlay = {},

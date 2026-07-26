@@ -20,6 +20,7 @@ import kotlinx.coroutines.withContext
 /** Отметки "прослушано"/синхронизация прогресса аудиокниги на экране книги. */
 internal class BookDetailProgressActions(
     private val uiState: MutableStateFlow<BookDetailUiState>,
+    private val playbackProgress: MutableStateFlow<BookDetailPlaybackProgress>,
     private val scope: CoroutineScope,
     private val catalogRepository: CatalogRepository,
     private val sessionRepository: SessionRepository,
@@ -39,7 +40,7 @@ internal class BookDetailProgressActions(
                     bookId = book.id,
                     contentType = book.contentType,
                     track = endedTrack,
-                    fallbackDurationMs = state.playbackDurationMs,
+                    fallbackDurationMs = playbackProgress.value.durationMs,
                 ) ?: return@collect
                 persistAudiobookProgress(book.id, completed.trackId, completed.positionMs)
             }

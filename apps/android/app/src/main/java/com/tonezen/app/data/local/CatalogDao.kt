@@ -25,6 +25,9 @@ interface CatalogDao {
     @Query("DELETE FROM tracks WHERE bookId NOT IN (:bookIds)")
     suspend fun deleteTracksForBooksNotIn(bookIds: List<String>)
 
+    @Query("DELETE FROM tracks WHERE id NOT IN (:trackIds)")
+    suspend fun deleteTracksNotIn(trackIds: List<String>)
+
     @Query("DELETE FROM books WHERE id NOT IN (:bookIds)")
     suspend fun deleteBooksNotIn(bookIds: List<String>)
 
@@ -45,6 +48,16 @@ interface CatalogDao {
 
     @Query("SELECT * FROM tracks WHERE bookId IN (:bookIds) ORDER BY bookId, sortOrder")
     suspend fun getTracksForBooks(bookIds: List<String>): List<TrackEntity>
+
+    @Query(
+        """
+        SELECT t.* FROM tracks t
+        INNER JOIN books b ON b.id = t.bookId
+        WHERE b.contentType = 'music'
+        ORDER BY t.bookId, t.sortOrder
+        """,
+    )
+    suspend fun getMusicTracks(): List<TrackEntity>
 
     @Query("SELECT DISTINCT bookId FROM tracks WHERE localPath IS NOT NULL AND localPath != ''")
     suspend fun getBookIdsWithDownloads(): List<String>
