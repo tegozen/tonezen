@@ -49,6 +49,8 @@ internal fun ProfileScreenContent(
     onSignOutClick: () -> Unit,
     onAccountClick: () -> Unit,
     onSettingsClick: (ProfileSettingsAction) -> Unit,
+    onPeerAcceptClick: () -> Unit,
+    onPeerSendClick: () -> Unit,
 ) {
     val online = state.sessionState == SessionState.AUTHENTICATED_ONLINE
     val settingsItems = listOf(
@@ -106,6 +108,16 @@ internal fun ProfileScreenContent(
                         onItemClick = onSettingsClick,
                     )
                     SignOutCard(onClick = onSignOutClick)
+                }
+            }
+            item {
+                Column {
+                    ProfileSectionLabel("Синхронизация по блютус")
+                    PeerBluetoothSettingsGroup(
+                        enabled = true,
+                        onAcceptClick = onPeerAcceptClick,
+                        onSendClick = onPeerSendClick,
+                    )
                 }
             }
         }

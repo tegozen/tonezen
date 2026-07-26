@@ -198,6 +198,7 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+    implementation("com.google.android.gms:play-services-nearby:19.3.0")
 
     implementation("io.sentry:sentry-android:7.22.4")
     implementation("io.sentry:sentry-android-ndk:7.22.4")

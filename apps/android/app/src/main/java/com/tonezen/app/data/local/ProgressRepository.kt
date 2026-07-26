@@ -37,6 +37,11 @@ class ProgressRepository @Inject constructor(
         return catalogDao.getPendingProgress(userId)
     }
 
+    suspend fun getAllProgress(): List<AudiobookProgress> {
+        val userId = activeUserId ?: return emptyList()
+        return catalogDao.getAllProgress(userId).map { it.toDomain() }
+    }
+
     suspend fun deleteProgress(bookId: String) {
         val userId = activeUserId ?: return
         catalogDao.deleteProgress(userId, bookId)

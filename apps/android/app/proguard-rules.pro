@@ -52,5 +52,9 @@
 -dontwarn io.sentry.**
 -keep class io.sentry.** { *; }
 
+# Google Play Services Nearby
+-keep class com.google.android.gms.nearby.** { *; }
+-dontwarn com.google.android.gms.nearby.**
+
 # Keep domain model data classes (reflection-free; keep for clarity / future JSON)
 -keep class com.tonezen.app.domain.** { *; }

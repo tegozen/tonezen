@@ -6,7 +6,7 @@
 
 - **Offline-first:** local cache is authoritative; sync when online.
 - **Music progress:** local only — never synced to server.
-- **Audiobook progress:** local write always; push/pull when authenticated and online. Server conflict authority is monotonic **`revision`** with CAS (`base_revision` on PUT), not client wall-clock. Local cache is **user-scoped**; logout must not leave another user’s play head in the sync set. Clients keep a **server snapshot** beside the play head; when they diverge at Continue/Play/resume **or play-cycle**, the user chooses «На устройстве» or «В облаке» (see A3b). Short server **history** exists for ops restore only — not a client UI.
+- **Audiobook progress:** local write always; push/pull when authenticated and online. Server conflict authority is monotonic **`revision`** with CAS (`base_revision` on PUT), not client wall-clock. Local cache is **user-scoped**; logout must not leave another user’s play head in the sync set. Clients keep a **server snapshot** beside the play head; when they diverge at Continue/Play/resume **or play-cycle**, the user chooses «На устройстве» or «В облаке» (see A3b). Short server **history** exists for ops restore only — not a client UI. **Android-only:** manual nearby (Bluetooth/Nearby Connections) peer exchange of audiobook play heads is allowed offline — see «Android exception — nearby peer progress».
 - **Audiobook progress write timing:** persist on play-start (`positionMs ≥ 1`), ~every 15s while playing, on pause, on seek (immediate), and on Android process `onStop`. Bare `0` is reserved for explicit «не прослушанным».
 - **UI language:** Russian only — copy inline at usage sites; no strings catalog or locale switching.
 - **Download queue priorities:** `USER` (explicit tap) > `PLAY` (playback needs file) > `PREFETCH` (background next chapter/track) > `BULK` (download all). Progress % is shown only for the **currently active** download in a batch; queued items show icon until their turn.
@@ -413,10 +413,33 @@ flowchart TD
 
 ---
 
+## Android exception — nearby peer progress (Bluetooth / Nearby)
+
+**Platform:** Android only (not Desktop).
+
+**Trigger:** Profile → group **«Синхронизация по блютус»** → **«Принять»** or **«Отправить»**.
+
+**Preconditions:** Signed-in session (profile is auth-gated); Google Play Services; Bluetooth/Nearby runtime permissions.
+
+**Expected behavior:**
+
+1. Both buttons exist on every Android device (no phone/tablet role binding). Modes are mutually exclusive on one device.
+2. **«Принять»** opens a waiting modal and advertises readiness with `userId` in presence. Closing the modal stops accept. Timeout **120 s**.
+3. **«Отправить»** discovers peers with the **same `userId`** and active accept → user picks a device → picks **exactly one cycle** (only cycles with audiobook `positionMs > 0`) → then Nearby **connect** + offer payload (connect only after cycle choice).
+4. Receiver confirm: «{device} предлагает прогресс по циклу «{cycle}». Сверить и принять?» → **«Да»** / **«Отключить приём»** (reject + stop accept). Sender gets ACK accept/reject; success/error alert; send mode stops.
+5. After **«Да»**: do **not** overwrite blindly. Per book: skip if missing from local catalog; take peer if unambiguously further in cycle order; keep local if local is further; otherwise one conflict dialog for the cycle — **«На этом устройстве»** / **«На другом устройстве»**. Server snapshot / revision untouched; applied heads get `pending_sync` for later cloud flush.
+6. Device label: system/Bluetooth device name → else `Build.MODEL` → else `Android`.
+7. Permissions / Play Services / Bluetooth failure → Russian alert; do not leave a hanging session.
+
+**Forbidden without updating this doc:** background/periodic Nearby sync; sending multiple cycles in one session; syncing music progress over Nearby.
+
+---
+
 ## Domain anchors (reference)
 
 | Function | Platform | Path |
 |----------|----------|------|
+| `PeerProgressMerger` | Android | `domain/progress/PeerProgressMerger.kt` |
 | `resolveCycleResumeTarget` | Android | `domain/progress/CycleListenProgress.kt` |
 | `resolveCycleResumeTarget` | Desktop | `core/playback/cycleListenProgress.ts` |
 | `resolveEarlierCycleBookConfirm` | Both | `CycleListenProgress` / `cycleListenProgress.ts` |
