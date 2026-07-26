@@ -36,13 +36,23 @@ export function getServerSnapshot(
   };
 }
 
+/**
+ * True only for a real multi-device fork — not for “local listened ahead of a stale snapshot”.
+ *
+ * - Same track, local position ≥ server → pending push, not a conflict.
+ * - Same track, server ahead by ≥ PROGRESS_CONFLICT_THRESHOLD_MS → conflict.
+ * - Different tracks → conflict only if server revision moved past this client’s revision.
+ */
 export function hasProgressSyncConflict(
-  playHead: Pick<AudiobookProgress, "trackId" | "positionMs"> | null | undefined,
+  playHead: Pick<AudiobookProgress, "trackId" | "positionMs" | "revision"> | null | undefined,
   snapshot: ProgressServerSnapshot | null | undefined,
 ): boolean {
   if (!playHead || !snapshot) return false;
-  if (playHead.trackId !== snapshot.trackId) return true;
-  return Math.abs(playHead.positionMs - snapshot.positionMs) >= PROGRESS_CONFLICT_THRESHOLD_MS;
+  if (playHead.trackId === snapshot.trackId) {
+    if (playHead.positionMs >= snapshot.positionMs) return false;
+    return snapshot.positionMs - playHead.positionMs >= PROGRESS_CONFLICT_THRESHOLD_MS;
+  }
+  return snapshot.revision > playHead.revision;
 }
 
 export function progressConflictChoiceKey(

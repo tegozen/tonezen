@@ -27,13 +27,24 @@ object ProgressMerger {
         return ProgressServerSnapshot(trackId, positionMs, revision)
     }
 
+    /**
+     * True only for a real multi-device fork — not for “local listened ahead of a stale snapshot”.
+     *
+     * - Same track, local position ≥ server → pending push, not a conflict.
+     * - Same track, server ahead by ≥ [PROGRESS_CONFLICT_THRESHOLD_MS] → conflict.
+     * - Different tracks → conflict only if server revision moved past this client’s revision
+     *   (another device wrote); same revision means this device advanced chapters locally.
+     */
     fun hasConflict(
         playHead: AudiobookProgress?,
         snapshot: ProgressServerSnapshot?,
     ): Boolean {
         if (playHead == null || snapshot == null) return false
-        if (playHead.trackId != snapshot.trackId) return true
-        return kotlin.math.abs(playHead.positionMs - snapshot.positionMs) >= PROGRESS_CONFLICT_THRESHOLD_MS
+        if (playHead.trackId == snapshot.trackId) {
+            if (playHead.positionMs >= snapshot.positionMs) return false
+            return snapshot.positionMs - playHead.positionMs >= PROGRESS_CONFLICT_THRESHOLD_MS
+        }
+        return snapshot.revision > playHead.revision
     }
 
     fun conflictChoiceKey(

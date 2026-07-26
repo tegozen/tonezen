@@ -214,16 +214,22 @@ flowchart TD
 
 **Preconditions:** A server snapshot exists for the book (`server_revision` known). Music never uses this flow.
 
-**Conflict rule (shared domain):** conflict if `track_id ≠ server_track_id`, or same track and `|position_ms − server_position_ms| ≥ 30_000`. No snapshot → no dialog.
+**Conflict rule (shared domain):**
+
+- Same track and local `position_ms ≥ server_position_ms` → **not** a conflict (device listened ahead of a stale snapshot / pending push).
+- Same track and server ahead by `|Δ| ≥ 30_000` → conflict.
+- Different tracks → conflict only if `server_revision >` client `revision` (another device wrote). Local chapter advance on the same revision is pending push, not a dialog.
+- No snapshot → no dialog.
 
 **Expected behavior:**
 
-1. Show dialog: progress on device and in cloud differ; show both points (chapter title + time when tracks are loaded).
+1. Show dialog only for a real fork: progress on device and in cloud differ as above; show both points (chapter title + time when tracks are loaded).
 2. Buttons: **«На устройстве»** / **«В облаке»**. Dismiss/close aborts start (same as Cancel on earlier-chapter confirm).
 3. **«На устройстве»:** start from local play head; keep/set `pending_sync`; push with CAS using known server revision as `base_revision`.
 4. **«В облаке»:** apply server snapshot to play head; clear `pending_sync`; start from cloud point; CAS base = `server_revision`.
 5. After a choice, do not re-prompt until play head or snapshot diverges again.
 6. If **A3b**, **A7b**, and/or **A7** apply: resolve A3b first, then earlier-cycle-book (A7b), then earlier-chapter (A7).
+7. Jumping to an **earlier chapter than the saved play head** uses **A7** confirm — not A3b. Re-opening the app and tapping the same chapter after listening must **Resume**, not A3b.
 
 **UI signals:** Dedicated sync-conflict dialog (Desktop/Android); Russian copy inline.
 
