@@ -4,8 +4,12 @@ set -eu
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-/migrations}"
 PGHOST="${PGHOST:-db}"
 PGUSER="${PGUSER:-supabase_admin}"
-PGPASSWORD="${PGPASSWORD:?Set PGPASSWORD / POSTGRES_PASSWORD in .env}"
+# Compose injects POSTGRES_PASSWORD here. Migration 005 temporarily sets roles to
+# a hardcoded placeholder; if migrate dies mid-run, reconnect must fall back.
+TARGET_PASSWORD="${PGPASSWORD:?Set PGPASSWORD / POSTGRES_PASSWORD in .env}"
+PLACEHOLDER_PASSWORD="tonezen-postgres-internal"
 PGDATABASE="${PGDATABASE:-tonezen}"
+PGPASSWORD="$TARGET_PASSWORD"
 export PGPASSWORD
 
 until pg_isready -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; do
@@ -13,12 +17,44 @@ until pg_isready -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" >/dev/null 2>&1; do
   sleep 1
 done
 
+can_connect() {
+  psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -c "SELECT 1" >/dev/null 2>&1
+}
+
+sync_role_passwords() {
+  pwd=$1
+  echo "[migrate] syncing role passwords"
+  PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -v pwd="$pwd" <<'SQL'
+ALTER ROLE supabase_admin WITH PASSWORD :'pwd';
+ALTER ROLE supabase_auth_admin WITH PASSWORD :'pwd';
+ALTER ROLE supabase_storage_admin WITH PASSWORD :'pwd';
+ALTER ROLE authenticator WITH PASSWORD :'pwd';
+SQL
+  PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -v pwd="$pwd" \
+    -c "ALTER ROLE tonezen_api WITH PASSWORD :'pwd'" 2>/dev/null || true
+  PGPASSWORD="$pwd"
+  export PGPASSWORD
+}
+
+if ! can_connect; then
+  echo "[migrate] POSTGRES_PASSWORD rejected; trying migration-005 placeholder"
+  PGPASSWORD="$PLACEHOLDER_PASSWORD"
+  export PGPASSWORD
+  if ! can_connect; then
+    echo "[migrate] cannot authenticate as ${PGUSER} with POSTGRES_PASSWORD or placeholder" >&2
+    exit 2
+  fi
+fi
+
 psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 <<'SQL'
 CREATE TABLE IF NOT EXISTS schema_migrations (
   filename TEXT PRIMARY KEY,
   applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 SQL
+
+# Heal stuck deploys: DB may still have placeholder while .env has the real secret.
+sync_role_passwords "$TARGET_PASSWORD"
 
 migration_count=$(psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -tAc \
   "SELECT COUNT(*) FROM schema_migrations")
@@ -85,18 +121,15 @@ for file in $(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | sort); do
   echo "[migrate] apply ${filename}"
   psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -f "$file"
   record_migration "$filename"
+
+  # 005 resets role passwords to PLACEHOLDER_PASSWORD; restore .env secret before next file.
+  if [ "$filename" = "005_storage_admin_grants.sql" ]; then
+    PGPASSWORD="$PLACEHOLDER_PASSWORD"
+    export PGPASSWORD
+    sync_role_passwords "$TARGET_PASSWORD"
+  fi
 done
 
-# Keep role passwords in sync with the deploy secret (migrations 005/032 may set
-# a placeholder; compose uses POSTGRES_PASSWORD for all DB URLs).
-echo "[migrate] syncing role passwords"
-psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -v pwd="$PGPASSWORD" <<'SQL'
-ALTER ROLE supabase_admin WITH PASSWORD :'pwd';
-ALTER ROLE supabase_auth_admin WITH PASSWORD :'pwd';
-ALTER ROLE supabase_storage_admin WITH PASSWORD :'pwd';
-ALTER ROLE authenticator WITH PASSWORD :'pwd';
-SQL
-psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -v pwd="$PGPASSWORD" \
-  -c "ALTER ROLE tonezen_api WITH PASSWORD :'pwd'" 2>/dev/null || true
+sync_role_passwords "$TARGET_PASSWORD"
 
 echo "[migrate] done"
