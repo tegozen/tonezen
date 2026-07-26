@@ -106,11 +106,35 @@ internal suspend fun LibraryCycleHandlerContext.refreshCycleCardStates(
         )
     }
     uiState.update {
+        val refreshedBookIds = refreshData.tracksByBookId.keys
+        val isPartialRefresh = cycles.size < it.cycles.size
+        val nextTracks = if (isPartialRefresh) {
+            it.tracksByBookId.filterKeys { bookId -> bookId !in refreshedBookIds } + refreshData.tracksByBookId
+        } else {
+            refreshData.tracksByBookId
+        }
+        val nextProgress = if (isPartialRefresh) {
+            it.audiobookProgressByBookId.filterKeys { bookId -> bookId !in refreshedBookIds } +
+                refreshData.progressByBookId
+        } else {
+            refreshData.progressByBookId
+        }
+        val nextTimestamps = if (isPartialRefresh) {
+            it.progressUpdatedAtByBookId.filterKeys { bookId -> bookId !in refreshedBookIds } +
+                refreshData.progressTimestamps
+        } else {
+            refreshData.progressTimestamps
+        }
+        val nextCards = if (isPartialRefresh) {
+            it.cycleCardStateById + refreshData.cardStates
+        } else {
+            refreshData.cardStates
+        }
         it.copy(
-            cycleCardStateById = refreshData.cardStates,
-            tracksByBookId = it.tracksByBookId + refreshData.tracksByBookId,
-            audiobookProgressByBookId = it.audiobookProgressByBookId + refreshData.progressByBookId,
-            progressUpdatedAtByBookId = it.progressUpdatedAtByBookId + refreshData.progressTimestamps,
+            cycleCardStateById = nextCards,
+            tracksByBookId = nextTracks,
+            audiobookProgressByBookId = nextProgress,
+            progressUpdatedAtByBookId = nextTimestamps,
         )
     }
 }

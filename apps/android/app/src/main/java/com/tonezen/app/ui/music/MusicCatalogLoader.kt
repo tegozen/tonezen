@@ -20,7 +20,7 @@ internal class MusicCatalogLoader(
     private val networkMonitor: NetworkMonitor,
     private val musicHandler: MusicHandler,
 ) {
-    fun refreshDownloads(reconcileLocalPaths: Boolean = true) {
+    fun refreshDownloads(reconcileLocalPaths: Boolean = false) {
         scope.launch {
             val downloadedTrackIds = musicHandler.resolveDownloadedTrackIdsForUi(reconcileLocalPaths)
             val trackList = musicHandler.refreshMusicTrackListWithDownloadedIds(downloadedTrackIds)
@@ -56,7 +56,10 @@ internal class MusicCatalogLoader(
 
     suspend fun reloadMusicCatalog() {
         musicHandler.reloadMusicCatalogData()
-        val trackList = musicHandler.buildMusicTrackListForCatalogUpdate(rebuildMusic = true)
+        val trackList = musicHandler.buildMusicTrackListForCatalogUpdate(
+            rebuildMusic = true,
+            reconcileLocalPaths = true,
+        )
         uiState.update {
             it.copy(
                 musicTrackList = trackList,

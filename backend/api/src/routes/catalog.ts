@@ -32,4 +32,14 @@ export function registerCatalogRoutes(app: Express, deps: RouteDeps): void {
     }
     res.json(book);
   }));
+
+  app.get("/catalog/tracks", deps.optionalAuth, asyncRoute(async (req, res) => {
+    const updatedSince = parseUpdatedSince(req.query);
+    if (updatedSince === false) {
+      res.status(400).json({ error: "Invalid updated_since" });
+      return;
+    }
+    const tracks = await deps.catalog.getAllTracks(updatedSince);
+    res.json({ tracks });
+  }));
 }

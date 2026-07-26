@@ -4,6 +4,7 @@ import android.content.Context
 import com.tonezen.app.data.remote.catalog.CatalogRemoteApi
 import com.tonezen.app.data.waveformPeaksToJson
 import com.tonezen.app.domain.model.Book
+import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.model.normalizeAuthor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -12,12 +13,9 @@ import javax.inject.Singleton
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 
@@ -78,15 +76,11 @@ class CatalogRemoteSyncRepository @Inject constructor(
         if (remoteCycleIds.isNotEmpty()) {
             catalogDao.deleteCyclesNotIn(remoteCycleIds)
         }
-        val semaphore = Semaphore(8)
-        coroutineScope {
-            remoteBooks.map { book ->
-                async {
-                    semaphore.withPermit {
-                        syncBookTracks(book, accessToken)
-                    }
-                }
-            }.awaitAll()
+        val remoteTracks = catalogRemoteApi.fetchAllTracks(accessToken)
+        upsertTracksPreservingLocalPaths(remoteTracks)
+        val remoteTrackIds = remoteTracks.map { it.id }
+        if (remoteTrackIds.isNotEmpty()) {
+            catalogDao.deleteTracksNotIn(remoteTrackIds)
         }
         val remoteIds = remoteBooks.map { it.id }
         if (remoteIds.isNotEmpty()) {
@@ -97,9 +91,9 @@ class CatalogRemoteSyncRepository @Inject constructor(
         remoteBooks
     }
 
-    private suspend fun syncBookTracks(book: Book, accessToken: String?) {
-        val existingById = catalogDao.getTracksForBook(book.id).associateBy { it.id }
-        val (_, tracks) = catalogRemoteApi.fetchBookDetail(book.id, accessToken)
+    private suspend fun upsertTracksPreservingLocalPaths(tracks: List<Track>) {
+        if (tracks.isEmpty()) return
+        val existingById = catalogDao.getAllTracks().associateBy { it.id }
         catalogDao.upsertTracks(
             tracks.map { track ->
                 val existing = existingById[track.id]
@@ -108,7 +102,7 @@ class CatalogRemoteSyncRepository @Inject constructor(
                         File(it).isFile &&
                         File(it).length() > 0L
                 }
-                    ?: expectedTrackFile(book.id, track.id)
+                    ?: expectedTrackFile(track.bookId, track.id)
                         ?.takeIf { it.isFile && it.length() > 0L }
                         ?.absolutePath
                 TrackEntity(

@@ -91,12 +91,12 @@ internal class MusicHandler(
     suspend fun reloadMusicCatalogData() = catalogLists.reloadMusicCatalogData()
 
     suspend fun resolveDownloadedTrackIdsForUi(
-        reconcileLocalPaths: Boolean = true,
+        reconcileLocalPaths: Boolean = false,
     ): Set<String> = catalogLists.resolveDownloadedTrackIdsForUi(reconcileLocalPaths)
 
     suspend fun buildMusicTrackListForCatalogUpdate(
         rebuildMusic: Boolean = false,
-        reconcileLocalPaths: Boolean = true,
+        reconcileLocalPaths: Boolean = false,
     ): List<MusicListTrack> = catalogLists.buildMusicTrackListForCatalogUpdate(rebuildMusic, reconcileLocalPaths)
 
     suspend fun refreshMusicTrackListForDownloads(): List<MusicListTrack> =

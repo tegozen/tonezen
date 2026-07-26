@@ -33,25 +33,35 @@ class CatalogRemoteApi(
             val tracks = mutableListOf<Track>()
             val arr = json.optJSONArray("tracks") ?: JSONArray()
             for (i in 0 until arr.length()) {
-                val t = arr.getJSONObject(i)
-                tracks.add(
-                    Track(
-                        id = t.getString("id"),
-                        bookId = bookId,
-                        sortOrder = t.getInt("sort_order"),
-                        title = t.getString("title"),
-                        filename = t.getString("filename"),
-                        artist = normalizeAuthor(
-                            if (t.isNull("artist")) null else t.optString("artist"),
-                        ),
-                        durationMs = t.optLong("duration_ms").takeIf { it > 0 },
-                        localPath = null,
-                        waveformPeaks = waveformPeaksFromJsonArray(t.optJSONArray("waveform_peaks")),
-                    ),
-                )
+                tracks.add(parseTrack(arr.getJSONObject(i), bookId))
             }
             book to tracks
         }
+
+    suspend fun fetchAllTracks(accessToken: String?): List<Track> = withContext(Dispatchers.IO) {
+        val json = getRemoteJson(httpClient, "$apiRoot/catalog/tracks", accessToken)
+        val arr = json.optJSONArray("tracks") ?: JSONArray()
+        buildList {
+            for (i in 0 until arr.length()) {
+                val t = arr.getJSONObject(i)
+                add(parseTrack(t, t.getString("book_id")))
+            }
+        }
+    }
+
+    private fun parseTrack(t: JSONObject, bookId: String): Track = Track(
+        id = t.getString("id"),
+        bookId = bookId,
+        sortOrder = t.getInt("sort_order"),
+        title = t.getString("title"),
+        filename = t.getString("filename"),
+        artist = normalizeAuthor(
+            if (t.isNull("artist")) null else t.optString("artist"),
+        ),
+        durationMs = t.optLong("duration_ms").takeIf { it > 0 },
+        localPath = null,
+        waveformPeaks = waveformPeaksFromJsonArray(t.optJSONArray("waveform_peaks")),
+    )
 
     private fun fetchCyclesInternal(accessToken: String?): List<Cycle> {
         val cyclesJson = getRemoteJson(httpClient, "$apiRoot/catalog/cycles", accessToken)

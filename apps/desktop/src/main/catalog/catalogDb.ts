@@ -13,6 +13,7 @@ import { createCatalogLocalPaths } from "./catalogLocalPaths.js";
 import {
   deleteTracksForBooksNotIn,
   deleteTracksNotIn,
+  deleteTracksNotInIds,
   getAllTracks,
   getTrackById,
   getTracks,
@@ -40,6 +41,7 @@ export const CatalogDb = {
   upsertTracks,
   deleteTracksForBooksNotIn,
   deleteTracksNotIn,
+  deleteTracksNotInIds,
   setTrackLocalPath: localPaths.setTrackLocalPath,
   getTrackById,
   markTrackDownloaded: localPaths.markTrackDownloaded,

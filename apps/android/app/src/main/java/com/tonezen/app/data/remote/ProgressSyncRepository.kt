@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 
 @Singleton
 class ProgressSyncRepository @Inject constructor(
@@ -34,12 +35,17 @@ class ProgressSyncRepository @Inject constructor(
     private val progressRepository: ProgressRepository,
     private val sessionRepository: SessionRepository,
     private val networkMonitor: NetworkMonitor,
+    httpClient: OkHttpClient,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val prefs = context.getSharedPreferences("tonezen_progress_sync", Context.MODE_PRIVATE)
     private val realtimeClient = RealtimeProgressClient(
         supabaseUrl = BuildConfig.BASE_URL,
         anonKey = BuildConfig.SUPABASE_ANON_KEY,
+        httpClient = httpClient.newBuilder()
+            .readTimeout(0, java.util.concurrent.TimeUnit.MILLISECONDS)
+            .pingInterval(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build(),
         scope = scope,
         onProgressChange = { row ->
             val userId = progressRepository.activeUserId ?: return@RealtimeProgressClient

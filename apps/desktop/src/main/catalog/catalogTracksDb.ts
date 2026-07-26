@@ -55,6 +55,18 @@ export function deleteTracksNotIn(bookId: string, trackIds: string[]): void {
     .run(bookId, ...trackIds);
 }
 
+/** Drop tracks whose ids are no longer in the remote catalog (bulk sync). */
+export function deleteTracksNotInIds(trackIds: string[]): void {
+  if (trackIds.length === 0) {
+    getDb().prepare(`DELETE FROM tracks`).run();
+    return;
+  }
+  const placeholders = trackIds.map(() => "?").join(",");
+  getDb()
+    .prepare(`DELETE FROM tracks WHERE id NOT IN (${placeholders})`)
+    .run(...trackIds);
+}
+
 export function getTrackById(trackId: string): Track | null {
   const row = getDb()
     .prepare(

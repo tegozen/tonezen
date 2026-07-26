@@ -105,6 +105,14 @@ export class CatalogSyncService {
     return (detail.tracks ?? []).map((track) => mapTrack(track, bookId));
   }
 
+  async fetchAllTracks(): Promise<Track[]> {
+    const json = await this.fetchCatalogJson<{ tracks?: Array<ApiTrack & { book_id: string }> }>(
+      "/catalog/tracks",
+      this.buildHeaders(),
+    );
+    return (json.tracks ?? []).map((track) => mapTrack(track, track.book_id));
+  }
+
   syncCatalog(): Promise<Book[]> {
     if (!this.syncInFlight) {
       this.syncInFlight = this.performSyncCatalog().finally(() => {
@@ -122,13 +130,10 @@ export class CatalogSyncService {
     const bookIds = books.map((book) => book.id);
     const cycleIds = cycles.map((cycle) => cycle.id);
     LocalDatabase.deleteCyclesNotIn(cycleIds);
-    for (const book of books) {
-      const tracks = await this.fetchBookTracks(book.id);
-      LocalDatabase.upsertTracks(tracks);
-      LocalDatabase.deleteTracksNotIn(
-        book.id,
-        tracks.map((track) => track.id),
-      );
+    const tracks = await this.fetchAllTracks();
+    LocalDatabase.upsertTracks(tracks);
+    if (tracks.length > 0) {
+      LocalDatabase.deleteTracksNotInIds(tracks.map((track) => track.id));
     }
     LocalDatabase.deleteTracksForBooksNotIn(bookIds);
     LocalDatabase.deleteBooksNotIn(bookIds);

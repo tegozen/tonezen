@@ -106,6 +106,35 @@ export class CatalogRepository {
     }));
     return { ...bookResult.rows[0], tracks };
   }
+
+  async getAllTracks(updatedSince?: string) {
+    const params: unknown[] = [];
+    let where = "WHERE t.deleted_at IS NULL AND b.deleted_at IS NULL";
+    if (updatedSince) {
+      params.push(updatedSince);
+      where += ` AND t.updated_at > $${params.length}`;
+    }
+    const result = await this.pool.query(
+      `SELECT t.id, t.book_id, t.sort_order, t.title, t.artist, t.filename, t.duration_ms,
+              tf.waveform_peaks
+       FROM tracks t
+       INNER JOIN books b ON b.id = t.book_id
+       LEFT JOIN track_files tf ON tf.track_id = t.id
+       ${where}
+       ORDER BY t.book_id, t.sort_order`,
+      params,
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      book_id: row.book_id,
+      sort_order: row.sort_order,
+      title: row.title,
+      artist: row.artist,
+      filename: row.filename,
+      duration_ms: row.duration_ms,
+      waveform_peaks: sanitizeWaveformPeaks(row.waveform_peaks),
+    }));
+  }
 }
 
 function sanitizeWaveformPeaks(value: unknown): number[] | null {

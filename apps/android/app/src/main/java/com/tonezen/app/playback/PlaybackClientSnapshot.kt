@@ -102,7 +102,13 @@ internal class PlaybackClientSnapshot(
         shared.positionTickJob = shared.scope.launch {
             while (isActive) {
                 delay(1000)
-                shared.controller?.let { refreshSnapshot(it) }
+                val controller = shared.controller ?: continue
+                shared.snapshotFlow().update { current ->
+                    current.copy(
+                        positionMs = controller.currentPosition.coerceAtLeast(0L),
+                        durationMs = controller.duration.coerceAtLeast(0L),
+                    )
+                }
             }
         }
     }

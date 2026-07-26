@@ -40,7 +40,7 @@ internal class MusicSessionObserver(
                     pendingCatalogReload = false
                     catalogLoader.reloadMusicCatalog()
                 }
-                catalogLoader.refreshDownloads()
+                catalogLoader.refreshDownloads(reconcileLocalPaths = true)
             }
         }
         scope.launch {
@@ -53,7 +53,7 @@ internal class MusicSessionObserver(
                     catalogLoader.reloadMusicCatalog()
                 }
                 if (wasQueueActive && !state.isActive) {
-                    catalogLoader.refreshDownloads()
+                    catalogLoader.refreshDownloads(reconcileLocalPaths = true)
                 }
                 if (wasBulkDownloading && !musicQueue.isBulkDownloading) {
                     musicHandler.onBulkDownloadFinished()
@@ -76,7 +76,7 @@ internal class MusicSessionObserver(
             localLibraryNotifier.changes
                 .debounce(LOCAL_LIBRARY_REFRESH_DEBOUNCE_MS)
                 .collect {
-                    catalogLoader.refreshDownloads()
+                    catalogLoader.refreshDownloads(reconcileLocalPaths = false)
                 }
         }
         scope.launch {
@@ -89,9 +89,13 @@ internal class MusicSessionObserver(
             }
         }
         scope.launch {
+            var lastMusicSnapshotUiKey: MusicSnapshotUiKey? = null
             playbackClient.snapshot.collectLatest { snapshot ->
-                val trackId = snapshot.trackId
                 val isMusic = musicHandler.isMusicSnapshot(snapshot)
+                val uiKey = MusicSnapshotUiKey.from(snapshot, isMusic)
+                if (uiKey == lastMusicSnapshotUiKey) return@collectLatest
+                lastMusicSnapshotUiKey = uiKey
+                val trackId = snapshot.trackId
                 if (isMusic && trackId != null) {
                     musicHandler.onMusicSnapshot(snapshot)
                 }
@@ -102,10 +106,11 @@ internal class MusicSessionObserver(
                     uiState.value.nowPlayingTitle
                 }
                 uiState.update {
-                    it.copy(
+                    val next = it.copy(
                         musicPlayback = musicPlayback,
                         nowPlayingTitle = nowPlayingTitle,
                     )
+                    if (next == it) it else next
                 }
             }
         }

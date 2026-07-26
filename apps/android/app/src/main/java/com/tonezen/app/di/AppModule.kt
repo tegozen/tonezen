@@ -49,8 +49,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideAuthRepository(): AuthRepository =
-        AuthRepository(BuildConfig.BASE_URL, BuildConfig.SUPABASE_ANON_KEY)
+    fun provideAuthRepository(httpClient: OkHttpClient): AuthRepository =
+        AuthRepository(BuildConfig.BASE_URL, BuildConfig.SUPABASE_ANON_KEY, httpClient)
 
     @Provides
     @Singleton

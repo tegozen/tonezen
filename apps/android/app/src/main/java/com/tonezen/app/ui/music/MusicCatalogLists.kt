@@ -21,7 +21,7 @@ internal class MusicCatalogLists(
     }
 
     suspend fun resolveDownloadedTrackIdsForUi(
-        reconcileLocalPaths: Boolean = true,
+        reconcileLocalPaths: Boolean = false,
     ): Set<String> = withContext(Dispatchers.IO) {
         val ids = if (reconcileLocalPaths) {
             ctx.catalogRepository.reconcileLocalDownloadPaths()
@@ -46,7 +46,7 @@ internal class MusicCatalogLists(
 
     suspend fun buildMusicTrackListForCatalogUpdate(
         rebuildMusic: Boolean = false,
-        reconcileLocalPaths: Boolean = true,
+        reconcileLocalPaths: Boolean = false,
     ): List<MusicListTrack> {
         val downloadedTrackIds = resolveDownloadedTrackIdsForUi(reconcileLocalPaths)
         return buildMusicTrackListForCatalogUpdate(

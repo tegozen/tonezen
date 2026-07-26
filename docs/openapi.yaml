@@ -299,6 +299,30 @@ paths:
         "404":
           description: Not found
 
+  /catalog/tracks:
+    get:
+      summary: List all catalog tracks (bulk sync)
+      security: []
+      parameters:
+        - name: updated_since
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Track list with book_id for offline catalog sync
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tracks]
+                properties:
+                  tracks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CatalogTrack"
+
   /downloads/sign:
     post:
       summary: Sign download URLs for tracks
@@ -503,6 +527,16 @@ components:
             type: integer
             minimum: 0
             maximum: 100
+
+    CatalogTrack:
+      allOf:
+        - $ref: "#/components/schemas/Track"
+        - type: object
+          required: [book_id]
+          properties:
+            book_id:
+              type: string
+              format: uuid
 
     AudiobookProgress:
       type: object

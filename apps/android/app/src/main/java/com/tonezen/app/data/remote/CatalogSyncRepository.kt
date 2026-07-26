@@ -15,17 +15,23 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 
 @Singleton
 class CatalogSyncRepository @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val sessionRepository: SessionRepository,
     private val networkMonitor: NetworkMonitor,
+    httpClient: OkHttpClient,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val realtimeClient = RealtimeCatalogClient(
         supabaseUrl = BuildConfig.BASE_URL,
         anonKey = BuildConfig.SUPABASE_ANON_KEY,
+        httpClient = httpClient.newBuilder()
+            .readTimeout(0, java.util.concurrent.TimeUnit.MILLISECONDS)
+            .pingInterval(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build(),
         scope = scope,
         onCatalogChange = { scheduleSync() },
     )

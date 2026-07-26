@@ -11,17 +11,23 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 
 @Singleton
 class ProfileSyncRepository @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val userProfileMirrorRepository: UserProfileMirrorRepository,
     private val networkMonitor: NetworkMonitor,
+    httpClient: OkHttpClient,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val realtimeClient = RealtimeProfileClient(
         supabaseUrl = BuildConfig.BASE_URL,
         anonKey = BuildConfig.SUPABASE_ANON_KEY,
+        httpClient = httpClient.newBuilder()
+            .readTimeout(0, java.util.concurrent.TimeUnit.MILLISECONDS)
+            .pingInterval(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build(),
         scope = scope,
         onProfileChange = { row -> applyRemote(row) },
     )
