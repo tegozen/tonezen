@@ -5,6 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.tonezen.app.data.local.CatalogRepository
 import com.tonezen.app.data.local.TrackDownloadEnsurer
 import com.tonezen.app.data.network.NetworkMonitor
+import com.tonezen.app.data.remote.ProgressSyncRepository
+import com.tonezen.app.data.remote.SessionRepository
+import com.tonezen.app.domain.model.AudiobookProgress
+import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
@@ -28,7 +32,9 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class NowPlayingViewModel @Inject constructor(
     private val playbackClient: PlaybackClient,
-    catalogRepository: CatalogRepository,
+    private val catalogRepository: CatalogRepository,
+    private val sessionRepository: SessionRepository,
+    private val progressSyncRepository: ProgressSyncRepository,
     playbackQueueBuilder: PlaybackQueueBuilder,
     trackDownloadEnsurer: TrackDownloadEnsurer,
     downloadQueueController: TrackDownloadQueueController,
@@ -119,10 +125,35 @@ class NowPlayingViewModel @Inject constructor(
 
     fun seekTo(positionMs: Long) {
         playbackClient.seekTo(positionMs)
+        persistAudiobookSeek(positionMs)
     }
 
     fun seekBy(deltaMs: Long) {
         playbackClient.seekBy(deltaMs)
+        persistAudiobookSeek(playbackClient.snapshot.value.positionMs)
+    }
+
+    private fun persistAudiobookSeek(positionMs: Long) {
+        val snapshot = playbackClient.snapshot.value
+        if (snapshot.contentType != ContentType.AUDIOBOOK) return
+        val trackId = snapshot.trackId ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val bookId = catalogRepository.findBookForTrack(trackId)?.id ?: return@launch
+            val existing = catalogRepository.getProgress(bookId)
+            val effective = when {
+                positionMs > 0L -> positionMs
+                existing?.trackId == trackId && existing.positionMs > 0L -> existing.positionMs
+                else -> 1L
+            }
+            val progress = AudiobookProgress(
+                bookId = bookId,
+                trackId = trackId,
+                positionMs = effective,
+                updatedAtEpochMs = System.currentTimeMillis(),
+            )
+            val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
+            progressSyncRepository.saveLocal(progress, pendingSync = true, session?.accessToken)
+        }
     }
 
     fun skipPrevious() {

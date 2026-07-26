@@ -57,15 +57,37 @@ export function resolveCycleListenFraction(
 ): number | null {
   let totalMs = 0;
   let listenedMs = 0;
+  let totalTracks = 0;
+  let completedTrackWeight = 0;
   for (const book of orderedCycleBooks(cycle)) {
-    const tracks = tracksByBookId.get(book.id) ?? [];
+    const tracks = [...(tracksByBookId.get(book.id) ?? [])].sort(
+      (a, b) => a.sortOrder - b.sortOrder,
+    );
     const bookTotalMs = tracks.reduce((sum, track) => sum + (track.durationMs ?? 0), 0);
-    if (bookTotalMs <= 0) continue;
-    totalMs += bookTotalMs;
-    listenedMs += resolveBookListenedMs(tracks, progressByBookId.get(book.id));
+    const progress = progressByBookId.get(book.id);
+    if (bookTotalMs > 0) {
+      totalMs += bookTotalMs;
+      listenedMs += resolveBookListenedMs(tracks, progress);
+      continue;
+    }
+    // Durations unknown: fall back to chapter index so Continue/bar still appear.
+    if (tracks.length === 0) continue;
+    totalTracks += tracks.length;
+    if (!progress || !hasMeaningfulAudiobookProgress(tracks, progress)) continue;
+    const index = tracks.findIndex((track) => track.id === progress.trackId);
+    if (index < 0) continue;
+    completedTrackWeight += index;
+    if (progress.positionMs > 0) {
+      completedTrackWeight += 0.5;
+    }
   }
-  if (totalMs <= 0) return null;
-  return Math.min(1, Math.max(0, listenedMs / totalMs));
+  if (totalMs > 0) {
+    return Math.min(1, Math.max(0, listenedMs / totalMs));
+  }
+  if (totalTracks > 0 && completedTrackWeight > 0) {
+    return Math.min(1, Math.max(0, completedTrackWeight / totalTracks));
+  }
+  return null;
 }
 
 export function isCycleFullyListened(

@@ -73,11 +73,23 @@ internal suspend fun LibraryCycleHandlerContext.persistAudiobookProgress(
     bookId: String,
     trackId: String,
     positionMs: Long,
+    allowZero: Boolean = false,
 ) {
+    val existing = withContext(Dispatchers.IO) {
+        catalogRepository.getProgress(bookId)
+    }
+    val effectivePositionMs = when {
+        allowZero -> positionMs
+        positionMs > 0L -> positionMs
+        // Media3 often reports 0 at play-start/pause edges — do not wipe a real head.
+        existing?.trackId == trackId && existing.positionMs > 0L -> existing.positionMs
+        // New play head must stay distinguishable from «не прослушанным» (explicit 0).
+        else -> 1L
+    }
     val progress = AudiobookProgress(
         bookId = bookId,
         trackId = trackId,
-        positionMs = positionMs,
+        positionMs = effectivePositionMs,
         updatedAtEpochMs = System.currentTimeMillis(),
     )
     val storedSession = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())

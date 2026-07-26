@@ -55,6 +55,12 @@ class ProfileViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(lastSyncTime = epochMs?.let { value -> formatSyncTime(value) })
                 }
+                refreshStats()
+            }
+        }
+        viewModelScope.launch {
+            progressSyncRepository.updates.collectLatest {
+                refreshStats()
             }
         }
         viewModelScope.launch {

@@ -147,14 +147,27 @@ class ProgressSyncRepository @Inject constructor(
     suspend fun saveLocal(progress: AudiobookProgress, pendingSync: Boolean, accessToken: String?) {
         val userId = progressRepository.activeUserId ?: return
         val existing = progressRepository.getProgressEntity(progress.bookId)
-        val entity = progress.copy(
+        val withServers = progress.copy(
             revision = existing?.revision ?: existing?.serverRevision ?: progress.revision,
             serverTrackId = existing?.serverTrackId,
             serverPositionMs = existing?.serverPositionMs,
             serverRevision = existing?.serverRevision,
-            conflictChoiceKey = null,
-        ).toEntity(userId, pendingSync)
+            conflictChoiceKey = existing?.conflictChoiceKey,
+        )
+        val snapshot = ProgressMerger.getServerSnapshot(withServers)
+        val nextKey = if (
+            snapshot != null &&
+            ProgressMerger.hasConflict(withServers, snapshot) &&
+            !existing?.conflictChoiceKey.isNullOrBlank()
+        ) {
+            // Keep auto-flush after «На устройстве» while the user keeps listening.
+            ProgressMerger.conflictChoiceKey(withServers, snapshot)
+        } else {
+            null
+        }
+        val entity = withServers.copy(conflictChoiceKey = nextKey).toEntity(userId, pendingSync)
         progressRepository.upsertProgressEntity(entity)
+        _updates.emit(entity.toDomain())
         if (serverHydrated && accessToken != null && networkMonitor.isOnline()) {
             try {
                 pushProgress(accessToken, entity)
@@ -214,9 +227,27 @@ class ProgressSyncRepository @Inject constructor(
             ).toProgressEntity(entity.userId)
             progressRepository.upsertProgressEntity(serverEntity.copy(pendingSync = false))
             _updates.emit(serverEntity.toDomain())
+            markSynced()
         } catch (conflict: ProgressCasConflictException) {
             val remote = conflict.remote ?: return
             applyRemoteEntity(remote.toProgressEntity(entity.userId), preferRemote = false)
+            // Snapshot refreshed — retry once if local is still auto-flushable (e.g. local ahead).
+            val latest = progressRepository.getProgressEntity(entity.bookId) ?: return
+            if (latest.pendingSync && ProgressMerger.canAutoFlush(latest.toDomain())) {
+                try {
+                    val serverEntity = progressRemoteApi.pushProgress(
+                        accessToken,
+                        latest.bookId,
+                        latest.toDomain(),
+                        latest.serverRevision ?: latest.revision,
+                    ).toProgressEntity(latest.userId)
+                    progressRepository.upsertProgressEntity(serverEntity.copy(pendingSync = false))
+                    _updates.emit(serverEntity.toDomain())
+                    markSynced()
+                } catch (_: Exception) {
+                    // Keep pending until a later flush.
+                }
+            }
         }
     }
 
@@ -258,12 +289,18 @@ class ProgressSyncRepository @Inject constructor(
             return
         }
 
+        val prevSnapshot = ProgressMerger.getServerSnapshot(local.toDomain())
+        val snapshotChanged = prevSnapshot == null ||
+            prevSnapshot.trackId != remoteEntity.trackId ||
+            prevSnapshot.positionMs != remoteEntity.positionMs ||
+            prevSnapshot.revision != remoteEntity.revision
+
         val next = local.copy(
             serverTrackId = remoteEntity.trackId,
             serverPositionMs = remoteEntity.positionMs,
             serverRevision = remoteEntity.revision,
             revision = if (local.pendingSync) local.revision else remoteEntity.revision,
-            conflictChoiceKey = null,
+            conflictChoiceKey = if (snapshotChanged) null else local.conflictChoiceKey,
         )
 
         if (local.pendingSync && ProgressMerger.hasConflict(next.toDomain(), ProgressMerger.getServerSnapshot(next.toDomain()))) {
@@ -273,7 +310,10 @@ class ProgressSyncRepository @Inject constructor(
         }
 
         if (!local.pendingSync) {
-            val applied = remoteEntity.copy(pendingSync = false, conflictChoiceKey = null)
+            val applied = remoteEntity.copy(
+                pendingSync = false,
+                conflictChoiceKey = if (snapshotChanged) null else local.conflictChoiceKey,
+            )
             progressRepository.upsertProgressEntity(applied)
             _updates.emit(applied.toDomain())
             return

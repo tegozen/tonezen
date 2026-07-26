@@ -62,9 +62,13 @@ export function useAudiobookProgressSave({
     (positionMs: number) => {
       const book = playbackBookRef.current;
       const track = currentTrackRef.current;
-      if (!book || book.contentType !== "audiobook" || !track || track.bookId !== book.id) return;
+      if (!book || book.contentType !== "audiobook" || !track) return;
+      // Some catalog rows omit bookId on the track; still save against the open book.
+      if (track.bookId && track.bookId !== book.id) return;
       lastProgressSaveRef.current = Date.now();
-      void window.tonezen.progress.save(book.id, track.id, positionMs);
+      // Never flush Media3/HTMLAudio 0 over a real head — 0 is reserved for «не прослушанным».
+      const safePositionMs = positionMs > 0 ? positionMs : 1;
+      void window.tonezen.progress.save(book.id, track.id, safePositionMs);
     },
     [currentTrackRef, playbackBookRef],
   );

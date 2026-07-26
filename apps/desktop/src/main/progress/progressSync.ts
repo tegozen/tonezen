@@ -1,4 +1,8 @@
-import { progressConflictChoiceKey } from "@core/progress/progressMerge.js";
+import {
+  getServerSnapshot,
+  hasProgressSyncConflict,
+  progressConflictChoiceKey,
+} from "@core/progress/progressMerge.js";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BrowserWindow } from "electron";
@@ -244,10 +248,18 @@ export class ProgressSyncService {
       serverTrackId: existing?.serverTrackId,
       serverPositionMs: existing?.serverPositionMs,
       serverRevision: existing?.serverRevision,
+      conflictChoiceKey: existing?.conflictChoiceKey,
     };
-    LocalDatabase.upsertProgress(progress, true, { conflictChoiceKey: null });
+    const snapshot = getServerSnapshot(progress);
+    const nextKey =
+      snapshot &&
+      hasProgressSyncConflict(progress, snapshot) &&
+      existing?.conflictChoiceKey
+        ? progressConflictChoiceKey(progress, snapshot)
+        : null;
+    LocalDatabase.upsertProgress(progress, true, { conflictChoiceKey: nextKey });
     if (this.serverHydrated) {
-      await this.pushProgress(progress);
+      await this.pushProgress({ ...progress, conflictChoiceKey: nextKey ?? undefined });
     }
   }
 
@@ -316,7 +328,11 @@ export class ProgressSyncService {
 
   async flushPending(): Promise<void> {
     if (!this.serverHydrated) return;
-    await flushPendingProgress(this.getPushDeps(), (row) => this.applyRemote(row));
+    await flushPendingProgress(
+      this.getPushDeps(),
+      (row) => this.applyRemote(row),
+      (row) => this.applyPushAccepted(row),
+    );
   }
 
   getSyncStatus(): { pendingCount: number; lastSyncAtEpochMs: number | null } {
@@ -329,11 +345,33 @@ export class ProgressSyncService {
 
   private async pushProgress(progress: AudiobookProgress): Promise<void> {
     if (!this.serverHydrated) return;
-    await pushProgress(this.getPushDeps(), progress, (row) => this.applyRemote(row));
+    await pushProgress(
+      this.getPushDeps(),
+      progress,
+      (row) => this.applyRemote(row),
+      (row) => this.applyPushAccepted(row),
+    );
   }
 
   private applyRemote(row: ProgressRow): void {
     applyRemoteProgress(row, this.mainWindow);
+  }
+
+  /** Successful PUT — server is authority for play head; always clear pending_sync. */
+  private applyPushAccepted(row: ProgressRow): void {
+    const revision = Number(row.revision);
+    const applied = LocalDatabase.applyServerToPlayHead(
+      row.book_id,
+      {
+        trackId: row.track_id,
+        positionMs: row.position_ms,
+        revision: Number.isFinite(revision) ? revision : 0,
+        updatedAt: row.updated_at,
+      },
+      null,
+    );
+    this.mainWindow?.webContents.send("progress:updated", applied);
+    this.recordLastSyncAt();
   }
 
   private recordLastSyncAt(): void {

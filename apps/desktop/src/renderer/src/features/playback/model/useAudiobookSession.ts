@@ -1,8 +1,11 @@
+import { useCallback, useRef } from "react";
+import type { Cycle } from "@core/types";
 import { useAudiobookCyclePlay } from "./audiobookCyclePlay";
 import { useAudiobookEnsureLocal } from "./audiobookEnsureLocal";
 import { useAudiobookProgressActions } from "./audiobookProgressActions";
 import type { UseAudiobookSessionOptions } from "./audiobookSessionTypes";
 import { useAudiobookSkipHandlers } from "./audiobookSkipHandlers";
+import type { ProgressSyncConflictPromptModel } from "../ui/ProgressSyncConflictPrompt";
 
 export type { UseAudiobookSessionOptions } from "./audiobookSessionTypes";
 
@@ -10,10 +13,23 @@ export function useAudiobookSession(options: UseAudiobookSessionOptions) {
   const { ensureAudiobookTrackLocal, playAudiobookTrackResolved, advanceAudiobookTrack } =
     useAudiobookEnsureLocal(options);
 
-  const { cyclePlayingId, playCycle } = useAudiobookCyclePlay({
-    ...options,
-    ensureAudiobookTrackLocal,
-  });
+  const beginCycleSyncConflictRef = useRef<(model: ProgressSyncConflictPromptModel) => void>(
+    () => undefined,
+  );
+  const playCycleRef = useRef<
+    (cycle: Cycle, opts?: { skipSyncConflictPrompt?: boolean }) => Promise<void>
+  >(async () => undefined);
+  const consumePendingCycleRef = useRef<() => Cycle | null>(() => null);
+  const clearPendingCycleRef = useRef<() => void>(() => undefined);
+
+  const resumePendingCyclePlay = useCallback(async () => {
+    const cycle = consumePendingCycleRef.current();
+    if (cycle) await playCycleRef.current(cycle, { skipSyncConflictPrompt: true });
+  }, []);
+
+  const clearPendingCyclePlay = useCallback(() => {
+    clearPendingCycleRef.current();
+  }, []);
 
   const {
     earlierChapterPrompt,
@@ -23,6 +39,7 @@ export function useAudiobookSession(options: UseAudiobookSessionOptions) {
     dismissEarlierCycleBookPrompt,
     confirmEarlierCycleBookPrompt,
     syncConflictModel,
+    beginCycleSyncConflict,
     dismissSyncConflictPrompt,
     chooseSyncConflictLocal,
     chooseSyncConflictServer,
@@ -39,7 +56,24 @@ export function useAudiobookSession(options: UseAudiobookSessionOptions) {
     cycles: options.cycles,
     tracksByBookId: options.tracksByBookId,
     playAudiobookTrackResolved,
+    resumePendingCyclePlay,
+    clearPendingCyclePlay,
   });
+
+  beginCycleSyncConflictRef.current = beginCycleSyncConflict;
+
+  const { cyclePlayingId, playCycle, consumePendingCycleAfterConflict, clearPendingCycleAfterConflict } =
+    useAudiobookCyclePlay({
+      ...options,
+      ensureAudiobookTrackLocal,
+      setSyncConflictModel: (model) => {
+        if (model) beginCycleSyncConflictRef.current(model);
+      },
+    });
+
+  playCycleRef.current = playCycle;
+  consumePendingCycleRef.current = consumePendingCycleAfterConflict;
+  clearPendingCycleRef.current = clearPendingCycleAfterConflict;
 
   const { handleSkipNext, handleSkipPrevious, handleTrackEnded } = useAudiobookSkipHandlers({
     cycles: options.cycles,

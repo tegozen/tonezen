@@ -50,16 +50,36 @@ fun resolveCycleListenFraction(
 ): Float? {
     var totalMs = 0L
     var listenedMs = 0L
+    var totalTracks = 0
+    var completedTrackWeight = 0f
     for (bookSlug in cycle.bookOrder) {
         val book = cycle.books.find { it.slug == bookSlug } ?: continue
-        val tracks = tracksByBookId[book.id].orEmpty()
+        val tracks = tracksByBookId[book.id].orEmpty().sortedBy { it.sortOrder }
         val bookTotalMs = tracks.sumOf { it.durationMs ?: 0L }
-        if (bookTotalMs <= 0L) continue
-        totalMs += bookTotalMs
-        listenedMs += resolveBookListenedMs(tracks, progressByBookId[book.id])
+        val progress = progressByBookId[book.id]
+        if (bookTotalMs > 0L) {
+            totalMs += bookTotalMs
+            listenedMs += resolveBookListenedMs(tracks, progress)
+            continue
+        }
+        // Durations unknown: fall back to chapter index so Continue/bar still appear.
+        if (tracks.isEmpty()) continue
+        totalTracks += tracks.size
+        if (progress == null || !hasMeaningfulAudiobookProgress(tracks, progress)) continue
+        val index = tracks.indexOfFirst { it.id == progress.trackId }
+        if (index < 0) continue
+        completedTrackWeight += index.toFloat()
+        if (progress.positionMs > 0L) {
+            completedTrackWeight += 0.5f
+        }
     }
-    if (totalMs <= 0L) return null
-    return (listenedMs.toFloat() / totalMs.toFloat()).coerceIn(0f, 1f)
+    if (totalMs > 0L) {
+        return (listenedMs.toFloat() / totalMs.toFloat()).coerceIn(0f, 1f)
+    }
+    if (totalTracks > 0 && completedTrackWeight > 0f) {
+        return (completedTrackWeight / totalTracks.toFloat()).coerceIn(0f, 1f)
+    }
+    return null
 }
 
 fun isCycleFullyListened(

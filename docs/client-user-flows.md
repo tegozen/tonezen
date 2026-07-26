@@ -6,7 +6,8 @@
 
 - **Offline-first:** local cache is authoritative; sync when online.
 - **Music progress:** local only — never synced to server.
-- **Audiobook progress:** local write always; push/pull when authenticated and online. Server conflict authority is monotonic **`revision`** with CAS (`base_revision` on PUT), not client wall-clock. Local cache is **user-scoped**; logout must not leave another user’s play head in the sync set. Clients keep a **server snapshot** beside the play head; when they diverge at Continue/Play/resume, the user chooses «На устройстве» or «В облаке» (see A3b). Short server **history** exists for ops restore only — not a client UI.
+- **Audiobook progress:** local write always; push/pull when authenticated and online. Server conflict authority is monotonic **`revision`** with CAS (`base_revision` on PUT), not client wall-clock. Local cache is **user-scoped**; logout must not leave another user’s play head in the sync set. Clients keep a **server snapshot** beside the play head; when they diverge at Continue/Play/resume **or play-cycle**, the user chooses «На устройстве» or «В облаке» (see A3b). Short server **history** exists for ops restore only — not a client UI.
+- **Audiobook progress write timing:** persist on play-start (`positionMs ≥ 1`), ~every 15s while playing, on pause, on seek (immediate), and on Android process `onStop`. Bare `0` is reserved for explicit «не прослушанным».
 - **UI language:** Russian only — copy inline at usage sites; no strings catalog or locale switching.
 - **Download queue priorities:** `USER` (explicit tap) > `PLAY` (playback needs file) > `PREFETCH` (background next chapter/track) > `BULK` (download all). Progress % is shown only for the **currently active** download in a batch; queued items show icon until their turn.
 - **Auth:** expired JWT while **offline** ≠ logout; refresh tokens **only when online**; never block cold start with synchronous JWT exp check without network.
@@ -60,7 +61,9 @@
 - **Online Auth → login (incl. reinstall):** brief splash for a **bounded** progress pull; on timeout/offline open the shell with local cache. Do not hang the UI on bad network.
 - **Push gate:** do not HTTP-push audiobook progress until a successful progress pull for the current hydrated user. Persist hydrated user id across process starts for the same account; clear on logout.
 - **Wipe-safe hydrate:** if local progress was empty at session start (reinstall), the first successful pull applies server rows to both play head and server snapshot. If local play head already existed, pull/Realtime update **server snapshot only** while `pending_sync` (do not silently overwrite listening). Do not auto-flush pending for a book with an active local↔server conflict.
-- **CAS:** PUT sends `base_revision` (= last known server revision; `0` only when creating the first server row). Mismatch → 409 + current progress; refresh snapshot; do not loop dialogs in the same tap.
+- **CAS:** PUT sends `base_revision` (= last known server revision; `0` only when creating the first server row). Mismatch → 409 + current progress; refresh snapshot; **retry push once** if local is still auto-flushable (e.g. device listened ahead); do not loop dialogs in the same tap.
+- **Reconnect:** when the client comes back online, pull then flush pending (same gate as cold start — never push before hydrate).
+- **Profile pending:** «Ожидает» reflects `pending_sync` count and must refresh when progress saves / sync completes (not only on screen open).
 
 ```mermaid
 flowchart TD
@@ -168,12 +171,14 @@ flowchart TD
 **Expected behavior:**
 
 1. Resolve target via `resolveCycleResumeTarget`: book with the **most recent** real listen progress (`updatedAt`, `listenedMs > 0`) — same winner as Continue UI. Reset heads (first chapter @ 0 / «не прослушанным») are ignored. If none → first chapter of first book.
-2. **Online:** `awaitTrack` `PLAY` for target chapter → `playQueue` from resume position.
-3. **Offline** without local target file → error, playback does **not** start; **no** forward walk to another downloaded chapter.
+2. Before download/start, apply **A3b** if that resume book's local play head and server snapshot diverge. Choice then re-resolves resume and continues play-cycle. **A7b/A7 do not** apply (A1 already resumes the latest listen).
+3. **Online:** `awaitTrack` `PLAY` for target chapter → `playQueue` from resume position.
+4. **Offline** without local target file → error, playback does **not** start; **no** forward walk to another downloaded chapter.
+5. On successful start, persist play head immediately (`positionMs ≥ 1` when starting a fresh head).
 
-**UI signals:** Error message on offline/fail; player does not start wrong chapter.
+**UI signals:** Error message on offline/fail; player does not start wrong chapter; sync-conflict dialog on Library when A3b applies.
 
-**Domain anchors:** `resolveCycleResumeTarget`, `orderedCycleEntriesFromResume`.
+**Domain anchors:** `resolveCycleResumeTarget`, `orderedCycleEntriesFromResume`, progress conflict helper.
 
 ---
 
@@ -199,10 +204,12 @@ flowchart TD
 
 **Expected behavior:**
 
-1. If partial progress → «Продолжить» with resume metadata.
+1. If partial progress → «Продолжить» with resume metadata. Unknown chapter `duration_ms` must not hide Continue when `position_ms > 0` (resume still works from the stored play head). When the current chapter is ≥95% complete but later chapters remain, Continue **label and playback** target the **next** chapter (same as cycle resume).
 2. If no history and book not fully listened → «Воспроизвести» (first chapter).
 3. Before starting, apply **A3b** if local play head and server snapshot diverge.
 4. Continue/Play downloads target chapter if online; offline without local file → error, no skip.
+5. Catalog cycle cards refresh when local progress updates (save / sync), including after listening from book detail.
+6. Successful progress PUT clears `pending_sync` (apply server as play-head authority). Do not re-merge push responses through the pull path that keeps pending.
 
 **UI signals:** Primary play button («Продолжить» / «Воспроизвести»); chapter list. Transport controls live in the **mini player / now playing** only — not embedded in book detail.
 

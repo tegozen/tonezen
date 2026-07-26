@@ -83,6 +83,7 @@ class LibraryViewModel @Inject constructor(
         catalogLoader = catalogLoader,
         sessionRepository = sessionRepository,
         catalogSyncRepository = catalogSyncRepository,
+        progressSyncRepository = progressSyncRepository,
         networkMonitor = networkMonitor,
         playbackClient = playbackClient,
         playbackEvents = playbackEvents,
@@ -119,6 +120,12 @@ class LibraryViewModel @Inject constructor(
     }
 
     fun toggleCyclePlay(cycle: Cycle) = cycleHandler.toggleCyclePlay(cycle)
+
+    fun dismissCycleProgressSyncConflict() = cycleHandler.dismissCycleProgressSyncConflict()
+
+    fun chooseCycleProgressSyncLocal() = cycleHandler.chooseCycleProgressSyncLocal()
+
+    fun chooseCycleProgressSyncServer() = cycleHandler.chooseCycleProgressSyncServer()
 
     fun downloadCycle(cycle: Cycle) = cycleHandler.downloadCycle(cycle)
 

@@ -24,6 +24,14 @@ data class CycleCardState(
     val isListened: Boolean = false,
 )
 
+/** A3b prompt before play-cycle when resume book's local/cloud heads diverge. */
+data class CycleProgressSyncConflictPrompt(
+    val cycleId: String,
+    val bookId: String,
+    val localLabel: String,
+    val serverLabel: String,
+)
+
 data class LibraryUiState(
     val isSessionLoaded: Boolean = false,
     val isBootstrapComplete: Boolean = false,
@@ -43,4 +51,5 @@ data class LibraryUiState(
     val nowPlayingTitle: String? = null,
     val cyclePlaybackErrorMessage: String? = null,
     val progressUpdatedAtByBookId: Map<String, Long> = emptyMap(),
+    val confirmProgressSyncConflict: CycleProgressSyncConflictPrompt? = null,
 )

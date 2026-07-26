@@ -39,10 +39,19 @@ export function usePlaybackSeekControls({
       const durationSec = durationSecondsForSeek(audio, track);
       if (durationSec <= 0) return;
       audio.currentTime = Math.max(0, Math.min(durationSec, durationSec * fraction));
-      setPositionMs(Math.floor(audio.currentTime * 1000));
+      const positionMs = Math.floor(audio.currentTime * 1000);
+      setPositionMs(positionMs);
       syncPositionState();
+      saveAudiobookProgress(positionMs);
     },
-    [audioRef, currentTrackRef, durationSecondsForSeek, setPositionMs, syncPositionState],
+    [
+      audioRef,
+      currentTrackRef,
+      durationSecondsForSeek,
+      saveAudiobookProgress,
+      setPositionMs,
+      syncPositionState,
+    ],
   );
 
   const pauseOrResume = useCallback(() => {
@@ -69,10 +78,19 @@ export function usePlaybackSeekControls({
       const durationSec = durationSecondsForSeek(audio, track);
       const next = Math.max(0, audio.currentTime + deltaMs / 1000);
       audio.currentTime = durationSec > 0 ? Math.min(durationSec, next) : next;
-      setPositionMs(Math.floor(audio.currentTime * 1000));
+      const positionMs = Math.floor(audio.currentTime * 1000);
+      setPositionMs(positionMs);
       syncPositionState();
+      saveAudiobookProgress(positionMs);
     },
-    [audioRef, currentTrackRef, durationSecondsForSeek, setPositionMs, syncPositionState],
+    [
+      audioRef,
+      currentTrackRef,
+      durationSecondsForSeek,
+      saveAudiobookProgress,
+      setPositionMs,
+      syncPositionState,
+    ],
   );
 
   const cycleSpeed = useCallback(() => {

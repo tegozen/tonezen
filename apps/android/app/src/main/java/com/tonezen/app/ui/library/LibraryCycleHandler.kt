@@ -51,6 +51,12 @@ internal class LibraryCycleHandler(
 
     fun toggleCyclePlay(cycle: Cycle) = ctx.toggleCyclePlay(cycle)
 
+    fun dismissCycleProgressSyncConflict() = ctx.dismissCycleProgressSyncConflict()
+
+    fun chooseCycleProgressSyncLocal() = ctx.chooseCycleProgressSyncLocal()
+
+    fun chooseCycleProgressSyncServer() = ctx.chooseCycleProgressSyncServer()
+
     fun downloadCycle(cycle: Cycle) = ctx.downloadCycle(cycle)
 
     fun removeCycleDownloads(cycle: Cycle) = ctx.removeCycleDownloads(cycle)

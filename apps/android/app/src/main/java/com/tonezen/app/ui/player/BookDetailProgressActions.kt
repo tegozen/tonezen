@@ -107,10 +107,17 @@ internal class BookDetailProgressActions(
         )
         val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
         progressSyncRepository.saveLocal(progress, pendingSync = true, session?.accessToken)
+        val stored = catalogRepository.getProgress(bookId)
+        val book = uiState.value.book
+        val status = if (book != null && book.id == bookId) {
+            resolveSyncStatus(book, stored ?: progress)
+        } else {
+            SyncDisplayStatus.PENDING
+        }
         uiState.update {
             it.copy(
-                audiobookProgress = progress,
-                syncStatus = SyncDisplayStatus.PENDING,
+                audiobookProgress = stored ?: progress,
+                syncStatus = status,
             )
         }
     }

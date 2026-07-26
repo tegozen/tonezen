@@ -13,6 +13,7 @@ import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.AudiobookPlaybackIntent
 import com.tonezen.app.domain.progress.findCycleContainingBook
 import com.tonezen.app.domain.progress.resolveAudiobookPlaybackIntent
+import com.tonezen.app.domain.progress.resolveBookContinuePlayHead
 import com.tonezen.app.domain.progress.resolveEarlierCycleBookConfirm
 import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
@@ -205,9 +206,12 @@ internal class BookDetailPlaybackActions(
         withContext(Dispatchers.IO) {
             progressSyncRepository.saveLocal(progress, pendingSync = true, session?.accessToken)
         }
+        val stored = withContext(Dispatchers.IO) {
+            catalogRepository.getProgress(bookId)
+        }
         uiState.update {
             it.copy(
-                audiobookProgress = progress,
+                audiobookProgress = stored ?: progress,
                 syncStatus = SyncDisplayStatus.PENDING,
             )
         }
@@ -278,14 +282,9 @@ internal class BookDetailPlaybackActions(
 
     fun continueListening() {
         val state = uiState.value
-        val progress = state.audiobookProgress
         val tracks = state.tracks.sortedBy { it.sortOrder }
-        val track = if (progress != null) {
-            tracks.find { it.id == progress.trackId } ?: tracks.firstOrNull()
-        } else {
-            tracks.firstOrNull()
-        } ?: return
-        playTrack(track)
+        val head = resolveBookContinuePlayHead(tracks, state.audiobookProgress) ?: return
+        playTrack(head.track)
     }
 
     fun pauseOrResume() {
@@ -300,12 +299,24 @@ internal class BookDetailPlaybackActions(
     fun seekBy(deltaMs: Long) {
         if (!uiState.value.isPlaybackActiveForBook) return
         playbackClient.seekBy(deltaMs)
+        persistSeekProgress(playbackClient.snapshot.value.positionMs)
     }
 
     fun seekToFraction(fraction: Float) {
         val durationMs = playbackProgress.value.durationMs
         if (!uiState.value.isPlaybackActiveForBook || durationMs <= 0L) return
-        playbackClient.seekTo((durationMs * fraction.coerceIn(0f, 1f)).toLong())
+        val positionMs = (durationMs * fraction.coerceIn(0f, 1f)).toLong()
+        playbackClient.seekTo(positionMs)
+        persistSeekProgress(positionMs)
+    }
+
+    private fun persistSeekProgress(positionMs: Long) {
+        val book = uiState.value.book ?: return
+        if (book.contentType != ContentType.AUDIOBOOK) return
+        val trackId = uiState.value.activeTrackId ?: return
+        scope.launch {
+            persistPlaybackProgress(book.id, trackId, positionMs)
+        }
     }
 
     fun clearPlaybackError() {

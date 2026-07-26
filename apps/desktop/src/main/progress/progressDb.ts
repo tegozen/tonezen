@@ -194,9 +194,15 @@ export const ProgressDb = {
     const userId = requireUserId();
     getDb()
       .prepare(
-        `UPDATE audiobook_progress SET pending_sync = 0, revision = ? WHERE user_id = ? AND book_id = ?`,
+        `UPDATE audiobook_progress
+         SET pending_sync = 0,
+             revision = ?,
+             server_track_id = track_id,
+             server_position_ms = position_ms,
+             server_revision = ?
+         WHERE user_id = ? AND book_id = ?`,
       )
-      .run(revision, userId, bookId);
+      .run(revision, revision, userId, bookId);
   },
 
   setConflictChoiceKey(bookId: string, key: string | null): void {

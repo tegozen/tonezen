@@ -6,6 +6,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import com.tonezen.app.data.local.LocalLibraryNotifier
 import com.tonezen.app.data.network.NetworkMonitor
 import com.tonezen.app.data.remote.CatalogSyncRepository
+import com.tonezen.app.data.remote.ProgressSyncRepository
 import com.tonezen.app.data.remote.SessionRepository
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.SessionState
@@ -29,6 +30,7 @@ internal class LibrarySessionObserver(
     private val catalogLoader: LibraryCatalogLoader,
     private val sessionRepository: SessionRepository,
     private val catalogSyncRepository: CatalogSyncRepository,
+    private val progressSyncRepository: ProgressSyncRepository,
     private val networkMonitor: NetworkMonitor,
     private val playbackClient: PlaybackClient,
     private val playbackEvents: PlaybackEvents,
@@ -62,9 +64,37 @@ internal class LibrarySessionObserver(
             },
         )
         scope.launch {
+            var wasOnline = networkMonitor.isOnline()
             networkMonitor.online.collect { online ->
                 uiState.update { it.copy(isNetworkOnline = online) }
+                if (online && !wasOnline) {
+                    val sessionData = sessionRepository.loadSession()
+                    if (sessionData != null) {
+                        try {
+                            val refreshed = sessionRepository.refreshIfNeeded(sessionData)
+                            if (refreshed != null) {
+                                // Pull then flush — same as Desktop reconnect; never push before hydrate.
+                                progressSyncRepository.pullAll(refreshed.accessToken)
+                                progressSyncRepository.flushPending(refreshed.accessToken)
+                            }
+                        } catch (_: Exception) {
+                        }
+                    }
+                }
+                wasOnline = online
             }
+        }
+        scope.launch {
+            progressSyncRepository.updates
+                .debounce(LOCAL_LIBRARY_REFRESH_DEBOUNCE_MS)
+                .collect { progress ->
+                    val cycles = uiState.value.cycles.filter { cycle ->
+                        cycle.books.any { it.id == progress.bookId }
+                    }
+                    if (cycles.isNotEmpty()) {
+                        cycleHandler.refreshCycleCardStates(cycles, uiState.value.downloadedBookIds)
+                    }
+                }
         }
         scope.launch {
             sessionRepository.isLoaded.collectLatest { loaded ->

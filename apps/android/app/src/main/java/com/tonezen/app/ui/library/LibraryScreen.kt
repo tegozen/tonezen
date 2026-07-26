@@ -30,6 +30,7 @@ import com.tonezen.app.ui.components.OfflineBanner
 import com.tonezen.app.ui.components.SearchRow
 import com.tonezen.app.ui.components.TonezenTopChromeBar
 import com.tonezen.app.domain.model.Cycle
+import com.tonezen.app.ui.player.ProgressSyncConflictDialog
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
 import com.tonezen.app.ui.theme.TonezenChromeHeaderRowHeight
 import com.tonezen.app.ui.theme.TonezenInk
@@ -62,6 +63,10 @@ internal fun LibraryScreen(
     onSortOrderChange: (com.tonezen.app.domain.library.LibrarySortOrder) -> Unit,
     cyclePlaybackErrorMessage: String?,
     onDismissCyclePlaybackError: () -> Unit,
+    confirmProgressSyncConflict: CycleProgressSyncConflictPrompt?,
+    onDismissProgressSyncConflict: () -> Unit,
+    onChooseProgressSyncLocal: () -> Unit,
+    onChooseProgressSyncServer: () -> Unit,
     showMiniPlayer: Boolean,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -179,5 +184,14 @@ internal fun LibraryScreen(
                 onFilterClick = onFilterClick,
             )
         }
+        ProgressSyncConflictDialog(
+            visible = confirmProgressSyncConflict != null,
+            localLabel = confirmProgressSyncConflict?.localLabel.orEmpty(),
+            serverLabel = confirmProgressSyncConflict?.serverLabel.orEmpty(),
+            hazeState = hazeState,
+            onDismiss = onDismissProgressSyncConflict,
+            onChooseLocal = onChooseProgressSyncLocal,
+            onChooseServer = onChooseProgressSyncServer,
+        )
     }
 }

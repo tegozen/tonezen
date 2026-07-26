@@ -62,7 +62,7 @@ internal fun LibraryCycleHandlerContext.markCycleUnlistened(cycle: Cycle) {
                 val firstTrack = tracksByBookId[book.id].orEmpty().sortedBy { it.sortOrder }.firstOrNull()
                     ?: continue
                 // Reset via synced play head (pos 0) — local delete alone is restored by pull.
-                persistAudiobookProgress(book.id, firstTrack.id, 0L)
+                persistAudiobookProgress(book.id, firstTrack.id, 0L, allowZero = true)
             }
         }
         refreshCycleCardStates(listOf(cycle), uiState.value.downloadedBookIds)

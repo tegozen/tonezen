@@ -5,6 +5,7 @@ import {
   findCycleContainingBook,
   resolveEarlierCycleBookConfirm,
 } from "@core/playback/cycleListenProgress";
+import { resolveBookContinuePlayHead } from "@/entities/catalog/lib/bookTrackUtils";
 import { getTonezenApi, useSaveProgressMutation } from "@/shared/api";
 import type { UseAudiobookSessionOptions } from "./audiobookSessionTypes";
 import type { ProgressSyncConflictPromptModel } from "../ui/ProgressSyncConflictPrompt";
@@ -25,6 +26,9 @@ type UseAudiobookProgressActionsOptions = Pick<
     track: Track,
     startMs: number,
   ) => Promise<boolean>;
+  /** Finish play-cycle after A3b (skip A7b). */
+  resumePendingCyclePlay?: () => Promise<void>;
+  clearPendingCyclePlay?: () => void;
 };
 
 export type EarlierCycleBookPromptModel = {
@@ -50,6 +54,8 @@ export function useAudiobookProgressActions({
   cycles,
   tracksByBookId,
   playAudiobookTrackResolved,
+  resumePendingCyclePlay,
+  clearPendingCyclePlay,
 }: UseAudiobookProgressActionsOptions) {
   const api = getTonezenApi();
   const saveProgress = useSaveProgressMutation();
@@ -60,6 +66,8 @@ export function useAudiobookProgressActions({
   const [syncConflictModel, setSyncConflictModel] = useState<ProgressSyncConflictPromptModel | null>(
     null,
   );
+  /** When set, A3b choice resumes play-cycle instead of chapter tap. */
+  const [cycleConflictActive, setCycleConflictActive] = useState(false);
 
   const playBookTrack = useCallback(
     async (
@@ -73,6 +81,7 @@ export function useAudiobookProgressActions({
         skipSyncConflictPrompt: options?.skipSyncConflictPrompt,
       });
       if (intent.kind === "ConfirmProgressSyncConflict") {
+        setCycleConflictActive(false);
         setSyncConflictTrack(track);
         setSyncConflictModel({
           localLabel: formatPositionLabel(tracks, intent.localTrackId, intent.localPositionMs),
@@ -101,7 +110,6 @@ export function useAudiobookProgressActions({
       const startMs = intent.kind === "Resume" ? intent.positionMs : 0;
       const started = await playAudiobookTrackResolved(selectedBook, tracks, track, startMs);
       if (!started) return;
-      // Play-start must count as real progress (0 is reserved for «unlistened»).
       await saveProgress.mutateAsync({
         bookId: selectedBook.id,
         trackId: track.id,
@@ -155,10 +163,8 @@ export function useAudiobookProgressActions({
     if (!selectedBook) return;
     const sortedTracks = [...tracks].sort((a, b) => a.sortOrder - b.sortOrder);
     const saved = progressByBook.get(selectedBook.id);
-    const track = saved
-      ? sortedTracks.find((item) => item.id === saved.trackId) ?? sortedTracks[0]
-      : sortedTracks[0];
-    if (track) await playBookTrack(track);
+    const head = resolveBookContinuePlayHead(sortedTracks, saved);
+    if (head) await playBookTrack(head.track);
   }, [playBookTrack, progressByBook, selectedBook, tracks]);
 
   const dismissEarlierChapterPrompt = useCallback(() => setEarlierChapterPrompt(null), []);
@@ -198,44 +204,88 @@ export function useAudiobookProgressActions({
   const dismissSyncConflictPrompt = useCallback(() => {
     setSyncConflictTrack(null);
     setSyncConflictModel(null);
-  }, []);
+    setCycleConflictActive(false);
+    clearPendingCyclePlay?.();
+  }, [clearPendingCyclePlay]);
 
   const chooseSyncConflictLocal = useCallback(async () => {
-    if (!selectedBook || !syncConflictTrack) return;
+    if (!selectedBook) return;
+    const fromCycle = cycleConflictActive;
     const track = syncConflictTrack;
-    dismissSyncConflictPrompt();
+    setSyncConflictTrack(null);
+    setSyncConflictModel(null);
+    setCycleConflictActive(false);
     await api.progress.chooseLocal(selectedBook.id);
     await refreshLibrary();
-    await playBookTrack(track, { skipSyncConflictPrompt: true });
+    if (fromCycle) {
+      await resumePendingCyclePlay?.();
+      return;
+    }
+    clearPendingCyclePlay?.();
+    if (track) await playBookTrack(track, { skipSyncConflictPrompt: true });
   }, [
     api.progress,
-    dismissSyncConflictPrompt,
+    clearPendingCyclePlay,
+    cycleConflictActive,
     playBookTrack,
     refreshLibrary,
+    resumePendingCyclePlay,
     selectedBook,
     syncConflictTrack,
   ]);
 
   const chooseSyncConflictServer = useCallback(async () => {
     if (!selectedBook) return;
-    dismissSyncConflictPrompt();
+    const fromCycle = cycleConflictActive;
+    setSyncConflictTrack(null);
+    setSyncConflictModel(null);
+    setCycleConflictActive(false);
     const applied = await api.progress.chooseServer(selectedBook.id);
     await refreshLibrary();
-    if (!applied) return;
+    if (!applied) {
+      clearPendingCyclePlay?.();
+      return;
+    }
+    if (fromCycle) {
+      await resumePendingCyclePlay?.();
+      return;
+    }
+    clearPendingCyclePlay?.();
     const sortedTracks = [...tracks].sort((a, b) => a.sortOrder - b.sortOrder);
     const track =
       sortedTracks.find((item) => item.id === applied.trackId) ?? sortedTracks[0] ?? null;
     if (track) {
-      await playAudiobookTrackResolved(selectedBook, tracks, track, applied.positionMs);
+      const started = await playAudiobookTrackResolved(
+        selectedBook,
+        tracks,
+        track,
+        applied.positionMs,
+      );
+      if (!started) return;
+      await saveProgress.mutateAsync({
+        bookId: selectedBook.id,
+        trackId: track.id,
+        positionMs: Math.max(1, applied.positionMs),
+      });
+      await refreshLibrary();
     }
   }, [
     api.progress,
-    dismissSyncConflictPrompt,
+    clearPendingCyclePlay,
+    cycleConflictActive,
     playAudiobookTrackResolved,
     refreshLibrary,
+    resumePendingCyclePlay,
+    saveProgress,
     selectedBook,
     tracks,
   ]);
+
+  const beginCycleSyncConflict = useCallback((model: ProgressSyncConflictPromptModel) => {
+    setCycleConflictActive(true);
+    setSyncConflictTrack(null);
+    setSyncConflictModel(model);
+  }, []);
 
   return {
     earlierChapterPrompt,
@@ -245,6 +295,7 @@ export function useAudiobookProgressActions({
     dismissEarlierCycleBookPrompt,
     confirmEarlierCycleBookPrompt,
     syncConflictModel,
+    beginCycleSyncConflict,
     dismissSyncConflictPrompt,
     chooseSyncConflictLocal,
     chooseSyncConflictServer,

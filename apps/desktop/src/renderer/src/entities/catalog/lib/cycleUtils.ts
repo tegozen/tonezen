@@ -1,5 +1,10 @@
 import type { AudiobookProgress, Book, Cycle, Track } from "@core/types";
-import { cycleBookIds, resolveBookListenedMs } from "@core/playback/cycleListenProgress";
+import {
+  cycleBookIds,
+  isCycleFullyListened,
+  resolveBookListenedMs,
+  resolveCycleListenFraction,
+} from "@core/playback/cycleListenProgress";
 import type { LibraryFilter } from "@core/platform/navigation";
 import { canContinueBookListening, type BookContinueState } from "./bookTrackUtils";
 
@@ -65,26 +70,13 @@ export function computeCycleCardState(
   const showDownload = !isDownloaded && cycleTracks.some((track) => !track.localPath);
   const showRemoveDownload = cycleTracks.some((track) => Boolean(track.localPath));
 
-  let totalTracks = 0;
-  let completedTracks = 0;
+  const progressByBookId = new Map<string, AudiobookProgress | null | undefined>();
   for (const bookId of bookIds) {
-    const bookTracks = tracksByBookId.get(bookId) ?? [];
-    totalTracks += bookTracks.length;
-    const progress = progressByBook.get(bookId);
-    if (!progress) continue;
-    const progressTrack = bookTracks.find((t) => t.id === progress.trackId);
-    const progressSortOrder = progressTrack?.sortOrder ?? Infinity;
-    for (const track of bookTracks) {
-      if (track.id === progress.trackId && progress.positionMs >= (track.durationMs ?? 0) * 0.95) {
-        completedTracks += 1;
-      } else if (track.sortOrder < progressSortOrder) {
-        completedTracks += 1;
-      }
-    }
+    progressByBookId.set(bookId, progressByBook.get(bookId));
   }
-
-  const progressFraction = totalTracks > 0 ? completedTracks / totalTracks : null;
-  const isListened = progressFraction != null && progressFraction >= 0.99;
+  const fraction = resolveCycleListenFraction(cycle, tracksByBookId, progressByBookId);
+  const progressFraction = fraction != null && fraction > 0 ? fraction : null;
+  const isListened = isCycleFullyListened(cycle, tracksByBookId, progressByBookId);
   const continueState = resolveCycleContinueState(cycle, tracksByBookId, progressByBook);
 
   return { isDownloaded, progressFraction, continueState, showDownload, showRemoveDownload, isListened };

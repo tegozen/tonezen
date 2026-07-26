@@ -129,6 +129,10 @@ internal fun AppShellRoutes(
                 onSortOrderChange = libraryViewModel::setSortOrder,
                 cyclePlaybackErrorMessage = libraryState.cyclePlaybackErrorMessage,
                 onDismissCyclePlaybackError = libraryViewModel::clearCyclePlaybackError,
+                confirmProgressSyncConflict = libraryState.confirmProgressSyncConflict,
+                onDismissProgressSyncConflict = libraryViewModel::dismissCycleProgressSyncConflict,
+                onChooseProgressSyncLocal = libraryViewModel::chooseCycleProgressSyncLocal,
+                onChooseProgressSyncServer = libraryViewModel::chooseCycleProgressSyncServer,
                 showMiniPlayer = shellState.showMiniPlayer,
             )
         }

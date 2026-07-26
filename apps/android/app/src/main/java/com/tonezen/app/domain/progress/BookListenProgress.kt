@@ -10,6 +10,38 @@ data class BookContinueState(
     val positionMs: Long,
 )
 
+/** Where Continue / resume should actually start (advances past a ≥95% chapter). */
+data class BookContinuePlayHead(
+    val track: Track,
+    val positionMs: Long,
+)
+
+fun resolveBookContinuePlayHead(
+    tracks: List<Track>,
+    progress: AudiobookProgress?,
+): BookContinuePlayHead? {
+    val sortedTracks = tracks.sortedBy { it.sortOrder }
+    if (sortedTracks.isEmpty()) return null
+    if (progress == null) {
+        return BookContinuePlayHead(sortedTracks.first(), 0L)
+    }
+    val index = sortedTracks.indexOfFirst { it.id == progress.trackId }
+    if (index < 0) {
+        return BookContinuePlayHead(sortedTracks.first(), 0L)
+    }
+    val track = sortedTracks[index]
+    val durationMs = track.durationMs ?: 0L
+    val isComplete = durationMs > 0L &&
+        progress.positionMs >= (durationMs * COMPLETED_FRACTION_THRESHOLD).toLong()
+    if (!isComplete) {
+        return BookContinuePlayHead(track, progress.positionMs.coerceAtLeast(0L))
+    }
+    if (index < sortedTracks.lastIndex) {
+        return BookContinuePlayHead(sortedTracks[index + 1], 0L)
+    }
+    return null
+}
+
 fun canContinueBookListening(
     bookId: String,
     tracks: List<Track>,
@@ -18,26 +50,11 @@ fun canContinueBookListening(
     if (bookId.isBlank() || progress == null || progress.bookId != bookId || tracks.isEmpty()) return null
 
     val sortedTracks = tracks.sortedBy { it.sortOrder }
-    val savedTrack = sortedTracks.find { it.id == progress.trackId && it.bookId == bookId } ?: return null
+    if (!hasMeaningfulAudiobookProgress(sortedTracks, progress)) return null
+    if (isBookFullyListened(sortedTracks, progress)) return null
 
-    val isBookListened = sortedTracks.all { track ->
-        track.sortOrder < savedTrack.sortOrder ||
-            (track.id == savedTrack.id &&
-                progress.positionMs >= (track.durationMs ?: 0L) * COMPLETED_FRACTION_THRESHOLD)
-    }
-    if (isBookListened) return null
-
-    val progressByTrack = buildBookTrackProgress(
-        tracks = sortedTracks,
-        savedTrackId = progress.trackId,
-        savedPositionMs = progress.positionMs,
-        activeTrackId = null,
-        livePositionMs = 0L,
-    )
-    val fraction = progressByTrack[savedTrack.id] ?: return null
-    if (fraction <= 0f || fraction >= COMPLETED_FRACTION_THRESHOLD) return null
-
-    return BookContinueState(trackTitle = savedTrack.title, positionMs = progress.positionMs)
+    val head = resolveBookContinuePlayHead(sortedTracks, progress) ?: return null
+    return BookContinueState(trackTitle = head.track.title, positionMs = head.positionMs)
 }
 
 fun buildBookTrackProgress(

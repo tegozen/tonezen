@@ -8,7 +8,9 @@ import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.CycleResumeTarget
+import com.tonezen.app.domain.progress.ProgressMerger
 import com.tonezen.app.domain.progress.orderedCycleEntriesFromResume
+import com.tonezen.app.domain.progress.resolveBookContinuePlayHead
 import com.tonezen.app.domain.progress.resolveCycleResumeTarget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
@@ -39,13 +41,53 @@ internal fun LibraryCycleHandlerContext.toggleCyclePlay(cycle: Cycle) {
     }
     cyclePlayJob?.cancel()
     playbackClient.stopAndRelease()
-    cyclePlayJob = scope.launch { playCycleInternal(cycle) }
+    cyclePlayJob = scope.launch { playCycleInternal(cycle, skipSyncConflictPrompt = false) }
 }
 
-internal suspend fun LibraryCycleHandlerContext.playCycleInternal(cycle: Cycle) {
+internal fun LibraryCycleHandlerContext.dismissCycleProgressSyncConflict() {
+    uiState.update {
+        it.copy(
+            confirmProgressSyncConflict = null,
+            cyclePlayback = CyclePlaybackUi(),
+        )
+    }
+}
+
+internal fun LibraryCycleHandlerContext.chooseCycleProgressSyncLocal() {
+    val prompt = uiState.value.confirmProgressSyncConflict ?: return
+    val cycle = uiState.value.cycles.find { it.id == prompt.cycleId } ?: return
+    uiState.update { it.copy(confirmProgressSyncConflict = null) }
+    cyclePlayJob?.cancel()
+    cyclePlayJob = scope.launch {
+        withContext(Dispatchers.IO) {
+            val sessionData = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
+            progressSyncRepository.chooseLocalProgress(prompt.bookId, sessionData?.accessToken)
+        }
+        playCycleInternal(cycle, skipSyncConflictPrompt = true)
+    }
+}
+
+internal fun LibraryCycleHandlerContext.chooseCycleProgressSyncServer() {
+    val prompt = uiState.value.confirmProgressSyncConflict ?: return
+    val cycle = uiState.value.cycles.find { it.id == prompt.cycleId } ?: return
+    uiState.update { it.copy(confirmProgressSyncConflict = null) }
+    cyclePlayJob?.cancel()
+    cyclePlayJob = scope.launch {
+        withContext(Dispatchers.IO) {
+            progressSyncRepository.chooseServerProgress(prompt.bookId)
+        }
+        playCycleInternal(cycle, skipSyncConflictPrompt = true)
+    }
+}
+
+internal suspend fun LibraryCycleHandlerContext.playCycleInternal(
+    cycle: Cycle,
+    skipSyncConflictPrompt: Boolean,
+) {
     uiState.update {
         it.copy(
             cyclePlaybackErrorMessage = null,
+            confirmProgressSyncConflict = null,
             cyclePlayback = CyclePlaybackUi(
                 cycleId = cycle.id,
                 isPreparing = true,
@@ -58,7 +100,7 @@ internal suspend fun LibraryCycleHandlerContext.playCycleInternal(cycle: Cycle) 
         catalogRepository.getTracksByBookIds(bookIds) to
             catalogRepository.getProgressByBookIds(bookIds)
     }
-    val resume = resolveCycleResumeTarget(cycle, tracksByBookId, progressByBookId)
+    var resume = resolveCycleResumeTarget(cycle, tracksByBookId, progressByBookId)
     if (resume == null) {
         uiState.update {
             it.copy(
@@ -68,6 +110,49 @@ internal suspend fun LibraryCycleHandlerContext.playCycleInternal(cycle: Cycle) 
         }
         return
     }
+
+    val resumeProgress = progressByBookId[resume.book.id]
+    if (!skipSyncConflictPrompt && ProgressMerger.shouldPrompt(resumeProgress)) {
+        val snapshot = ProgressMerger.getServerSnapshot(resumeProgress)!!
+        val bookTracks = tracksByBookId[resume.book.id].orEmpty()
+        uiState.update {
+            it.copy(
+                cyclePlayback = CyclePlaybackUi(),
+                confirmProgressSyncConflict = CycleProgressSyncConflictPrompt(
+                    cycleId = cycle.id,
+                    bookId = resume.book.id,
+                    localLabel = formatCycleProgressLabel(
+                        bookTracks,
+                        resumeProgress!!.trackId,
+                        resumeProgress.positionMs,
+                    ),
+                    serverLabel = formatCycleProgressLabel(
+                        bookTracks,
+                        snapshot.trackId,
+                        snapshot.positionMs,
+                    ),
+                ),
+            )
+        }
+        return
+    }
+
+    // After A3b choice, play head may have changed — re-resolve against refreshed progress.
+    if (skipSyncConflictPrompt) {
+        val refreshedProgress = withContext(Dispatchers.IO) {
+            catalogRepository.getProgressByBookIds(bookIds)
+        }
+        resume = resolveCycleResumeTarget(cycle, tracksByBookId, refreshedProgress) ?: resume
+        val bookProgress = refreshedProgress[resume.book.id]
+        val head = resolveBookContinuePlayHead(
+            tracksByBookId[resume.book.id].orEmpty(),
+            bookProgress,
+        )
+        if (head != null) {
+            resume = CycleResumeTarget(resume.book, head.track, head.positionMs)
+        }
+    }
+
     val entries = orderedCycleEntriesFromResume(cycle, tracksByBookId, resume)
     if (entries.isEmpty()) {
         uiState.update {
@@ -145,9 +230,21 @@ internal suspend fun LibraryCycleHandlerContext.playCycleInternal(cycle: Cycle) 
         queueResult.startIndex,
         resume.startPositionMs,
     )
+    // Persist play head immediately (same as book detail) so Continue does not wait for 15s throttle.
+    withContext(Dispatchers.IO) {
+        persistAudiobookProgress(resume.book.id, resume.track.id, resume.startPositionMs)
+    }
     prefetchNextCycleChapter(cycle, tracksByBookId, resume)
     refreshDownloadedBooks()
     refreshCycleCardStates(listOf(cycle), uiState.value.downloadedBookIds)
+}
+
+private fun formatCycleProgressLabel(tracks: List<Track>, trackId: String, positionMs: Long): String {
+    val title = tracks.find { it.id == trackId }?.title ?: "Глава"
+    val totalSec = (positionMs / 1000L).coerceAtLeast(0L)
+    val min = totalSec / 60L
+    val sec = totalSec % 60L
+    return "$title · $min:${sec.toString().padStart(2, '0')}"
 }
 
 internal fun LibraryCycleHandlerContext.playbackErrorMessageForAwait(result: DownloadAwaitResult): String =
