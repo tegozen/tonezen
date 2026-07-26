@@ -119,10 +119,19 @@ export class CatalogSyncService {
     const books = await this.fetchBooks();
     LocalDatabase.upsertBooks(books);
     LocalDatabase.upsertCycles(cycles);
+    const bookIds = books.map((book) => book.id);
+    const cycleIds = cycles.map((cycle) => cycle.id);
+    LocalDatabase.deleteCyclesNotIn(cycleIds);
     for (const book of books) {
       const tracks = await this.fetchBookTracks(book.id);
       LocalDatabase.upsertTracks(tracks);
+      LocalDatabase.deleteTracksNotIn(
+        book.id,
+        tracks.map((track) => track.id),
+      );
     }
+    LocalDatabase.deleteTracksForBooksNotIn(bookIds);
+    LocalDatabase.deleteBooksNotIn(bookIds);
     return LocalDatabase.getBooks();
   }
 

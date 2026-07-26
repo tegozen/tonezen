@@ -39,6 +39,18 @@ export function upsertCycles(cycles: Cycle[]): void {
   tx(cycles);
 }
 
+/** Drop cycles removed from the remote catalog (full sync). */
+export function deleteCyclesNotIn(cycleIds: string[]): void {
+  if (cycleIds.length === 0) {
+    getDb().prepare(`DELETE FROM cycles`).run();
+    return;
+  }
+  const placeholders = cycleIds.map(() => "?").join(",");
+  getDb()
+    .prepare(`DELETE FROM cycles WHERE id NOT IN (${placeholders})`)
+    .run(...cycleIds);
+}
+
 export function createCatalogCyclesDb(deps: CatalogCyclesDeps) {
   const methods = {
     getCycles(allBooks?: Book[]): Cycle[] {

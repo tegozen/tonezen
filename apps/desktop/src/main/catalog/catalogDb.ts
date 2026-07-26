@@ -1,11 +1,18 @@
 import {
+  deleteBooksNotIn,
   getBooks,
   hydrateCycleBooks,
   upsertBooks,
 } from "./catalogBooksDb.js";
-import { createCatalogCyclesDb, type LibrarySnapshotOptions } from "./catalogCyclesDb.js";
+import {
+  createCatalogCyclesDb,
+  deleteCyclesNotIn,
+  type LibrarySnapshotOptions,
+} from "./catalogCyclesDb.js";
 import { createCatalogLocalPaths } from "./catalogLocalPaths.js";
 import {
+  deleteTracksForBooksNotIn,
+  deleteTracksNotIn,
   getAllTracks,
   getTrackById,
   getTracks,
@@ -29,13 +36,17 @@ const cycles = createCatalogCyclesDb({
 export const CatalogDb = {
   hydrateCycleBooks,
   upsertBooks,
+  deleteBooksNotIn,
   upsertTracks,
+  deleteTracksForBooksNotIn,
+  deleteTracksNotIn,
   setTrackLocalPath: localPaths.setTrackLocalPath,
   getTrackById,
   markTrackDownloaded: localPaths.markTrackDownloaded,
   resolveLocalTrackPath: localPaths.resolveLocalTrackPath,
   resolveLocalTrackPathForBook: localPaths.resolveLocalTrackPathForBook,
   upsertCycles: cycles.upsertCycles,
+  deleteCyclesNotIn,
   getCycles: cycles.getCycles,
   getLibrarySnapshot: cycles.getLibrarySnapshot,
   reconcileLocalDownloadPaths: localPaths.reconcileLocalDownloadPaths,

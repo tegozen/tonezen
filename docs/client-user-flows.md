@@ -46,7 +46,7 @@
 2. Read local session from storage (fast, always).
 3. Detect network.
 4. **Offline:** load local catalog + local audiobook progress → show UI immediately. No JWT refresh. No server pull.
-5. **Online + session:** `refreshIfNeeded` (do not logout on expired JWT if we were offline); pull audiobook progress; start catalog sync (may continue in background after UI).
+5. **Online + session:** `refreshIfNeeded` (do not logout on expired JWT if we were offline); pull audiobook progress; start catalog sync (may continue in background after UI). Full catalog sync **upserts then prunes** local books/cycles/tracks that are no longer on the server (storage wipe alone does not remove stale catalog rows).
 6. **No session:** show Auth after minimal local init.
 
 **UI signals:** Splash branding; no blank frame; main UI or Auth when bootstrap completes.

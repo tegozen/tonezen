@@ -26,6 +26,18 @@ export function upsertBooks(books: Book[]): void {
   tx(books);
 }
 
+/** Drop books removed from the remote catalog (full sync). */
+export function deleteBooksNotIn(bookIds: string[]): void {
+  if (bookIds.length === 0) {
+    getDb().prepare(`DELETE FROM books`).run();
+    return;
+  }
+  const placeholders = bookIds.map(() => "?").join(",");
+  getDb()
+    .prepare(`DELETE FROM books WHERE id NOT IN (${placeholders})`)
+    .run(...bookIds);
+}
+
 export function getBooks(): Book[] {
   const rows = getDb()
     .prepare(`SELECT id, slug, content_type, title, author FROM books ORDER BY title`)

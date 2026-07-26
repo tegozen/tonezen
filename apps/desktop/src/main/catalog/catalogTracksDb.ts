@@ -31,6 +31,30 @@ export function upsertTracks(tracks: Track[]): void {
   tx(tracks);
 }
 
+/** Drop tracks whose book is no longer in the remote catalog. */
+export function deleteTracksForBooksNotIn(bookIds: string[]): void {
+  if (bookIds.length === 0) {
+    getDb().prepare(`DELETE FROM tracks`).run();
+    return;
+  }
+  const placeholders = bookIds.map(() => "?").join(",");
+  getDb()
+    .prepare(`DELETE FROM tracks WHERE book_id NOT IN (${placeholders})`)
+    .run(...bookIds);
+}
+
+/** Drop tracks removed from a book during sync (keeps local_path rows only for remote ids). */
+export function deleteTracksNotIn(bookId: string, trackIds: string[]): void {
+  if (trackIds.length === 0) {
+    getDb().prepare(`DELETE FROM tracks WHERE book_id = ?`).run(bookId);
+    return;
+  }
+  const placeholders = trackIds.map(() => "?").join(",");
+  getDb()
+    .prepare(`DELETE FROM tracks WHERE book_id = ? AND id NOT IN (${placeholders})`)
+    .run(bookId, ...trackIds);
+}
+
 export function getTrackById(trackId: string): Track | null {
   const row = getDb()
     .prepare(
