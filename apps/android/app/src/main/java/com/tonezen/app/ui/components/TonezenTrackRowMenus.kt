@@ -93,6 +93,7 @@ internal fun DetailHeaderOverflowMenu(
     onRemoveDownloads: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    onBookWatch: (() -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
@@ -109,6 +110,12 @@ internal fun DetailHeaderOverflowMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
+            onBookWatch?.let { action ->
+                DropdownMenuItem(
+                    text = { Text("Отслеживание новинок", color = TonezenInk) },
+                    onClick = { expanded = false; action() },
+                )
+            }
             if (showRemoveDownload) {
                 DropdownMenuItem(
                     text = {

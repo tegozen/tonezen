@@ -109,6 +109,7 @@ internal fun SettingsGroup(
                 title = item.title,
                 subtitle = item.subtitle,
                 icon = item.icon,
+                badge = item.badge,
                 onClick = { onItemClick(item.action) },
             )
             if (index < items.lastIndex) {
@@ -123,6 +124,7 @@ private fun SettingsRow(
     title: String,
     subtitle: String,
     icon: @Composable () -> Unit,
+    badge: Int,
     onClick: () -> Unit,
 ) {
     Row(
@@ -144,7 +146,10 @@ private fun SettingsRow(
                 Text(subtitle, color = TonezenMuted, style = MaterialTheme.typography.bodySmall)
             }
         }
-        ChevronRightGlyph()
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (badge > 0) StatusChip(label = badge.toString(), tone = TonezenAmber)
+            ChevronRightGlyph()
+        }
     }
 }
 
@@ -153,4 +158,5 @@ internal data class SettingsItem(
     val title: String,
     val subtitle: String,
     val icon: @Composable () -> Unit,
+    val badge: Int = 0,
 )

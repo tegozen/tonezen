@@ -5,6 +5,7 @@ import {
   CatalogRepository,
   DownloadsRepository,
   ProgressRepository,
+  BookWatchRepository,
 } from "../db/index.js";
 import { authMiddleware, requireAuth, type JwtVerifyOptions } from "../middleware/auth.js";
 import {
@@ -19,6 +20,7 @@ export interface RouteDeps {
   catalog: CatalogRepository;
   downloads: DownloadsRepository;
   progress: ProgressRepository;
+  bookWatch: BookWatchRepository;
   optionalAuth: RequestHandler;
   requiredAuth: RequestHandler[];
   authRateLimiter: RequestHandler;
@@ -43,6 +45,7 @@ export function createRouteDeps(
     catalog: new CatalogRepository(pool),
     downloads: new DownloadsRepository(pool),
     progress: new ProgressRepository(pool),
+    bookWatch: new BookWatchRepository(pool),
     storage,
     optionalAuth: authMiddleware(jwtSecret, true, jwtVerify),
     requiredAuth: [authMiddleware(jwtSecret, false, jwtVerify), requireAuth],

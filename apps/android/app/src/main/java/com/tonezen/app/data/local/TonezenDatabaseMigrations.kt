@@ -86,6 +86,12 @@ object TonezenDatabaseMigrations {
             )
         }
     }
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""CREATE TABLE IF NOT EXISTS `book_watch_events` (`id` TEXT NOT NULL, `userId` TEXT NOT NULL, `watchId` TEXT NOT NULL, `kind` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT, `bookNumber` INTEGER, `status` TEXT NOT NULL, `readAt` INTEGER, `firstSeenAt` INTEGER NOT NULL, `occurrenceCount` INTEGER NOT NULL, `linksJson` TEXT NOT NULL, PRIMARY KEY(`id`))""")
+            db.execSQL("""CREATE TABLE IF NOT EXISTS `book_watches` (`id` TEXT NOT NULL, `userId` TEXT NOT NULL, `cycleId` TEXT NOT NULL, `displayTitle` TEXT NOT NULL, `enabled` INTEGER NOT NULL, `lastSuccessAt` INTEGER, `queriesJson` TEXT NOT NULL, PRIMARY KEY(`id`))""")
+        }
+    }
 
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
@@ -94,5 +100,6 @@ object TonezenDatabaseMigrations {
         MIGRATION_4_5,
         MIGRATION_5_6,
         MIGRATION_6_7,
+        MIGRATION_7_8,
     )
 }

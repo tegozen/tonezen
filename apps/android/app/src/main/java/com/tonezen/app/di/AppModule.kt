@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.tonezen.app.BuildConfig
 import com.tonezen.app.data.local.CatalogDao
+import com.tonezen.app.data.local.BookWatchDao
 import com.tonezen.app.data.local.DownloadQueueDao
 import com.tonezen.app.data.local.SecureSessionStore
 import com.tonezen.app.data.local.TonezenDatabaseMigrations
@@ -37,6 +38,7 @@ object AppModule {
 
     @Provides
     fun provideCatalogDao(db: TonezenDatabase): CatalogDao = db.catalogDao()
+    @Provides fun provideBookWatchDao(db: TonezenDatabase): BookWatchDao = db.bookWatchDao()
 
     @Provides
     @Singleton

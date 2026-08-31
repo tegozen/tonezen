@@ -8,6 +8,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +33,8 @@ import com.tonezen.app.ui.music.MusicUiState
 import com.tonezen.app.ui.music.MusicViewModel
 import com.tonezen.app.ui.profile.ProfileScreen
 import com.tonezen.app.ui.profile.ProfileViewModel
+import com.tonezen.app.ui.bookwatch.BookWatchViewModel
+import com.tonezen.app.ui.bookwatch.BookWatchSettingsDialog
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenPageChromeScrollPadding
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
@@ -41,6 +46,7 @@ internal fun AppShellRoutes(
     musicViewModel: MusicViewModel,
     shellViewModel: AppShellViewModel,
     profileViewModel: ProfileViewModel,
+    bookWatchViewModel: BookWatchViewModel,
     hazeState: HazeState,
     shellState: AppShellUiState,
     libraryState: LibraryUiState,
@@ -49,8 +55,12 @@ internal fun AppShellRoutes(
     visibleMusicTracks: List<MusicListTrack>,
     overlayBottomScrollPadding: Dp,
 ) {
+    val watches by bookWatchViewModel.watches.collectAsStateWithLifecycle()
+    var editingWatch by remember { mutableStateOf<com.tonezen.app.data.local.BookWatchEntity?>(null) }
     val selectedBook = shellState.selectedBook
-    val selectedCycle = shellState.selectedCycle
+    val selectedCycle = shellState.selectedCycle?.let { cycle ->
+        cycle.copy(title = watches.firstOrNull { it.cycleId == cycle.id }?.displayTitle ?: cycle.title)
+    }
     val miniPlayerVisible = shellState.showMiniPlayer && !shellState.nowPlayingTitle.isNullOrBlank()
 
     when {
@@ -82,6 +92,7 @@ internal fun AppShellRoutes(
                 onToggleCycleListened = { libraryViewModel.toggleCycleListened(selectedCycle) },
                 onRemoveCycleDownloads = { libraryViewModel.removeCycleDownloads(selectedCycle) },
                 bottomScrollPadding = overlayBottomScrollPadding,
+                onBookWatch = { editingWatch = watches.firstOrNull { it.cycleId == selectedCycle.id } },
             )
         }
 
@@ -111,7 +122,9 @@ internal fun AppShellRoutes(
             LibraryScreen(
                 hazeState = hazeState,
                 cycles = filteredCycles,
-                allCycles = libraryState.cycles,
+                allCycles = libraryState.cycles.map { cycle ->
+                    cycle.copy(title = watches.firstOrNull { it.cycleId == cycle.id }?.displayTitle ?: cycle.title)
+                },
                 cycleCardStateById = libraryState.cycleCardStateById,
                 cyclePlayback = libraryState.cyclePlayback,
                 offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
@@ -164,7 +177,15 @@ internal fun AppShellRoutes(
             padding = PaddingValues(0.dp),
             hazeState = hazeState,
             viewModel = profileViewModel,
+            bookWatchViewModel = bookWatchViewModel,
             showMiniPlayer = shellState.showMiniPlayer,
+        )
+    }
+    editingWatch?.let { watch ->
+        BookWatchSettingsDialog(
+            watch = watch,
+            onDismiss = { editingWatch = null },
+            onSave = { title, queries -> bookWatchViewModel.update(watch, title, queries); editingWatch = null },
         )
     }
 }

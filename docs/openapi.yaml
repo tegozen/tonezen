@@ -437,6 +437,76 @@ paths:
               schema:
                 $ref: "#/components/schemas/AudiobookProgressConflictResponse"
 
+  /book-watch:
+    get:
+      summary: Get personal cycle watches and discovery history
+      responses:
+        "200":
+          description: Watch snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [watches, events, unread_count]
+                properties:
+                  watches:
+                    type: array
+                    items: { $ref: "#/components/schemas/BookWatch" }
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/BookWatchEvent" }
+                  unread_count: { type: integer }
+
+  /book-watch/checks:
+    post:
+      summary: Queue a personal site check, deduplicated for six hours
+      responses:
+        "202":
+          description: Existing or newly queued job
+
+  /book-watch/watches/{watchId}:
+    put:
+      summary: Update a cycle display title and provider queries
+      parameters:
+        - name: watchId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [display_title, enabled, queries]
+              properties:
+                display_title: { type: string, maxLength: 200 }
+                enabled: { type: boolean }
+                queries:
+                  type: array
+                  items: { $ref: "#/components/schemas/BookWatchQuery" }
+      responses:
+        "200": { description: Updated }
+        "404": { description: Watch not found }
+
+  /book-watch/events/read:
+    post:
+      summary: Mark discovery events as read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_ids]
+              properties:
+                event_ids:
+                  type: array
+                  maxItems: 500
+                  items: { type: string, format: uuid }
+      responses:
+        "200": { description: Updated }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -445,6 +515,49 @@ components:
       bearerFormat: JWT
 
   schemas:
+    BookWatchQuery:
+      type: object
+      required: [provider, query, enabled]
+      properties:
+        id: { type: string, format: uuid }
+        provider: { type: string, enum: [baza_knig, allbookerka] }
+        query: { type: string, maxLength: 200 }
+        enabled: { type: boolean }
+    BookWatch:
+      type: object
+      required: [id, cycle_id, display_title, enabled, queries]
+      properties:
+        id: { type: string, format: uuid }
+        cycle_id: { type: string, format: uuid }
+        display_title: { type: string }
+        enabled: { type: boolean }
+        last_success_at: { type: string, format: date-time, nullable: true }
+        queries:
+          type: array
+          items: { $ref: "#/components/schemas/BookWatchQuery" }
+    BookWatchEvent:
+      type: object
+      required: [id, watch_id, kind, title, status, first_seen_at, occurrence_count, links]
+      properties:
+        id: { type: string, format: uuid }
+        watch_id: { type: string, format: uuid }
+        kind: { type: string, enum: [book, provider_error] }
+        title: { type: string }
+        author: { type: string, nullable: true }
+        book_number: { type: integer, nullable: true }
+        status: { type: string, enum: [active, completed] }
+        read_at: { type: string, format: date-time, nullable: true }
+        completed_at: { type: string, format: date-time, nullable: true }
+        first_seen_at: { type: string, format: date-time }
+        occurrence_count: { type: integer }
+        links:
+          type: array
+          items:
+            type: object
+            required: [provider, url]
+            properties:
+              provider: { type: string, enum: [baza_knig, allbookerka] }
+              url: { type: string, format: uri }
     AuthUser:
       type: object
       required: [id, email]

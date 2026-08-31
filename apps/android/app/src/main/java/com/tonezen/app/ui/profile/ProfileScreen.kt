@@ -14,6 +14,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.tonezen.app.data.nearby.PeerNearbyPermissions
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
+import com.tonezen.app.ui.bookwatch.BookWatchScreen
+import com.tonezen.app.ui.bookwatch.BookWatchViewModel
 import dev.chrisbanes.haze.HazeState
 
 @Composable
@@ -22,10 +24,12 @@ internal fun ProfileScreen(
     hazeState: HazeState,
     viewModel: ProfileViewModel,
     peerViewModel: PeerProgressViewModel = hiltViewModel(),
+    bookWatchViewModel: BookWatchViewModel,
     showMiniPlayer: Boolean = false,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val peerState by peerViewModel.uiState.collectAsStateWithLifecycle()
+    val bookWatchEvents by bookWatchViewModel.events.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var pendingPeerAction by remember { mutableStateOf<PeerAction?>(null) }
 
@@ -190,6 +194,10 @@ internal fun ProfileScreen(
             onDismissDeleteAllConfirm = { viewModel.setDeleteAllConfirmVisible(false) },
             onConfirmDeleteAll = viewModel::deleteAllDownloads,
         )
+        state.activeSettingsScreen == ProfileSettingsAction.BookWatch -> BookWatchScreen(
+            viewModel = bookWatchViewModel,
+            onBack = viewModel::closeSettingsScreen,
+        )
         else -> ProfileScreenContent(
             padding = padding,
             hazeState = hazeState,
@@ -200,6 +208,7 @@ internal fun ProfileScreen(
             onSettingsClick = viewModel::onSettingsClick,
             onPeerAcceptClick = { startPeer(PeerAction.Accept) },
             onPeerSendClick = { startPeer(PeerAction.Send) },
+            bookWatchUnreadCount = bookWatchEvents.count { it.readAt == null },
         )
     }
 }

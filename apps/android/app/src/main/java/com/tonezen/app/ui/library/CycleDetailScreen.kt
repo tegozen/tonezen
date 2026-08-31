@@ -53,6 +53,7 @@ internal fun CycleDetailScreen(
     onToggleCycleListened: () -> Unit,
     onRemoveCycleDownloads: () -> Unit,
     bottomScrollPadding: Dp,
+    onBookWatch: () -> Unit,
 ) {
     TonezenFixedHeaderScreen(
         hazeState = hazeState,
@@ -79,6 +80,7 @@ internal fun CycleDetailScreen(
                 onDownload = onDownloadCycle,
                 onToggleListened = onToggleCycleListened,
                 onRemoveDownloads = onRemoveCycleDownloads,
+                onBookWatch = onBookWatch,
             )
         },
     ) {

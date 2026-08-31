@@ -4,6 +4,7 @@ import com.tonezen.app.BuildConfig
 import com.tonezen.app.data.remote.catalog.CatalogRemoteApi
 import com.tonezen.app.data.remote.downloads.DownloadsRemoteApi
 import com.tonezen.app.data.remote.progress.ProgressRemoteApi
+import com.tonezen.app.data.remote.bookwatch.BookWatchRemoteApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -30,4 +31,8 @@ object RemoteApiModule {
     @Singleton
     fun provideProgressRemoteApi(httpClient: OkHttpClient): ProgressRemoteApi =
         ProgressRemoteApi(apiRoot(), httpClient)
+
+    @Provides @Singleton
+    fun provideBookWatchRemoteApi(httpClient: OkHttpClient): BookWatchRemoteApi =
+        BookWatchRemoteApi(apiRoot(), httpClient)
 }

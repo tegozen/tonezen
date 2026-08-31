@@ -25,6 +25,9 @@ import com.tonezen.app.ui.music.visibleMusicTrackList
 import com.tonezen.app.ui.player.NowPlayingSheet
 import com.tonezen.app.ui.profile.AvatarCropScreen
 import com.tonezen.app.ui.profile.ProfileViewModel
+import com.tonezen.app.ui.bookwatch.BookWatchViewModel
+import com.tonezen.app.ui.bookwatch.BookWatchNavigation
+import com.tonezen.app.ui.profile.ProfileSettingsAction
 import com.tonezen.app.ui.profile.resolveAvatarUploadError
 import com.tonezen.app.ui.profile.uploadAvatar
 import com.tonezen.app.ui.theme.TonezenSurface
@@ -38,11 +41,14 @@ fun AppShell(
     musicViewModel: MusicViewModel = hiltViewModel(),
     shellViewModel: AppShellViewModel = hiltViewModel(),
     profileViewModel: ProfileViewModel = hiltViewModel(),
+    bookWatchViewModel: BookWatchViewModel = hiltViewModel(),
 ) {
     val libraryState by libraryViewModel.uiState.collectAsStateWithLifecycle()
     val musicState by musicViewModel.uiState.collectAsStateWithLifecycle()
     val shellState by shellViewModel.uiState.collectAsStateWithLifecycle()
     val profileState by profileViewModel.uiState.collectAsStateWithLifecycle()
+    val bookWatches by bookWatchViewModel.watches.collectAsStateWithLifecycle()
+    val openBookWatch by BookWatchNavigation.openRequested.collectAsStateWithLifecycle()
     val selectedBook = shellState.selectedBook
     val selectedCycle = shellState.selectedCycle
     val inLibraryOverlay = selectedCycle != null || selectedBook != null
@@ -54,10 +60,11 @@ fun AppShell(
         showBottomNav = false,
     )
     val hazeState = remember { HazeState() }
-    val filteredCycles by remember {
+    val filteredCycles by remember(libraryState, bookWatches) {
         derivedStateOf {
+            val titles = bookWatches.associate { it.cycleId to it.displayTitle }
             filterCycles(
-                cycles = libraryState.cycles,
+                cycles = libraryState.cycles.map { cycle -> cycle.copy(title = titles[cycle.id] ?: cycle.title) },
                 downloadedBookIds = libraryState.downloadedBookIds,
                 filter = libraryState.filter,
                 progressUpdatedAtByBookId = libraryState.progressUpdatedAtByBookId,
@@ -76,6 +83,14 @@ fun AppShell(
         }
         if (shellState.currentTab != BottomDestination.Books) {
             libraryViewModel.setFilterSheetVisible(false)
+        }
+    }
+    LaunchedEffect(Unit) { bookWatchViewModel.checkOnLaunch() }
+    LaunchedEffect(openBookWatch) {
+        if (openBookWatch) {
+            shellViewModel.selectTab(BottomDestination.Profile)
+            profileViewModel.openSettingsScreen(ProfileSettingsAction.BookWatch)
+            BookWatchNavigation.openRequested.value = false
         }
     }
 
@@ -108,6 +123,7 @@ fun AppShell(
                     musicViewModel = musicViewModel,
                     shellViewModel = shellViewModel,
                     profileViewModel = profileViewModel,
+                    bookWatchViewModel = bookWatchViewModel,
                     hazeState = hazeState,
                     shellState = shellState,
                     libraryState = libraryState,

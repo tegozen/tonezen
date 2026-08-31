@@ -10,6 +10,7 @@ import { registerAuthRoutes } from "./routes/auth.js";
 import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerDownloadRoutes } from "./routes/downloads.js";
 import { registerProgressRoutes } from "./routes/progress.js";
+import { registerBookWatchRoutes } from "./routes/bookWatch.js";
 
 export interface AppConfig {
   jwtSecret: string;
@@ -59,6 +60,7 @@ export function createApp(pool: pg.Pool, config: AppConfig) {
   registerCatalogRoutes(app, deps);
   registerDownloadRoutes(app, deps);
   registerProgressRoutes(app, deps);
+  registerBookWatchRoutes(app, deps);
 
   registerErrorHandler(app);
 

@@ -51,6 +51,7 @@ internal fun ProfileScreenContent(
     onSettingsClick: (ProfileSettingsAction) -> Unit,
     onPeerAcceptClick: () -> Unit,
     onPeerSendClick: () -> Unit,
+    bookWatchUnreadCount: Int,
 ) {
     val online = state.sessionState == SessionState.AUTHENTICATED_ONLINE
     val settingsItems = listOf(
@@ -59,6 +60,13 @@ internal fun ProfileScreenContent(
             title = "Хранилище",
             subtitle = "Офлайн-файлы на устройстве",
             icon = { StorageGlyph(tint = TonezenInk) },
+        ),
+        SettingsItem(
+            action = ProfileSettingsAction.BookWatch,
+            title = "Новые книги",
+            subtitle = "Отслеживание продолжений циклов",
+            icon = { Text("●", color = TonezenGreen) },
+            badge = bookWatchUnreadCount,
         ),
     )
 
