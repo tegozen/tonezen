@@ -5,9 +5,9 @@ description: Use when bumping Tonezen client app versions, cutting release build
 
 # Bump & Release (Tonezen)
 
-End-to-end release cut: **infer SemVer bump from git history → write Russian release changelog → bump versions → create release migration → commit → build-release → tag**.
+End-to-end release cut: **infer SemVer bump from git history → write Russian release changelog → bump versions → create release migration → commit → build-release → tag → push tag**.
 
-Explicit `/bump` invocation **includes the commit** (overrides git-commit “only when asked” for this workflow only).
+Explicit `/bump` invocation **includes the commit and release-tag push** (overrides git-commit “only when asked” for this workflow only). It does not authorize pushing the branch or any other refs.
 
 ## Version files
 
@@ -48,7 +48,7 @@ Bump release:
 - [ ] Commit created
 - [ ] build-release executed (read `.agents/skills/build-release/SKILL.md`; include macOS DMG when running on macOS)
 - [ ] Artifacts copied to landing downloads
-- [ ] Version tag created on the release commit
+- [ ] Version tag created on the release commit and pushed to `origin`
 - [ ] Summary reported
 ```
 
@@ -229,7 +229,7 @@ Then collect crash symbols next to the binaries:
 node scripts/collect-release-symbols.mjs
 ```
 
-### 8. Tag release
+### 8. Tag and publish release
 
 Create the tag only after successful builds and landing copies:
 
@@ -244,9 +244,11 @@ try {
   Remove-Item -LiteralPath $tagMessageFile -Force
 }
 git describe --tags --exact-match HEAD
+git push origin "refs/tags/$newTag"
+git ls-remote --exit-code --tags origin "refs/tags/$newTag"
 ```
 
-The tag must point at the release bump commit. Do **not** push the commit or tag unless the user explicitly asks.
+The tag must point at the release bump commit. Publishing this one new tag to `origin` is part of an explicit `/bump`; do not push the branch, commit, or any other refs unless the user separately asks.
 
 ### 9. Report
 
@@ -256,12 +258,12 @@ Tell the user:
 - Inferred SemVer bump and the evidence used
 - Russian changelog used for the release migration and tag
 - Commit hash
-- Tag name
+- Tag name and confirmation that it was pushed to `origin`
 - Release migration path
 - Artifact paths and file sizes
 - Landing copy paths
 - macOS DMG path and landing copy path when built
-- Reminder: push commit + tag and upload binaries to prod server if needed
+- Reminder: push the release branch/commit and upload binaries to prod server if needed
 
 ## Do not
 
@@ -269,7 +271,7 @@ Tell the user:
 - Write different changelog text into the release migration and tag
 - Manually edit committed or applied release migrations
 - Bump without committing then building — all three steps are one workflow
-- Push commit or tags to remote unless user explicitly asks
+- Push the release branch/commit or any refs other than the newly created release tag unless the user explicitly asks
 - Move, delete, or overwrite an existing release tag
 - Default to patch when the SemVer classification is ambiguous
 - Run full `make test` unless build failed for code reasons
@@ -287,4 +289,5 @@ Tell the user:
 | Commit hook fails | Fix, new commit — do not amend failed commit |
 | Build fails after commit | Report commit hash; do not create tag; user fixes code and re-runs build-release only |
 | Tag creation fails after successful build | Report commit hash and artifacts; do not push anything |
+| Tag push fails after successful build | Keep the local tag, report the failure and exact tag name, and stop; do not delete/recreate the tag or repeatedly retry |
 | Version mismatch after bump | Fix files before committing |
