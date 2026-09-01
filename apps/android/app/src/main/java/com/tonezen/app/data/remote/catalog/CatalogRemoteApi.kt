@@ -7,6 +7,7 @@ import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.model.normalizeAuthor
+import com.tonezen.app.domain.model.repairMojibake
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -53,10 +54,10 @@ class CatalogRemoteApi(
         id = t.getString("id"),
         bookId = bookId,
         sortOrder = t.getInt("sort_order"),
-        title = t.getString("title"),
+        title = repairMojibake(t.getString("title")),
         filename = t.getString("filename"),
         artist = normalizeAuthor(
-            if (t.isNull("artist")) null else t.optString("artist"),
+            if (t.isNull("artist")) null else repairMojibake(t.optString("artist")),
         ),
         durationMs = t.optLong("duration_ms").takeIf { it > 0 },
         localPath = null,
@@ -87,9 +88,9 @@ class CatalogRemoteApi(
         id = json.getString("id"),
         slug = json.getString("slug"),
         contentType = if (json.getString("content_type") == "music") ContentType.MUSIC else ContentType.AUDIOBOOK,
-        title = json.getString("title"),
+        title = repairMojibake(json.getString("title")),
         author = normalizeAuthor(
-            if (json.isNull("author")) null else json.optString("author"),
+            if (json.isNull("author")) null else repairMojibake(json.optString("author")),
         ),
     )
 
@@ -112,7 +113,7 @@ class CatalogRemoteApi(
         return Cycle(
             id = json.getString("id"),
             slug = json.getString("slug"),
-            title = json.getString("title"),
+            title = repairMojibake(json.getString("title")),
             bookOrder = bookOrder,
             books = orderedBooks.ifEmpty { books },
         )

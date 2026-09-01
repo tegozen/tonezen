@@ -13,6 +13,7 @@ import {
   type ParsedCycle,
 } from "./parsers.js";
 import type { AudioTags } from "./mediaProbe.js";
+import { repairMojibake } from "./textEncoding.js";
 
 export interface StorageObjectInput {
   name: string;
@@ -40,7 +41,7 @@ function displayPathParts(name: string, displayPath: string | null | undefined):
 
 function displaySegment(parts: string[] | null, index: number): string | null {
   const value = parts?.[index]?.trim();
-  return value || null;
+  return value ? repairMojibake(value) : null;
 }
 
 function audiobookBookPrefix(name: string): string | null {

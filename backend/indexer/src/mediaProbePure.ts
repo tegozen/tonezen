@@ -1,3 +1,5 @@
+import { repairMojibake } from "./textEncoding.js";
+
 export const WAVEFORM_PEAK_COUNT = 64;
 
 export interface FileMetadata {
@@ -92,7 +94,7 @@ export function pickTag(tags: Record<string, string>, ...keys: string[]): string
   const normalized = new Map<string, string>();
   for (const [key, value] of Object.entries(tags)) {
     if (typeof value === "string" && value.trim()) {
-      normalized.set(key.toLowerCase(), value.trim());
+      normalized.set(key.toLowerCase(), repairMojibake(value));
     }
   }
   for (const key of keys) {

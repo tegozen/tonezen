@@ -9,6 +9,7 @@ import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.normalizeAuthor
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.Track
+import com.tonezen.app.domain.model.repairMojibake
 import java.time.Instant
 import org.json.JSONArray
 
@@ -16,17 +17,17 @@ fun BookEntity.toDomain() = Book(
     id = id,
     slug = slug,
     contentType = if (contentType == "music") ContentType.MUSIC else ContentType.AUDIOBOOK,
-    title = title,
-    author = normalizeAuthor(author),
+    title = repairMojibake(title),
+    author = normalizeAuthor(author?.let(::repairMojibake)),
 )
 
 fun TrackEntity.toDomain() = Track(
     id = id,
     bookId = bookId,
     sortOrder = sortOrder,
-    title = title,
+    title = repairMojibake(title),
     filename = filename,
-    artist = normalizeAuthor(artist),
+    artist = normalizeAuthor(artist?.let(::repairMojibake)),
     durationMs = durationMs,
     localPath = localPath,
     localDownloadedAt = localDownloadedAt,
@@ -42,9 +43,9 @@ fun TrackEntity.toSanitizedDomain(
         id = id,
         bookId = bookId,
         sortOrder = sortOrder,
-        title = title,
+        title = repairMojibake(title),
         filename = filename,
-        artist = normalizeAuthor(artist),
+        artist = normalizeAuthor(artist?.let(::repairMojibake)),
         durationMs = durationMs,
         localPath = safePath,
         localDownloadedAt = localDownloadedAt,
@@ -108,7 +109,7 @@ fun CycleEntity.toDomain(booksById: Map<String, Book>): Cycle? {
     return Cycle(
         id = id,
         slug = slug,
-        title = title,
+        title = repairMojibake(title),
         bookOrder = books.map { it.slug },
         books = books,
     )
