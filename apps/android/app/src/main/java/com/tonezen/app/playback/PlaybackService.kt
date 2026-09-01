@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.os.Build
+import android.os.Process
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -90,7 +91,7 @@ class PlaybackService : MediaSessionService() {
                         session: MediaSession,
                         controller: MediaSession.ControllerInfo,
                     ): MediaSession.ConnectionResult {
-                        val playerCommands = buildPlayerCommands()
+                        val playerCommands = buildPlayerCommands(controller)
                         return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                             .setAvailablePlayerCommands(playerCommands)
                             .build()
@@ -101,7 +102,7 @@ class PlaybackService : MediaSessionService() {
                         controller: MediaSession.ControllerInfo,
                         playerCommand: Int,
                     ): Int {
-                        if (!canHandleQueueSkipCommand(playerCommand)) {
+                        if (!canHandleQueueSkipCommand(controller, playerCommand)) {
                             return SessionResult.RESULT_ERROR_NOT_SUPPORTED
                         }
                         return SessionResult.RESULT_SUCCESS
@@ -132,28 +133,29 @@ class PlaybackService : MediaSessionService() {
 
     private fun updateConnectedControllerCommands() {
         val session = mediaSession ?: return
-        val playerCommands = buildPlayerCommands()
         session.connectedControllers.forEach { controller ->
             session.setAvailableCommands(
                 controller,
                 MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS,
-                playerCommands,
+                buildPlayerCommands(controller),
             )
         }
     }
 
-    private fun buildPlayerCommands(): Player.Commands {
+    private fun buildPlayerCommands(controller: MediaSession.ControllerInfo): Player.Commands {
         val exoPlayer = player ?: return MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS
         val commands = MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
+            .remove(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+            .remove(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
             .add(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
             .add(Player.COMMAND_SEEK_BACK)
             .add(Player.COMMAND_SEEK_FORWARD)
-        if (canHandleQueueSkipCommand(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM) &&
+        if (canHandleQueueSkipCommand(controller, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM) &&
             exoPlayer.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
         ) {
             commands.add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
         }
-        if (canHandleQueueSkipCommand(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM) &&
+        if (canHandleQueueSkipCommand(controller, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM) &&
             exoPlayer.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
         ) {
             commands.add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
@@ -161,15 +163,21 @@ class PlaybackService : MediaSessionService() {
         return commands.build()
     }
 
-    private fun canHandleQueueSkipCommand(playerCommand: Int): Boolean {
+    private fun canHandleQueueSkipCommand(
+        controller: MediaSession.ControllerInfo,
+        playerCommand: Int,
+    ): Boolean {
         if (
             playerCommand != Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM &&
             playerCommand != Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
         ) {
             return true
         }
-        return currentMediaType() == MediaMetadata.MEDIA_TYPE_MUSIC
+        return isOwnController(controller) || currentMediaType() == MediaMetadata.MEDIA_TYPE_MUSIC
     }
+
+    private fun isOwnController(controller: MediaSession.ControllerInfo): Boolean =
+        controller.packageName == packageName && controller.uid == Process.myUid()
 
     private fun currentMediaType(): Int? =
         player?.currentMediaItem?.mediaMetadata?.mediaType
