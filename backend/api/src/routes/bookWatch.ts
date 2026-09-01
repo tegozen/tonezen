@@ -5,6 +5,20 @@ import type { RouteDeps } from "./deps.js";
 
 const providers = new Set<WatchProvider>(["baza_knig", "allbookerka"]);
 
+interface WatchQueryInput {
+  provider: WatchProvider;
+  query: string;
+  enabled: boolean;
+}
+
+function isWatchQueryInput(value: unknown): value is WatchQueryInput {
+  if (typeof value !== "object" || value === null) return false;
+  const query = value as Record<string, unknown>;
+  return providers.has(query.provider as WatchProvider) &&
+    typeof query.query === "string" && query.query.trim().length >= 1 && query.query.trim().length <= 200 &&
+    typeof query.enabled === "boolean";
+}
+
 export function registerBookWatchRoutes(app: Express, deps: RouteDeps): void {
   app.get("/book-watch", ...deps.requiredAuth, asyncRoute(async (req, res) => {
     res.json(await deps.bookWatch.snapshot(req.user!.id));
@@ -12,14 +26,13 @@ export function registerBookWatchRoutes(app: Express, deps: RouteDeps): void {
   app.put("/book-watch/watches/:watchId", ...deps.requiredAuth, asyncRoute(async (req, res) => {
     const body = req.body ?? {};
     const queries = Array.isArray(body.queries) ? body.queries : [];
+    const parsedQueries = queries.every(isWatchQueryInput) ? queries : null;
     if (typeof body.display_title !== "string" || body.display_title.trim().length < 1 || body.display_title.trim().length > 200 ||
-        typeof body.enabled !== "boolean" || queries.length > 40 || queries.some((query) =>
-          !providers.has(query.provider) || typeof query.query !== "string" ||
-          query.query.trim().length < 1 || query.query.trim().length > 200 || typeof query.enabled !== "boolean")) {
+        typeof body.enabled !== "boolean" || queries.length > 40 || parsedQueries === null) {
       res.status(400).json({ error: "Invalid watch" }); return;
     }
     const found = await deps.bookWatch.updateWatch(req.user!.id, req.params.watchId as string, {
-      displayTitle: body.display_title, enabled: body.enabled, queries,
+      displayTitle: body.display_title, enabled: body.enabled, queries: parsedQueries,
     });
     if (!found) { res.status(404).json({ error: "Watch not found" }); return; }
     res.json({ updated: true });
