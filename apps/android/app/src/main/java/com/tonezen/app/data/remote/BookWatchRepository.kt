@@ -39,7 +39,12 @@ class BookWatchRepository @Inject constructor(
         }
     }
 
-    suspend fun sync(token: String = sessionRepository.loadSession()?.accessToken ?: return) {
+    suspend fun sync() {
+        val token = sessionRepository.loadSession()?.accessToken ?: return
+        sync(token)
+    }
+
+    suspend fun sync(token: String) {
         val snapshot = api.snapshot(token)
         val userId = sessionRepository.loadSession()?.userId ?: return
         val watches = snapshot.watches.map { json ->
