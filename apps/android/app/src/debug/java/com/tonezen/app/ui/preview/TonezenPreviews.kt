@@ -129,6 +129,10 @@ private fun LibraryScreenPreview() {
             onSortOrderChange = {},
             cyclePlaybackErrorMessage = null,
             onDismissCyclePlaybackError = {},
+            confirmProgressSyncConflict = null,
+            onDismissProgressSyncConflict = {},
+            onChooseProgressSyncLocal = {},
+            onChooseProgressSyncServer = {},
             showMiniPlayer = false,
         )
     }
@@ -209,6 +213,9 @@ private fun ProfileScreenPreview() {
             onSignOutClick = {},
             onAccountClick = {},
             onSettingsClick = {},
+            onPeerAcceptClick = {},
+            onPeerSendClick = {},
+            bookWatchUnreadCount = 0,
         )
     }
 }

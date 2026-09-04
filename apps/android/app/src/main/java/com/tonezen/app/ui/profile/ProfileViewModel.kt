@@ -102,22 +102,15 @@ class ProfileViewModel @Inject constructor(
         _uiState.update { it.copy(showSyncDialog = visible) }
     }
 
-    fun openSettingsScreen(action: ProfileSettingsAction) {
+    fun prepareAccountSettings() {
         _uiState.update {
             it.copy(
-                activeSettingsScreen = action,
-                profileError = if (action == ProfileSettingsAction.Account) null else it.profileError,
-                passwordError = if (action == ProfileSettingsAction.Account) null else it.passwordError,
-                referralCodeError = if (action == ProfileSettingsAction.Account) null else it.referralCodeError,
+                profileError = null,
+                passwordError = null,
+                referralCodeError = null,
             )
         }
-        if (action == ProfileSettingsAction.Account) {
-            loadReferralCode()
-        }
-    }
-
-    fun closeSettingsScreen() {
-        _uiState.update { it.copy(activeSettingsScreen = null, showDeleteAllConfirm = false) }
+        loadReferralCode()
     }
 
     fun setDeleteAllConfirmVisible(visible: Boolean) {
@@ -136,10 +129,6 @@ class ProfileViewModel @Inject constructor(
                 _uiState.update { it.copy(showDeleteAllConfirm = false) }
             }
         }
-    }
-
-    fun onSettingsClick(action: ProfileSettingsAction) {
-        openSettingsScreen(action)
     }
 
     fun onAvatarPicked(uri: Uri) {

@@ -14,6 +14,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavDestination
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.tonezen.app.domain.library.filterCycles
 import com.tonezen.app.ui.components.BottomDestination
 import com.tonezen.app.ui.components.MiniPlayer
@@ -22,12 +29,21 @@ import com.tonezen.app.ui.components.TonezenBottomNavigation
 import com.tonezen.app.ui.library.LibraryViewModel
 import com.tonezen.app.ui.music.MusicViewModel
 import com.tonezen.app.ui.music.visibleMusicTrackList
+import com.tonezen.app.ui.navigation.AccountSettingsRoute
+import com.tonezen.app.ui.navigation.BookRoute
+import com.tonezen.app.ui.navigation.BookWatchRoute
+import com.tonezen.app.ui.navigation.BooksRoute
+import com.tonezen.app.ui.navigation.CycleRoute
+import com.tonezen.app.ui.navigation.DownloadsRoute
+import com.tonezen.app.ui.navigation.MusicRoute
+import com.tonezen.app.ui.navigation.ProfileRoute
+import com.tonezen.app.ui.navigation.StorageSettingsRoute
+import com.tonezen.app.ui.navigation.route
 import com.tonezen.app.ui.player.NowPlayingSheet
 import com.tonezen.app.ui.profile.AvatarCropScreen
 import com.tonezen.app.ui.profile.ProfileViewModel
 import com.tonezen.app.ui.bookwatch.BookWatchViewModel
 import com.tonezen.app.ui.bookwatch.BookWatchNavigation
-import com.tonezen.app.ui.profile.ProfileSettingsAction
 import com.tonezen.app.ui.profile.resolveAvatarUploadError
 import com.tonezen.app.ui.profile.uploadAvatar
 import com.tonezen.app.ui.theme.TonezenSurface
@@ -49,9 +65,11 @@ fun AppShell(
     val profileState by profileViewModel.uiState.collectAsStateWithLifecycle()
     val bookWatches by bookWatchViewModel.watches.collectAsStateWithLifecycle()
     val openBookWatch by BookWatchNavigation.openRequested.collectAsStateWithLifecycle()
-    val selectedBook = shellState.selectedBook
-    val selectedCycle = shellState.selectedCycle
-    val inLibraryOverlay = selectedCycle != null || selectedBook != null
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+    val currentTab = currentDestination.bottomDestination()
+    val inLibraryOverlay = currentDestination.hasRoute<BookRoute>() || currentDestination.hasRoute<CycleRoute>()
     val isAvatarCropping = profileState.avatarCropUri != null
     val miniPlayerVisible = shellState.showMiniPlayer && !shellState.nowPlayingTitle.isNullOrBlank()
     val showBottomChrome = (miniPlayerVisible || !inLibraryOverlay) && !isAvatarCropping
@@ -77,19 +95,19 @@ fun AppShell(
         }
     }
 
-    LaunchedEffect(shellState.currentTab) {
-        if (shellState.currentTab == BottomDestination.Music) {
+    LaunchedEffect(currentTab) {
+        if (currentTab == BottomDestination.Music) {
             musicViewModel.onMusicTabSelected()
         }
-        if (shellState.currentTab != BottomDestination.Books) {
+        if (currentTab != BottomDestination.Books) {
             libraryViewModel.setFilterSheetVisible(false)
         }
     }
     LaunchedEffect(Unit) { bookWatchViewModel.checkOnLaunch() }
     LaunchedEffect(openBookWatch) {
         if (openBookWatch) {
-            shellViewModel.selectTab(BottomDestination.Profile)
-            profileViewModel.openSettingsScreen(ProfileSettingsAction.BookWatch)
+            navController.selectBottomDestination(BottomDestination.Profile)
+            navController.navigate(BookWatchRoute) { launchSingleTop = true }
             BookWatchNavigation.openRequested.value = false
         }
     }
@@ -98,19 +116,6 @@ fun AppShell(
         containerColor = TonezenSurface,
     ) { padding ->
         val contentPadding = padding.withoutBottom()
-
-        BackHandler(enabled = shellState.showExpandedPlayer) {
-            shellViewModel.dismissExpandedPlayer()
-        }
-        BackHandler(enabled = isAvatarCropping) {
-            profileViewModel.dismissAvatarCrop()
-        }
-        BackHandler(enabled = selectedBook != null && !shellState.showExpandedPlayer) {
-            shellViewModel.closeBook()
-        }
-        BackHandler(enabled = selectedBook == null && selectedCycle != null && !shellState.showExpandedPlayer) {
-            shellViewModel.closeCycle()
-        }
 
         Box(modifier = Modifier.fillMaxSize()) {
             Box(
@@ -131,6 +136,7 @@ fun AppShell(
                     filteredCycles = filteredCycles,
                     visibleMusicTracks = visibleMusicTracks,
                     overlayBottomScrollPadding = overlayBottomScrollPadding,
+                    navController = navController,
                 )
             }
 
@@ -153,8 +159,8 @@ fun AppShell(
                     }
                     if (!inLibraryOverlay) {
                         TonezenBottomNavigation(
-                            selected = shellState.currentTab,
-                            onSelect = shellViewModel::selectTab,
+                            selected = currentTab,
+                            onSelect = navController::selectBottomDestination,
                         )
                     }
                 }
@@ -178,7 +184,33 @@ fun AppShell(
                 )
             }
         }
+        BackHandler(enabled = shellState.showExpandedPlayer) {
+            shellViewModel.dismissExpandedPlayer()
+        }
+        BackHandler(enabled = isAvatarCropping) {
+            profileViewModel.dismissAvatarCrop()
+        }
     }
+}
+
+private fun NavHostController.selectBottomDestination(destination: BottomDestination) {
+    navigate(destination.route()) {
+        popUpTo(graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
+private inline fun <reified T : Any> NavDestination?.hasRoute(): Boolean =
+    this?.hierarchy?.any { it.hasRoute<T>() } == true
+
+private fun NavDestination?.bottomDestination(): BottomDestination = when {
+    hasRoute<MusicRoute>() -> BottomDestination.Music
+    hasRoute<BooksRoute>() || hasRoute<CycleRoute>() || hasRoute<BookRoute>() -> BottomDestination.Books
+    hasRoute<DownloadsRoute>() -> BottomDestination.Downloads
+    hasRoute<ProfileRoute>() || hasRoute<AccountSettingsRoute>() ||
+        hasRoute<StorageSettingsRoute>() || hasRoute<BookWatchRoute>() -> BottomDestination.Profile
+    else -> BottomDestination.Music
 }
 
 @Composable

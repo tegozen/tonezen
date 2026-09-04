@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -16,23 +19,24 @@ import dev.chrisbanes.haze.HazeState
 @Composable
 internal fun AppShellBookDetailRoute(
     book: Book,
-    shellState: AppShellUiState,
-    shellViewModel: AppShellViewModel,
     hazeState: HazeState,
     overlayBottomScrollPadding: Dp,
+    autoResume: Boolean,
+    onBack: () -> Unit,
 ) {
     val bookDetailViewModel: BookDetailViewModel = hiltViewModel(key = book.id)
     val detailState by bookDetailViewModel.uiState.collectAsStateWithLifecycle()
     val playbackProgress by bookDetailViewModel.playbackProgress.collectAsStateWithLifecycle()
     val trackDownloads by bookDetailViewModel.trackDownloads.collectAsStateWithLifecycle()
+    var autoResumeConsumed by rememberSaveable(book.id, autoResume) { mutableStateOf(false) }
 
     LaunchedEffect(book.id) {
         bookDetailViewModel.loadBook(book)
     }
 
-    LaunchedEffect(shellState.autoResumeBookId, book.id, detailState.book?.id) {
-        if (shellState.autoResumeBookId == book.id && detailState.book?.id == book.id) {
-            shellViewModel.consumeAutoResumeBook(book.id)
+    LaunchedEffect(autoResume, detailState.book?.id) {
+        if (autoResume && !autoResumeConsumed && detailState.book?.id == book.id) {
+            autoResumeConsumed = true
             bookDetailViewModel.continueListening()
         }
     }
@@ -44,7 +48,7 @@ internal fun AppShellBookDetailRoute(
         uiState = detailState,
         playbackProgress = playbackProgress,
         trackDownloads = trackDownloads,
-        onBack = shellViewModel::closeBook,
+        onBack = onBack,
         onTrackClick = bookDetailViewModel::playTrack,
         onMarkTrackListened = bookDetailViewModel::markTrackListened,
         onMarkTrackUnlistened = bookDetailViewModel::markTrackUnlistened,

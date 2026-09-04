@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,9 @@ internal fun ProfileScreen(
     peerViewModel: PeerProgressViewModel = hiltViewModel(),
     bookWatchViewModel: BookWatchViewModel,
     showMiniPlayer: Boolean = false,
+    page: ProfilePage = ProfilePage.Main,
+    onNavigate: (ProfileSettingsAction) -> Unit = {},
+    onBack: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val peerState by peerViewModel.uiState.collectAsStateWithLifecycle()
@@ -69,11 +73,14 @@ internal fun ProfileScreen(
         peerState.conflictPrompt != null ||
         peerState.alertTitle != null
 
+    LaunchedEffect(page) {
+        if (page == ProfilePage.Account) viewModel.prepareAccountSettings()
+    }
+
     BackHandler(
         enabled = state.showSignOutConfirm ||
             state.showSyncDialog ||
             state.showDeleteAllConfirm ||
-            state.activeSettingsScreen != null ||
             peerBusy,
     ) {
         when {
@@ -87,7 +94,6 @@ internal fun ProfileScreen(
             state.showDeleteAllConfirm -> viewModel.setDeleteAllConfirmVisible(false)
             state.showSignOutConfirm -> viewModel.setSignOutConfirmVisible(false)
             state.showSyncDialog -> viewModel.setSyncDialogVisible(false)
-            state.activeSettingsScreen != null -> viewModel.closeSettingsScreen()
         }
     }
 
@@ -161,8 +167,8 @@ internal fun ProfileScreen(
         onDismiss = peerViewModel::dismissAlert,
     )
 
-    when {
-        state.activeSettingsScreen == ProfileSettingsAction.Account -> AccountSettingsScreen(
+    when (page) {
+        ProfilePage.Account -> AccountSettingsScreen(
             padding = padding,
             hazeState = hazeState,
             bottomScrollPadding = bottomScrollPadding,
@@ -177,40 +183,42 @@ internal fun ProfileScreen(
             referralCode = state.referralCode,
             referralCodeError = resolveAccountError(state.referralCodeError),
             passwordFormNonce = state.passwordFormNonce,
-            onBack = viewModel::closeSettingsScreen,
+            onBack = onBack,
             onSaveProfile = viewModel::saveProfile,
             onChangePassword = viewModel::changePassword,
             onAvatarPicked = viewModel::onAvatarPicked,
         )
-        state.activeSettingsScreen == ProfileSettingsAction.Storage -> StorageSettingsScreen(
+        ProfilePage.Storage -> StorageSettingsScreen(
             padding = padding,
             hazeState = hazeState,
             bottomScrollPadding = bottomScrollPadding,
             usedBytes = state.storageUsedBytes,
             totalBytes = state.storageTotalBytes,
             showDeleteAllConfirm = state.showDeleteAllConfirm,
-            onBack = viewModel::closeSettingsScreen,
+            onBack = onBack,
             onDeleteAllClick = { viewModel.setDeleteAllConfirmVisible(true) },
             onDismissDeleteAllConfirm = { viewModel.setDeleteAllConfirmVisible(false) },
             onConfirmDeleteAll = viewModel::deleteAllDownloads,
         )
-        state.activeSettingsScreen == ProfileSettingsAction.BookWatch -> BookWatchScreen(
+        ProfilePage.BookWatch -> BookWatchScreen(
             viewModel = bookWatchViewModel,
-            onBack = viewModel::closeSettingsScreen,
+            onBack = onBack,
         )
-        else -> ProfileScreenContent(
+        ProfilePage.Main -> ProfileScreenContent(
             padding = padding,
             hazeState = hazeState,
             state = state,
             showMiniPlayer = showMiniPlayer,
             onSignOutClick = { viewModel.setSignOutConfirmVisible(true) },
-            onAccountClick = { viewModel.onSettingsClick(ProfileSettingsAction.Account) },
-            onSettingsClick = viewModel::onSettingsClick,
+            onAccountClick = { onNavigate(ProfileSettingsAction.Account) },
+            onSettingsClick = onNavigate,
             onPeerAcceptClick = { startPeer(PeerAction.Accept) },
             onPeerSendClick = { startPeer(PeerAction.Send) },
             bookWatchUnreadCount = bookWatchEvents.count { it.readAt == null },
         )
     }
 }
+
+internal enum class ProfilePage { Main, Account, Storage, BookWatch }
 
 private enum class PeerAction { Accept, Send }

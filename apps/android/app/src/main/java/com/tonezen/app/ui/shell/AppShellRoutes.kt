@@ -10,7 +10,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,9 +17,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.SessionState
-import com.tonezen.app.ui.components.BottomDestination
+import com.tonezen.app.ui.bookwatch.BookWatchSettingsDialog
+import com.tonezen.app.ui.bookwatch.BookWatchViewModel
 import com.tonezen.app.ui.components.TonezenTitleChromeBar
 import com.tonezen.app.ui.downloads.DownloadsTabScreen
 import com.tonezen.app.ui.library.CycleCardState
@@ -32,10 +36,12 @@ import com.tonezen.app.ui.music.MusicListTrack
 import com.tonezen.app.ui.music.MusicScreen
 import com.tonezen.app.ui.music.MusicUiState
 import com.tonezen.app.ui.music.MusicViewModel
-import com.tonezen.app.ui.profile.ProfileScreen
+import com.tonezen.app.ui.navigation.BookRoute
+import com.tonezen.app.ui.navigation.BooksRoute
+import com.tonezen.app.ui.navigation.CycleRoute
+import com.tonezen.app.ui.navigation.DownloadsRoute
+import com.tonezen.app.ui.navigation.MusicRoute
 import com.tonezen.app.ui.profile.ProfileViewModel
-import com.tonezen.app.ui.bookwatch.BookWatchViewModel
-import com.tonezen.app.ui.bookwatch.BookWatchSettingsDialog
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenPageChromeScrollPadding
 import com.tonezen.app.ui.theme.tonezenBottomChromeScrollPadding
@@ -43,6 +49,7 @@ import dev.chrisbanes.haze.HazeState
 
 @Composable
 internal fun AppShellRoutes(
+    navController: NavHostController,
     libraryViewModel: LibraryViewModel,
     musicViewModel: MusicViewModel,
     shellViewModel: AppShellViewModel,
@@ -58,107 +65,116 @@ internal fun AppShellRoutes(
 ) {
     val watches by bookWatchViewModel.watches.collectAsStateWithLifecycle()
     var editingWatch by remember { mutableStateOf<com.tonezen.app.data.local.BookWatchEntity?>(null) }
-    val selectedBook = shellState.selectedBook
-    val selectedCycle = shellState.selectedCycle?.let { cycle ->
-        cycle.copy(title = watches.firstOrNull { it.cycleId == cycle.id }?.displayTitle ?: cycle.title)
-    }
     val miniPlayerVisible = shellState.showMiniPlayer && !shellState.nowPlayingTitle.isNullOrBlank()
-    val routeStateHolder = rememberSaveableStateHolder()
-    val routeKey = when {
-        selectedBook != null -> "book:${selectedBook.id}"
-        selectedCycle != null -> "cycle:${selectedCycle.id}"
-        else -> "tab:${shellState.currentTab.name}"
-    }
 
-    routeStateHolder.SaveableStateProvider(routeKey) {
-        when {
-            selectedBook != null -> AppShellBookDetailRoute(
-                book = selectedBook,
-                shellState = shellState,
-                shellViewModel = shellViewModel,
+    NavHost(navController = navController, startDestination = MusicRoute) {
+        composable<MusicRoute> {
+            val musicDownload by shellViewModel.musicDownloadState.collectAsStateWithLifecycle()
+            MusicScreen(
                 hazeState = hazeState,
-                overlayBottomScrollPadding = overlayBottomScrollPadding,
+                hasMusicBooks = musicState.hasMusicBooks,
+                isLoadingCatalog = musicState.isLoadingCatalog,
+                musicTrackList = visibleMusicTracks,
+                musicPlayback = musicState.musicPlayback,
+                musicDownload = musicDownload,
+                musicPlaybackErrorMessage = musicState.musicPlaybackErrorMessage,
+                onDismissMusicPlaybackError = musicViewModel::clearMusicPlaybackError,
+                onMusicWavePlay = musicViewModel::playMusicWave,
+                onMusicTrackClick = musicViewModel::onMusicTrackClick,
+                onDownloadMusicTrack = musicViewModel::downloadMusicTrack,
+                onDeleteMusicTrack = musicViewModel::deleteMusicTrack,
+                onDownloadAllMusic = musicViewModel::downloadAllMusic,
+                offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
+                showMiniPlayer = shellState.showMiniPlayer,
+                isNetworkOnline = musicState.isNetworkOnline,
             )
+        }
 
-            selectedCycle != null -> {
-                LaunchedEffect(selectedCycle.id) {
-                    libraryViewModel.refreshCycleMenu(selectedCycle)
-                }
+        composable<BooksRoute> {
+            LibraryScreen(
+                hazeState = hazeState,
+                cycles = filteredCycles,
+                allCycles = libraryState.cycles.map { cycle ->
+                    cycle.copy(title = watches.firstOrNull { it.cycleId == cycle.id }?.displayTitle ?: cycle.title)
+                },
+                cycleCardStateById = libraryState.cycleCardStateById,
+                cyclePlayback = libraryState.cyclePlayback,
+                offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
+                isLoadingCatalog = libraryState.isLoadingCatalog,
+                filter = libraryState.filter,
+                showFilterSheet = libraryState.showFilterSheet,
+                onCycleClick = { cycle ->
+                    navController.navigate(CycleRoute(cycle.id)) { launchSingleTop = true }
+                },
+                onCyclePlay = libraryViewModel::toggleCyclePlay,
+                onSearchChange = libraryViewModel::setSearchQuery,
+                onFilterClick = { libraryViewModel.setFilterSheetVisible(true) },
+                onDismissFilterSheet = { libraryViewModel.setFilterSheetVisible(false) },
+                onApplyFilter = libraryViewModel::applyFilter,
+                onResetFilter = libraryViewModel::resetFilter,
+                onContentFilterChange = libraryViewModel::setContentFilter,
+                onSortOrderChange = libraryViewModel::setSortOrder,
+                cyclePlaybackErrorMessage = libraryState.cyclePlaybackErrorMessage,
+                onDismissCyclePlaybackError = libraryViewModel::clearCyclePlaybackError,
+                confirmProgressSyncConflict = libraryState.confirmProgressSyncConflict,
+                onDismissProgressSyncConflict = libraryViewModel::dismissCycleProgressSyncConflict,
+                onChooseProgressSyncLocal = libraryViewModel::chooseCycleProgressSyncLocal,
+                onChooseProgressSyncServer = libraryViewModel::chooseCycleProgressSyncServer,
+                showMiniPlayer = shellState.showMiniPlayer,
+            )
+        }
+
+        composable<CycleRoute> { entry ->
+            val route = entry.toRoute<CycleRoute>()
+            val cycle = libraryState.cycles.firstOrNull { it.id == route.cycleId }?.let { current ->
+                current.copy(title = watches.firstOrNull { it.cycleId == current.id }?.displayTitle ?: current.title)
+            }
+            MissingCatalogDestinationEffect(cycle, libraryState.isLoadingCatalog, navController)
+            if (cycle != null) {
+                LaunchedEffect(cycle.id) { libraryViewModel.refreshCycleMenu(cycle) }
                 CycleDetailScreen(
                     padding = PaddingValues(0.dp),
                     hazeState = hazeState,
-                    cycle = selectedCycle,
-                    cycleCardState = libraryState.cycleCardStateById[selectedCycle.id]
-                        ?: CycleCardState(),
+                    cycle = cycle,
+                    cycleCardState = libraryState.cycleCardStateById[cycle.id] ?: CycleCardState(),
                     downloadedBookIds = libraryState.downloadedBookIds,
                     tracksByBookId = libraryState.tracksByBookId,
                     progressByBookId = libraryState.audiobookProgressByBookId,
-                    onBack = shellViewModel::closeCycle,
-                    onBookClick = shellViewModel::openBook,
-                    onBookResume = shellViewModel::resumeBook,
-                    onDownloadCycle = { libraryViewModel.downloadCycle(selectedCycle) },
-                    onToggleCycleListened = { libraryViewModel.toggleCycleListened(selectedCycle) },
-                    onRemoveCycleDownloads = { libraryViewModel.removeCycleDownloads(selectedCycle) },
-                    bottomScrollPadding = overlayBottomScrollPadding,
-                    onBookWatch = { editingWatch = watches.firstOrNull { it.cycleId == selectedCycle.id } },
-                )
-            }
-
-            shellState.currentTab == BottomDestination.Music -> {
-                val musicDownload by shellViewModel.musicDownloadState.collectAsStateWithLifecycle()
-                MusicScreen(
-                    hazeState = hazeState,
-                    hasMusicBooks = musicState.hasMusicBooks,
-                    isLoadingCatalog = musicState.isLoadingCatalog,
-                    musicTrackList = visibleMusicTracks,
-                    musicPlayback = musicState.musicPlayback,
-                    musicDownload = musicDownload,
-                    musicPlaybackErrorMessage = musicState.musicPlaybackErrorMessage,
-                    onDismissMusicPlaybackError = musicViewModel::clearMusicPlaybackError,
-                    onMusicWavePlay = musicViewModel::playMusicWave,
-                    onMusicTrackClick = musicViewModel::onMusicTrackClick,
-                    onDownloadMusicTrack = musicViewModel::downloadMusicTrack,
-                    onDeleteMusicTrack = musicViewModel::deleteMusicTrack,
-                    onDownloadAllMusic = musicViewModel::downloadAllMusic,
-                    offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
-                    showMiniPlayer = shellState.showMiniPlayer,
-                    isNetworkOnline = musicState.isNetworkOnline,
-                )
-            }
-
-            shellState.currentTab == BottomDestination.Books -> {
-                LibraryScreen(
-                    hazeState = hazeState,
-                    cycles = filteredCycles,
-                    allCycles = libraryState.cycles.map { cycle ->
-                        cycle.copy(title = watches.firstOrNull { it.cycleId == cycle.id }?.displayTitle ?: cycle.title)
+                    onBack = { navController.popBackStack() },
+                    onBookClick = { book ->
+                        navController.navigate(BookRoute(book.id)) { launchSingleTop = true }
                     },
-                    cycleCardStateById = libraryState.cycleCardStateById,
-                    cyclePlayback = libraryState.cyclePlayback,
-                    offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
-                    isLoadingCatalog = libraryState.isLoadingCatalog,
-                    filter = libraryState.filter,
-                    showFilterSheet = libraryState.showFilterSheet,
-                    onCycleClick = shellViewModel::openCycle,
-                    onCyclePlay = libraryViewModel::toggleCyclePlay,
-                    onSearchChange = libraryViewModel::setSearchQuery,
-                    onFilterClick = { libraryViewModel.setFilterSheetVisible(true) },
-                    onDismissFilterSheet = { libraryViewModel.setFilterSheetVisible(false) },
-                    onApplyFilter = libraryViewModel::applyFilter,
-                    onResetFilter = libraryViewModel::resetFilter,
-                    onContentFilterChange = libraryViewModel::setContentFilter,
-                    onSortOrderChange = libraryViewModel::setSortOrder,
-                    cyclePlaybackErrorMessage = libraryState.cyclePlaybackErrorMessage,
-                    onDismissCyclePlaybackError = libraryViewModel::clearCyclePlaybackError,
-                    confirmProgressSyncConflict = libraryState.confirmProgressSyncConflict,
-                    onDismissProgressSyncConflict = libraryViewModel::dismissCycleProgressSyncConflict,
-                    onChooseProgressSyncLocal = libraryViewModel::chooseCycleProgressSyncLocal,
-                    onChooseProgressSyncServer = libraryViewModel::chooseCycleProgressSyncServer,
-                    showMiniPlayer = shellState.showMiniPlayer,
+                    onBookResume = { book ->
+                        navController.navigate(BookRoute(book.id, autoResume = true)) { launchSingleTop = true }
+                    },
+                    onDownloadCycle = { libraryViewModel.downloadCycle(cycle) },
+                    onToggleCycleListened = { libraryViewModel.toggleCycleListened(cycle) },
+                    onRemoveCycleDownloads = { libraryViewModel.removeCycleDownloads(cycle) },
+                    bottomScrollPadding = overlayBottomScrollPadding,
+                    onBookWatch = { editingWatch = watches.firstOrNull { it.cycleId == cycle.id } },
                 )
             }
+        }
 
-            shellState.currentTab == BottomDestination.Downloads -> Box(modifier = Modifier.fillMaxSize()) {
+        composable<BookRoute> { entry ->
+            val route = entry.toRoute<BookRoute>()
+            val book = libraryState.cycles.asSequence()
+                .flatMap { it.books.asSequence() }
+                .firstOrNull { it.id == route.bookId }
+            MissingCatalogDestinationEffect(book, libraryState.isLoadingCatalog, navController)
+            if (book != null) {
+                AppShellBookDetailRoute(
+                    book = book,
+                    hazeState = hazeState,
+                    overlayBottomScrollPadding = overlayBottomScrollPadding,
+                    autoResume = route.autoResume,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
+
+        composable<DownloadsRoute> {
+            Box(modifier = Modifier.fillMaxSize()) {
                 DownloadsTabScreen(
                     hazeState = hazeState,
                     topPadding = TonezenPageChromeScrollPadding,
@@ -180,21 +196,41 @@ internal fun AppShellRoutes(
                     )
                 }
             }
-
-            else -> ProfileScreen(
-                padding = PaddingValues(0.dp),
-                hazeState = hazeState,
-                viewModel = profileViewModel,
-                bookWatchViewModel = bookWatchViewModel,
-                showMiniPlayer = shellState.showMiniPlayer,
-            )
         }
+
+        profileRoutes(
+            navController = navController,
+            profileViewModel = profileViewModel,
+            bookWatchViewModel = bookWatchViewModel,
+            hazeState = hazeState,
+            showMiniPlayer = shellState.showMiniPlayer,
+        )
     }
+
     editingWatch?.let { watch ->
         BookWatchSettingsDialog(
             watch = watch,
             onDismiss = { editingWatch = null },
-            onSave = { title, queries -> bookWatchViewModel.update(watch, title, queries); editingWatch = null },
+            onSave = { title, queries ->
+                bookWatchViewModel.update(watch, title, queries)
+                editingWatch = null
+            },
         )
+    }
+}
+
+@Composable
+private fun MissingCatalogDestinationEffect(
+    item: Any?,
+    isLoadingCatalog: Boolean,
+    navController: NavHostController,
+) {
+    LaunchedEffect(item, isLoadingCatalog) {
+        if (item == null && !isLoadingCatalog) {
+            val returnedToBooks = navController.popBackStack<BooksRoute>(inclusive = false)
+            if (!returnedToBooks) {
+                navController.navigate(BooksRoute) { launchSingleTop = true }
+            }
+        }
     }
 }

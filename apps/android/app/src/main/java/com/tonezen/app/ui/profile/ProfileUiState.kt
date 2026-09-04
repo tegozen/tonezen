@@ -14,7 +14,6 @@ data class ProfileUiState(
     val storageTotalBytes: Long? = null,
     val showSignOutConfirm: Boolean = false,
     val showSyncDialog: Boolean = false,
-    val activeSettingsScreen: ProfileSettingsAction? = null,
     val profileSaving: Boolean = false,
     val passwordSaving: Boolean = false,
     val profileError: String? = null,

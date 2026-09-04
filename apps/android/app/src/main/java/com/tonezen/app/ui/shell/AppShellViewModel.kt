@@ -2,13 +2,10 @@ package com.tonezen.app.ui.shell
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.tonezen.app.domain.model.Book
-import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.playback.DownloadQueueNotifier
 import com.tonezen.app.playback.MusicDownloadState
 import com.tonezen.app.playback.toMusicDownloadState
 import com.tonezen.app.playback.PlaybackClient
-import com.tonezen.app.ui.components.BottomDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -89,54 +86,6 @@ class AppShellViewModel @Inject constructor(
         }
     }
 
-    fun selectTab(tab: BottomDestination) {
-        _uiState.update { it.copy(currentTab = tab) }
-    }
-
-    fun openCycle(cycle: Cycle) {
-        _uiState.update { it.copy(selectedCycle = cycle, selectedBook = null) }
-    }
-
-    fun closeCycle() {
-        _uiState.update { it.copy(selectedCycle = null) }
-    }
-
-    fun openBook(book: Book) {
-        _uiState.update {
-            it.copy(
-                selectedBook = book,
-                autoResumeBookId = null,
-                showExpandedPlayer = false,
-                nowPlayingSubtitle = book.author,
-            )
-        }
-    }
-
-    fun resumeBook(book: Book) {
-        _uiState.update {
-            it.copy(
-                selectedBook = book,
-                autoResumeBookId = book.id,
-                showExpandedPlayer = false,
-                nowPlayingSubtitle = book.author,
-            )
-        }
-    }
-
-    fun closeBook() {
-        _uiState.update { it.copy(selectedBook = null, autoResumeBookId = null) }
-    }
-
-    fun consumeAutoResumeBook(bookId: String) {
-        _uiState.update { state ->
-            if (state.autoResumeBookId == bookId) {
-                state.copy(autoResumeBookId = null)
-            } else {
-                state
-            }
-        }
-    }
-
     fun onMiniPlayerClick() {
         _uiState.update { it.copy(showExpandedPlayer = true) }
     }
@@ -150,16 +99,6 @@ class AppShellViewModel @Inject constructor(
             playbackClient.pause()
         } else {
             playbackClient.play()
-        }
-    }
-
-    fun updateNowPlaying(title: String?, subtitle: String?) {
-        _uiState.update {
-            it.copy(
-                nowPlayingTitle = title ?: it.nowPlayingTitle,
-                nowPlayingSubtitle = subtitle ?: it.nowPlayingSubtitle,
-                showMiniPlayer = !title.isNullOrBlank(),
-            )
         }
     }
 
