@@ -111,11 +111,19 @@ class DownloadsTabViewModel @Inject constructor(
     private fun DownloadQueueState.toTabUiState(
         completedFromDb: List<DownloadListItem>,
     ): DownloadsTabUiState {
-        val active = queuedItems.filter {
-            it.status == DownloadQueueItemStatus.QUEUED ||
-                it.status == DownloadQueueItemStatus.DOWNLOADING ||
-                it.status == DownloadQueueItemStatus.PAUSED_OFFLINE
-        }
+        val active = queuedItems
+            .filter {
+                it.status == DownloadQueueItemStatus.QUEUED ||
+                    it.status == DownloadQueueItemStatus.DOWNLOADING ||
+                    it.status == DownloadQueueItemStatus.PAUSED_OFFLINE
+            }
+            .map { item ->
+                if (item.bookId == activeBookId && item.trackId == activeTrackId) {
+                    item.copy(progress = activeProgress)
+                } else {
+                    item
+                }
+            }
         val liveCompleted = completedHistory
             .filter { it.status == DownloadQueueItemStatus.COMPLETED }
             .map { it.toDownloadListItem() }
