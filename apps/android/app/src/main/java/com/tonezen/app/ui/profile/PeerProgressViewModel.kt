@@ -4,17 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tonezen.app.data.nearby.PeerNearbyPermissions
 import com.tonezen.app.data.nearby.PeerProgressSyncRepository
-import com.tonezen.app.data.nearby.PeerProtocol
 import com.tonezen.app.domain.progress.PeerCycleChoice
 import com.tonezen.app.domain.progress.PeerDeviceInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -25,16 +21,12 @@ class PeerProgressViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(PeerProgressUiState())
     val uiState: StateFlow<PeerProgressUiState> = _uiState.asStateFlow()
 
-    private var timeoutJob: Job? = null
-    private var devicesJob: Job? = null
-    private var offersJob: Job? = null
+    private val sessionController = PeerProgressSessionController(viewModelScope, peerRepository)
 
     init {
-        offersJob = viewModelScope.launch {
-            peerRepository.incomingOffers.collectLatest { incoming ->
-                if (_uiState.value.mode != PeerSessionMode.Accepting) return@collectLatest
-                if (_uiState.value.pendingOffer != null) return@collectLatest
-                timeoutJob?.cancel()
+        sessionController.observeOffers { incoming ->
+            if (_uiState.value.mode == PeerSessionMode.Accepting && _uiState.value.pendingOffer == null) {
+                sessionController.cancelTimeout()
                 _uiState.update {
                     it.copy(
                         pendingOffer = PeerPendingOffer(incoming.endpointId, incoming.offer),
@@ -106,15 +98,12 @@ class PeerProgressViewModel @Inject constructor(
                 )
                 return@launch
             }
-            devicesJob?.cancel()
-            devicesJob = viewModelScope.launch {
-                peerRepository.devices.collectLatest { list ->
-                    _uiState.update { state ->
-                        state.copy(
-                            devices = list,
-                            statusMessage = if (list.isEmpty()) "Поиск устройств…" else null,
-                        )
-                    }
+            sessionController.observeDevices { devices ->
+                _uiState.update { state ->
+                    state.copy(
+                        devices = devices,
+                        statusMessage = if (devices.isEmpty()) "Поиск устройств…" else null,
+                    )
                 }
             }
             armTimeout {
@@ -137,7 +126,7 @@ class PeerProgressViewModel @Inject constructor(
 
     fun onDeviceSelected(device: PeerDeviceInfo) {
         viewModelScope.launch {
-            timeoutJob?.cancel()
+            sessionController.cancelTimeout()
             val cycles = peerRepository.listSendableCycles()
             if (cycles.isEmpty()) {
                 stopSessionInternal(clearAlert = false)
@@ -188,7 +177,7 @@ class PeerProgressViewModel @Inject constructor(
             peerRepository.replyToOffer(pending.endpointId, accepted = true)
             val merge = peerRepository.applyOffer(pending.offer)
             peerRepository.stop()
-            timeoutJob?.cancel()
+            sessionController.cancelTimeout()
             if (merge.conflicts.isNotEmpty()) {
                 _uiState.update {
                     it.copy(
@@ -246,25 +235,16 @@ class PeerProgressViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        timeoutJob?.cancel()
-        devicesJob?.cancel()
-        offersJob?.cancel()
-        peerRepository.stopSync()
+        sessionController.close()
         super.onCleared()
     }
 
     private fun armTimeout(onTimeout: suspend () -> Unit) {
-        timeoutJob?.cancel()
-        timeoutJob = viewModelScope.launch {
-            delay(PeerProtocol.SESSION_TIMEOUT_MS)
-            onTimeout()
-        }
+        sessionController.armTimeout(onTimeout)
     }
 
     private suspend fun stopSessionInternal(clearAlert: Boolean) {
-        timeoutJob?.cancel()
-        devicesJob?.cancel()
-        peerRepository.stop()
+        sessionController.stopSession()
         _uiState.update {
             it.copy(
                 mode = PeerSessionMode.Idle,

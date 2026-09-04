@@ -1,9 +1,9 @@
 package com.tonezen.app.playback
 
 import android.util.Log
-import com.tonezen.app.data.local.DownloadQueueEntity
 import com.tonezen.app.data.local.SafeLocalStorage
 import com.tonezen.app.domain.downloads.DownloadAwaitResult
+import com.tonezen.app.domain.downloads.DownloadQueueEntry
 import com.tonezen.app.domain.downloads.DownloadQueueKey
 import java.io.IOException
 import kotlinx.coroutines.sync.withLock
@@ -12,12 +12,12 @@ internal class TrackDownloadQueueTransfer(
     private val shared: TrackDownloadQueueShared,
     private val disk: TrackDownloadQueueDisk,
 ) {
-    suspend fun downloadOne(entity: DownloadQueueEntity, key: DownloadQueueKey): DownloadAwaitResult =
+    suspend fun downloadOne(entity: DownloadQueueEntry, key: DownloadQueueKey): DownloadAwaitResult =
         shared.trackDownloadLocks.forTrack(entity.trackId).withLock {
             downloadOneLocked(entity, key)
         }
 
-    private suspend fun downloadOneLocked(entity: DownloadQueueEntity, key: DownloadQueueKey): DownloadAwaitResult {
+    private suspend fun downloadOneLocked(entity: DownloadQueueEntry, key: DownloadQueueKey): DownloadAwaitResult {
         if (shared.userCancelledKeys.contains(key)) return DownloadAwaitResult.CANCELLED
         disk.isTrackAlreadyOnDisk(entity.bookId, entity.trackId)?.let { (diskBookId, path) ->
             shared.catalogRepository.markTrackDownloaded(diskBookId, entity.trackId, path)

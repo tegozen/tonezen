@@ -1,8 +1,8 @@
 package com.tonezen.app.playback
 
-import com.tonezen.app.data.local.DownloadQueueEntity
 import com.tonezen.app.domain.downloads.DownloadAwaitResult
 import com.tonezen.app.domain.downloads.DownloadPriority
+import com.tonezen.app.domain.downloads.DownloadQueueEntry
 import com.tonezen.app.domain.downloads.DownloadQueueKey
 import com.tonezen.app.domain.downloads.DownloadQueuePolicy
 import com.tonezen.app.domain.downloads.DownloadQueueSortable
@@ -67,7 +67,7 @@ internal class TrackDownloadQueueWorker(
     }
 
     private suspend fun handleDownloadResult(
-        next: DownloadQueueEntity,
+        next: DownloadQueueEntry,
         key: DownloadQueueKey,
         result: DownloadAwaitResult,
     ): DownloadAwaitResult? {
@@ -120,7 +120,7 @@ internal class TrackDownloadQueueWorker(
         return null
     }
 
-    suspend fun pickNextLocked(): DownloadQueueEntity? {
+    suspend fun pickNextLocked(): DownloadQueueEntry? {
         val pending = shared.downloadQueueRepository.getAll().mapNotNull { entity ->
             runCatching {
                 DownloadQueueSortable(

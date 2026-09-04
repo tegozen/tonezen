@@ -11,13 +11,18 @@ import com.tonezen.app.MainActivity
 import com.tonezen.app.data.local.BookWatchDao
 import com.tonezen.app.data.local.BookWatchEntity
 import com.tonezen.app.data.local.BookWatchEventEntity
+import com.tonezen.app.data.local.toDomain
 import com.tonezen.app.data.remote.bookwatch.BookWatchRemoteApi
+import com.tonezen.app.domain.model.BookWatch
+import com.tonezen.app.domain.model.BookWatchEvent
+import com.tonezen.app.domain.model.BookWatchQuery
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import org.json.JSONArray
 import org.json.JSONObject
 
 @Singleton
@@ -27,8 +32,12 @@ class BookWatchRepository @Inject constructor(
     private val sessionRepository: SessionRepository,
     @ApplicationContext private val context: Context,
 ) {
-    val events: Flow<List<BookWatchEventEntity>> = dao.observeEvents().combine(sessionRepository.session) { rows, session -> rows.filter { it.userId == session?.userId } }
-    val watches: Flow<List<BookWatchEntity>> = dao.observeWatches().combine(sessionRepository.session) { rows, session -> rows.filter { it.userId == session?.userId } }
+    val events: Flow<List<BookWatchEvent>> = dao.observeEvents().combine(sessionRepository.session) { rows, session ->
+        rows.filter { it.userId == session?.userId }.map { it.toDomain() }
+    }
+    val watches: Flow<List<BookWatch>> = dao.observeWatches().combine(sessionRepository.session) { rows, session ->
+        rows.filter { it.userId == session?.userId }.map { it.toDomain() }
+    }
 
     suspend fun checkOnLaunch() {
         val session = sessionRepository.loadSession() ?: return
@@ -81,9 +90,18 @@ class BookWatchRepository @Inject constructor(
         sessionRepository.loadSession()?.let { runCatching { api.markRead(it.accessToken, ids) } }
     }
 
-    suspend fun updateWatch(watch: BookWatchEntity, displayTitle: String, queriesJson: String) {
-        val queries = org.json.JSONArray(queriesJson)
-        val body = JSONObject().put("display_title", displayTitle).put("enabled", watch.enabled).put("queries", queries)
+    suspend fun updateWatch(watch: BookWatch, displayTitle: String, queries: List<BookWatchQuery>) {
+        val queriesJson = JSONArray().apply {
+            queries.forEach { query ->
+                put(
+                    JSONObject()
+                        .put("provider", query.provider)
+                        .put("query", query.query)
+                        .put("enabled", query.enabled),
+                )
+            }
+        }
+        val body = JSONObject().put("display_title", displayTitle).put("enabled", watch.enabled).put("queries", queriesJson)
         val token = sessionRepository.loadSession()?.accessToken ?: return
         api.update(token, watch.id, body)
         sync(token)

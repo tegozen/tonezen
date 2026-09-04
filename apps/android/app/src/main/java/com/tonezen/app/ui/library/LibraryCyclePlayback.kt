@@ -10,8 +10,7 @@ import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.CycleResumeTarget
 import com.tonezen.app.domain.progress.ProgressMerger
 import com.tonezen.app.domain.progress.orderedCycleEntriesFromResume
-import com.tonezen.app.domain.progress.resolveBookContinuePlayHead
-import com.tonezen.app.domain.progress.resolveCycleResumeTarget
+import com.tonezen.app.ui.components.formatPlaybackProgressLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -95,12 +94,10 @@ internal suspend fun LibraryCycleHandlerContext.playCycleInternal(
             ),
         )
     }
-    val bookIds = cycle.books.map { it.id }
-    val (tracksByBookId, progressByBookId) = withContext(Dispatchers.IO) {
-        catalogRepository.getTracksByBookIds(bookIds) to
-            catalogRepository.getProgressByBookIds(bookIds)
-    }
-    var resume = resolveCycleResumeTarget(cycle, tracksByBookId, progressByBookId)
+    val source = cyclePlaybackLoader.load(cycle)
+    val tracksByBookId = source.tracksByBookId
+    val progressByBookId = source.progressByBookId
+    var resume = source.resume
     if (resume == null) {
         uiState.update {
             it.copy(
@@ -121,12 +118,12 @@ internal suspend fun LibraryCycleHandlerContext.playCycleInternal(
                 confirmProgressSyncConflict = CycleProgressSyncConflictPrompt(
                     cycleId = cycle.id,
                     bookId = resume.book.id,
-                    localLabel = formatCycleProgressLabel(
+                    localLabel = formatPlaybackProgressLabel(
                         bookTracks,
                         resumeProgress!!.trackId,
                         resumeProgress.positionMs,
                     ),
-                    serverLabel = formatCycleProgressLabel(
+                    serverLabel = formatPlaybackProgressLabel(
                         bookTracks,
                         snapshot.trackId,
                         snapshot.positionMs,
@@ -139,18 +136,7 @@ internal suspend fun LibraryCycleHandlerContext.playCycleInternal(
 
     // After A3b choice, play head may have changed — re-resolve against refreshed progress.
     if (skipSyncConflictPrompt) {
-        val refreshedProgress = withContext(Dispatchers.IO) {
-            catalogRepository.getProgressByBookIds(bookIds)
-        }
-        resume = resolveCycleResumeTarget(cycle, tracksByBookId, refreshedProgress) ?: resume
-        val bookProgress = refreshedProgress[resume.book.id]
-        val head = resolveBookContinuePlayHead(
-            tracksByBookId[resume.book.id].orEmpty(),
-            bookProgress,
-        )
-        if (head != null) {
-            resume = CycleResumeTarget(resume.book, head.track, head.positionMs)
-        }
+        resume = cyclePlaybackLoader.refreshResume(cycle, source) ?: resume
     }
 
     val entries = orderedCycleEntriesFromResume(cycle, tracksByBookId, resume)
@@ -237,14 +223,6 @@ internal suspend fun LibraryCycleHandlerContext.playCycleInternal(
     prefetchNextCycleChapter(cycle, tracksByBookId, resume)
     refreshDownloadedBooks()
     refreshCycleCardStates(listOf(cycle), uiState.value.downloadedBookIds)
-}
-
-private fun formatCycleProgressLabel(tracks: List<Track>, trackId: String, positionMs: Long): String {
-    val title = tracks.find { it.id == trackId }?.title ?: "Глава"
-    val totalSec = (positionMs / 1000L).coerceAtLeast(0L)
-    val min = totalSec / 60L
-    val sec = totalSec % 60L
-    return "$title · $min:${sec.toString().padStart(2, '0')}"
 }
 
 internal fun LibraryCycleHandlerContext.playbackErrorMessageForAwait(result: DownloadAwaitResult): String =

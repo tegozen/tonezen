@@ -33,6 +33,7 @@ internal class LibraryCycleHandlerContext(
     val playbackErrorMessage: (EnsureTrackOutcome.Failure?) -> String,
 ) {
     val playbackCoordinator = PlaybackCoordinator()
+    val cyclePlaybackLoader = LibraryCyclePlaybackLoader(catalogRepository)
 
     var cycleDownloadBatchId: String? = null
     var cyclePlayJob: Job? = null

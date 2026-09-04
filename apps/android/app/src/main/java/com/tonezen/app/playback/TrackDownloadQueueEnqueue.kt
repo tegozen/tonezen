@@ -1,9 +1,9 @@
 package com.tonezen.app.playback
 
-import com.tonezen.app.data.local.DownloadQueueEntity
 import com.tonezen.app.data.local.SafeLocalStorage
 import com.tonezen.app.domain.downloads.DownloadAwaitResult
 import com.tonezen.app.domain.downloads.DownloadPriority
+import com.tonezen.app.domain.downloads.DownloadQueueEntry
 import com.tonezen.app.domain.downloads.DownloadQueueBookIdPolicy
 import com.tonezen.app.domain.downloads.DownloadQueueKey
 import com.tonezen.app.domain.downloads.DownloadQueuePolicy
@@ -37,7 +37,7 @@ internal class TrackDownloadQueueEnqueue(
                 shared.bulkTotal = requests.size
                 var skipped = 0
                 var enqueueSequence = System.currentTimeMillis()
-                val toUpsert = ArrayList<DownloadQueueEntity>(requests.size)
+                val toUpsert = ArrayList<DownloadQueueEntry>(requests.size)
                 requests.forEach { request ->
                     val normalized = normalizeEnqueueRequest(request)
                     val req = normalized.copy(
@@ -170,7 +170,7 @@ internal class TrackDownloadQueueEnqueue(
         notify.refreshNotifierFromDb()
     }
 
-    private suspend fun buildQueueEntity(request: EnqueueDownloadRequest): DownloadQueueEntity? {
+    private suspend fun buildQueueEntity(request: EnqueueDownloadRequest): DownloadQueueEntry? {
         if (!SafeLocalStorage.isSafeId(request.bookId) || !SafeLocalStorage.isSafeId(request.trackId)) return null
         val requestKey = DownloadQueueKey(request.bookId, request.trackId)
         shared.userCancelledKeys.remove(requestKey)
@@ -191,7 +191,7 @@ internal class TrackDownloadQueueEnqueue(
             request.bookId,
             request.trackId,
         )
-        return DownloadQueueEntity(
+        return DownloadQueueEntry(
             bookId = request.bookId,
             trackId = request.trackId,
             priority = priority.name,

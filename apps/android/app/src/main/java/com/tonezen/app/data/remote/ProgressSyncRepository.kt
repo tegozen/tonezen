@@ -1,44 +1,36 @@
 package com.tonezen.app.data.remote
 
-import android.content.Context
 import com.tonezen.app.BuildConfig
 import com.tonezen.app.data.local.AudiobookProgressEntity
 import com.tonezen.app.data.local.ProgressRepository
 import com.tonezen.app.data.local.toDomain
-import com.tonezen.app.data.local.toEntity
 import com.tonezen.app.data.local.toProgressEntity
 import com.tonezen.app.data.network.NetworkMonitor
-import com.tonezen.app.data.remote.progress.ProgressCasConflictException
 import com.tonezen.app.data.remote.progress.ProgressRemoteApi
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.StoredSession
 import com.tonezen.app.domain.progress.ProgressMerger
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
 @Singleton
-class ProgressSyncRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
+class ProgressSyncRepository @Inject internal constructor(
     private val progressRemoteApi: ProgressRemoteApi,
     private val progressRepository: ProgressRepository,
     private val sessionRepository: SessionRepository,
     private val networkMonitor: NetworkMonitor,
+    private val hydrationState: ProgressHydrationState,
+    private val reconciler: ProgressStateReconciler,
     httpClient: OkHttpClient,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val prefs = context.getSharedPreferences("tonezen_progress_sync", Context.MODE_PRIVATE)
     private val realtimeClient = RealtimeProgressClient(
         supabaseUrl = BuildConfig.BASE_URL,
         anonKey = BuildConfig.SUPABASE_ANON_KEY,
@@ -49,7 +41,7 @@ class ProgressSyncRepository @Inject constructor(
         scope = scope,
         onProgressChange = { row ->
             val userId = progressRepository.activeUserId ?: return@RealtimeProgressClient
-            applyRemoteEntity(row.toProgressEntity(userId))
+            reconciler.applyRemote(row.toProgressEntity(userId))
         },
     )
     private val binder = RealtimeSessionBinder(
@@ -66,27 +58,12 @@ class ProgressSyncRepository @Inject constructor(
         disconnect = realtimeClient::disconnect,
     )
 
-    private val _updates = MutableSharedFlow<AudiobookProgress>(extraBufferCapacity = 8)
-    val updates: SharedFlow<AudiobookProgress> = _updates.asSharedFlow()
-
-    private val _lastSyncAtEpochMs = MutableStateFlow<Long?>(null)
-    val lastSyncAtEpochMs: StateFlow<Long?> = _lastSyncAtEpochMs.asStateFlow()
-
-    @Volatile
-    private var serverHydrated = false
-
-    @Volatile
-    private var preferRemoteOnHydrate = false
+    val updates: SharedFlow<AudiobookProgress> = reconciler.updates
+    val lastSyncAtEpochMs: StateFlow<Long?> = reconciler.lastSyncAtEpochMs
 
     fun bindUser(session: StoredSession?) {
-        if (session == null) {
-            progressRepository.activeUserId = null
-            return
-        }
-        progressRepository.activeUserId = session.userId
-        if (prefs.getString(KEY_HYDRATED_USER, null) == session.userId) {
-            serverHydrated = true
-        }
+        progressRepository.activeUserId = session?.userId
+        if (session != null) hydrationState.bindUser(session.userId)
     }
 
     fun start(session: StoredSession) {
@@ -94,8 +71,7 @@ class ProgressSyncRepository @Inject constructor(
             val previous = binder.currentUserId
             if (previous != null && previous != session.userId) {
                 progressRepository.deleteProgressForUser(previous)
-                prefs.edit().remove(KEY_HYDRATED_USER).apply()
-                serverHydrated = false
+                hydrationState.clear()
             }
             bindUser(session)
             val refreshed = binder.ensureStarted(session) ?: return@launch
@@ -106,18 +82,13 @@ class ProgressSyncRepository @Inject constructor(
     fun stop() {
         val previous = progressRepository.activeUserId
         binder.stop()
-        serverHydrated = false
-        preferRemoteOnHydrate = false
-        prefs.edit().remove(KEY_HYDRATED_USER).apply()
-        if (previous != null) {
-            scope.launch { progressRepository.deleteProgressForUser(previous) }
-        }
+        hydrationState.clear()
+        if (previous != null) scope.launch { progressRepository.deleteProgressForUser(previous) }
         progressRepository.activeUserId = null
     }
 
     suspend fun prepareHydrateFromLocalCache() {
-        if (serverHydrated) return
-        preferRemoteOnHydrate = !progressRepository.hasAnyProgress()
+        hydrationState.prepareFromLocalCache(progressRepository.hasAnyProgress())
     }
 
     suspend fun updateAuth() {
@@ -129,15 +100,13 @@ class ProgressSyncRepository @Inject constructor(
     suspend fun pullAll(accessToken: String): Boolean {
         if (!networkMonitor.isOnline()) return false
         val userId = progressRepository.activeUserId ?: return false
-        val preferRemote = preferRemoteOnHydrate && !serverHydrated
+        val preferRemote = hydrationState.shouldPreferRemote && !hydrationState.isServerHydrated
         return try {
-            for (row in progressRemoteApi.fetchProgress(accessToken)) {
-                applyRemoteEntity(row.toProgressEntity(userId), preferRemote = preferRemote)
+            progressRemoteApi.fetchProgress(accessToken).forEach { row ->
+                reconciler.applyRemote(row.toProgressEntity(userId), preferRemote)
             }
-            serverHydrated = true
-            preferRemoteOnHydrate = false
-            prefs.edit().putString(KEY_HYDRATED_USER, userId).apply()
-            markSynced()
+            hydrationState.markHydrated(userId)
+            reconciler.markSynced()
             true
         } catch (_: Exception) {
             false
@@ -145,136 +114,40 @@ class ProgressSyncRepository @Inject constructor(
     }
 
     suspend fun saveLocal(progress: AudiobookProgress, pendingSync: Boolean, accessToken: String?) {
-        val userId = progressRepository.activeUserId ?: return
-        val existing = progressRepository.getProgressEntity(progress.bookId)
-        // Do not use `existing.revision ?: serverRevision` — Kotlin keeps 0L and never
-        // falls through, leaving revision stuck at 0 while serverRevision is N.
-        val alignedRevision = ProgressMerger.alignedClientRevision(
-            playHeadRevision = existing?.revision ?: progress.revision,
-            serverRevision = existing?.serverRevision,
-        )
-        val withServers = progress.copy(
-            revision = alignedRevision,
-            serverTrackId = existing?.serverTrackId,
-            serverPositionMs = existing?.serverPositionMs,
-            serverRevision = existing?.serverRevision,
-            conflictChoiceKey = existing?.conflictChoiceKey,
-        )
-        val snapshot = ProgressMerger.getServerSnapshot(withServers)
-        val nextKey = if (
-            snapshot != null &&
-            ProgressMerger.hasConflict(withServers, snapshot) &&
-            !existing?.conflictChoiceKey.isNullOrBlank()
-        ) {
-            // Keep auto-flush after «На устройстве» while the user keeps listening.
-            ProgressMerger.conflictChoiceKey(withServers, snapshot)
-        } else {
-            null
-        }
-        val entity = withServers.copy(conflictChoiceKey = nextKey).toEntity(userId, pendingSync)
-        progressRepository.upsertProgressEntity(entity)
-        _updates.emit(entity.toDomain())
-        if (serverHydrated && accessToken != null && networkMonitor.isOnline()) {
-            try {
-                pushProgress(accessToken, entity)
-            } catch (_: Exception) {
-                // Keep pendingSync until flush.
-            }
+        val entity = reconciler.saveLocal(progress, pendingSync) ?: return
+        if (hydrationState.isServerHydrated && accessToken != null && networkMonitor.isOnline()) {
+            tryPush(accessToken, entity)
         }
     }
 
     suspend fun chooseLocalProgress(bookId: String, accessToken: String?): AudiobookProgress? {
-        val local = progressRepository.getProgressEntity(bookId) ?: return null
-        val snapshot = ProgressMerger.getServerSnapshot(local.toDomain()) ?: return local.toDomain()
-        val key = ProgressMerger.conflictChoiceKey(local.toDomain(), snapshot)
-        val updated = local.copy(conflictChoiceKey = key, pendingSync = true)
-        progressRepository.upsertProgressEntity(updated)
-        if (serverHydrated && accessToken != null && networkMonitor.isOnline()) {
-            try {
-                pushProgress(accessToken, updated)
-            } catch (_: Exception) {
-            }
+        val choice = reconciler.chooseLocal(bookId) ?: return null
+        if (
+            choice.shouldPush && hydrationState.isServerHydrated &&
+            accessToken != null && networkMonitor.isOnline()
+        ) {
+            tryPush(accessToken, choice.entity)
         }
-        val domain = updated.toDomain()
-        _updates.emit(domain)
-        return domain
+        return choice.entity.toDomain()
     }
 
-    suspend fun chooseServerProgress(bookId: String): AudiobookProgress? {
-        val local = progressRepository.getProgressEntity(bookId) ?: return null
-        val snapshot = ProgressMerger.getServerSnapshot(local.toDomain()) ?: return local.toDomain()
-        val key = ProgressMerger.conflictChoiceKey(local.toDomain(), snapshot)
-        val applied = local.copy(
-            trackId = snapshot.trackId,
-            positionMs = snapshot.positionMs,
-            revision = snapshot.revision,
-            serverTrackId = snapshot.trackId,
-            serverPositionMs = snapshot.positionMs,
-            serverRevision = snapshot.revision,
-            pendingSync = false,
-            conflictChoiceKey = key,
-        )
-        progressRepository.upsertProgressEntity(applied)
-        val domain = applied.toDomain()
-        _updates.emit(domain)
-        return domain
-    }
+    suspend fun chooseServerProgress(bookId: String): AudiobookProgress? = reconciler.chooseServer(bookId)
 
     suspend fun pushProgress(accessToken: String, entity: AudiobookProgressEntity) {
-        if (!serverHydrated) return
-        val repaired = repairStuckRevision(entity)
-        if (!ProgressMerger.canAutoFlush(repaired.toDomain())) return
-        val baseRevision = repaired.serverRevision ?: repaired.revision
-        try {
-            val serverEntity = progressRemoteApi.pushProgress(
-                accessToken,
-                repaired.bookId,
-                repaired.toDomain(),
-                baseRevision,
-            ).toProgressEntity(repaired.userId)
-            progressRepository.upsertProgressEntity(serverEntity.copy(pendingSync = false))
-            _updates.emit(serverEntity.toDomain())
-            markSynced()
-        } catch (conflict: ProgressCasConflictException) {
-            val remote = conflict.remote ?: return
-            applyRemoteEntity(remote.toProgressEntity(repaired.userId), preferRemote = false)
-            // Snapshot refreshed — retry once if local is still auto-flushable (e.g. local ahead).
-            val latest = progressRepository.getProgressEntity(repaired.bookId) ?: return
-            val latestRepaired = repairStuckRevision(latest)
-            if (latestRepaired.pendingSync && ProgressMerger.canAutoFlush(latestRepaired.toDomain())) {
-                try {
-                    val serverEntity = progressRemoteApi.pushProgress(
-                        accessToken,
-                        latestRepaired.bookId,
-                        latestRepaired.toDomain(),
-                        latestRepaired.serverRevision ?: latestRepaired.revision,
-                    ).toProgressEntity(latestRepaired.userId)
-                    progressRepository.upsertProgressEntity(serverEntity.copy(pendingSync = false))
-                    _updates.emit(serverEntity.toDomain())
-                    markSynced()
-                } catch (_: Exception) {
-                    // Keep pending until a later flush.
-                }
-            }
-        }
+        if (hydrationState.isServerHydrated) reconciler.push(accessToken, entity)
     }
 
     suspend fun flushPending(accessToken: String) {
-        if (!serverHydrated || !networkMonitor.isOnline()) return
+        if (!hydrationState.isServerHydrated || !networkMonitor.isOnline()) return
         for (entity in progressRepository.getPendingProgress()) {
-            val repaired = repairStuckRevision(entity)
+            val repaired = reconciler.repairStuckRevision(entity)
             if (!ProgressMerger.canAutoFlush(repaired.toDomain())) continue
-            try {
-                pushProgress(accessToken, repaired)
-            } catch (_: Exception) {
-            }
+            tryPush(accessToken, repaired)
         }
-        if (progressRepository.getPendingProgress().none {
-                ProgressMerger.canAutoFlush(repairStuckRevision(it).toDomain())
-            }
-        ) {
-            markSynced()
+        val hasFlushablePending = progressRepository.getPendingProgress().any {
+            ProgressMerger.canAutoFlush(reconciler.repairStuckRevision(it).toDomain())
         }
+        if (!hasFlushablePending) reconciler.markSynced()
     }
 
     private suspend fun syncBestEffort(accessToken: String) {
@@ -286,71 +159,15 @@ class ProgressSyncRepository @Inject constructor(
         binder.scheduleAuthRecovery()
     }
 
-    private fun markSynced() {
-        _lastSyncAtEpochMs.value = System.currentTimeMillis()
-    }
-
-    /** Persist repair for rows stuck at revision=0 with a known serverRevision. */
-    private suspend fun repairStuckRevision(entity: AudiobookProgressEntity): AudiobookProgressEntity {
-        val aligned = ProgressMerger.alignedClientRevision(entity.revision, entity.serverRevision)
-        if (aligned == entity.revision) return entity
-        val repaired = entity.copy(revision = aligned)
-        progressRepository.upsertProgressEntity(repaired)
-        return repaired
-    }
-
-    private suspend fun applyRemoteEntity(
-        remoteEntity: AudiobookProgressEntity,
-        preferRemote: Boolean = false,
-    ) {
-        val local = progressRepository.getProgressEntity(remoteEntity.bookId)
-        if (preferRemote || local == null) {
-            progressRepository.upsertProgressEntity(remoteEntity.copy(pendingSync = false, conflictChoiceKey = null))
-            _updates.emit(remoteEntity.toDomain())
-            return
+    private suspend fun tryPush(accessToken: String, entity: AudiobookProgressEntity) {
+        try {
+            reconciler.push(accessToken, entity)
+        } catch (_: Exception) {
+            // Keep pending until a later flush.
         }
-
-        val prevSnapshot = ProgressMerger.getServerSnapshot(local.toDomain())
-        val snapshotChanged = prevSnapshot == null ||
-            prevSnapshot.trackId != remoteEntity.trackId ||
-            prevSnapshot.positionMs != remoteEntity.positionMs ||
-            prevSnapshot.revision != remoteEntity.revision
-
-        val next = local.copy(
-            serverTrackId = remoteEntity.trackId,
-            serverPositionMs = remoteEntity.positionMs,
-            serverRevision = remoteEntity.revision,
-            revision = when {
-                !local.pendingSync -> remoteEntity.revision
-                // Stuck at 0: branch from last known snapshot, not the new remote write.
-                local.revision <= 0L -> local.serverRevision ?: remoteEntity.revision
-                else -> local.revision
-            },
-            conflictChoiceKey = if (snapshotChanged) null else local.conflictChoiceKey,
-        )
-
-        if (local.pendingSync && ProgressMerger.hasConflict(next.toDomain(), ProgressMerger.getServerSnapshot(next.toDomain()))) {
-            progressRepository.upsertProgressEntity(next.copy(pendingSync = true))
-            _updates.emit(next.copy(pendingSync = true).toDomain())
-            return
-        }
-
-        if (!local.pendingSync) {
-            val applied = remoteEntity.copy(
-                pendingSync = false,
-                conflictChoiceKey = if (snapshotChanged) null else local.conflictChoiceKey,
-            )
-            progressRepository.upsertProgressEntity(applied)
-            _updates.emit(applied.toDomain())
-            return
-        }
-
-        progressRepository.upsertProgressEntity(next.copy(pendingSync = true))
-        _updates.emit(next.copy(pendingSync = true).toDomain())
     }
 
     companion object {
         const val SPLASH_PULL_TIMEOUT_MS = 4_000L
-        private const val KEY_HYDRATED_USER = "progress_hydrated_user_id"
     }
 }

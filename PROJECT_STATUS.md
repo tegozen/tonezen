@@ -1,11 +1,11 @@
 # Tonezen — project status
 
-Last updated: 2026-09-04. Current client release: 0.22.0.
+Last updated: 2026-09-05. Current client release: 0.22.0.
 
 Tonezen is an offline-first audiobook and music player with Android and Electron clients, a self-hosted
 Supabase stack, an Express API, and a catalog indexer. Audiobook progress synchronizes between devices;
-music progress remains local. The current worktree also corrects automatic book-watch provisioning for
-every indexed cycle.
+music progress remains local. The current worktree corrects automatic book-watch provisioning for every
+indexed cycle and refactors Android client boundaries without changing behavior.
 
 This is the session barrel. Read it completely, then open only the topic relevant to the task:
 

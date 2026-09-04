@@ -64,7 +64,7 @@ internal fun AppShellRoutes(
     overlayBottomScrollPadding: Dp,
 ) {
     val watches by bookWatchViewModel.watches.collectAsStateWithLifecycle()
-    var editingWatch by remember { mutableStateOf<com.tonezen.app.data.local.BookWatchEntity?>(null) }
+    var editingWatch by remember { mutableStateOf<com.tonezen.app.domain.model.BookWatch?>(null) }
     val miniPlayerVisible = shellState.showMiniPlayer && !shellState.nowPlayingTitle.isNullOrBlank()
 
     NavHost(navController = navController, startDestination = MusicRoute) {

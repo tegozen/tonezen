@@ -66,21 +66,40 @@ class BookDetailViewModel @Inject constructor(
         progressSyncRepository = progressSyncRepository,
         playbackEvents = playbackEvents,
     )
-    private val playbackActions = BookDetailPlaybackActions(
+    private val audiobookPlayback = BookDetailPlaybackExecutor(
         uiState = _uiState,
-        playbackProgress = _playbackProgress,
-        scope = viewModelScope,
         catalogRepository = catalogRepository,
-        sessionRepository = sessionRepository,
-        progressSyncRepository = progressSyncRepository,
         playbackClient = playbackClient,
         playbackQueueBuilder = playbackQueueBuilder,
         trackDownloadEnsurer = trackDownloadEnsurer,
         networkMonitor = networkMonitor,
         downloadQueueController = downloadQueueController,
         localLibraryNotifier = localLibraryNotifier,
+        loadBook = ::loadBook,
+    )
+    private val musicPlayback = BookDetailMusicPlayback(
+        uiState = _uiState,
+        catalogRepository = catalogRepository,
+        playbackClient = playbackClient,
+        playbackQueueBuilder = playbackQueueBuilder,
+        trackDownloadEnsurer = trackDownloadEnsurer,
         musicPlaybackQueue = musicPlaybackQueue,
         loadBook = ::loadBook,
+    )
+    private val playbackActions = BookDetailPlaybackActions(
+        uiState = _uiState,
+        playbackProgress = _playbackProgress,
+        scope = viewModelScope,
+        catalogRepository = catalogRepository,
+        playbackClient = playbackClient,
+        audiobookPlayback = audiobookPlayback,
+        musicPlayback = musicPlayback,
+        persistAudiobookProgress = progressActions::persistAudiobookProgress,
+    )
+    private val playbackObserver = BookDetailPlaybackObserver(
+        uiState = _uiState,
+        playbackProgress = _playbackProgress,
+        playbackClient = playbackClient,
     )
     private val downloadActions = BookDetailDownloadActions(
         uiState = _uiState,
@@ -98,7 +117,7 @@ class BookDetailViewModel @Inject constructor(
     )
 
     init {
-        playbackActions.startObservers()
+        playbackObserver.start(viewModelScope)
         downloadActions.startObserving()
         progressActions.startObserving()
         // Обновляем треки при изменении локальной библиотеки (завершение фоновой загрузки),

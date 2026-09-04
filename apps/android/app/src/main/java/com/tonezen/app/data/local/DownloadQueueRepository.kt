@@ -1,5 +1,6 @@
 package com.tonezen.app.data.local
 
+import com.tonezen.app.domain.downloads.DownloadQueueEntry
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -8,14 +9,14 @@ import javax.inject.Singleton
 class DownloadQueueRepository @Inject constructor(
     private val downloadQueueDao: DownloadQueueDao,
 ) {
-    suspend fun getAll(): List<DownloadQueueEntity> = downloadQueueDao.getAll()
+    suspend fun getAll(): List<DownloadQueueEntry> = downloadQueueDao.getAll().map { it.toDomain() }
 
-    suspend fun get(bookId: String, trackId: String): DownloadQueueEntity? =
-        downloadQueueDao.get(bookId, trackId)
+    suspend fun get(bookId: String, trackId: String): DownloadQueueEntry? =
+        downloadQueueDao.get(bookId, trackId)?.toDomain()
 
-    suspend fun upsert(item: DownloadQueueEntity) = downloadQueueDao.upsert(item)
+    suspend fun upsert(item: DownloadQueueEntry) = downloadQueueDao.upsert(item.toEntity())
 
-    suspend fun upsertAll(items: List<DownloadQueueEntity>) = downloadQueueDao.upsertAll(items)
+    suspend fun upsertAll(items: List<DownloadQueueEntry>) = downloadQueueDao.upsertAll(items.map { it.toEntity() })
 
     suspend fun delete(bookId: String, trackId: String) = downloadQueueDao.delete(bookId, trackId)
 

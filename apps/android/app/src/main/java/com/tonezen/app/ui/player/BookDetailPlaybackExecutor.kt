@@ -10,9 +10,6 @@ import com.tonezen.app.domain.downloads.DownloadPriority
 import com.tonezen.app.domain.downloads.EnqueueDownloadRequest
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Track
-import com.tonezen.app.domain.music.MusicQueueWindow
-import com.tonezen.app.domain.music.MusicShuffleQueue
-import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
 import com.tonezen.app.playback.PlaybackQueueBuilder
 import com.tonezen.app.playback.TrackDownloadQueueController
@@ -31,9 +28,7 @@ internal class BookDetailPlaybackExecutor(
     private val networkMonitor: NetworkMonitor,
     private val downloadQueueController: TrackDownloadQueueController,
     private val localLibraryNotifier: LocalLibraryNotifier,
-    private val musicPlaybackQueue: MusicPlaybackQueue,
     private val loadBook: (Book) -> Unit,
-    private val onTrackStarted: (Track) -> Unit,
 ) {
     suspend fun playAudiobookTrack(
         book: Book,
@@ -80,7 +75,6 @@ internal class BookDetailPlaybackExecutor(
         if (queue.isEmpty()) return false
         val startIndex = queue.indexOfFirst { it.trackId == localTrack.id }
         if (startIndex < 0) return false
-        onTrackStarted(localTrack)
         playbackClient.playQueue(queue, startIndex, startMs)
         prefetchNextChapter(book, tracks, localTrack)
         uiState.update { it.copy(activeTrackId = localTrack.id) }
@@ -105,48 +99,6 @@ internal class BookDetailPlaybackExecutor(
                 contentType = book.contentType.name.lowercase(),
             ),
         )
-    }
-
-    suspend fun playMusicTrack(book: Book, track: Track) {
-        val libraryTracks = withContext(Dispatchers.IO) {
-            val catalog = catalogRepository.resolveMusicLibraryTracks()
-            MusicShuffleQueue.order(catalog, track.id)
-        }
-        musicPlaybackQueue.set(libraryTracks)
-        val target = libraryTracks.find { it.track.id == track.id } ?: return
-        val localTrack = withContext(Dispatchers.IO) {
-            trackDownloadEnsurer.ensureTrackLocal(target.book.id, track).track
-        } ?: run {
-            uiState.update {
-                it.copy(playbackErrorMessage = "Не удалось скачать трек")
-            }
-            return
-        }
-        val queueWindow = MusicQueueWindow.initialWindow(
-            items = libraryTracks,
-            startTrackId = localTrack.id,
-            idOf = { it.track.id },
-        )
-        val queue = withContext(Dispatchers.IO) {
-            playbackQueueBuilder.buildLocalMusicLibraryQueue(queueWindow) { entry ->
-                if (entry.track.id == localTrack.id) {
-                    localTrack
-                } else {
-                    trackDownloadEnsurer.resolveLocalTrack(entry.book.id, entry.track)
-                }
-            }
-        }
-        if (queue.isEmpty()) {
-            uiState.update {
-                it.copy(playbackErrorMessage = "Не удалось скачать трек")
-            }
-            return
-        }
-        val startIndex = queue.indexOfFirst { it.trackId == localTrack.id }.coerceAtLeast(0)
-        onTrackStarted(localTrack)
-        playbackClient.playQueue(queue, startIndex)
-        uiState.update { it.copy(activeTrackId = track.id) }
-        loadBook(book)
     }
 
     private fun playbackErrorMessage(failure: EnsureTrackOutcome.Failure?): String = when (failure) {

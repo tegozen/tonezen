@@ -18,3 +18,10 @@
   downloads, and local-only progress. Download/play identifiers must resolve to canonical catalog book IDs.
 - Android playback uses Media3 service/session; desktop integrates OS media controls. Queue commands are
   gated by media type, and background service binding must not unnecessarily start foreground playback.
+- Android progress sync now keeps hydration persistence, local/remote reconciliation and Realtime lifecycle
+  in separate data components behind the existing repository facade. Book-detail playback likewise separates
+  Media3 observation, audiobook execution and music execution, while sharing one progress persistence path.
+- Cycle progress calculations, resume selection and playback ordering are separate pure-domain modules;
+  library cycle loading and nearby session job management are isolated from UI event orchestration.
+- Book Watch UI and the playback download queue consume domain models; Room entities remain confined to
+  the data layer and are converted by local mappers.

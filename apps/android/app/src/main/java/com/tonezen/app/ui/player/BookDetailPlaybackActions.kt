@@ -1,13 +1,6 @@
 package com.tonezen.app.ui.player
 
 import com.tonezen.app.data.local.CatalogRepository
-import com.tonezen.app.data.local.LocalLibraryNotifier
-import com.tonezen.app.data.local.TrackDownloadEnsurer
-import com.tonezen.app.data.network.NetworkMonitor
-import com.tonezen.app.data.remote.ProgressSyncRepository
-import com.tonezen.app.data.remote.SessionRepository
-import com.tonezen.app.domain.model.AudiobookProgress
-import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.AudiobookPlaybackIntent
@@ -15,14 +8,11 @@ import com.tonezen.app.domain.progress.findCycleContainingBook
 import com.tonezen.app.domain.progress.resolveAudiobookPlaybackIntent
 import com.tonezen.app.domain.progress.resolveBookContinuePlayHead
 import com.tonezen.app.domain.progress.resolveEarlierCycleBookConfirm
-import com.tonezen.app.playback.MusicPlaybackQueue
 import com.tonezen.app.playback.PlaybackClient
-import com.tonezen.app.playback.PlaybackQueueBuilder
-import com.tonezen.app.playback.TrackDownloadQueueController
+import com.tonezen.app.ui.components.formatPlaybackProgressLabel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -33,67 +23,11 @@ internal class BookDetailPlaybackActions(
     private val playbackProgress: MutableStateFlow<BookDetailPlaybackProgress>,
     private val scope: CoroutineScope,
     private val catalogRepository: CatalogRepository,
-    private val sessionRepository: SessionRepository,
-    private val progressSyncRepository: ProgressSyncRepository,
     private val playbackClient: PlaybackClient,
-    playbackQueueBuilder: PlaybackQueueBuilder,
-    trackDownloadEnsurer: TrackDownloadEnsurer,
-    networkMonitor: NetworkMonitor,
-    downloadQueueController: TrackDownloadQueueController,
-    localLibraryNotifier: LocalLibraryNotifier,
-    musicPlaybackQueue: MusicPlaybackQueue,
-    loadBook: (Book) -> Unit,
+    private val audiobookPlayback: BookDetailPlaybackExecutor,
+    private val musicPlayback: BookDetailMusicPlayback,
+    private val persistAudiobookProgress: suspend (String, String, Long) -> Unit,
 ) {
-    var currentTrack: Track? = null
-
-    private val executor = BookDetailPlaybackExecutor(
-        uiState = uiState,
-        catalogRepository = catalogRepository,
-        playbackClient = playbackClient,
-        playbackQueueBuilder = playbackQueueBuilder,
-        trackDownloadEnsurer = trackDownloadEnsurer,
-        networkMonitor = networkMonitor,
-        downloadQueueController = downloadQueueController,
-        localLibraryNotifier = localLibraryNotifier,
-        musicPlaybackQueue = musicPlaybackQueue,
-        loadBook = loadBook,
-        onTrackStarted = { currentTrack = it },
-    )
-
-    fun startObservers() {
-        scope.launch {
-            playbackClient.activeTrackId.collect { trackId ->
-                val track = uiState.value.tracks.find { it.id == trackId }
-                currentTrack = track
-                uiState.update { it.copy(activeTrackId = track?.id) }
-            }
-        }
-        scope.launch {
-            playbackClient.snapshot.collectLatest { snapshot ->
-                val playbackState = resolveBookDetailPlaybackState(uiState.value.tracks, snapshot)
-                playbackProgress.value = BookDetailPlaybackProgress(
-                    positionMs = playbackState.positionMs,
-                    durationMs = playbackState.durationMs,
-                )
-                uiState.update {
-                    val next = it.copy(
-                        activeTrackId = playbackState.activeTrackId,
-                        isPlaying = playbackState.isPlaying,
-                        isPlaybackActiveForBook = playbackState.isActiveForBook,
-                    )
-                    if (next == it) it else next
-                }
-            }
-        }
-    }
-
-    private fun formatProgressLabel(tracks: List<Track>, trackId: String, positionMs: Long): String {
-        val title = tracks.find { it.id == trackId }?.title ?: "Глава"
-        val totalSec = (positionMs / 1000L).coerceAtLeast(0L)
-        val min = totalSec / 60L
-        val sec = totalSec % 60L
-        return "$title · $min:${sec.toString().padStart(2, '0')}"
-    }
 
     fun playTrack(
         track: Track,
@@ -122,12 +56,12 @@ internal class BookDetailPlaybackActions(
                             it.copy(
                                 confirmProgressSyncConflict = ConfirmProgressSyncConflictPrompt(
                                     pendingTrack = targetTrack,
-                                    localLabel = formatProgressLabel(
+                                    localLabel = formatPlaybackProgressLabel(
                                         tracks,
                                         intent.localTrackId,
                                         intent.localPositionMs,
                                     ),
-                                    serverLabel = formatProgressLabel(
+                                    serverLabel = formatPlaybackProgressLabel(
                                         tracks,
                                         intent.server.trackId,
                                         intent.server.positionMs,
@@ -171,49 +105,20 @@ internal class BookDetailPlaybackActions(
                             }
                         }
                         is AudiobookPlaybackIntent.Resume -> {
-                            if (executor.playAudiobookTrack(book, tracks, targetTrack, intent.positionMs)) {
-                                persistPlaybackProgress(book.id, targetTrack.id, intent.positionMs)
+                            if (audiobookPlayback.playAudiobookTrack(book, tracks, targetTrack, intent.positionMs)) {
+                                persistPlaybackStart(book.id, targetTrack.id, intent.positionMs)
                             }
                         }
                         AudiobookPlaybackIntent.StartFromZero -> {
-                            if (executor.playAudiobookTrack(book, tracks, targetTrack, 0L)) {
-                                persistPlaybackProgress(book.id, targetTrack.id, 0L)
+                            if (audiobookPlayback.playAudiobookTrack(book, tracks, targetTrack, 0L)) {
+                                persistPlaybackStart(book.id, targetTrack.id, 0L)
                             }
                         }
                         is AudiobookPlaybackIntent.ConfirmProgressSyncConflict -> Unit
                     }
                 }
-                ContentType.MUSIC -> executor.playMusicTrack(book, track)
+                ContentType.MUSIC -> musicPlayback.play(book, track)
             }
-        }
-    }
-
-    /**
-     * Write play head as soon as playback starts from book detail so cycle Continue / resume
-     * pick this book immediately (Library snapshot throttle alone is too late / can miss).
-     */
-    private suspend fun persistPlaybackProgress(bookId: String, trackId: String, positionMs: Long) {
-        val progress = AudiobookProgress(
-            bookId = bookId,
-            trackId = trackId,
-            // 0 is reserved for explicit «unlistened»; play-start must count as real progress.
-            positionMs = positionMs.coerceAtLeast(1L),
-            updatedAtEpochMs = System.currentTimeMillis(),
-        )
-        val session = withContext(Dispatchers.IO) {
-            sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
-        }
-        withContext(Dispatchers.IO) {
-            progressSyncRepository.saveLocal(progress, pendingSync = true, session?.accessToken)
-        }
-        val stored = withContext(Dispatchers.IO) {
-            catalogRepository.getProgress(bookId)
-        }
-        uiState.update {
-            it.copy(
-                audiobookProgress = stored ?: progress,
-                syncStatus = SyncDisplayStatus.PENDING,
-            )
         }
     }
 
@@ -225,8 +130,8 @@ internal class BookDetailPlaybackActions(
             val tracks = withContext(Dispatchers.IO) {
                 catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
             }
-            if (executor.playAudiobookTrack(book, tracks, prompt.track, 0L)) {
-                persistPlaybackProgress(book.id, prompt.track.id, 0L)
+            if (audiobookPlayback.playAudiobookTrack(book, tracks, prompt.track, 0L)) {
+                persistPlaybackStart(book.id, prompt.track.id, 0L)
             }
         }
     }
@@ -274,8 +179,8 @@ internal class BookDetailPlaybackActions(
                 catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
             }
             val track = tracks.find { it.id == applied.trackId } ?: tracks.firstOrNull() ?: return@launch
-            if (executor.playAudiobookTrack(book, tracks, track, applied.positionMs)) {
-                persistPlaybackProgress(book.id, track.id, applied.positionMs)
+            if (audiobookPlayback.playAudiobookTrack(book, tracks, track, applied.positionMs)) {
+                persistPlaybackStart(book.id, track.id, applied.positionMs)
             }
         }
     }
@@ -315,8 +220,14 @@ internal class BookDetailPlaybackActions(
         if (book.contentType != ContentType.AUDIOBOOK) return
         val trackId = uiState.value.activeTrackId ?: return
         scope.launch {
-            persistPlaybackProgress(book.id, trackId, positionMs)
+            persistPlaybackStart(book.id, trackId, positionMs)
         }
+    }
+
+    /** Play-start must be a real head: zero remains reserved for explicit «unlistened». */
+    private suspend fun persistPlaybackStart(bookId: String, trackId: String, positionMs: Long) {
+        persistAudiobookProgress(bookId, trackId, positionMs.coerceAtLeast(1L))
+        uiState.update { it.copy(syncStatus = SyncDisplayStatus.PENDING) }
     }
 
     fun clearPlaybackError() {

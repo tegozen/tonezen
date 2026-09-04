@@ -4,6 +4,9 @@ Newest first. This is a concise milestone history reconstructed from repository 
 major development stage, not every fix or release-only version bump. Prune superseded details when current
 state changes, while retaining the architectural reason a stage mattered.
 
+- 2026-09-05: Refactored Android progress synchronization, book-detail playback, cycle progress/playback
+  preparation, and nearby session lifecycle into focused components; removed Room entities from Book Watch
+  UI and playback download queues without changing client contracts.
 - 2026-09-04: Added Navigation Compose typed routing and state-preserving navigation, improved active
   download progress and cycle listened indicators, released 0.22.0, centralized shared agent rules/hooks,
   corrected automatic indexer-owned book-watch provisioning, and introduced this progressive handoff.

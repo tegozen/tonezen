@@ -1,8 +1,8 @@
 package com.tonezen.app.playback
 
 import android.content.Intent
-import com.tonezen.app.data.local.DownloadQueueEntity
 import com.tonezen.app.domain.downloads.DownloadPriority
+import com.tonezen.app.domain.downloads.DownloadQueueEntry
 import com.tonezen.app.domain.downloads.DownloadQueueKey
 import com.tonezen.app.domain.downloads.DownloadQueuePolicy
 import com.tonezen.app.domain.downloads.DownloadQueueSortable
@@ -93,7 +93,7 @@ internal class TrackDownloadQueueNotify(
         shared.bulkSkipped = 0
     }
 
-    fun addCompletedHistory(entity: DownloadQueueEntity) {
+    fun addCompletedHistory(entity: DownloadQueueEntry) {
         val completed = DownloadQueueItem(
             bookId = entity.bookId,
             trackId = entity.trackId,

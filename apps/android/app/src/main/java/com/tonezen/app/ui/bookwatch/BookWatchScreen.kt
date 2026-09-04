@@ -28,7 +28,6 @@ import com.tonezen.app.ui.theme.TonezenError
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
-import org.json.JSONArray
 
 @Composable
 fun BookWatchScreen(viewModel: BookWatchViewModel, onBack: () -> Unit) {
@@ -56,13 +55,11 @@ fun BookWatchScreen(viewModel: BookWatchViewModel, onBack: () -> Unit) {
                     Text(event.title, color = if (event.kind == "provider_error") TonezenError else TonezenInk)
                     event.author?.let { Text(it, color = TonezenMuted) }
                     StatusChip(if (event.status == "completed") "Выполнено" else "Новое", if (event.status == "completed") TonezenTeal else TonezenMuted)
-                    val links = JSONArray(event.linksJson)
                     Row {
-                        for (index in 0 until links.length()) {
-                            val link = links.getJSONObject(index)
+                        event.links.forEach { link ->
                             TextButton(onClick = {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.getString("url"))))
-                            }) { Text(if (link.getString("provider") == "baza_knig") "Baza Knig" else "Allbookerka") }
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.url)))
+                            }) { Text(if (link.provider == "baza_knig") "Baza Knig" else "Allbookerka") }
                         }
                     }
                 }
