@@ -18,11 +18,8 @@ if (-not $filePath) { $filePath = $payload.filePath }
 if (-not $filePath) { exit 0 }
 
 $normalized = ($filePath -replace '\\', '/').ToLowerInvariant()
-
-# Only Android app tree.
 if ($normalized -notmatch '(^|/)apps/android/') { exit 0 }
 
-# Paths that definitely require reinstall (no emulator hot-reload).
 $requiresReinstall = @(
     '/androidmanifest\.xml$'
     '/build\.gradle\.kts$'

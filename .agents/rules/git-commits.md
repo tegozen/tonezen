@@ -1,9 +1,6 @@
----
-description: Git commit conventions
-alwaysApply: true
----
+# Git commits
 
-# Git Commits
+Apply when creating commits.
 
 Use Conventional Commits in English:
 
@@ -12,4 +9,4 @@ Use Conventional Commits in English:
 - `test(scope): description`
 - `docs:`, `chore:`, `ci:`, `refactor:`
 
-One logical change per commit/PR when possible. Tests only when the user asks.
+Keep one logical change per commit or PR when possible. Add tests only when the user asks.

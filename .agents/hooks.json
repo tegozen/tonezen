@@ -3,7 +3,7 @@
   "hooks": {
     "afterFileEdit": [
       {
-        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/android-reinstall.ps1",
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .agents/hooks/android-reinstall.ps1",
         "matcher": "Write",
         "timeout": 15
       }

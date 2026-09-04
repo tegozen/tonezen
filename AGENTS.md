@@ -36,7 +36,8 @@ Before changing library, playback, downloads, or progress UI/logic on **Android*
 
 ### Android (Kotlin) — mandatory structure
 
-Based on [Google app architecture](https://developer.android.com/topic/architecture) and Kotlin conventions. Full checklist: [`.cursor/rules/kotlin-android.mdc`](.cursor/rules/kotlin-android.mdc).
+Based on [Google app architecture](https://developer.android.com/topic/architecture) and Kotlin conventions. Full checklist: [`.agents/rules/kotlin-android.md`](.agents/rules/kotlin-android.md).
+Shared Navigation Compose checklist: [`.agents/rules/navigation-compose.md`](.agents/rules/navigation-compose.md).
 
 **Layers**
 
@@ -56,6 +57,9 @@ Based on [Google app architecture](https://developer.android.com/topic/architect
 - **Repositories per API domain** — ViewModels depend on repos, never on `CatalogDao`, `ApiClient`, or `*Entity`.
 - **Entity/DTO mapping only in `data/`** — `domain/` uses `Book`, `Track`, `AudiobookProgress`, not Room types.
 - **Compose is dumb UI** — no repository calls, no content-type/sync branching; UI copy inline at usage sites (**Russian only**).
+- **Navigation Compose is authoritative** — use type-safe routes, pass IDs/simple arguments only, and keep navigation state out of feature `UiState` / ViewModels.
+- **Bottom tabs preserve state** — switch with `launchSingleTop`, `saveState`, and `restoreState`; screens emit navigation callbacks instead of receiving a `NavController`.
+- **Destinations vs overlays** — full-screen pages belong in the navigation graph; dialogs, sheets, crop UI, and expanded player remain transient UI state. System Back closes overlays before popping a destination.
 - **IO on background** — all Room/HTTP via `suspend` or `Flow`; no `while (true)` polling in ViewModel.
 - **Modules ~≤200 lines** — split screens, DAOs, and API clients by feature/domain.
 - **Tests** — Android has no unit/instrumentation suite (same policy as desktop); add tests only when the user explicitly asks.
@@ -118,6 +122,7 @@ apps/desktop/src/
 
 ## Agent Skills
 
+- Keep shared agent rules under `.agents/rules/` and shared hook configuration/scripts under `.agents/hooks.json` and `.agents/hooks/`; do not add project instructions under agent-specific directories.
 - Create shared skills under `.agents/skills/<skill-name>/SKILL.md` so Codex and Cursor can both discover them.
 - Do not add new skills under agent-specific directories such as `.cursor/skills` or `.codex/skills` unless the user explicitly asks for that location.
 
@@ -142,7 +147,7 @@ apps/desktop/src/
 
 | Area | Tool | Rules |
 |------|------|-------|
-| Kotlin/Android | `./gradlew` (+ ktlint/detekt when configured) | See [kotlin-android.mdc](.cursor/rules/kotlin-android.mdc): feature ViewModels, UDF, repos per domain, pure `domain/`, Compose stateless, inline Russian UI copy |
+| Kotlin/Android | `./gradlew` (+ ktlint/detekt when configured) | See [kotlin-android.md](.agents/rules/kotlin-android.md): feature ViewModels, UDF, repos per domain, pure `domain/`, Compose stateless, inline Russian UI copy |
 | TypeScript/React | ESLint + Prettier | strict TS; functional components; hooks for logic; UI copy inline at usage sites (**Russian only**) |
 | Desktop renderer UI | Tailwind CSS v4 + CSS modules | FSD in `renderer/src`; domain in `src/core`; prefer `*.module.css` with `@reference` for new UI (no Sass); legacy globals in `app/styles/styles.css` |
 | SQL | pg formatter | snake_case; explicit RLS in migrations |
