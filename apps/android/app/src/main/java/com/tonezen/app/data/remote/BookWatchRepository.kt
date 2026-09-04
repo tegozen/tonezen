@@ -32,10 +32,12 @@ class BookWatchRepository @Inject constructor(
 
     suspend fun checkOnLaunch() {
         val session = sessionRepository.loadSession() ?: return
-        runCatching { api.enqueue(session.accessToken) }
         repeat(4) { attempt ->
             if (attempt > 0) delay((attempt + 1) * 2_000L)
-            if (runCatching { sync(session.accessToken) }.isSuccess) return
+            if (runCatching { sync(session.accessToken) }.isSuccess) {
+                runCatching { api.enqueue(session.accessToken) }
+                return
+            }
         }
     }
 

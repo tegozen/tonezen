@@ -1,5 +1,8 @@
 # Tonezen
 
+Текущее состояние проекта, архитектурные решения и история этапов разработки собраны в
+[`PROJECT_STATUS.md`](PROJECT_STATUS.md) и тематических файлах [`docs/status/`](docs/status/).
+
 Offline-first cross-platform media player for audiobooks and music.
 
 - **Android** — Kotlin, Jetpack Compose, Media3, Room

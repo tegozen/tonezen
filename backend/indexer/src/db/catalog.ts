@@ -58,6 +58,7 @@ export class CatalogRepository {
 
       for (const cycle of cycles) {
         const cycleRow = await this.upsertCycle(client, cycle);
+        await this.ensureBookWatches(client, cycleRow.id, cycle.title);
         for (let i = 0; i < cycleRow.bookOrder.length; i++) {
           const bookSlug = cycleRow.bookOrder[i];
           const book = cycle.books.find((b) => b.slug === bookSlug);
@@ -138,6 +139,27 @@ export class CatalogRepository {
       [cycle.slug, cycle.title, cycle.description, JSON.stringify(cycle.bookOrder)],
     );
     return { id: result.rows[0].id as string, bookOrder: cycle.bookOrder };
+  }
+
+  private async ensureBookWatches(
+    client: pg.PoolClient,
+    cycleId: string,
+    defaultQuery: string,
+  ): Promise<void> {
+    await client.query(
+      `WITH inserted AS (
+         INSERT INTO book_watches (user_id, cycle_id)
+         SELECT id, $1 FROM auth.users
+         ON CONFLICT (user_id, cycle_id) DO NOTHING
+         RETURNING id
+       )
+       INSERT INTO book_watch_queries (watch_id, provider, query)
+       SELECT inserted.id, providers.provider, $2
+       FROM inserted
+       CROSS JOIN (VALUES ('baza_knig'), ('allbookerka')) AS providers(provider)
+       ON CONFLICT DO NOTHING`,
+      [cycleId, defaultQuery],
+    );
   }
 
   private async upsertBook(client: pg.PoolClient, book: ParsedBook): Promise<string> {

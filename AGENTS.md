@@ -10,6 +10,23 @@ Monorepo offline-first media player:
 
 Shared API contract: [`docs/openapi.yaml`](docs/openapi.yaml).
 
+## Session handoff — mandatory
+
+Before inspecting or changing code in a new session, read [`PROJECT_STATUS.md`](PROJECT_STATUS.md)
+completely. Then read only the numbered status document it links for the current task. Together they are
+the canonical handoff for current implementation, decisions, known defects, and next work; source and
+the API/user-flow contracts remain authoritative for exact runtime behavior.
+
+Use progressive disclosure: start with this file, the short barrel, and the relevant status topic; search
+the concrete feature or symbol next; inspect adjacent modules only when that context is insufficient. Do
+not preload every status file or treat the handoff as a substitute for reading relevant source.
+
+After every material behavior, architecture, persistence, deployment, or ownership change, update the
+relevant file under `docs/status/` in the same change and add one concise newest-first entry to
+`docs/status/900-development-log.md`. Update the barrel only when its summary, routing, release, date, or
+known-gap state changes. Record only verification actually performed and prune obsolete statements rather
+than accumulating contradictory history.
+
 Content types:
 
 - `audiobook` — progress syncs for authenticated users
