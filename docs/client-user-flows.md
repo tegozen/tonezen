@@ -10,6 +10,7 @@
 - **Audiobook progress write timing:** persist on play-start (`positionMs ≥ 1`), ~every 15s while playing, on pause, on seek (immediate), and on Android process `onStop`. Bare `0` is reserved for explicit «не прослушанным».
 - **Android external media controls:** headset, Bluetooth, lock-screen, and system media controls must not expose or execute previous/next chapter commands for audiobooks. Play/pause, seek, in-app chapter controls, and all music controls remain available.
 - **UI language:** Russian only — copy inline at usage sites; no strings catalog or locale switching.
+- **Android navigation:** each tab and opened book/cycle keeps its scroll position while other UI state updates and when the user navigates away and back within the app shell.
 - **Download queue priorities:** `USER` (explicit tap) > `PLAY` (playback needs file) > `PREFETCH` (background next chapter/track) > `BULK` (download all). Progress % is shown only for the **currently active** download in a batch; queued items show icon until their turn.
 - **Auth:** expired JWT while **offline** ≠ logout; refresh tokens **only when online**; never block cold start with synchronous JWT exp check without network.
 

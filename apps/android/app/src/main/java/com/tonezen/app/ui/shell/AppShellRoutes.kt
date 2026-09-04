@@ -10,6 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,124 +63,132 @@ internal fun AppShellRoutes(
         cycle.copy(title = watches.firstOrNull { it.cycleId == cycle.id }?.displayTitle ?: cycle.title)
     }
     val miniPlayerVisible = shellState.showMiniPlayer && !shellState.nowPlayingTitle.isNullOrBlank()
+    val routeStateHolder = rememberSaveableStateHolder()
+    val routeKey = when {
+        selectedBook != null -> "book:${selectedBook.id}"
+        selectedCycle != null -> "cycle:${selectedCycle.id}"
+        else -> "tab:${shellState.currentTab.name}"
+    }
 
-    when {
-        selectedBook != null -> AppShellBookDetailRoute(
-            book = selectedBook,
-            shellState = shellState,
-            shellViewModel = shellViewModel,
-            hazeState = hazeState,
-            overlayBottomScrollPadding = overlayBottomScrollPadding,
-        )
-
-        selectedCycle != null -> {
-            LaunchedEffect(selectedCycle.id) {
-                libraryViewModel.refreshCycleMenu(selectedCycle)
-            }
-            CycleDetailScreen(
-                padding = PaddingValues(0.dp),
+    routeStateHolder.SaveableStateProvider(routeKey) {
+        when {
+            selectedBook != null -> AppShellBookDetailRoute(
+                book = selectedBook,
+                shellState = shellState,
+                shellViewModel = shellViewModel,
                 hazeState = hazeState,
-                cycle = selectedCycle,
-                cycleCardState = libraryState.cycleCardStateById[selectedCycle.id]
-                    ?: CycleCardState(),
-                downloadedBookIds = libraryState.downloadedBookIds,
-                tracksByBookId = libraryState.tracksByBookId,
-                progressByBookId = libraryState.audiobookProgressByBookId,
-                onBack = shellViewModel::closeCycle,
-                onBookClick = shellViewModel::openBook,
-                onBookResume = shellViewModel::resumeBook,
-                onDownloadCycle = { libraryViewModel.downloadCycle(selectedCycle) },
-                onToggleCycleListened = { libraryViewModel.toggleCycleListened(selectedCycle) },
-                onRemoveCycleDownloads = { libraryViewModel.removeCycleDownloads(selectedCycle) },
-                bottomScrollPadding = overlayBottomScrollPadding,
-                onBookWatch = { editingWatch = watches.firstOrNull { it.cycleId == selectedCycle.id } },
+                overlayBottomScrollPadding = overlayBottomScrollPadding,
             )
-        }
 
-        shellState.currentTab == BottomDestination.Music -> {
-            val musicDownload by shellViewModel.musicDownloadState.collectAsStateWithLifecycle()
-            MusicScreen(
-                hazeState = hazeState,
-                hasMusicBooks = musicState.hasMusicBooks,
-                isLoadingCatalog = musicState.isLoadingCatalog,
-                musicTrackList = visibleMusicTracks,
-                musicPlayback = musicState.musicPlayback,
-                musicDownload = musicDownload,
-                musicPlaybackErrorMessage = musicState.musicPlaybackErrorMessage,
-                onDismissMusicPlaybackError = musicViewModel::clearMusicPlaybackError,
-                onMusicWavePlay = musicViewModel::playMusicWave,
-                onMusicTrackClick = musicViewModel::onMusicTrackClick,
-                onDownloadMusicTrack = musicViewModel::downloadMusicTrack,
-                onDeleteMusicTrack = musicViewModel::deleteMusicTrack,
-                onDownloadAllMusic = musicViewModel::downloadAllMusic,
-                offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
-                showMiniPlayer = shellState.showMiniPlayer,
-                isNetworkOnline = musicState.isNetworkOnline,
-            )
-        }
-
-        shellState.currentTab == BottomDestination.Books -> {
-            LibraryScreen(
-                hazeState = hazeState,
-                cycles = filteredCycles,
-                allCycles = libraryState.cycles.map { cycle ->
-                    cycle.copy(title = watches.firstOrNull { it.cycleId == cycle.id }?.displayTitle ?: cycle.title)
-                },
-                cycleCardStateById = libraryState.cycleCardStateById,
-                cyclePlayback = libraryState.cyclePlayback,
-                offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
-                isLoadingCatalog = libraryState.isLoadingCatalog,
-                filter = libraryState.filter,
-                showFilterSheet = libraryState.showFilterSheet,
-                onCycleClick = shellViewModel::openCycle,
-                onCyclePlay = libraryViewModel::toggleCyclePlay,
-                onSearchChange = libraryViewModel::setSearchQuery,
-                onFilterClick = { libraryViewModel.setFilterSheetVisible(true) },
-                onDismissFilterSheet = { libraryViewModel.setFilterSheetVisible(false) },
-                onApplyFilter = libraryViewModel::applyFilter,
-                onResetFilter = libraryViewModel::resetFilter,
-                onContentFilterChange = libraryViewModel::setContentFilter,
-                onSortOrderChange = libraryViewModel::setSortOrder,
-                cyclePlaybackErrorMessage = libraryState.cyclePlaybackErrorMessage,
-                onDismissCyclePlaybackError = libraryViewModel::clearCyclePlaybackError,
-                confirmProgressSyncConflict = libraryState.confirmProgressSyncConflict,
-                onDismissProgressSyncConflict = libraryViewModel::dismissCycleProgressSyncConflict,
-                onChooseProgressSyncLocal = libraryViewModel::chooseCycleProgressSyncLocal,
-                onChooseProgressSyncServer = libraryViewModel::chooseCycleProgressSyncServer,
-                showMiniPlayer = shellState.showMiniPlayer,
-            )
-        }
-
-        shellState.currentTab == BottomDestination.Downloads -> Box(modifier = Modifier.fillMaxSize()) {
-            DownloadsTabScreen(
-                hazeState = hazeState,
-                topPadding = TonezenPageChromeScrollPadding,
-                bottomPadding = tonezenBottomChromeScrollPadding(
-                    showMiniPlayer = miniPlayerVisible,
-                    showBottomNav = true,
-                ),
-                offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
-            )
-            TonezenTitleChromeBar(
-                modifier = Modifier.align(Alignment.TopCenter),
-                hazeState = hazeState,
-            ) {
-                Text(
-                    text = "Загрузки",
-                    color = TonezenInk,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+            selectedCycle != null -> {
+                LaunchedEffect(selectedCycle.id) {
+                    libraryViewModel.refreshCycleMenu(selectedCycle)
+                }
+                CycleDetailScreen(
+                    padding = PaddingValues(0.dp),
+                    hazeState = hazeState,
+                    cycle = selectedCycle,
+                    cycleCardState = libraryState.cycleCardStateById[selectedCycle.id]
+                        ?: CycleCardState(),
+                    downloadedBookIds = libraryState.downloadedBookIds,
+                    tracksByBookId = libraryState.tracksByBookId,
+                    progressByBookId = libraryState.audiobookProgressByBookId,
+                    onBack = shellViewModel::closeCycle,
+                    onBookClick = shellViewModel::openBook,
+                    onBookResume = shellViewModel::resumeBook,
+                    onDownloadCycle = { libraryViewModel.downloadCycle(selectedCycle) },
+                    onToggleCycleListened = { libraryViewModel.toggleCycleListened(selectedCycle) },
+                    onRemoveCycleDownloads = { libraryViewModel.removeCycleDownloads(selectedCycle) },
+                    bottomScrollPadding = overlayBottomScrollPadding,
+                    onBookWatch = { editingWatch = watches.firstOrNull { it.cycleId == selectedCycle.id } },
                 )
             }
-        }
 
-        else -> ProfileScreen(
-            padding = PaddingValues(0.dp),
-            hazeState = hazeState,
-            viewModel = profileViewModel,
-            bookWatchViewModel = bookWatchViewModel,
-            showMiniPlayer = shellState.showMiniPlayer,
-        )
+            shellState.currentTab == BottomDestination.Music -> {
+                val musicDownload by shellViewModel.musicDownloadState.collectAsStateWithLifecycle()
+                MusicScreen(
+                    hazeState = hazeState,
+                    hasMusicBooks = musicState.hasMusicBooks,
+                    isLoadingCatalog = musicState.isLoadingCatalog,
+                    musicTrackList = visibleMusicTracks,
+                    musicPlayback = musicState.musicPlayback,
+                    musicDownload = musicDownload,
+                    musicPlaybackErrorMessage = musicState.musicPlaybackErrorMessage,
+                    onDismissMusicPlaybackError = musicViewModel::clearMusicPlaybackError,
+                    onMusicWavePlay = musicViewModel::playMusicWave,
+                    onMusicTrackClick = musicViewModel::onMusicTrackClick,
+                    onDownloadMusicTrack = musicViewModel::downloadMusicTrack,
+                    onDeleteMusicTrack = musicViewModel::deleteMusicTrack,
+                    onDownloadAllMusic = musicViewModel::downloadAllMusic,
+                    offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
+                    showMiniPlayer = shellState.showMiniPlayer,
+                    isNetworkOnline = musicState.isNetworkOnline,
+                )
+            }
+
+            shellState.currentTab == BottomDestination.Books -> {
+                LibraryScreen(
+                    hazeState = hazeState,
+                    cycles = filteredCycles,
+                    allCycles = libraryState.cycles.map { cycle ->
+                        cycle.copy(title = watches.firstOrNull { it.cycleId == cycle.id }?.displayTitle ?: cycle.title)
+                    },
+                    cycleCardStateById = libraryState.cycleCardStateById,
+                    cyclePlayback = libraryState.cyclePlayback,
+                    offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
+                    isLoadingCatalog = libraryState.isLoadingCatalog,
+                    filter = libraryState.filter,
+                    showFilterSheet = libraryState.showFilterSheet,
+                    onCycleClick = shellViewModel::openCycle,
+                    onCyclePlay = libraryViewModel::toggleCyclePlay,
+                    onSearchChange = libraryViewModel::setSearchQuery,
+                    onFilterClick = { libraryViewModel.setFilterSheetVisible(true) },
+                    onDismissFilterSheet = { libraryViewModel.setFilterSheetVisible(false) },
+                    onApplyFilter = libraryViewModel::applyFilter,
+                    onResetFilter = libraryViewModel::resetFilter,
+                    onContentFilterChange = libraryViewModel::setContentFilter,
+                    onSortOrderChange = libraryViewModel::setSortOrder,
+                    cyclePlaybackErrorMessage = libraryState.cyclePlaybackErrorMessage,
+                    onDismissCyclePlaybackError = libraryViewModel::clearCyclePlaybackError,
+                    confirmProgressSyncConflict = libraryState.confirmProgressSyncConflict,
+                    onDismissProgressSyncConflict = libraryViewModel::dismissCycleProgressSyncConflict,
+                    onChooseProgressSyncLocal = libraryViewModel::chooseCycleProgressSyncLocal,
+                    onChooseProgressSyncServer = libraryViewModel::chooseCycleProgressSyncServer,
+                    showMiniPlayer = shellState.showMiniPlayer,
+                )
+            }
+
+            shellState.currentTab == BottomDestination.Downloads -> Box(modifier = Modifier.fillMaxSize()) {
+                DownloadsTabScreen(
+                    hazeState = hazeState,
+                    topPadding = TonezenPageChromeScrollPadding,
+                    bottomPadding = tonezenBottomChromeScrollPadding(
+                        showMiniPlayer = miniPlayerVisible,
+                        showBottomNav = true,
+                    ),
+                    offlineBanner = libraryState.sessionState == SessionState.AUTHENTICATED_OFFLINE,
+                )
+                TonezenTitleChromeBar(
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    hazeState = hazeState,
+                ) {
+                    Text(
+                        text = "Загрузки",
+                        color = TonezenInk,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+
+            else -> ProfileScreen(
+                padding = PaddingValues(0.dp),
+                hazeState = hazeState,
+                viewModel = profileViewModel,
+                bookWatchViewModel = bookWatchViewModel,
+                showMiniPlayer = shellState.showMiniPlayer,
+            )
+        }
     }
     editingWatch?.let { watch ->
         BookWatchSettingsDialog(
