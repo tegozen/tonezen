@@ -49,6 +49,55 @@ Release build:
 - [ ] Paths and sizes reported to user
 ```
 
+## Choose the host path
+
+Detect the host before starting builds:
+
+- **Native Windows:** use `gradlew.bat` and Windows `npm` directly.
+- **macOS:** use `./gradlew`, `npm run dist:win`, and `npm run dist:mac` as described below.
+- **WSL:** use the dedicated WSL path below. Do **not** install or use Wine.
+- **Other Linux:** Android may use the WSL Docker command; stop and report that a native Windows host/runner is required for NSIS unless Windows interop is available.
+
+Detect WSL with `uname -r` containing `microsoft`/`WSL`. Confirm Windows interop before relying on it:
+
+```bash
+test -x /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe
+test -f '/mnt/c/Program Files/nodejs/npm.cmd'
+```
+
+### WSL build path
+
+**Android:** build in Docker so the host does not need JDK or Android SDK. Run the
+container as its default user: the image must write SDK metadata and its debug
+keystore under `/opt/android-sdk/.android`.
+
+```bash
+docker pull mingc/android-build-box:latest
+docker run --rm \
+  -v "$(pwd):/project" \
+  -w /project/apps/android \
+  mingc/android-build-box:latest \
+  ./gradlew assembleRelease
+```
+
+The first pull is several gigabytes. Keep the image cached for later releases.
+
+**Windows:** build with native Windows Node through `powershell.exe`, never Wine.
+Do not run Windows `npm install` in the WSL checkout: Linux and Windows create
+incompatible `node_modules/.bin` entries, and NSIS can hang on the UNC filesystem.
+
+1. Resolve the checkout with `wslpath -w`.
+2. Create a version-specific directory under `%LOCALAPPDATA%\Temp`.
+3. Copy `apps/desktop` there with `robocopy`, excluding `node_modules`, `out`, `release`, and `client.env`; treat exit codes `0..7` as success.
+4. Copy the root `.env` to the temporary monorepo root for `prepare-client-env.mjs`.
+5. From the local `C:` copy, run `npm.cmd install` and `npm.cmd run dist:win`.
+6. Copy `release/tonezen-windows.exe` and `out/**/*.map` back to the WSL checkout. The maps are required by `collect-release-symbols.mjs`.
+7. Delete the temporary directory in a `finally` block because it contains `.env`.
+
+If an earlier Linux/container attempt populated `apps/desktop/node_modules` or
+`out`, move those generated directories to unique `/tmp` paths before a Windows
+retry. Never delete or overwrite tracked source files.
+
 ### 1. Android
 
 From repo root (PowerShell):
@@ -133,6 +182,10 @@ Report to the user:
 - Commit release artifacts or `.env`
 - Change signing keys or production URLs without user confirmation
 - Sign or notarize macOS builds unless user explicitly asks
+
+- Use Wine for Windows packaging from WSL
+- Run Windows `npm install` against a WSL checkout containing Linux dependencies
+- Leave a temporary Windows build directory containing the copied root `.env`
 
 ## Parallel builds
 

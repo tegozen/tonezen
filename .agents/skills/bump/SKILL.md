@@ -202,9 +202,9 @@ Replace `X.Y.Z` with the actual new version. Do **not** push unless user asks.
 
 Read and execute **[build-release](../build-release/SKILL.md)** in full:
 
-1. `apps/android` → `.\gradlew.bat assembleRelease`
-2. `apps/desktop` → `npm install` (if needed) → `npm run dist:win`
-3. If the current host is macOS, `apps/desktop` → `npm run dist:mac`
+1. Detect native Windows, macOS, WSL, or other Linux and use the matching host path from `build-release`.
+2. On WSL, build Android in `mingc/android-build-box` and Windows through native Windows interop from a temporary `C:` copy; never use Wine.
+3. If the current host is macOS, also build `apps/desktop` with `npm run dist:mac`.
 
 Run Android and Windows builds in parallel when possible. On macOS, run the Windows and macOS desktop packaging steps from `apps/desktop` and wait for both before copying artifacts.
 
