@@ -2,6 +2,7 @@ package com.tonezen.app.ui.library
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -21,16 +22,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Book
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.BookContinueState
 import com.tonezen.app.domain.progress.canContinueBookListening
+import com.tonezen.app.domain.progress.isBookFullyListened
+import com.tonezen.app.domain.progress.resolveBookListenFraction
+import com.tonezen.app.ui.components.CheckCircleGlyph
 import com.tonezen.app.ui.components.ContinueResumeMeta
 import com.tonezen.app.ui.components.ContinueResumeVariant
 import com.tonezen.app.ui.components.DetailHeaderOverflowMenu
-import com.tonezen.app.ui.components.StatusChip
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
@@ -85,16 +89,23 @@ internal fun CycleDetailScreen(
         },
     ) {
         items(cycle.books, key = { it.id }) { book ->
-            val continueState = remember(book.id, tracksByBookId[book.id], progressByBookId[book.id]) {
+            val tracks = tracksByBookId[book.id].orEmpty()
+            val progress = progressByBookId[book.id]
+            val continueState = remember(book.id, tracks, progress) {
                 canContinueBookListening(
                     bookId = book.id,
-                    tracks = tracksByBookId[book.id].orEmpty(),
-                    progress = progressByBookId[book.id],
+                    tracks = tracks,
+                    progress = progress,
                 )
+            }
+            val progressFraction = remember(tracks, progress) {
+                val fraction = resolveBookListenFraction(tracks, progress) ?: 0f
+                if (isBookFullyListened(tracks, progress)) 1f else fraction
             }
             CycleBookRow(
                 book = book,
                 downloaded = downloadedBookIds.contains(book.id),
+                progressFraction = progressFraction,
                 continueState = continueState,
                 onClick = { onBookClick(book) },
                 onResumeClick = { onBookResume(book) },
@@ -107,6 +118,7 @@ internal fun CycleDetailScreen(
 private fun CycleBookRow(
     book: Book,
     downloaded: Boolean,
+    progressFraction: Float,
     continueState: BookContinueState?,
     onClick: () -> Unit,
     onResumeClick: () -> Unit,
@@ -119,10 +131,22 @@ private fun CycleBookRow(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BookCover(
-            book = book,
-            modifier = Modifier.width(72.dp).aspectRatio(0.78f),
-        )
+        Box(modifier = Modifier.width(72.dp).aspectRatio(0.78f)) {
+            BookCover(
+                book = book,
+                modifier = Modifier.fillMaxWidth().aspectRatio(0.78f),
+            )
+            if (downloaded) {
+                CheckCircleGlyph(
+                    tint = TonezenTeal,
+                    size = 18.dp,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(10.dp)
+                        .zIndex(1f),
+                )
+            }
+        }
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -142,27 +166,20 @@ private fun CycleBookRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (continueState != null || downloaded) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    continueState?.let { state ->
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            ContinueResumeMeta(
-                                state = state,
-                                variant = ContinueResumeVariant.Inline,
-                            )
-                            TextButton(onClick = onResumeClick) {
-                                Text("Продолжить", color = TonezenTeal)
-                            }
-                        }
-                    }
-                    if (downloaded) {
-                        StatusChip(label = "Офлайн", tone = TonezenTeal)
+            Text(
+                text = "${(progressFraction * 100).toInt()}%",
+                color = TonezenTeal,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            continueState?.let { state ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    ContinueResumeMeta(
+                        state = state,
+                        variant = ContinueResumeVariant.Inline,
+                    )
+                    TextButton(onClick = onResumeClick) {
+                        Text("Продолжить", color = TonezenTeal)
                     }
                 }
             }

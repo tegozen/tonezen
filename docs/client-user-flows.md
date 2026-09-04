@@ -213,6 +213,10 @@ flowchart TD
 
 **UI signals:** `CycleDetailScreen` / `CycleDetailPage`; overflow menu actions.
 
+**Android:** Each book row shows its listened percentage (`0%`–`100%`). A fully
+downloaded book uses the same teal checkmark overlay on its cover as a downloaded
+cycle card; the separate «Офлайн» chip is not shown.
+
 ---
 
 ### A3. Open book → Continue / Play

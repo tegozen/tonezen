@@ -34,6 +34,29 @@ fun resolveBookListenedMs(
     return listenedBefore + positionMs
 }
 
+fun resolveBookListenFraction(
+    tracks: List<Track>,
+    progress: AudiobookProgress?,
+): Float? {
+    val sorted = tracks.sortedBy { it.sortOrder }
+    if (sorted.isEmpty()) return null
+
+    val totalMs = sorted.sumOf { it.durationMs ?: 0L }
+    val fraction = if (totalMs > 0L) {
+        resolveBookListenedMs(sorted, progress).toFloat() / totalMs.toFloat()
+    } else {
+        val progressIndex = progress?.let { saved ->
+            sorted.indexOfFirst { it.id == saved.trackId }
+        } ?: -1
+        if (progressIndex < 0 || progress == null || progress.positionMs <= 0L) {
+            0f
+        } else {
+            (progressIndex.toFloat() + 0.5f) / sorted.size.toFloat()
+        }
+    }
+    return fraction.coerceIn(0f, 1f)
+}
+
 /** Real listen head (not an «unlistened» reset at first chapter @ 0). */
 fun hasMeaningfulAudiobookProgress(
     tracks: List<Track>,
@@ -59,19 +82,14 @@ fun resolveCycleListenFraction(
         val progress = progressByBookId[book.id]
         if (bookTotalMs > 0L) {
             totalMs += bookTotalMs
-            listenedMs += resolveBookListenedMs(tracks, progress)
+            val bookFraction = resolveBookListenFraction(tracks, progress) ?: 0f
+            listenedMs += (bookFraction * bookTotalMs).toLong()
             continue
         }
         // Durations unknown: fall back to chapter index so Continue/bar still appear.
         if (tracks.isEmpty()) continue
         totalTracks += tracks.size
-        if (progress == null || !hasMeaningfulAudiobookProgress(tracks, progress)) continue
-        val index = tracks.indexOfFirst { it.id == progress.trackId }
-        if (index < 0) continue
-        completedTrackWeight += index.toFloat()
-        if (progress.positionMs > 0L) {
-            completedTrackWeight += 0.5f
-        }
+        completedTrackWeight += (resolveBookListenFraction(tracks, progress) ?: 0f) * tracks.size
     }
     if (totalMs > 0L) {
         return (listenedMs.toFloat() / totalMs.toFloat()).coerceIn(0f, 1f)
