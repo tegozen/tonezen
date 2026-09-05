@@ -2,11 +2,14 @@
 
 Last status update: 2026-09-05.
 
-- Current declared client version is 0.22.0.
+- Current declared client version is 0.23.0.
 - Android and desktop intentionally have no unit-test suites. Backend and landing tests remain available
   but were not run for the current worktree.
 - Android `assembleDebug` passed in the documented WSL Docker build environment after the clean-code
   refactor. Lint, runtime, device, offline, backend and end-to-end verification were not performed.
+- Android 0.23.0 `assembleRelease` passed in WSL Docker after restoring the persistent signing key.
+  Android SDK `apksigner verify --print-certs` passed for the supplied 0.21.0 APK and rebuilt 0.23.0
+  with identical signer SHA-256 fingerprints. Installation over 0.21.0 on the phone remains unverified.
 - The book-watch correction still requires an applied environment with migration `052_book_watch.sql`;
   indexer provisioning relies on those tables already existing.
 - Thin modules listed under “Known debt” in `AGENTS.md` are accepted current exceptions. Recheck actual

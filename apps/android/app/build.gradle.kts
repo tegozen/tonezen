@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -82,28 +84,38 @@ android {
         buildConfigField("String", "GLITCHTIP_DSN", "\"${glitchtipDsn.replace("\"", "\\\"")}\"")
     }
 
-    val releaseStoreFile = (System.getenv("TONEZEN_KEYSTORE_PATH")
-        ?: providers.gradleProperty("TONEZEN_KEYSTORE_PATH").orNull)
-        ?.takeIf { it.isNotBlank() }
-    val releaseStorePassword = System.getenv("TONEZEN_KEYSTORE_PASSWORD")
-        ?: providers.gradleProperty("TONEZEN_KEYSTORE_PASSWORD").orNull
-    val releaseKeyAlias = System.getenv("TONEZEN_KEY_ALIAS")
-        ?: providers.gradleProperty("TONEZEN_KEY_ALIAS").orNull
-    val releaseKeyPassword = System.getenv("TONEZEN_KEY_PASSWORD")
-        ?: providers.gradleProperty("TONEZEN_KEY_PASSWORD").orNull
-    val hasReleaseKeystore =
-        !releaseStoreFile.isNullOrBlank() &&
-            !releaseStorePassword.isNullOrBlank() &&
-            !releaseKeyAlias.isNullOrBlank() &&
-            !releaseKeyPassword.isNullOrBlank()
+    val signingProperties = Properties().apply {
+        val signingFile = rootProject.file("signing.properties")
+        if (signingFile.isFile) signingFile.inputStream().use { load(it) }
+    }
+    fun signingValue(name: String): String? = (
+        System.getenv(name)
+            ?: providers.gradleProperty(name).orNull
+            ?: signingProperties.getProperty(name)
+        )?.takeIf { it.isNotBlank() }
+    val releaseStoreFile = signingValue("TONEZEN_KEYSTORE_PATH")
+    val releaseStorePassword = signingValue("TONEZEN_KEYSTORE_PASSWORD")
+    val releaseKeyAlias = signingValue("TONEZEN_KEY_ALIAS")
+    val releaseKeyPassword = signingValue("TONEZEN_KEY_PASSWORD")
+    val hasReleaseKeystore = listOf(
+        releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword,
+    ).all { it != null }
 
     signingConfigs {
-        if (hasReleaseKeystore) {
-            create("release") {
-                storeFile = file(releaseStoreFile!!)
-                storePassword = releaseStorePassword
-                keyAlias = releaseKeyAlias
-                keyPassword = releaseKeyPassword
+        create("release") {
+            storeFile = releaseStoreFile?.let { rootProject.file(it) }
+            storePassword = releaseStorePassword
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword
+        }
+    }
+
+    tasks.matching { it.name == "validateSigningRelease" }.configureEach {
+        doFirst {
+            check(hasReleaseKeystore) {
+                "Release signing requires TONEZEN_KEYSTORE_PATH, TONEZEN_KEYSTORE_PASSWORD, " +
+                    "TONEZEN_KEY_ALIAS and TONEZEN_KEY_PASSWORD. Configure signing.properties, " +
+                    "Gradle properties or environment variables; use the existing app signing key."
             }
         }
     }
@@ -116,13 +128,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = if (hasReleaseKeystore) {
-                signingConfigs.getByName("release")
-            } else {
-                // Local/CI without a production keystore: keep previous debug-signed
-                // release behavior so assembleRelease still works.
-                signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

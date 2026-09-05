@@ -27,6 +27,7 @@ apps/android/captures/
 apps/android/build/
 apps/android/app/build/
 apps/android/local.properties
+apps/android/signing.properties
 apps/android/.idea/
 *.iml
 *.apk

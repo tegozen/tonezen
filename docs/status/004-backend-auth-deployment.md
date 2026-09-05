@@ -14,5 +14,10 @@
 - Landing exposes recent release metadata and downloadable artifacts. Release skills build platform
   packages, copy artifacts to landing downloads, bump both clients, tag, and push only when explicitly
   invoked.
-- Current release line progressed from the initial 0.1.x production stack to 0.22.0. Exact environment and
+- Android release signing requires an explicit persistent keystore; git-ignored
+  `apps/android/signing.properties` supports portable paths relative to the Android project, with
+  environment/Gradle overrides. The silent debug-key fallback was removed after Docker-generated
+  signing broke upgrades. The Windows key matching installed 0.21.0 was recovered locally; the
+  rebuilt 0.23.0 APK passes `apksigner verify` with the same certificate. See README for its fingerprint.
+- Current release line progressed from the initial 0.1.x production stack to 0.23.0. Exact environment and
   operating instructions remain in `README.md`, `.env.example`, Docker files, and release skills.

@@ -209,6 +209,23 @@ For manual migration run (dev): `make db-migrate`.
 
 **Android** — `assembleRelease` reads the same root `.env` and sets `BuildConfig.GLITCHTIP_DSN` (empty key ⇒ reporting off).
 
+Android release signing requires the existing app key. Configure the four values below in
+`apps/android/signing.properties` (git-ignored), or through Gradle properties/environment variables
+(which take precedence). Relative keystore paths resolve from `apps/android/`; use forward slashes
+in properties files, including on Windows. Release builds fail without signing configuration.
+
+```properties
+TONEZEN_KEYSTORE_PATH=signing/tonezen.keystore
+TONEZEN_KEYSTORE_PASSWORD=<existing store password>
+TONEZEN_KEY_ALIAS=<existing key alias>
+TONEZEN_KEY_PASSWORD=<existing key password>
+```
+
+Keep the keystore and credentials backed up outside Git. The installed 0.21.0 signing certificate has
+SHA-256 `9972f91e38540e1c8367fca4fd84ad53b4a741fedc33fe39741b9cdce7b0d98b`.
+Use that same key for compatible updates; generating another debug/release key breaks upgrades.
+After building, use Android SDK `apksigner verify --print-certs` to confirm the APK signer.
+
 API paths (`/api/v1`, `/auth/v1`, …) are hardcoded in client apps.
 
 Then `cd apps/desktop && npm run dev` — no manual `set`/`export` needed.

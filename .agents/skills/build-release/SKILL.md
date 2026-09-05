@@ -29,7 +29,8 @@ Landing page expects these names under `docker/landing/public/downloads/` (git-i
 2. **Android config** — verify `BASE_URL` and `SUPABASE_ANON_KEY` in `apps/android/app/build.gradle.kts` match production (not localhost). `GLITCHTIP_DSN` is filled from root `.env` at build time.
 3. **Versions aligned** — `versionName` / `versionCode` in `build.gradle.kts` and `version` in `apps/desktop/package.json` should match before release.
 4. **Desktop package icons** — verify `apps/desktop/package.json` sets `build.win.icon` to `resources/app-icon.ico`, `build.mac.icon` to `resources/app-icon.icns`, and NSIS installer/uninstaller icons to `resources/app-icon.ico`; both icon files must exist.
-5. **Never commit** `.env`, `client.env`, APK/EXE, or `docker/landing/public/downloads/*` binaries.
+5. **Android signing** — use the existing app key via git-ignored `apps/android/signing.properties`, Gradle properties, or environment variables; see `README.md` → Client configuration. Never generate a replacement key for an update. Missing signing configuration must fail the release build. Verify the finished APK using `apksigner verify --print-certs` and compare its certificate with the previous distributed APK before copying it.
+6. **Never commit** `.env`, `client.env`, APK/EXE, or `docker/landing/public/downloads/*` binaries.
 
 If `.env` is missing: tell the user to run `make gen-env` and fill `TONEZEN_BASE_URL` + `S3_*`; do not invent secrets. If GlitchTip keys are missing in an old `.env`, re-run `node scripts/gen-env.mjs --force` or copy the `GLITCHTIP_*` block from `.env.example` and generate values.
 
@@ -68,12 +69,15 @@ test -f '/mnt/c/Program Files/nodejs/npm.cmd'
 ### WSL build path
 
 **Android:** build in Docker so the host does not need JDK or Android SDK. Run the
-container as its default user: the image must write SDK metadata and its debug
-keystore under `/opt/android-sdk/.android`.
+container as its default user so the image can write SDK metadata. Keep the existing
+release keystore under the mounted checkout (git-ignored), referenced by
+`apps/android/signing.properties`. Persisting the Gradle cache does not preserve a
+debug key under `/opt/android-sdk/.android`; release builds must use the explicit key.
 
 ```bash
 docker pull mingc/android-build-box:latest
 docker run --rm \
+  -v tonezen-gradle-cache:/root/.gradle \
   -v "$(pwd):/project" \
   -w /project/apps/android \
   mingc/android-build-box:latest \
