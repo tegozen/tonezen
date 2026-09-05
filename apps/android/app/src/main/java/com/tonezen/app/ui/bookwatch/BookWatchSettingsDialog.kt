@@ -22,6 +22,8 @@ fun BookWatchSettingsDialog(
     watch: BookWatch,
     onDismiss: () -> Unit,
     onSave: (String, List<BookWatchQuery>) -> Unit,
+    saving: Boolean = false,
+    saveError: String? = null,
 ) {
     fun values(provider: String) = watch.queries.filter { it.provider == provider }.joinToString("\n") { it.query }
     var title by remember(watch.id) { mutableStateOf(watch.displayTitle) }
@@ -35,6 +37,7 @@ fun BookWatchSettingsDialog(
         title = { Text("Отслеживание новинок") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                saveError?.let { Text(it) }
                 OutlinedTextField(title, { title = it }, label = { Text("Название цикла") })
                 Row {
                     Text("Проверять baza-knig.top", modifier = androidx.compose.ui.Modifier.weight(1f))
@@ -66,6 +69,7 @@ fun BookWatchSettingsDialog(
         },
         confirmButton = {
             TextButton(
+                enabled = !saving && title.isNotBlank(),
                 onClick = {
                     fun queries(provider: String, source: String, enabled: Boolean) = source.lineSequence()
                         .map { it.trim() }
@@ -79,7 +83,7 @@ fun BookWatchSettingsDialog(
                             queries("allbookerka", allbookerka, allbookerkaEnabled),
                     )
                 },
-            ) { Text("Сохранить") }
+            ) { Text(if (saving) "Сохранение…" else "Сохранить") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
     )

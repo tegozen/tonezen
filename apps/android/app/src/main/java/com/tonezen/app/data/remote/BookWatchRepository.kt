@@ -22,6 +22,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -53,6 +54,13 @@ class BookWatchRepository @Inject constructor(
     suspend fun sync() {
         val token = sessionRepository.loadSession()?.accessToken ?: return
         sync(token)
+    }
+
+    suspend fun resolveWatch(cycleId: String): BookWatch {
+        watches.first().firstOrNull { it.cycleId == cycleId }?.let { return it }
+        sync()
+        return watches.first().firstOrNull { it.cycleId == cycleId }
+            ?: error("Book watch configuration is missing")
     }
 
     suspend fun sync(token: String) {
@@ -91,6 +99,7 @@ class BookWatchRepository @Inject constructor(
     }
 
     suspend fun updateWatch(watch: BookWatch, displayTitle: String, queries: List<BookWatchQuery>) {
+        val watchId = watch.id.ifBlank { resolveWatch(watch.cycleId).id }
         val queriesJson = JSONArray().apply {
             queries.forEach { query ->
                 put(
@@ -103,7 +112,7 @@ class BookWatchRepository @Inject constructor(
         }
         val body = JSONObject().put("display_title", displayTitle).put("enabled", watch.enabled).put("queries", queriesJson)
         val token = sessionRepository.loadSession()?.accessToken ?: return
-        api.update(token, watch.id, body)
+        api.update(token, watchId, body)
         sync(token)
     }
 

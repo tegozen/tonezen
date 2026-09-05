@@ -4,6 +4,10 @@ Newest first. This is a concise milestone history reconstructed from repository 
 major development stage, not every fix or release-only version bump. Prune superseded details when current
 state changes, while retaining the architectural reason a stage mattered.
 
+- 2026-09-05: Fixed Android book-watch settings silently failing to open when the local watch was absent:
+  open the editable form immediately using cached settings or cycle-title defaults, with no network
+  prerequisite. Resolve the server record only on save; preserve input on save failure.
+  Builds and tests were not run; device verification remains pending.
 - 2026-09-05: Restored Android update compatibility using the original Windows signing key, removed
   release debug-key fallback, and documented persistent local signing configuration. Rebuilt 0.23.0
   successfully in WSL Docker; `apksigner` verified both old/new APKs with identical certificates.

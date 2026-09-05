@@ -18,8 +18,17 @@ class BookWatchViewModel @Inject constructor(private val repository: BookWatchRe
     val events: StateFlow<List<BookWatchEvent>> = repository.events.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val watches: StateFlow<List<BookWatch>> = repository.watches.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     fun checkOnLaunch() = viewModelScope.launch { repository.checkOnLaunch() }
+    fun settingsFor(cycleId: String, cycleTitle: String): BookWatch =
+        watches.value.firstOrNull { it.cycleId == cycleId } ?: BookWatch(
+            id = "", cycleId = cycleId, displayTitle = cycleTitle,
+            enabled = true, lastSuccessAt = null,
+            queries = listOf(
+                BookWatchQuery("baza_knig", cycleTitle, true),
+                BookWatchQuery("allbookerka", cycleTitle, true),
+            ),
+        )
     fun markAllRead() = viewModelScope.launch { repository.markRead(events.value.filter { it.readAt == null }.map { it.id }) }
-    fun update(watch: BookWatch, title: String, queries: List<BookWatchQuery>) = viewModelScope.launch {
+    suspend fun update(watch: BookWatch, title: String, queries: List<BookWatchQuery>) {
         repository.updateWatch(watch, title, queries)
     }
 }

@@ -23,7 +23,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.SessionState
-import com.tonezen.app.ui.bookwatch.BookWatchSettingsDialog
+import com.tonezen.app.ui.bookwatch.BookWatchSettingsOverlay
 import com.tonezen.app.ui.bookwatch.BookWatchViewModel
 import com.tonezen.app.ui.components.TonezenTitleChromeBar
 import com.tonezen.app.ui.downloads.DownloadsTabScreen
@@ -64,7 +64,7 @@ internal fun AppShellRoutes(
     overlayBottomScrollPadding: Dp,
 ) {
     val watches by bookWatchViewModel.watches.collectAsStateWithLifecycle()
-    var editingWatch by remember { mutableStateOf<com.tonezen.app.domain.model.BookWatch?>(null) }
+    var editingWatchCycle by remember { mutableStateOf<Cycle?>(null) }
     val miniPlayerVisible = shellState.showMiniPlayer && !shellState.nowPlayingTitle.isNullOrBlank()
 
     NavHost(navController = navController, startDestination = MusicRoute) {
@@ -151,7 +151,7 @@ internal fun AppShellRoutes(
                     onToggleCycleListened = { libraryViewModel.toggleCycleListened(cycle) },
                     onRemoveCycleDownloads = { libraryViewModel.removeCycleDownloads(cycle) },
                     bottomScrollPadding = overlayBottomScrollPadding,
-                    onBookWatch = { editingWatch = watches.firstOrNull { it.cycleId == cycle.id } },
+                    onBookWatch = { editingWatchCycle = cycle },
                 )
             }
         }
@@ -207,14 +207,12 @@ internal fun AppShellRoutes(
         )
     }
 
-    editingWatch?.let { watch ->
-        BookWatchSettingsDialog(
-            watch = watch,
-            onDismiss = { editingWatch = null },
-            onSave = { title, queries ->
-                bookWatchViewModel.update(watch, title, queries)
-                editingWatch = null
-            },
+    editingWatchCycle?.let { cycle ->
+        BookWatchSettingsOverlay(
+            cycleId = cycle.id,
+            cycleTitle = cycle.title,
+            viewModel = bookWatchViewModel,
+            onDismiss = { editingWatchCycle = null },
         )
     }
 }
