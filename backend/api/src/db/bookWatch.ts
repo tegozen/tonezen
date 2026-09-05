@@ -10,13 +10,12 @@ export class BookWatchRepository {
       `WITH inserted AS (
          INSERT INTO book_watches (user_id, cycle_id)
          SELECT $1, id FROM cycles WHERE deleted_at IS NULL
-         ON CONFLICT DO NOTHING RETURNING id
+         ON CONFLICT DO NOTHING RETURNING id, cycle_id
        )
        INSERT INTO book_watch_queries (watch_id, provider, query)
        SELECT w.id, p.provider, c.title
-       FROM book_watches w JOIN cycles c ON c.id = w.cycle_id
+       FROM inserted w JOIN cycles c ON c.id = w.cycle_id
        CROSS JOIN (VALUES ('baza_knig'), ('allbookerka')) p(provider)
-       WHERE w.user_id = $1
        ON CONFLICT DO NOTHING`,
       [userId],
     );

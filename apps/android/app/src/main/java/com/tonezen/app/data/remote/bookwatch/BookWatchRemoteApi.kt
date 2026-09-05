@@ -1,6 +1,7 @@
 package com.tonezen.app.data.remote.bookwatch
 
 import com.tonezen.app.data.remote.getRemoteJson
+import com.tonezen.app.data.remote.RemoteHttpException
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,7 +28,9 @@ class BookWatchRemoteApi(private val apiRoot: String, private val client: OkHttp
     private fun request(method: String, url: String, token: String, body: String) {
         val request = Request.Builder().url(url).header("Authorization", "Bearer $token")
             .method(method, body.toRequestBody("application/json".toMediaType())).build()
-        client.newCall(request).execute().use { if (!it.isSuccessful) error("Book watch HTTP ${it.code}") }
+        client.newCall(request).execute().use {
+            if (!it.isSuccessful) throw RemoteHttpException(it.code, "Book watch $method failed: HTTP ${it.code}")
+        }
     }
     private fun JSONObject.arrayObjects(name: String): List<JSONObject> {
         val array = optJSONArray(name) ?: JSONArray()

@@ -15,6 +15,9 @@ Last status update: 2026-09-05.
   with identical signer SHA-256 fingerprints. Installation over 0.21.0 on the phone remains unverified.
 - The book-watch correction still requires an applied environment with migration `052_book_watch.sql`;
   indexer provisioning relies on those tables already existing.
+- Book-watch Docker verification passed after migration 057 and API defaults correction: seeds, login,
+  snapshot, rename/query persistence, enqueue deduplication, and real worker completion (3 books / 5 links).
+  Production application is pending; fresh-bootstrap Storage ordering needs the workaround in status 004.
 - Thin modules listed under “Known debt” in `AGENTS.md` are accepted current exceptions. Recheck actual
   line counts before adding or removing debt.
 - Platform parity is an ongoing constraint, not proof that every Android behavior currently has an exact

@@ -52,7 +52,7 @@ class BookWatchRepository @Inject constructor(
     }
 
     suspend fun sync() {
-        val token = sessionRepository.loadSession()?.accessToken ?: return
+        val token = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())?.accessToken ?: return
         sync(token)
     }
 
@@ -99,6 +99,8 @@ class BookWatchRepository @Inject constructor(
     }
 
     suspend fun updateWatch(watch: BookWatch, displayTitle: String, queries: List<BookWatchQuery>) {
+        val session = sessionRepository.refreshIfNeeded(sessionRepository.loadSession())
+            ?: throw RemoteHttpException(401, "Session is missing")
         val watchId = watch.id.ifBlank { resolveWatch(watch.cycleId).id }
         val queriesJson = JSONArray().apply {
             queries.forEach { query ->
@@ -111,9 +113,17 @@ class BookWatchRepository @Inject constructor(
             }
         }
         val body = JSONObject().put("display_title", displayTitle).put("enabled", watch.enabled).put("queries", queriesJson)
-        val token = sessionRepository.loadSession()?.accessToken ?: return
-        api.update(token, watchId, body)
-        sync(token)
+        api.update(session.accessToken, watchId, body)
+        if (sessionRepository.loadSession()?.userId != session.userId) return
+        dao.upsertWatches(listOf(BookWatchEntity(
+            id = watchId,
+            userId = session.userId,
+            cycleId = watch.cycleId,
+            displayTitle = displayTitle.trim(),
+            enabled = watch.enabled,
+            lastSuccessAt = watch.lastSuccessAt,
+            queriesJson = queriesJson.toString(),
+        )))
     }
 
     private fun notifyNew(events: List<BookWatchEventEntity>) {

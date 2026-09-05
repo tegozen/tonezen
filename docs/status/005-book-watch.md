@@ -9,6 +9,12 @@
 
 ## Ownership and event chain
 
+The API and worker use `tonezen_api`, not `service_role`. Migration
+`057_book_watch_api_grants.sql` grants their required table operations without changing RLS.
+Missing grants in 052 caused HTTP 500 (`42501`, permission denied) on snapshot/save/checks.
+API defaults now seed queries from the INSERT's returned rows: the first snapshot includes both
+providers, and later snapshots never re-add original queries over user edits.
+
 1. The indexer upserts or restores a cycle.
 2. In the same transaction it inserts missing `(user_id, cycle_id)` rows and default `baza_knig` and
    `allbookerka` queries for existing users. Conflict handling preserves all user edits.
@@ -32,7 +38,20 @@
 - “Отметить всё прочитанным” appears only when unread events exist, outside the header.
 - The screen receives events and callbacks from Profile; runtime visual verification is pending.
 
-## Historical provisioning failure
+## Verified local server repair (2026-09-05)
+
+- Docker API build passed; its Dockerfile-specific context now excludes Android Gradle caches and secrets.
+- Migrations through 057 applied; admin/storage seeds passed twice, with the existing admin reused.
+- Real GoTrue login 200; snapshot 200 with both default providers; rename/query PUT 200; subsequent
+  snapshot retained the exact edited title and queries. Empty title 400; unauthenticated snapshot 401.
+- Check POST 202; repeated POST returned the same job. Worker completed the real “Геном” search:
+  three book events, five source links, no provider errors, and last_success_at populated.
+- Android additionally refreshes its session before saving and persists the accepted settings locally
+  instead of treating a later full-snapshot failure as a failed PUT. HTTP/network failures are distinguished.
+  These Android changes were not rebuilt; the reproduced server failure is fixed without a client rebuild.
+- Production deployment remains pending. Apply 057 and rebuild API for the defaults correction.
+
+## Historical details
 
 Defaults were originally created only during the API snapshot. Android enqueued the worker before taking
 that snapshot, so a job could contain no watches; the overflow action then had no record to edit and the

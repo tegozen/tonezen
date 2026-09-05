@@ -21,3 +21,10 @@
   rebuilt 0.23.0 APK passes `apksigner verify` with the same certificate. See README for its fingerprint.
 - Current release line progressed from the initial 0.1.x production stack to 0.24.0. Exact environment and
   operating instructions remain in `README.md`, `.env.example`, Docker files, and release skills.
+- Local book-watch verification used `/tmp/tonezen-bookwatch-local.yml` as a Compose override: local
+  API/auth URLs and file-backed Storage in a Docker volume, avoiding production S3 writes. Root `.env`
+  remained unchanged; an identical owner-only backup is under `~/.local/state/tonezen/env-backups/`.
+- Fresh local bootstrap exposed a pre-existing ordering gap: migration 017 needs `storage.buckets.public`
+  from Storage's own migrations. After migrate stopped at 017, starting `rest storage` with `--no-deps`
+  and then rerunning normal startup completed migrations and seeds. This workaround was verified;
+  automatic fresh-bootstrap ordering remains a known gap.

@@ -4,6 +4,11 @@ Newest first. This is a concise milestone history reconstructed from repository 
 major development stage, not every fix or release-only version bump. Prune superseded details when current
 state changes, while retaining the architectural reason a stage mattered.
 
+- 2026-09-05: Reproduced book-watch HTTP 500 in Docker (missing tonezen_api grants); added migration 057
+  and corrected default-query seeding to preserve edits. Verified seeds twice, authenticated rename/read,
+  validation/auth rejection, enqueue deduplication, and real worker completion with 3 books / 5 links.
+  Scoped API Docker context; preserved production env and used local file Storage. Android save-path
+  hardening was not rebuilt. Production deployment and fresh-bootstrap ordering repair remain pending.
 - 2026-09-05: Released client 0.24.0 (Android code 45), migration 056, and tag v0.24.0 on origin.
   Android release and native Windows builds passed; APK signing matches distributed 0.23.0. Installers
   and crash symbols copied to landing downloads. Device checks and production upload remain pending.
