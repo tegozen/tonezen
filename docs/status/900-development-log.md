@@ -4,6 +4,8 @@ Newest first. This is a concise milestone history reconstructed from repository 
 major development stage, not every fix or release-only version bump. Prune superseded details when current
 state changes, while retaining the architectural reason a stage mattered.
 
+- 2026-09-05: Added thin top/bottom separators without side borders or clipping to Android cycle book rows, with 12 dp
+  spacing between cards. Builds and device checks were not run.
 - 2026-09-05: Removed both Continue elements from Android cycle book rows and combined percentage,
   chapter, and time into one line with chapter truncation. Builds and device checks were not run.
 - 2026-09-05: Restyled Android new-book events with the shared profile header, wrapping teal filters,

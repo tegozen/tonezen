@@ -17,6 +17,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -34,6 +36,7 @@ import com.tonezen.app.ui.components.CheckCircleGlyph
 import com.tonezen.app.ui.components.DetailHeaderOverflowMenu
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.theme.TonezenInk
+import com.tonezen.app.ui.theme.TonezenBorder
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
 import com.tonezen.app.ui.theme.durationLabel
@@ -61,7 +64,7 @@ internal fun CycleDetailScreen(
         padding = padding,
         onBack = onBack,
         bottomScrollPadding = bottomScrollPadding,
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         title = {
             Text(
                 text = "Книги цикла",
@@ -121,6 +124,16 @@ private fun CycleBookRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .drawBehind {
+                val stroke = 1.dp.toPx()
+                drawLine(TonezenBorder, Offset(0f, stroke / 2), Offset(size.width, stroke / 2), stroke)
+                drawLine(
+                    TonezenBorder,
+                    Offset(0f, size.height - stroke / 2),
+                    Offset(size.width, size.height - stroke / 2),
+                    stroke,
+                )
+            }
             .clickable(onClick = onClick)
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
