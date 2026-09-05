@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -32,13 +31,12 @@ import com.tonezen.app.domain.progress.canContinueBookListening
 import com.tonezen.app.domain.progress.isBookFullyListened
 import com.tonezen.app.domain.progress.resolveBookListenFraction
 import com.tonezen.app.ui.components.CheckCircleGlyph
-import com.tonezen.app.ui.components.ContinueResumeMeta
-import com.tonezen.app.ui.components.ContinueResumeVariant
 import com.tonezen.app.ui.components.DetailHeaderOverflowMenu
 import com.tonezen.app.ui.components.TonezenFixedHeaderScreen
 import com.tonezen.app.ui.theme.TonezenInk
 import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenTeal
+import com.tonezen.app.ui.theme.durationLabel
 import dev.chrisbanes.haze.HazeState
 
 @Composable
@@ -52,7 +50,6 @@ internal fun CycleDetailScreen(
     progressByBookId: Map<String, AudiobookProgress?>,
     onBack: () -> Unit,
     onBookClick: (Book) -> Unit,
-    onBookResume: (Book) -> Unit,
     onDownloadCycle: () -> Unit,
     onToggleCycleListened: () -> Unit,
     onRemoveCycleDownloads: () -> Unit,
@@ -108,7 +105,6 @@ internal fun CycleDetailScreen(
                 progressFraction = progressFraction,
                 continueState = continueState,
                 onClick = { onBookClick(book) },
-                onResumeClick = { onBookResume(book) },
             )
         }
     }
@@ -121,7 +117,6 @@ private fun CycleBookRow(
     progressFraction: Float,
     continueState: BookContinueState?,
     onClick: () -> Unit,
-    onResumeClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -166,21 +161,35 @@ private fun CycleBookRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = "${(progressFraction * 100).toInt()}%",
-                color = TonezenTeal,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
-            continueState?.let { state ->
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    ContinueResumeMeta(
-                        state = state,
-                        variant = ContinueResumeVariant.Inline,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "${(progressFraction * 100).toInt()}%",
+                    color = TonezenTeal,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                )
+                continueState?.let { state ->
+                    Text("·", color = TonezenMuted)
+                    Text(
+                        text = state.trackTitle,
+                        modifier = Modifier.weight(1f, fill = false),
+                        color = TonezenMuted,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                    TextButton(onClick = onResumeClick) {
-                        Text("Продолжить", color = TonezenTeal)
-                    }
+                    Text("·", color = TonezenMuted)
+                    Text(
+                        text = durationLabel(state.positionMs),
+                        color = TonezenTeal,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                    )
                 }
             }
         }

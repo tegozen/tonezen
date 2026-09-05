@@ -144,9 +144,6 @@ internal fun AppShellRoutes(
                     onBookClick = { book ->
                         navController.navigate(BookRoute(book.id)) { launchSingleTop = true }
                     },
-                    onBookResume = { book ->
-                        navController.navigate(BookRoute(book.id, autoResume = true)) { launchSingleTop = true }
-                    },
                     onDownloadCycle = { libraryViewModel.downloadCycle(cycle) },
                     onToggleCycleListened = { libraryViewModel.toggleCycleListened(cycle) },
                     onRemoveCycleDownloads = { libraryViewModel.removeCycleDownloads(cycle) },

@@ -9,6 +9,8 @@
   track while offline.
 - Chapter completion, explicit listened state, prefetch, queue advance, and full-cycle progress have been
   repeatedly aligned across Android and desktop. Android displays listened percentage per cycle book.
+- Android cycle book rows show percentage, resume chapter, and time on one line, without duplicate
+  “Продолжить” text or a separate resume button; the row opens book detail.
 - Audiobook progress writes locally first and synchronizes using last-write-wins timestamps/revisions.
   Cold start hydrates server state before unsafe pushes, reconnect/window-show triggers refresh, and
   conflicts are surfaced rather than silently losing progress.

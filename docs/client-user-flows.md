@@ -223,6 +223,9 @@ flowchart TD
 **Android:** Each book row shows its listened percentage (`0%`–`100%`). A fully
 downloaded book uses the same teal checkmark overlay on its cover as a downloaded
 cycle card; the separate «Офлайн» chip is not shown.
+For a partially listened book, percentage, resume chapter, and time share one line
+(e.g. «55% · Глава 13 · 19:32»); long chapter titles truncate. Neither a «Продолжить» label
+nor a separate resume button appears in the cycle's book rows. Tapping the row opens book detail.
 
 **Android — отслеживание новинок:** пункт меню цикла сразу открывает модальное окно.
 Форма доступна сразу, без запроса к серверу: настройки берутся из локального кэша, а если их нет,
@@ -346,7 +349,7 @@ flowchart TD
 
 ### A7b. Start earlier book in cycle
 
-**Trigger:** Continue / Play / tap chapter on a book that belongs to a cycle (book detail; Android cycle-detail «Продолжить» → auto-resume).
+**Trigger:** Continue / Play / tap chapter on a book that belongs to a cycle (book detail).
 
 **Preconditions:** Cycle has real listen progress (`listenedMs > 0`) on some book.
 
