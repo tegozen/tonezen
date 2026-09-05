@@ -95,6 +95,8 @@ class BookDetailViewModel @Inject constructor(
         audiobookPlayback = audiobookPlayback,
         musicPlayback = musicPlayback,
         persistAudiobookProgress = progressActions::persistAudiobookProgress,
+        chooseLocalProgress = progressActions::chooseLocalProgress,
+        chooseServerProgress = progressActions::chooseServerProgress,
     )
     private val playbackObserver = BookDetailPlaybackObserver(
         uiState = _uiState,

@@ -1,6 +1,7 @@
 package com.tonezen.app.ui.player
 
 import com.tonezen.app.data.local.CatalogRepository
+import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.ContentType
 import com.tonezen.app.domain.model.Track
 import com.tonezen.app.domain.progress.AudiobookPlaybackIntent
@@ -27,6 +28,8 @@ internal class BookDetailPlaybackActions(
     private val audiobookPlayback: BookDetailPlaybackExecutor,
     private val musicPlayback: BookDetailMusicPlayback,
     private val persistAudiobookProgress: suspend (String, String, Long) -> Unit,
+    private val chooseLocalProgress: suspend (String) -> Unit,
+    private val chooseServerProgress: suspend (String) -> AudiobookProgress?,
 ) {
 
     fun playTrack(
@@ -160,10 +163,7 @@ internal class BookDetailPlaybackActions(
         val track = prompt.pendingTrack ?: return
         uiState.update { it.copy(confirmProgressSyncConflict = null) }
         scope.launch {
-            val session = withContext(Dispatchers.IO) { sessionRepository.loadSession() }
-            withContext(Dispatchers.IO) {
-                progressSyncRepository.chooseLocalProgress(book.id, session?.accessToken)
-            }
+            withContext(Dispatchers.IO) { chooseLocalProgress(book.id) }
             playTrack(track, skipSyncConflictPrompt = true)
         }
     }
@@ -172,9 +172,7 @@ internal class BookDetailPlaybackActions(
         val book = uiState.value.book ?: return
         uiState.update { it.copy(confirmProgressSyncConflict = null) }
         scope.launch {
-            val applied = withContext(Dispatchers.IO) {
-                progressSyncRepository.chooseServerProgress(book.id)
-            } ?: return@launch
+            val applied = withContext(Dispatchers.IO) { chooseServerProgress(book.id) } ?: return@launch
             val tracks = withContext(Dispatchers.IO) {
                 catalogRepository.getTracksForBook(book.id).sortedBy { it.sortOrder }
             }

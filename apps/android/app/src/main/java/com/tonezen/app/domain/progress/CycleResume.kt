@@ -67,7 +67,7 @@ private fun resolveBookResumeTarget(
     val track = tracks[trackIndex]
     val durationMs = track.durationMs ?: 0L
     val isComplete = durationMs > 0L &&
-        progress.positionMs >= (durationMs * COMPLETED_FRACTION_THRESHOLD).toLong()
+        progress.positionMs >= (durationMs * CYCLE_COMPLETED_FRACTION_THRESHOLD).toLong()
     if (!isComplete) return CycleResumeTarget(book, track, progress.positionMs)
     if (trackIndex < tracks.lastIndex) return CycleResumeTarget(book, tracks[trackIndex + 1], 0L)
 

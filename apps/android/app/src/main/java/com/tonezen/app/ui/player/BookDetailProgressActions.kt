@@ -122,6 +122,14 @@ internal class BookDetailProgressActions(
         }
     }
 
+    suspend fun chooseLocalProgress(bookId: String) {
+        val session = sessionRepository.loadSession()
+        progressSyncRepository.chooseLocalProgress(bookId, session?.accessToken)
+    }
+
+    suspend fun chooseServerProgress(bookId: String): AudiobookProgress? =
+        progressSyncRepository.chooseServerProgress(bookId)
+
     suspend fun resolveSyncStatus(book: Book, progress: AudiobookProgress?): SyncDisplayStatus {
         if (book.contentType != ContentType.AUDIOBOOK) return SyncDisplayStatus.NONE
         if (progress == null) return SyncDisplayStatus.NONE

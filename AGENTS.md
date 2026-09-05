@@ -205,4 +205,22 @@ make lint                     # Run linters (desktop typecheck included)
 make test                     # Run available unit tests (backend/landing; no desktop suite)
 ```
 
+### Android builds from WSL
+
+WSL does not provide the project JDK/Android SDK directly. Do not start with the Linux `./gradlew`
+wrapper there. Build Android in the maintained Docker image and keep the Gradle distribution cache in a
+named volume so retries do not download Gradle again:
+
+```bash
+docker run --rm \
+  -v tonezen-gradle-cache:/root/.gradle \
+  -v "$(pwd):/project" \
+  -w /project/apps/android \
+  mingc/android-build-box:latest \
+  ./gradlew assembleDebug
+```
+
+Use `assembleRelease` instead only when a release build was explicitly requested. Detect WSL via
+`uname -r` containing `microsoft` or `WSL`; native Windows continues to use `gradlew.bat`.
+
 See [`README.md`](README.md) for full setup.

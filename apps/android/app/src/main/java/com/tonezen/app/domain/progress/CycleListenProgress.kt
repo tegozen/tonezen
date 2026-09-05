@@ -4,7 +4,7 @@ import com.tonezen.app.domain.model.AudiobookProgress
 import com.tonezen.app.domain.model.Cycle
 import com.tonezen.app.domain.model.Track
 
-internal const val COMPLETED_FRACTION_THRESHOLD = 0.95f
+internal const val CYCLE_COMPLETED_FRACTION_THRESHOLD = 0.95f
 
 fun resolveBookListenedMs(
     tracks: List<Track>,
@@ -98,4 +98,4 @@ fun isCycleFullyListened(
     tracksByBookId: Map<String, List<Track>>,
     progressByBookId: Map<String, AudiobookProgress?>,
 ): Boolean = (resolveCycleListenFraction(cycle, tracksByBookId, progressByBookId) ?: 0f) >=
-    COMPLETED_FRACTION_THRESHOLD
+    CYCLE_COMPLETED_FRACTION_THRESHOLD
