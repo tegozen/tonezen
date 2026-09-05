@@ -34,9 +34,9 @@ class BookWatchRemoteApi(private val apiRoot: String, private val client: OkHttp
     private fun request(method: String, url: String, token: String, body: String): JSONObject {
         val request = Request.Builder().url(url).header("Authorization", "Bearer $token")
             .method(method, body.toRequestBody("application/json".toMediaType())).build()
-        client.newCall(request).execute().use {
+        return client.newCall(request).execute().use {
             if (!it.isSuccessful) throw RemoteHttpException(it.code, "Book watch $method failed: HTTP ${it.code}")
-            return@use JSONObject(it.body?.string() ?: "{}")
+            JSONObject(it.body?.string() ?: "{}")
         }
     }
     private fun JSONObject.arrayObjects(name: String): List<JSONObject> {
