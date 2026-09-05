@@ -4,8 +4,9 @@ Newest first. This is a concise milestone history reconstructed from repository 
 major development stage, not every fix or release-only version bump. Prune superseded details when current
 state changes, while retaining the architectural reason a stage mattered.
 
-- 2026-09-05: Prepared client 0.24.0 (Android code 45) and release migration 056 for book-watch UI and
-  cycle-row improvements. Release builds and tag publication are pending.
+- 2026-09-05: Released client 0.24.0 (Android code 45), migration 056, and tag v0.24.0 on origin.
+  Android release and native Windows builds passed; APK signing matches distributed 0.23.0. Installers
+  and crash symbols copied to landing downloads. Device checks and production upload remain pending.
 - 2026-09-05: Added thin top/bottom separators without side borders or clipping to Android cycle book rows, with 12 dp
   spacing between cards. Builds and device checks were not run.
 - 2026-09-05: Removed both Continue elements from Android cycle book rows and combined percentage,

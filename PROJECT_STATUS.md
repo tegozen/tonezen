@@ -1,6 +1,6 @@
 # Tonezen — project status
 
-Last updated: 2026-09-05. Current client version: 0.24.0 (release builds pending).
+Last updated: 2026-09-05. Current client release: 0.24.0.
 
 Tonezen is an offline-first audiobook and music player with Android and Electron clients, a self-hosted
 Supabase stack, an Express API, and a catalog indexer. Audiobook progress synchronizes between devices;
