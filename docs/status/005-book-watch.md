@@ -28,6 +28,9 @@ providers, and later snapshots never re-add original queries over user edits.
 7. Android overflow immediately opens the editable settings dialog, without network requests. It uses
    cached settings or a draft seeded with the cycle title and default provider queries. For drafts,
    saving resolves the automatic server watch before updating it. Save failures keep the form open.
+8. After enqueueing a check, Android polls the specific job with bounded backoff and syncs immediately
+   when it completes or fails. A later launch still performs the snapshot sync to recover missed results.
+9. The Android “Новые книги” page supports pull-to-refresh and performs an explicit snapshot sync.
 
 ## Android event screen
 
@@ -50,6 +53,8 @@ providers, and later snapshots never re-add original queries over user edits.
   instead of treating a later full-snapshot failure as a failed PUT. HTTP/network failures are distinguished.
   These Android changes passed the 0.25.0 release build; the reproduced server failure is fixed without a client rebuild.
 - Production deployment remains pending. Apply 057 and rebuild API for the defaults correction.
+- The API exposes authenticated `GET /book-watch/checks/:jobId`; Android uses it for bounded completion
+  polling instead of relying on a long-lived connection.
 
 ## Historical details
 

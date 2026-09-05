@@ -45,7 +45,20 @@ class BookWatchRepository @Inject constructor(
         repeat(4) { attempt ->
             if (attempt > 0) delay((attempt + 1) * 2_000L)
             if (runCatching { sync(session.accessToken) }.isSuccess) {
-                runCatching { api.enqueue(session.accessToken) }
+                runCatching { enqueueAndAwait(session.accessToken) }
+                return
+            }
+        }
+    }
+
+    private suspend fun enqueueAndAwait(token: String) {
+        val jobId = api.enqueue(token).getString("id")
+        val delays = listOf(2_000L, 4_000L, 8_000L, 15_000L, 30_000L, 45_000L)
+        for (delayMs in delays) {
+            delay(delayMs)
+            val status = api.jobStatus(token, jobId).optString("status")
+            if (status == "completed" || status == "failed") {
+                sync(token)
                 return
             }
         }

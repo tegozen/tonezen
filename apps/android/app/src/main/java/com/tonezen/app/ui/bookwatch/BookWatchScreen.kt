@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -28,6 +29,7 @@ import com.tonezen.app.ui.theme.TonezenMuted
 import com.tonezen.app.ui.theme.TonezenSurfaceRaised
 import com.tonezen.app.ui.theme.TonezenTeal
 import dev.chrisbanes.haze.HazeState
+import kotlinx.coroutines.Job
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -37,9 +39,11 @@ internal fun BookWatchScreen(
     padding: PaddingValues,
     bottomScrollPadding: Dp,
     onMarkAllRead: () -> Unit,
+    onRefresh: () -> Job,
     onBack: () -> Unit,
 ) {
     var filter by rememberSaveable { mutableStateOf("active") }
+    var refreshJob by remember { mutableStateOf<Job?>(null) }
     val shown = events.filter {
         filter == "all" || filter == "errors" && it.kind == "provider_error" ||
             filter == it.status && it.kind == "book"
@@ -48,6 +52,8 @@ internal fun BookWatchScreen(
         hazeState = hazeState,
         padding = padding,
         bottomScrollPadding = bottomScrollPadding,
+        isRefreshing = refreshJob?.isActive == true,
+        onRefresh = { refreshJob = onRefresh() },
         onBack = onBack,
         title = { Text("Новые книги", color = TonezenInk, fontWeight = FontWeight.SemiBold) },
     ) {

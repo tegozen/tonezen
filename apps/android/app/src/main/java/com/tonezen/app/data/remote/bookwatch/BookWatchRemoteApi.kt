@@ -18,18 +18,25 @@ class BookWatchRemoteApi(private val apiRoot: String, private val client: OkHttp
         val json = getRemoteJson(client, "$apiRoot/book-watch", token)
         Snapshot(json.arrayObjects("watches"), json.arrayObjects("events"))
     }
-    suspend fun enqueue(token: String) = withContext(Dispatchers.IO) { post("$apiRoot/book-watch/checks", token, "{}") }
+    suspend fun enqueue(token: String): JSONObject = withContext(Dispatchers.IO) {
+        postJson("$apiRoot/book-watch/checks", token, "{}").getJSONObject("job")
+    }
+    suspend fun jobStatus(token: String, jobId: String): JSONObject = withContext(Dispatchers.IO) {
+        getRemoteJson(client, "$apiRoot/book-watch/checks/$jobId", token).getJSONObject("job")
+    }
     suspend fun markRead(token: String, ids: List<String>) =
         withContext(Dispatchers.IO) { post("$apiRoot/book-watch/events/read", token, JSONObject().put("event_ids", JSONArray(ids)).toString()) }
     suspend fun update(token: String, watchId: String, body: JSONObject) =
         withContext(Dispatchers.IO) { put("$apiRoot/book-watch/watches/$watchId", token, body.toString()) }
-    private fun post(url: String, token: String, body: String) = request("POST", url, token, body)
+    private fun post(url: String, token: String, body: String) { postJson(url, token, body) }
+    private fun postJson(url: String, token: String, body: String): JSONObject = request("POST", url, token, body)
     private fun put(url: String, token: String, body: String) = request("PUT", url, token, body)
-    private fun request(method: String, url: String, token: String, body: String) {
+    private fun request(method: String, url: String, token: String, body: String): JSONObject {
         val request = Request.Builder().url(url).header("Authorization", "Bearer $token")
             .method(method, body.toRequestBody("application/json".toMediaType())).build()
         client.newCall(request).execute().use {
             if (!it.isSuccessful) throw RemoteHttpException(it.code, "Book watch $method failed: HTTP ${it.code}")
+            return@use JSONObject(it.body?.string() ?: "{}")
         }
     }
     private fun JSONObject.arrayObjects(name: String): List<JSONObject> {

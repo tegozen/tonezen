@@ -40,6 +40,11 @@ export function registerBookWatchRoutes(app: Express, deps: RouteDeps): void {
   app.post("/book-watch/checks", ...deps.requiredAuth, asyncRoute(async (req, res) => {
     res.status(202).json({ job: await deps.bookWatch.enqueue(req.user!.id) });
   }));
+  app.get("/book-watch/checks/:jobId", ...deps.requiredAuth, asyncRoute(async (req, res) => {
+    const job = await deps.bookWatch.jobStatus(req.user!.id, req.params.jobId as string);
+    if (!job) { res.status(404).json({ error: "Job not found" }); return; }
+    res.json({ job });
+  }));
   app.post("/book-watch/events/read", ...deps.requiredAuth, asyncRoute(async (req, res) => {
     const ids = Array.isArray(req.body?.event_ids) ? req.body.event_ids.filter((id: unknown) => typeof id === "string") : [];
     if (ids.length > 500) { res.status(400).json({ error: "Too many event_ids" }); return; }

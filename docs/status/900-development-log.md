@@ -1,5 +1,10 @@
 # 900 — Development log
 
+- 2026-09-06: Added pull-to-refresh on the Android “Новые книги” page for explicit event synchronization.
+
+- 2026-09-06: Added authenticated book-watch job status and Android bounded-backoff polling so a check
+  started at launch refreshes events and notifications without requiring a second app launch.
+
 Newest first. This is a concise milestone history reconstructed from repository commits; it records every
 major development stage, not every fix or release-only version bump. Prune superseded details when current
 state changes, while retaining the architectural reason a stage mattered.

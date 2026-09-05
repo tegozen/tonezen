@@ -104,4 +104,13 @@ export class BookWatchRepository {
     );
     return result.rows[0];
   }
+
+  async jobStatus(userId: string, jobId: string) {
+    const result = await this.pool.query(
+      `SELECT id, status, created_at, started_at, completed_at, error
+       FROM book_watch_jobs WHERE id = $1 AND user_id = $2`,
+      [jobId, userId],
+    );
+    return result.rows[0] ?? null;
+  }
 }

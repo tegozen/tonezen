@@ -206,6 +206,7 @@ internal fun ProfileScreen(
             padding = padding,
             bottomScrollPadding = bottomScrollPadding,
             onMarkAllRead = { bookWatchViewModel.markAllRead() },
+            onRefresh = { bookWatchViewModel.refresh() },
             onBack = onBack,
         )
         ProfilePage.Main -> ProfileScreenContent(
