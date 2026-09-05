@@ -201,7 +201,11 @@ internal fun ProfileScreen(
             onConfirmDeleteAll = viewModel::deleteAllDownloads,
         )
         ProfilePage.BookWatch -> BookWatchScreen(
-            viewModel = bookWatchViewModel,
+            events = bookWatchEvents,
+            hazeState = hazeState,
+            padding = padding,
+            bottomScrollPadding = bottomScrollPadding,
+            onMarkAllRead = { bookWatchViewModel.markAllRead() },
             onBack = onBack,
         )
         ProfilePage.Main -> ProfileScreenContent(

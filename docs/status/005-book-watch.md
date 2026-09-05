@@ -23,7 +23,16 @@
    cached settings or a draft seeded with the cycle title and default provider queries. For drafts,
    saving resolves the automatic server watch before updating it. Save failures keep the form open.
 
-## Historical failure corrected on 2026-09-04
+## Android event screen
+
+- “Новые книги” uses the shared fixed back header and scroll padding for the mini-player/bottom tabs.
+- Teal filters wrap on narrow screens; the selected filter survives state restoration.
+- Empty filters show contextual explanations. Event cards distinguish provider failures, catalog
+  completion, and unread state, with dates and wrapping source actions.
+- “Отметить всё прочитанным” appears only when unread events exist, outside the header.
+- The screen receives events and callbacks from Profile; runtime visual verification is pending.
+
+## Historical provisioning failure
 
 Defaults were originally created only during the API snapshot. Android enqueued the worker before taking
 that snapshot, so a job could contain no watches; the overflow action then had no record to edit and the
