@@ -2,10 +2,10 @@
 
 Last status update: 2026-09-05.
 
-- Current declared client version is 0.24.0 (Android code 45).
-- Android `assembleRelease` and native Windows `dist:win` passed for 0.24.0. APK signature matches
-  the previous distributed 0.23.0 APK. Both installers and crash symbols were copied to landing downloads;
-  tag `v0.24.0` was pushed and verified on origin. Device/UI verification and production upload were not run.
+- Current declared client version is 0.25.0 (Android code 46).
+- Android `assembleRelease` and native Windows `dist:win` passed for 0.25.0 using the restored production
+  env. APK signature matches 0.24.0. Both installers and crash symbols were copied to landing downloads;
+  tag `v0.25.0` was pushed and verified on origin. Device/UI verification and production upload were not run.
 - Android and desktop intentionally have no unit-test suites. Backend and landing tests remain available
   but were not run for the current worktree.
 - Android `assembleDebug` passed in the documented WSL Docker build environment after the clean-code

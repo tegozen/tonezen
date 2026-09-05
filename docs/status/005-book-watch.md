@@ -48,7 +48,7 @@ providers, and later snapshots never re-add original queries over user edits.
   three book events, five source links, no provider errors, and last_success_at populated.
 - Android additionally refreshes its session before saving and persists the accepted settings locally
   instead of treating a later full-snapshot failure as a failed PUT. HTTP/network failures are distinguished.
-  These Android changes were not rebuilt; the reproduced server failure is fixed without a client rebuild.
+  These Android changes passed the 0.25.0 release build; the reproduced server failure is fixed without a client rebuild.
 - Production deployment remains pending. Apply 057 and rebuild API for the defaults correction.
 
 ## Historical details

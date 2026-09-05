@@ -19,7 +19,7 @@
   environment/Gradle overrides. The silent debug-key fallback was removed after Docker-generated
   signing broke upgrades. The Windows key matching installed 0.21.0 was recovered locally; the
   rebuilt 0.23.0 APK passes `apksigner verify` with the same certificate. See README for its fingerprint.
-- Current release line progressed from the initial 0.1.x production stack to 0.24.0. Exact environment and
+- Current release line progressed from the initial 0.1.x production stack to 0.25.0. Exact environment and
   operating instructions remain in `README.md`, `.env.example`, Docker files, and release skills.
 - Local book-watch verification used `/tmp/tonezen-bookwatch-local.yml` as a Compose override: local
   API/auth URLs and file-backed Storage in a Docker volume, avoiding production S3 writes. Root `.env`

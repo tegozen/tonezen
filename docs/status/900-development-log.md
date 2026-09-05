@@ -4,6 +4,9 @@ Newest first. This is a concise milestone history reconstructed from repository 
 major development stage, not every fix or release-only version bump. Prune superseded details when current
 state changes, while retaining the architectural reason a stage mattered.
 
+- 2026-09-05: Restored production env from its verified backup and released 0.25.0 (Android code 46),
+  migration 058, commit daee813, and tag v0.25.0 on origin. Android and Windows builds passed; APK signer
+  matches 0.24.0. Installers and crash symbols copied to landing downloads; production deployment pending.
 - 2026-09-05: Reproduced book-watch HTTP 500 in Docker (missing tonezen_api grants); added migration 057
   and corrected default-query seeding to preserve edits. Verified seeds twice, authenticated rename/read,
   validation/auth rejection, enqueue deduplication, and real worker completion with 3 books / 5 links.
